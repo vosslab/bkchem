@@ -35,23 +35,23 @@ from tkinter.filedialog import asksaveasfilename, askopenfilename
 import tkinter.messagebox
 
 import Pmw
-from . import data
-from . import misc
-from . import modes
-from . import config
-from . import export
-from . import logger
-from . import dialogs
-from . import pixmaps
-from . import plugins
-from . import messages
-from . import molecule
-from . import os_support
-from . import interactors
-from . import oasa_bridge
-from . import dom_extensions
-from . import non_xml_writer
-from . import import_checker
+import data
+import misc
+import modes
+import config
+import export
+import logger
+import dialogs
+import pixmaps
+import plugins
+import messages
+import molecule
+import os_support
+import interactors
+import oasa_bridge
+import dom_extensions
+import non_xml_writer
+import import_checker
 from .plugins import plugin
 
 from .paper import chem_paper
