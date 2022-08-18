@@ -18,7 +18,7 @@
 #--------------------------------------------------------------------------
 
 import os
-from . import oasa
+import oasa
 import collections
 import tkinter
 

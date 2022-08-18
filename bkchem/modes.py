@@ -21,7 +21,7 @@
 
 """
 
-from . import oasa
+import oasa
 import math
 import time
 import string

@@ -25,7 +25,7 @@
 
 import re
 import sys
-from . import oasa
+import oasa
 
 from .oasa import periodic_table as PT
 

@@ -26,7 +26,7 @@
 import os
 import sys
 import math
-from . import oasa
+import oasa
 import operator
 import xml.dom.minidom as dom
 try:

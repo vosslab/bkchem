@@ -17,7 +17,7 @@
 
 #--------------------------------------------------------------------------
 
-from . import oasa
+import oasa
 import operator
 import xml.dom.minidom as dom
 try:
