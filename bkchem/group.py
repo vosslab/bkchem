@@ -21,8 +21,8 @@
 
 """
 
-from __future__ import division
-from __future__ import print_function
+
+
 
 import re
 import sys
@@ -135,7 +135,7 @@ class group( drawable_chem_vertex):
         if sys.version_info[0] > 2:
           x = re.sub("-", chr(8722), x)
         else:
-          x = re.sub("-", unichr(8722), x)
+          x = re.sub("-", chr(8722), x)
       return x
 
 
@@ -296,7 +296,7 @@ class group( drawable_chem_vertex):
     if self.area_color != self.paper.standard.area_color:
       a.setAttribute( 'background-color', self.area_color)
     # needed to support transparent handling of molecular size
-    x, y, z = map( Screen.px_to_text_with_unit, self.get_xyz( real=1))
+    x, y, z = list(map( Screen.px_to_text_with_unit, self.get_xyz( real=1)))
     if self.z:
       dom_extensions.elementUnder( a, 'point', attributes=(('x', x), ('y', y), ('z', z)))
     else:

@@ -52,7 +52,7 @@ class plugin_manager(object):
           #except:
           #  debug.log( "could not load plugin file", name)
 
-    return self.plugins.keys()
+    return list(self.plugins.keys())
 
 
   def read_plugin_file( self, dir, name):
@@ -102,9 +102,9 @@ class plugin_manager(object):
 
   def get_names( self, type=""):
     if not type:
-      return self.plugins.keys()
+      return list(self.plugins.keys())
     else:
-      return [k for k, v in self.plugins.items() if v.type == type]
+      return [k for k, v in list(self.plugins.items()) if v.type == type]
 
 
   def get_description( self, name):

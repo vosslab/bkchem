@@ -21,7 +21,7 @@
 
 """
 
-from __future__ import division
+
 
 import copy
 import oasa
@@ -267,7 +267,7 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
         [o.redraw() for o in self.atoms]
     else:
       offspring = self.check_integrity()
-      deleted += map( self.delete_bond, copy.copy( self.bonds))
+      deleted += list(map( self.delete_bond, copy.copy( self.bonds)))
     return deleted, offspring
 
 
@@ -330,7 +330,7 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
     self.name = package.getAttribute( 'name')
     if package.getAttribute( 'id'):
       self.id = package.getAttribute( 'id')
-    for name, cls in {'atom': atom, 'group': group, 'text': textatom, 'query': queryatom}.items():
+    for name, cls in list({'atom': atom, 'group': group, 'text': textatom, 'query': queryatom}.items()):
       for a in dom_extensions.simpleXPathSearch( package, name):
         self.insert_atom( cls( standard=std, package=a, molecule=self))
 

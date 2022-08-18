@@ -3,7 +3,7 @@
 This module puts the various PIDDLE backends through their paces.
 """
 
-from __future__ import print_function
+
 
 import string
 import math
@@ -42,8 +42,8 @@ def basics(canvasClass):
 def drawBasics(canvas):
     saver = StateSaver(canvas) # leave canvas state as you found it, restores state when leaves scope
     canvas.defaultLineColor = Color(0.7,0.7,1.0)    # light blue
-    canvas.drawLines( map(lambda i:(i*10,0,i*10,300), range(30)) )
-    canvas.drawLines( map(lambda i:(0,i*10,300,i*10), range(30)) )
+    canvas.drawLines( [(i*10,0,i*10,300) for i in range(30)] )
+    canvas.drawLines( [(0,i*10,300,i*10) for i in range(30)] )
     canvas.defaultLineColor = black
 
     canvas.drawLine(10,200, 20,190, color=red)
@@ -237,32 +237,32 @@ def tkTest(testfunc):
         try:
             import tkinter as Tkinter
         except ImportError:
-            import Tkinter
+            import tkinter
     except:
         print("A module needed for piddleTK is not available, select another backend")
         return
 
-    root = Tkinter.Tk()
-    frame = Tkinter.Frame(root)  # label='piddletestTK'
+    root = tkinter.Tk()
+    frame = tkinter.Frame(root)  # label='piddletestTK'
 
     #tkcanvas = piddleTK.TKCanvas(size=(400,400), name='piddletestTK', master = frame)
     # try new Tk canvas
     tkcanvas = piddleTK.TKCanvas(size=(400,400), name='piddletestTK', master = frame)
-    bframe = Tkinter.Frame(root)
+    bframe = tkinter.Frame(root)
 
-    minimalB=Tkinter.Button(bframe, text='minimal test',
-                command= lambda c=tkcanvas : (c.clear(),drawMinimal(c), c.flush())).pack(side=Tkinter.LEFT)
-    basicB = Tkinter.Button(bframe, text='basic test',
-                command= lambda c=tkcanvas: (c.clear(),drawBasics(c),c.flush()) ).pack(side=Tkinter.LEFT)
-    spectB =Tkinter.Button(bframe, text='spectrum test',
-                   command= lambda c=tkcanvas: (c.clear(),drawSpectrum(c),c.flush()) ).pack(side=Tkinter.LEFT)
-    stringsB = Tkinter.Button(bframe, text='strings test',
-                  command= lambda c=tkcanvas:(c.clear(),drawStrings(c),c.flush()) ).pack(side=Tkinter.LEFT)
-    rotstrB = Tkinter.Button(bframe, text='rotated strings test',
-                 command= lambda c=tkcanvas:(c.clear(), drawRotstring(c),c.flush()) ).pack(side=Tkinter.LEFT)
-    advancedB = Tkinter.Button(bframe, text='advanced test',
-                   command= lambda c=tkcanvas:(c.clear(), drawAdvanced(c),c.flush() ) ).pack(side=Tkinter.LEFT)
-    bframe.pack(side=Tkinter.TOP)
+    minimalB=tkinter.Button(bframe, text='minimal test',
+                command= lambda c=tkcanvas : (c.clear(),drawMinimal(c), c.flush())).pack(side=tkinter.LEFT)
+    basicB = tkinter.Button(bframe, text='basic test',
+                command= lambda c=tkcanvas: (c.clear(),drawBasics(c),c.flush()) ).pack(side=tkinter.LEFT)
+    spectB =tkinter.Button(bframe, text='spectrum test',
+                   command= lambda c=tkcanvas: (c.clear(),drawSpectrum(c),c.flush()) ).pack(side=tkinter.LEFT)
+    stringsB = tkinter.Button(bframe, text='strings test',
+                  command= lambda c=tkcanvas:(c.clear(),drawStrings(c),c.flush()) ).pack(side=tkinter.LEFT)
+    rotstrB = tkinter.Button(bframe, text='rotated strings test',
+                 command= lambda c=tkcanvas:(c.clear(), drawRotstring(c),c.flush()) ).pack(side=tkinter.LEFT)
+    advancedB = tkinter.Button(bframe, text='advanced test',
+                   command= lambda c=tkcanvas:(c.clear(), drawAdvanced(c),c.flush() ) ).pack(side=tkinter.LEFT)
+    bframe.pack(side=tkinter.TOP)
     frame.pack()
     # try to draw before running mainloop
     if testfunc== minimal:
@@ -296,7 +296,7 @@ def wxTest(testfunc):
         return
 
         global wx_app
-        if not globals().has_key("wx_app"):
+        if "wx_app" not in globals():
             class CanvasApp(wxApp):
                 "The wxApp that runs canvas.  Initializes windows, and handles redrawing"
                 def OnInit(self):
@@ -367,7 +367,7 @@ def mainLoop():
             i = i+1
         print()
 
-        inp = raw_input("Selection (0 to exit): ")
+        inp = input("Selection (0 to exit): ")
         print()
 
         if inp == '0': return
@@ -375,7 +375,7 @@ def mainLoop():
             testinp = ''
             if inp[-1] in string.letters: testinp = inp[-1]
             elif inp[0] in string.letters: testinp = inp[0]
-            backinp = string.join(filter(lambda x:x in '0123456789',inp))
+            backinp = string.join([x for x in inp if x in '0123456789'])
             if backinp:
                 backend = int(backinp)-1
                 if backend < len(backends):

@@ -36,7 +36,7 @@ StringFormat XML characters
 #   To add or change greek letter to symbol font mappings only
 #   the greekchars map needs to change.
 
-from __future__ import print_function
+
 
 import xmllib
 import math
@@ -249,7 +249,7 @@ class StringFormatter(xmllib.XMLParser):
         }
 
         # automatically add handlers for all of the greek characters
-        for item in greekchars.keys():
+        for item in list(greekchars.keys()):
             self.elements[item] = (lambda attr,self=self,letter=greekchars[item]: \
                 self.start_greek(attr,letter), self.end_greek)
 
@@ -257,7 +257,7 @@ class StringFormatter(xmllib.XMLParser):
         self.greek = 0
         # set up dictionary for greek characters, this is a class variable
         # should I copy it and then update it?
-        for item in greekchars.keys():
+        for item in list(greekchars.keys()):
             self.entitydefs[item] = '<%s/>' % item
 
     #----------------------------------------------------------------

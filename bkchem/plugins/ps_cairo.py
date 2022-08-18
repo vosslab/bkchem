@@ -44,7 +44,7 @@ class ps_cairo_exporter(cairo_exporter):
 
 
   def init_surface( self):
-    w, h = map( int, map( round, self.pagesize))
+    w, h = list(map( int, list(map( round, self.pagesize))))
     surf = cairo.PSSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
     surf.set_eps( True)
     return surf

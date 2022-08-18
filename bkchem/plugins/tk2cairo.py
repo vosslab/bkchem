@@ -17,7 +17,7 @@
 
 #--------------------------------------------------------------------------
 
-from __future__ import print_function
+
 
 import math
 import string
@@ -27,7 +27,7 @@ import cairo
 try:
     import tkinter.font as tkFont
 except ImportError:
-    import tkFont
+    import tkinter.font
 
 from oasa import transform
 from oasa import geometry
@@ -73,7 +73,7 @@ class tk2cairo(object):
       return False
     else:
       colors = self.paper.winfo_rgb( color)
-      self.context.set_source_rgb( *map( lambda x: x/65535.0, colors))
+      self.context.set_source_rgb( *[x/65535.0 for x in colors])
       return True
 
 
@@ -156,7 +156,7 @@ class tk2cairo(object):
     text = self.paper.itemcget(item, 'text')
     x1, y1, x2, y2 = self.paper.bbox( item)
     x1, y1, x2, y2 = self.transformer.transform_4( (x1+1, y1, x2-2, y2))
-    afont = tkFont.Font( font=self.paper.itemcget( item, 'font'))
+    afont = tkinter.font.Font( font=self.paper.itemcget( item, 'font'))
     conf = afont.config()
     font_family = conf['family']
     slant =  'italic' in conf['slant'] and cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL
@@ -263,7 +263,7 @@ class tk2cairo(object):
   def _create_arrow( self, shape, start, to, color):
     """creates an arrow with 'shape' pointing from 'start' to 'to' filled with 'color'
     and returns x, y - where the to should be to not to overlay the arrow"""
-    a, b, c = map( float, shape.split())
+    a, b, c = list(map( float, shape.split()))
     points = [a,0, a-b,c, 0,0, a-b,-c]
     ang = geometry.clockwise_angle_from_east( to[0]-start[0], to[1]-start[1])
     tr = transform.transform()

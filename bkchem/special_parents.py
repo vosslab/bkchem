@@ -23,7 +23,7 @@ import xml.dom.minidom as dom
 try:
   import tkinter.font as tkFont
 except ImportError:
-  import tkFont
+  import tkinter.font
 
 from oasa import geometry
 from math import sin, cos, sqrt, pi
@@ -630,7 +630,7 @@ class drawable_chem_vertex(oasa.chem_vertex,
 
 
   def update_font( self):
-    self.font = tkFont.Font( family=self.font_family, size=self.font_size)
+    self.font = tkinter.font.Font( family=self.font_family, size=self.font_size)
 
 
   def scale_font( self, ratio):
@@ -641,7 +641,7 @@ class drawable_chem_vertex(oasa.chem_vertex,
   def on_screen_font(self):
     """Returns a font adequate for on-screen display, using appropriate scaling."""
     screen_font_size = int( round( self.paper.real_to_canvas(self.font_size) ))
-    return tkFont.Font( family=self.font_family, size=screen_font_size)
+    return tkinter.font.Font( family=self.font_family, size=screen_font_size)
 
   def lift( self):
     # marks
@@ -671,7 +671,7 @@ class drawable_chem_vertex(oasa.chem_vertex,
       box = self.paper.bbox( self.item)
       if substract_font_descent and self.show:
         hack_y = self.font.metrics()['descent']
-        x1, y1, x2, y2 = map( operator.add, box, Tuning.Screen.drawable_chem_vertex_bbox_mod_after_descent_removal)
+        x1, y1, x2, y2 = list(map( operator.add, box, Tuning.Screen.drawable_chem_vertex_bbox_mod_after_descent_removal))
         box =  x1, y1, x2, y2-hack_y
       #if Store.app.in_batch_mode:
       #  # in batch mode the bboxes work really strangely and this fixes it somehow

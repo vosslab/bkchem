@@ -472,7 +472,7 @@ class FIGCanvas(Canvas):
             }
         self.code.append(code)
         line = []
-        pointlist = map(lambda p, f=bp: (p[0]*bp, p[1]*bp), pointlist)
+        pointlist = list(map(lambda p, f=bp: (p[0]*bp, p[1]*bp), pointlist))
         for coords in pointlist:
             code = self.coord_fmt % coords
             line.append(code)
@@ -537,7 +537,7 @@ class FIGCanvas(Canvas):
         self.code.append(code)
         code = []
         pointlist = [(x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1)]
-        pointlist = map(lambda p, f=bp: (p[0]*bp, p[1]*bp), pointlist)
+        pointlist = list(map(lambda p, f=bp: (p[0]*bp, p[1]*bp), pointlist))
         for coords in pointlist:
             code.append(self.coord_fmt % coords)
         code = " ".join(code)

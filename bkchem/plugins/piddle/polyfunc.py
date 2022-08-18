@@ -12,7 +12,7 @@
 # Testing:
 #   works w/ piddlePS and piddlePIL
 
-from __future__ import print_function
+
 
 
 def quadratic(x,A,B,C):
@@ -169,7 +169,7 @@ class AffineMatrix(object):
 
         # would like to reshape the sequence, do w/ a loop for now
         res = []
-        for ii in xrange(0,N, 2):
+        for ii in range(0,N, 2):
             pt = self.transformPt( (seq[ii], seq[ii+1]) )
             res.extend(pt)
 
@@ -215,7 +215,7 @@ class CoordFrame(object):
 def drawCircleAt(canvas, x,y,r, **kw):
     # useful for marking a particular location w/ a glyph
     df = canvas.__class__
-    apply(df.drawEllipse, (canvas, x-r, y-r, x+r,y+r), kw)
+    df.drawEllipse(*(canvas, x-r, y-r, x+r,y+r), **kw)
 
 
 def drawCubicPolynomial(canvas, frame, xinterval, A=0.0, B=0.0, C=0.0, D=0.0,
@@ -289,7 +289,7 @@ def runtest():
         frame.drawFrameBox(canvas)
         # draw a family of quadratics w/in the box w/ x-intercept x=0
         NA = 10.0
-        for AA in xrange(1,NA,2):
+        for AA in range(1,NA,2):
             drawQuad(canvas, frame, xinterval=(-10,10), A= AA/NA, B=0.0)
 
         # now some other assorted quadratics

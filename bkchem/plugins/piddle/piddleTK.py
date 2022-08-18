@@ -20,7 +20,7 @@ try:
     import tkinter as Tkinter
     import tkinter.font as tkFont
 except ImportError:
-    import Tkinter, tkFont
+    import tkinter, tkinter.font
 
 from . import piddle
 
@@ -105,7 +105,7 @@ class FontManager(object):
             # check if the user specified a generic face type
             # like serif or monospaced. check is case-insenstive.
             f = string.lower(font.face)
-            if self.__alt_faces.has_key(f):
+            if f in self.__alt_faces:
                 family = self.__alt_faces[f]
             else:
                 family = font.face
@@ -134,7 +134,7 @@ class FontManager(object):
         key = (family,size,weight,slant,underline)
 
         # check if we've already seen this font.
-        if self.font_cache.has_key(key):
+        if key in self.font_cache:
             # yep, don't bother creating a new one. just fetch it.
             font = self.font_cache[key]
         else:
@@ -142,7 +142,7 @@ class FontManager(object):
             # this way we will return info about the actual font
             # selected by Tk, which may be different than what we ask
             # for if it's not availible.
-            font = tkFont.Font(family=family, size=size, weight=weight,
+            font = tkinter.font.Font(family=family, size=size, weight=weight,
                                slant=slant,underline=underline)
             self.font_cache[(family,size,weight,slant,underline)] = font
 
@@ -172,27 +172,27 @@ class BaseTKCanvas(piddle.Canvas):
 
     def _create_widgets(self, master):
 
-        draw_area = Tkinter.Canvas(master = master,
+        draw_area = tkinter.Canvas(master = master,
                                    height=self.draw_height,
                                    width=self.draw_width,
-                                   relief=Tkinter.SUNKEN,
+                                   relief=tkinter.SUNKEN,
                                    background="white",
                                    borderwidth=2)
         #draw_area.tk.call('package','require','Tkimaging')
         self.draw_area = draw_area
         self.draw_area.pack()
 
-        self.quit_btn = Tkinter.Button(master,
+        self.quit_btn = tkinter.Button(master,
                                        text='QUIT',
                                        foreground='red',
                                        command = self._quit)
-        self.quit_btn.pack(side=Tkinter.LEFT)
+        self.quit_btn.pack(side=tkinter.LEFT)
 
-        self.clear_btn = Tkinter.Button(master,
+        self.clear_btn = tkinter.Button(master,
                                         text='CLEAR',
                                         foreground='red',
                                         command = self.clear)
-        self.clear_btn.pack(side=Tkinter.LEFT)
+        self.clear_btn.pack(side=tkinter.LEFT)
 
     # special access method for underlying Tkinter.Canvas
     def getTkinterCanvas(self):
@@ -214,7 +214,7 @@ class BaseTKCanvas(piddle.Canvas):
         self.draw_area.update()
 
     def clear(self):
-        map(self.draw_area.delete,self._item_ids)
+        list(map(self.draw_area.delete,self._item_ids))
         self._item_ids = []
         self._images   = []
 
@@ -264,7 +264,7 @@ class BaseTKCanvas(piddle.Canvas):
         font  = self._font_manager.getTkFontString(font or self.defaultFont)
         new_item = self.draw_area.create_text(x, y, text=s,
                                               font=font, fill=color,
-                                              anchor=Tkinter.W
+                                              anchor=tkinter.W
                                               )
         self._item_ids.append(new_item)
 
@@ -327,7 +327,7 @@ class BaseTKCanvas(piddle.Canvas):
             if fillColor == self.__TRANSPARENT:
                 # draw open-ended set of lines
                 d = { 'fill':edgeColor, 'width': edgeWidth}
-                new_item = apply(self.draw_area.create_line, pointlist, d)
+                new_item = self.draw_area.create_line(*pointlist, **d)
             else:
                 # open filled shape.
                 # draw it twice:
@@ -340,7 +340,7 @@ class BaseTKCanvas(piddle.Canvas):
                 self._item_ids.append(new_item)
 
                 d = { 'fill':edgeColor, 'width': edgeWidth}
-                new_item = apply(self.draw_area.create_line, pointlist, d)
+                new_item = self.draw_area.create_line(*pointlist, **d)
 
         self._item_ids.append(new_item)
 
@@ -370,7 +370,7 @@ class BaseTKCanvas(piddle.Canvas):
         # unless I keep a copy of this PhotoImage, it seems to be garbage collected
         # and the image is removed from the display after this function. weird
         itk = ImageTk.PhotoImage(myimage)
-        new_item = self.draw_area.create_image(x1, y1, image=itk, anchor=Tkinter.NW)
+        new_item = self.draw_area.create_image(x1, y1, image=itk, anchor=tkinter.NW)
         self._item_ids.append(new_item)
         self._images.append(itk)
 

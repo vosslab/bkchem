@@ -10,7 +10,7 @@ import re
 try:
     from urllib.request import urlopen
 except ImportError:
-    from urllib import urlopen
+    from urllib.request import urlopen
 
 import dialogs
 import oasa_bridge

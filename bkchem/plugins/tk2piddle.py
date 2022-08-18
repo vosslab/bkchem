@@ -17,12 +17,12 @@
 
 #--------------------------------------------------------------------------
 
-from __future__ import print_function
+
 
 try:
   import tkinter.font as tkFont
 except ImportError:
-  import tkFont
+  import tkinter.font
 
 from oasa import transform
 from oasa import geometry
@@ -56,7 +56,7 @@ class tk2piddle(object):
     if not color:
       return piddle.transparent
     colors = self.paper.winfo_rgb( color)
-    return piddle.Color( *map( lambda x: x/65535.0, colors))
+    return piddle.Color( *[x/65535.0 for x in colors])
 
 
   def paper_to_canvas_coord( self, x):
@@ -135,7 +135,7 @@ class tk2piddle(object):
     text = self.paper.itemcget( item, 'text')
     #x, y = map( self.convert, self.paper.coords( item))
     x1, y1, x2, y2 = self.transformer.transform_4( self.paper.bbox( item))
-    afont = tkFont.Font( font=self.paper.itemcget( item, 'font'))
+    afont = tkinter.font.Font( font=self.paper.itemcget( item, 'font'))
     conf = afont.config()
     font_family = conf['family']
     font_size = conf[ 'size']
@@ -179,7 +179,7 @@ class tk2piddle(object):
   def _create_arrow( self, shape, start, to, color):
     """creates an arrow with 'shape' pointing from 'start' to 'to' filled with 'color'
     and returns x, y - where the to should be to not to overlay the arrow"""
-    a, b, c = map( float, shape.split())
+    a, b, c = list(map( float, shape.split()))
     points = [a,0, a-b,c, 0,0, a-b,-c]
     ang = geometry.clockwise_angle_from_east( to[0]-start[0], to[1]-start[1])
     tr = transform.transform()

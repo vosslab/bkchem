@@ -23,7 +23,7 @@ import collections
 try:
   import tkinter as Tkinter
 except ImportError:
-  import Tkinter
+  import tkinter
 
 from oasa import periodic_table as PT
 
@@ -38,17 +38,17 @@ from singleton_store import Store
 
 
 
-class context_menu( Tkinter.Menu):
+class context_menu( tkinter.Menu):
 
   def __init__( self, selected, **kw):
-    Tkinter.Menu.__init__( self, Store.app, tearoff=0, **kw)
+    tkinter.Menu.__init__( self, Store.app, tearoff=0, **kw)
     self.selected = selected
     self.changes_made = 0
     already_there = []
     self.configurable = {} # this is similar to configurable but is prepared on init to take dynamic things into account
     # at first prepare all the items
     items = {}
-    for obj_type in configurable.keys():
+    for obj_type in list(configurable.keys()):
       if misc.myisstr(obj_type):
         objs = [o for o in self.selected if o.object_type == obj_type]
       else:
@@ -81,7 +81,7 @@ class context_menu( Tkinter.Menu):
     # then sort the items and polulate the menu
     keys = sorted(items.keys())
     for key in keys:
-      casc = Tkinter.Menu( self, tearoff=0)
+      casc = tkinter.Menu( self, tearoff=0)
       self.add_cascade( label=key, menu=casc)
       for (v1, attr, objs, v0) in items[ key]:
         casc.add_command( label=v1, command=misc.lazy_apply( self.callback, (attr, objs, v0)))
@@ -135,7 +135,7 @@ class context_menu( Tkinter.Menu):
 
 
   def post( self, x, y):
-    Tkinter.Menu.post( self, x, y)
+    tkinter.Menu.post( self, x, y)
     if os.name != 'nt':
       self.grab_set()
 

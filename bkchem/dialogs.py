@@ -28,9 +28,9 @@ try:
     import tkinter.font as tkFont
     import tkinter.messagebox as tkMessageBox
 except ImportError:
-    import Tkinter
-    import tkFont
-    import tkMessageBox
+    import tkinter
+    import tkinter.font
+    import tkinter.messagebox
 
 import Pmw
 import data
@@ -78,22 +78,22 @@ class scale_dialog(object):
                                datatype = 'integer')
     self.entryy.pack(pady=10, anchor='w', padx=10)
 
-    self.preserve_ratio = Tkinter.IntVar()
-    self.preserve_ratio_entry = Tkinter.Checkbutton( self.dialog.interior(),
+    self.preserve_ratio = tkinter.IntVar()
+    self.preserve_ratio_entry = tkinter.Checkbutton( self.dialog.interior(),
                                                      text=_('Preserve aspect ratio?'),
                                                      variable = self.preserve_ratio,
                                                      command = self._preserve_ratio_changed)
     self.preserve_ratio_entry.pack( anchor="w")
     self.preserve_ratio.set( 1)
 
-    self.preserve_centers = Tkinter.IntVar()
-    self.preserve_centers_entry = Tkinter.Checkbutton( self.dialog.interior(),
+    self.preserve_centers = tkinter.IntVar()
+    self.preserve_centers_entry = tkinter.Checkbutton( self.dialog.interior(),
                                                        text=_('Fix position of centers of objects?'),
                                                        variable = self.preserve_centers)
     self.preserve_centers_entry.pack( anchor="w")
 
-    self.scale_fonts = Tkinter.IntVar()
-    self.scale_fonts_entry = Tkinter.Checkbutton( self.dialog.interior(),
+    self.scale_fonts = tkinter.IntVar()
+    self.scale_fonts_entry = tkinter.Checkbutton( self.dialog.interior(),
                                                        text=_('Scale font and mark sizes?'),
                                                        variable = self.scale_fonts)
     self.scale_fonts_entry.pack( anchor="w")
@@ -244,7 +244,7 @@ class config_dialog(object):
     if 'bond' in types:
       self.bond_page = self.pages.add(_('Bond'))
       # bond_widths (former distances)
-      dists = misc.filter_unique( map( abs, [o.bond_width for o in items if o.object_type == 'bond']))
+      dists = misc.filter_unique( list(map( abs, [o.bond_width for o in items if o.object_type == 'bond'])))
       if len( dists) == 1:
         dist = dists[0]
       else:
@@ -255,7 +255,7 @@ class config_dialog(object):
       self.bond_dist.pack( anchor='ne', padx=10, pady=5)
 
       # wedge_widths
-      dists = misc.filter_unique( map( abs, [o.wedge_width for o in items if o.object_type == 'bond']))
+      dists = misc.filter_unique( list(map( abs, [o.wedge_width for o in items if o.object_type == 'bond'])))
       if len( dists) == 1:
         dist = dists[0]
       else:
@@ -285,12 +285,12 @@ class config_dialog(object):
 
       # arrow start pins
       arrow_starts = misc.filter_unique( [o.get_pins()[0] for o in arrow_items])
-      self.arrow_start = Tkinter.IntVar()
+      self.arrow_start = tkinter.IntVar()
       if len( arrow_starts) == 1:
         self.arrow_start.set( arrow_starts[0])
       else:
         self.arrow_start.set( 0)
-      self.arrow_start_entry = Tkinter.Checkbutton( self.arrow_page,
+      self.arrow_start_entry = tkinter.Checkbutton( self.arrow_page,
                                                     text=_('Arrow-head on start'),
                                                     variable = self.arrow_start,
                                                     command = self._arrow_start_changed)
@@ -298,12 +298,12 @@ class config_dialog(object):
 
       # arrow end pins
       arrow_ends = misc.filter_unique( [o.get_pins()[1] for o in arrow_items])
-      self.arrow_end = Tkinter.IntVar()
+      self.arrow_end = tkinter.IntVar()
       if len( arrow_ends) == 1:
         self.arrow_end.set( arrow_ends[0])
       else:
         self.arrow_end.set( 0)
-      self.arrow_end_entry = Tkinter.Checkbutton( self.arrow_page,
+      self.arrow_end_entry = tkinter.Checkbutton( self.arrow_page,
                                                   text=_('Arrow-head on end'),
                                                   variable = self.arrow_end,
                                                   command = self._arrow_end_changed)
@@ -311,12 +311,12 @@ class config_dialog(object):
 
       # spline?
       splines = misc.filter_unique( [o.spline for o in arrow_items])
-      self.spline = Tkinter.IntVar()
+      self.spline = tkinter.IntVar()
       if len( splines) == 1:
         self.spline.set( splines[0])
       else:
         self.spline.set( 0)
-      self.spline_entry = Tkinter.Checkbutton( self.arrow_page,
+      self.spline_entry = tkinter.Checkbutton( self.arrow_page,
                                                text=_('Spline arrow'),
                                                variable = self.spline,
                                                command = self._spline_changed)
@@ -328,7 +328,7 @@ class config_dialog(object):
     # PLUS
 
     # FONT
-    font_items = filter( lambda x: hasattr( x, 'font_family'), items)
+    font_items = [x for x in items if hasattr( x, 'font_family')]
     if font_items:
       self.font_page = self.pages.add(_('Font'))
 
@@ -350,7 +350,7 @@ class config_dialog(object):
 
     # COMMON
     self.common_page = self.pages.add(_('Common'))
-    line_items = filter( lambda x: hasattr( x, 'line_width'), items)
+    line_items = [x for x in items if hasattr( x, 'line_width')]
     if line_items:
       widths = misc.filter_unique( [o.line_width for o in line_items])
       if len( widths) == 1:
@@ -362,7 +362,7 @@ class config_dialog(object):
       self.line_width = widgets.WidthChooser( self.common_page, width, label=_('Line width'))
       self.line_width.pack( anchor='nw', padx=10, pady=5)
 
-    line_color_items = filter( lambda x: hasattr( x, 'line_color'), items)
+    line_color_items = [x for x in items if hasattr( x, 'line_color')]
     if line_color_items:
       lines = misc.filter_unique( [o.line_color for o in line_color_items])
       if len( lines) == 1:
@@ -372,7 +372,7 @@ class config_dialog(object):
       self.line_color = widgets.ColorButtonWithTransparencyChecker( self.common_page, color=line, text=_("Line color"))
       self.line_color.pack( anchor='nw', padx=10, pady=10)
 
-    area_color_items = filter( lambda x: hasattr( x, 'area_color'), items)
+    area_color_items = [x for x in items if hasattr( x, 'area_color')]
     if area_color_items:
       areas = misc.filter_unique( [o.area_color for o in area_color_items])
       if len( areas) == 1:
@@ -535,7 +535,7 @@ class file_properties_dialog(object):
 
 
   def draw( self):
-    paper_frame = Tkinter.Frame( self.dialog.interior(),
+    paper_frame = tkinter.Frame( self.dialog.interior(),
                                  bd=2,
                                  relief="groove")
     paper_frame.pack( padx=10, pady=10, anchor="n", fill="x")
@@ -568,14 +568,14 @@ class file_properties_dialog(object):
     self.paper_orientation_chooser.invoke( i)
 
     # full svg or just the filled part
-    crop_frame = Tkinter.Frame( self.dialog.interior(),
+    crop_frame = tkinter.Frame( self.dialog.interior(),
                                  bd=2,
                                  relief="groove")
     crop_frame.pack( padx=10, pady=10, anchor="n", fill="x")
 
-    self.crop_paper_in_svg = Tkinter.IntVar()
+    self.crop_paper_in_svg = tkinter.IntVar()
     self.crop_paper_in_svg.set( self.paper.get_paper_property( 'crop_svg'))
-    crop = Tkinter.Checkbutton( crop_frame,
+    crop = tkinter.Checkbutton( crop_frame,
                                 anchor="n",
                                 text=_('Auto crop image in SVG?\n(applies to some other exports as well)'),
                                 variable=self.crop_paper_in_svg,
@@ -593,21 +593,21 @@ class file_properties_dialog(object):
                                      datatype = 'integer')
     self.margin_entry.pack( anchor='n', padx=5, pady=5)
     # use real minus ?
-    minus_frame = Tkinter.Frame( self.dialog.interior(),
+    minus_frame = tkinter.Frame( self.dialog.interior(),
                                  bd=2,
                                  relief="groove")
     minus_frame.pack( padx=10, pady=10, anchor="n", fill="x")
 
-    self.use_real_minus = Tkinter.IntVar()
-    use_real_minus_button = Tkinter.Checkbutton( minus_frame,
+    self.use_real_minus = tkinter.IntVar()
+    use_real_minus_button = tkinter.Checkbutton( minus_frame,
                                                  text=_('Use real minus character (instead of hyphen)?'),
                                                  variable = self.use_real_minus)
     self.use_real_minus.set( self.paper.get_paper_property( 'use_real_minus'))
     use_real_minus_button.pack( anchor='w', padx=5, pady=5)
 
     # replace hyphens with minuses in export?
-    self.replace_minus = Tkinter.IntVar()
-    replace_minus_button = Tkinter.Checkbutton( minus_frame,
+    self.replace_minus = tkinter.IntVar()
+    replace_minus_button = tkinter.Checkbutton( minus_frame,
                                                 text=_('Replace hyphens with minus in SVG export?'),
                                                 variable = self.replace_minus)
     self.replace_minus.set( self.paper.get_paper_property( 'replace_minus'))
@@ -686,9 +686,9 @@ class standard_values_dialog(object):
 
     # ATOM
     atom_group = self.pages.add( _('Atom'))
-    self.show_hydrogens = Tkinter.IntVar()
+    self.show_hydrogens = tkinter.IntVar()
     self.show_hydrogens.set( int( self.standard.show_hydrogens))
-    sh = Tkinter.Checkbutton( atom_group, text=_('Show hydrogens on visible atoms'), variable=self.show_hydrogens)
+    sh = tkinter.Checkbutton( atom_group, text=_('Show hydrogens on visible atoms'), variable=self.show_hydrogens)
     sh.pack( anchor='w', padx=10, pady=10)
 
     # BOND
@@ -747,9 +747,9 @@ class standard_values_dialog(object):
       i = 1
     self.paper_orientation_chooser.invoke( i)
     # full svg or just the filled part
-    self.crop_paper_in_svg = Tkinter.IntVar()
+    self.crop_paper_in_svg = tkinter.IntVar()
     self.crop_paper_in_svg.set( self.paper.get_paper_property( 'crop_svg'))
-    crop = Tkinter.Checkbutton( paper_group, text=_('Auto crop image in SVG?'), variable=self.crop_paper_in_svg)
+    crop = tkinter.Checkbutton( paper_group, text=_('Auto crop image in SVG?'), variable=self.crop_paper_in_svg)
     crop.pack( anchor='w', padx=10, pady=10)
     # crop margin
     margin = self.paper.get_paper_property( 'crop_margin')
@@ -798,10 +798,10 @@ class standard_values_dialog(object):
     if button == _('Save'):
       a = self.parent.paper.save_personal_standard( self.get_the_standard())
       if a:
-        tkMessageBox.showinfo( _("Standard saved"),
+        tkinter.messagebox.showinfo( _("Standard saved"),
                                _("The standard was successfully saved as personal standard to %s\n\nIt is not automatically applied to the current drawing and will be activated after you restart BKChem.\nYou can still apply the changes to the current drawing from the dialog window.") % a)
       else:
-        tkMessageBox.showerror( _("Standard not saved"),
+        tkinter.messagebox.showerror( _("Standard not saved"),
                                 _("For some reason the standard couldn't be saved. Probably the right location for personal profile couldn't be found or wasn't writable. Sorry for the inconvenience."))
       return
     self.dialog.deactivate()
@@ -870,9 +870,9 @@ class preferences_dialog(object):
                               master='parent')
     self.body = self.dialog.interior()
     #self.body.pack( fill='both', expand=1)
-    self.replace_minus = Tkinter.IntVar()
+    self.replace_minus = tkinter.IntVar()
     self.replace_minus.set( self.preferences.get_preference( "replace_minus") or 0)
-    self.use_real_minus = Tkinter.IntVar()
+    self.use_real_minus = tkinter.IntVar()
     self.use_real_minus.set( self.preferences.get_preference( "use_real_minus") or 0)
     self.use_real_minus_old = self.use_real_minus.get()
     self.result = 0
@@ -887,7 +887,7 @@ class preferences_dialog(object):
     # COMMON
     common_page = self.pages.add( _('Common'))
     # use real minus ?
-    replace_minus_button = Tkinter.Checkbutton( common_page, text=_('Use real minus character (instead of hyphen)?'),
+    replace_minus_button = tkinter.Checkbutton( common_page, text=_('Use real minus character (instead of hyphen)?'),
                                                 variable=self.use_real_minus)
     replace_minus_button.pack( anchor='w', padx=10, pady=10)
 
@@ -954,7 +954,7 @@ class fragment_dialog( Pmw.Dialog):
       for frag in m.fragments:
         text_form = "%s (%s)" % (frag.name, frag.id)
         self._frags[ text_form] = frag
-    return self._frags.keys()
+    return list(self._frags.keys())
 
 
   def select( self):
@@ -977,7 +977,7 @@ class fragment_dialog( Pmw.Dialog):
 
 
   def clean( self):
-    map( self.paper.delete, self._items)
+    list(map( self.paper.delete, self._items))
     self._items = set()
 
 
@@ -1016,10 +1016,10 @@ class logging_dialog( Pmw.Dialog):
   def init_list( self):
     root = self.interior()
     self.choosers = {}
-    Tkinter.Label( root, text=_("Choose how each type of message is to be shown:"), font=("Helvetica", 12, "bold")).pack( pady=10)
+    tkinter.Label( root, text=_("Choose how each type of message is to be shown:"), font=("Helvetica", 12, "bold")).pack( pady=10)
     for message_type in self.logger.type_order:
-      f = Tkinter.Frame( root)
-      label = Tkinter.Label( f, text=self.logger.type_to_text[message_type], font=("Helvetica", 12, "bold"))
+      f = tkinter.Frame( root)
+      label = tkinter.Label( f, text=self.logger.type_to_text[message_type], font=("Helvetica", 12, "bold"))
       label.pack( side='left', anchor="w")
       chooser = Pmw.RadioSelect( f,
                                  buttontype='radiobutton',
@@ -1031,13 +1031,13 @@ class logging_dialog( Pmw.Dialog):
       chooser.invoke( self.logger.handle_order.index( self.logger.handling[message_type]))
       chooser.pack( side='right', anchor='e', padx=5, pady=5)
       f.pack( fill="x")
-    Tkinter.Label( root, text=_("The setting will be immediately applied and saved on application exit.")).pack( pady=10)
+    tkinter.Label( root, text=_("The setting will be immediately applied and saved on application exit.")).pack( pady=10)
 
 
   def done( self, button):
     if button == _("OK"):
       self.proceed = True
-      for message_type,chooser in self.choosers.items():
+      for message_type,chooser in list(self.choosers.items()):
         index = chooser.index( chooser.getvalue())
         self.logger.set_handling( message_type, self.logger.handle_order[index])
     self.deactivate()
@@ -1064,7 +1064,7 @@ class language_dialog( Pmw.Dialog):
     langs = []
     import gettext
     self.languages = {}
-    for lang, language in data.languages.items():
+    for lang, language in list(data.languages.items()):
       system = gettext.find('BKChem', os.path.normpath(os.path.join(
         os_support.get_bkchem_run_dir(), '../../../../share/locale')), [lang])
       if not system:
@@ -1100,7 +1100,7 @@ class language_dialog( Pmw.Dialog):
 
 ## -------------------- PROGRESS DIALOG --------------------
 
-class progress_dialog( Tkinter.Toplevel):
+class progress_dialog( tkinter.Toplevel):
 
   bar_width = 300
   bar_height = 20
@@ -1111,7 +1111,7 @@ class progress_dialog( Tkinter.Toplevel):
 
     self.parent = parent
 
-    Tkinter.Toplevel.__init__(self, parent)
+    tkinter.Toplevel.__init__(self, parent)
     self.transient(parent)
     self.geometry("+%d+%d" % (parent.winfo_rootx()+200,
                               parent.winfo_rooty()+200))
@@ -1121,13 +1121,13 @@ class progress_dialog( Tkinter.Toplevel):
     if title:
       self.title(title)
 
-    body = Tkinter.Frame(self)
+    body = tkinter.Frame(self)
     body.pack(padx=5, pady=5, side="left", expand=1, fill="both")
 
-    self.top_text = Tkinter.StringVar()
-    Tkinter.Label( body, textvariable=self.top_text, width=50, height=1, anchor="w").grid( row=1, sticky="W")
+    self.top_text = tkinter.StringVar()
+    tkinter.Label( body, textvariable=self.top_text, width=50, height=1, anchor="w").grid( row=1, sticky="W")
 
-    self.canvas = Tkinter.Canvas( body, width=self.bar_width, height=self.bar_height, background="white")
+    self.canvas = tkinter.Canvas( body, width=self.bar_width, height=self.bar_height, background="white")
     self.canvas.grid( row=2)
     self.bar = self.canvas.create_rectangle( 0, 0, 0, self.bar_height, fill="#7395c8")
     self.ratio = self.canvas.create_text( (self.bar_width/2)-10,
@@ -1135,8 +1135,8 @@ class progress_dialog( Tkinter.Toplevel):
                                           text="0%",
                                           font="Helvetica %d normal" % self.bar_fontsize)
 
-    self.bottom_text = Tkinter.StringVar()
-    Tkinter.Label( body, textvariable=self.bottom_text, width=50, height=1, anchor="w").grid( row=3, sticky="W")
+    self.bottom_text = tkinter.StringVar()
+    tkinter.Label( body, textvariable=self.bottom_text, width=50, height=1, anchor="w").grid( row=3, sticky="W")
 
     self.grab_set()
     self.protocol("WM_DELETE_WINDOW", self.close)

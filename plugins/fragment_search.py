@@ -1,11 +1,11 @@
-from __future__ import division
+
 
 import os
 import time
 try:
     import tkinter.filedialog as tkFileDialog
 except ImportError:
-    import tkFileDialog
+    import tkinter.filedialog
 
 import logger
 import dialogs
@@ -33,7 +33,7 @@ def process_directory(directory):
                 for mol in App.paper.molecules:
                     gen = mol.select_matching_substructures(fragment, implicit_freesites=True)
                     try:
-                        gen.next()
+                        next(gen)
                     except StopIteration:
                         pass
                     else:
@@ -73,7 +73,7 @@ else:
     # we may proceed
     fragment = selected_mols[0]
 
-    directory = tkFileDialog.askdirectory(parent=App,
+    directory = tkinter.filedialog.askdirectory(parent=App,
                                           initialdir=App.save_dir or "./")
 
     if directory:

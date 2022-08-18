@@ -17,7 +17,7 @@
 
 #--------------------------------------------------------------------------
 
-from __future__ import print_function
+
 
 import os
 import sys
@@ -29,7 +29,7 @@ import dom_extensions
 
 
 if sys.version_info[0] > 2:
-  unicode = str
+  str = str
 
 
 class pref_manager( object):
@@ -75,13 +75,13 @@ class pref_manager( object):
     top = doc.getElementsByTagName("bkchem-prefs")[0]
     for child in dom_extensions.childNodesWithoutEmptySpaces(top):
       name = child.nodeName
-      itype = child.getAttribute('type') or unicode
+      itype = child.getAttribute('type') or str
 
       if itype in ("ListType", "TupleType", "DictType"):
         value = eval(dom_extensions.getAllTextFromElement(child))
       else:
         if itype in ("UnicodeType"):
-          itype = unicode
+          itype = str
         else:
           itype = types.__dict__[itype]
         try:
@@ -101,7 +101,7 @@ class pref_manager( object):
     top = doc.createElement("bkchem-prefs")
     doc.appendChild(top)
 
-    for k, v in self.data.items():
+    for k, v in list(self.data.items()):
       itype = 'UnicodeType'
       for tn in types.__dict__:
         if type(v) == types.__dict__[tn]:
@@ -118,7 +118,7 @@ class pref_manager( object):
         if isinstance(v, str):
           v = v.decode('utf-8')
           itype = 'UnicodeType'
-        elif isinstance(v, unicode):
+        elif isinstance(v, str):
           itype = 'UnicodeType'
       el = dom_extensions.textOnlyElementUnder(top, k, v,
                                                attributes = (("type", itype),))

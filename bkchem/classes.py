@@ -21,15 +21,15 @@
 
 """
 
-from __future__ import division
-from __future__ import generators
+
+
 
 import sys
 import xml.dom.minidom as dom
 try:
   import tkinter.font as tkFont
 except ImportError:
-  import tkFont
+  import tkinter.font
 
 from math import atan2, sin, cos, pi, sqrt
 from warnings import warn
@@ -78,7 +78,7 @@ class standard(object):
 
 
   def __eq__( self, other):
-    for k, v in self.__dict__.items():
+    for k, v in list(self.__dict__.items()):
       if str( v) != str( other.__dict__[ k]):
         return 0
     return 1
@@ -298,7 +298,7 @@ class point( point_drawable, interactive, child):
     doc is the parent document which is used for element creation
     (the returned element is not inserted into the document)"""
     pnt = doc.createElement('point')
-    x, y = map( Screen.px_to_text_with_unit, self.paper.screen_to_real_coords( (self.x, self.y)))
+    x, y = list(map( Screen.px_to_text_with_unit, self.paper.screen_to_real_coords( (self.x, self.y))))
     dom_extensions.setAttributes( pnt, (('x', x),
                                         ('y', y)))
     return pnt
@@ -488,7 +488,7 @@ class plus(meta_enabled, interactive, point_drawable, with_font, area_colored, t
 
 
   def update_font( self):
-    self.font = tkFont.Font( family=self.font_family, size=self.font_size)
+    self.font = tkinter.font.Font( family=self.font_family, size=self.font_size)
 
 
   def lift( self):
@@ -736,7 +736,7 @@ class text( meta_enabled, interactive, point_drawable, text_like, area_colored, 
 
   def update_font( self):
     #if 'font_family' in self.__dict__ and 'font_size' in self.__dict__:
-    self.font = tkFont.Font( family=self.font_family, size=self.font_size)
+    self.font = tkinter.font.Font( family=self.font_family, size=self.font_size)
 
 
   def scale_font( self, ratio):
@@ -747,7 +747,7 @@ class text( meta_enabled, interactive, point_drawable, text_like, area_colored, 
   def on_screen_font(self):
     """Returns a font adequate for on-screen display, using appropriate scaling."""
     screen_font_size = int( round( self.paper.real_to_canvas(self.font_size) ))
-    return tkFont.Font( family=self.font_family, size=screen_font_size)
+    return tkinter.font.Font( family=self.font_family, size=screen_font_size)
 
 
   def lift( self):

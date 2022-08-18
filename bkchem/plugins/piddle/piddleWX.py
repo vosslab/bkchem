@@ -81,7 +81,7 @@ wxWindows Python language bindings into a GUI window.
 #    easy to do).
 
 
-from __future__ import print_function
+
 
 from wxPython.wx import *
 

@@ -36,7 +36,7 @@ else:
 try:
   from io import StringIO
 except ImportError:
-  import StringIO
+  import io
 
 
 

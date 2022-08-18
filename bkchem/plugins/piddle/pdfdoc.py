@@ -14,7 +14,7 @@ piddlePDF calls pdfgen and offers a high-level interface.
 (C) Copyright Andy Robinson 1998-1999
 """
 
-from __future__ import print_function
+
 
 import os
 import sys
@@ -24,7 +24,7 @@ import tempfile
 try:
     from io import StringIO as cStringIO
 except ImportError:
-    import cStringIO
+    import io
 from types import *
 from math import sin, cos, pi, ceil
 
@@ -238,7 +238,7 @@ class PDFDocument(object):
         #self.objects.append(page.stream)
 
     def hasFont(self, psfontname):
-        return self.fontMapping.has_key(psfontname)
+        return psfontname in self.fontMapping
 
     def getInternalFontName(self, psfontname):
         try:

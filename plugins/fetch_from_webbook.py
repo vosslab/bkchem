@@ -3,7 +3,7 @@ import re
 try:
     from urllib.request import urlopen
 except ImportError:
-    from urllib import urlopen
+    from urllib.request import urlopen
 
 import dialogs
 import oasa_bridge
@@ -63,7 +63,7 @@ if res == _('OK'):
     try:
         from io import StringIO
     except ImportError:
-        from StringIO import StringIO
+        from io import StringIO
 
     molcas = get_mol_from_web_molfile(name)
     if molcas:

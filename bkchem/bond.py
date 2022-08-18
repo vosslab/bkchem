@@ -19,7 +19,7 @@
 
 """
 
-from __future__ import division
+
 
 import math
 import oasa
@@ -734,7 +734,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     _d = dashing[0]
     while not _d > d:
       _d += sum( dashing)
-    dashing = map( lambda x: x * d/_d, dashing)
+    dashing = [x * d/_d for x in dashing]
     # //
     dx = (x2 - x1)/d
     dy = (y2 - y1)/d
@@ -1159,11 +1159,11 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     [self.paper.delete( i) for i in self.third]
     self.third = []
     if self.items:
-      map( self.paper.delete, self.items)
+      list(map( self.paper.delete, self.items))
       self.items = []
     x1, y1 = self.atom1.get_xy()
     x2, y2 = self.atom2.get_xy()
-    x1, y1, x2, y2 = map( round, [x1, y1, x2, y2])
+    x1, y1, x2, y2 = list(map( round, [x1, y1, x2, y2]))
     if self.item and not self.paper.type( self.item) == "line":
       self.paper.unregister_id( self.item)
       self.paper.delete( self.item)
@@ -1260,7 +1260,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     self.second = []
     self.third = []
     self.items = []
-    map( self.paper.delete, items)
+    list(map( self.paper.delete, items))
     return self
 
 

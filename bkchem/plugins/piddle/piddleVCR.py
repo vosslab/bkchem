@@ -44,7 +44,7 @@ STATUS: Working, but still contains some debugging code.
 Joe Strout (joe@strout.net), 10/21/99.
 """
 
-from __future__ import print_function
+
 
 VERSION = 0.1
 
@@ -61,7 +61,7 @@ def _repr(x):
 
 def _reprs(*args):
     "Convert a whole set of items into a tuple of their representations."
-    return tuple(map(lambda x:_repr(x),args))
+    return tuple([_repr(x) for x in args])
 
 
 class VCRCanvas( Canvas ):
@@ -87,7 +87,7 @@ class VCRCanvas( Canvas ):
 
     def _recordfunc(self,func,*args):
         prototype = func + "(" + ("%s," * len(args))[:-1] + ")"
-        s = prototype % apply(_reprs, args)
+        s = prototype % _reprs(*args)
         if self.playthru:
             exec('self.playthru.' + s)
         self._record(s)

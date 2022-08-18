@@ -36,8 +36,8 @@ def main():
     top.add(bbox)
     top.connect("destroy", gtk.mainquit)
     top.connect("delete_event", gtk.mainquit)
-    tests = map((lambda test: (string.capitalize(test.__name__), test)),
-                piddletest.tests)
+    tests = list(map((lambda test: (string.capitalize(test.__name__), test)),
+                piddletest.tests))
     tests.extend(testitems)
     for name, test in tests:
         b = gtk.GtkButton(name)

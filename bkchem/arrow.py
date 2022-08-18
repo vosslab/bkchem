@@ -21,7 +21,7 @@
 
 """
 
-from __future__ import division
+
 
 import xml.dom.minidom as dom
 
@@ -135,8 +135,8 @@ class arrow( meta_enabled, drawable, with_line, line_colored, container, interac
 
   def redraw( self):
     if self.items:
-      map( self.paper.unregister_id, self.items)
-      map( self.paper.delete, self.items)
+      list(map( self.paper.unregister_id, self.items))
+      list(map( self.paper.delete, self.items))
     self.draw()
 
   def focus( self):
@@ -181,8 +181,8 @@ class arrow( meta_enabled, drawable, with_line, line_colored, container, interac
   def delete( self):
     [p.delete() for p in self.points]
     self.points = []
-    map( self.paper.unregister_id, self.items)
-    map( self.paper.delete, self.items)
+    list(map( self.paper.unregister_id, self.items))
+    list(map( self.paper.delete, self.items))
     self.items = []
 
   def is_empty_or_single_point( self):
@@ -262,7 +262,7 @@ class arrow( meta_enabled, drawable, with_line, line_colored, container, interac
 
   def lift( self):
     if self.items:
-      map( self.paper.lift, self.items)
+      list(map( self.paper.lift, self.items))
     [o.lift() for o in self.points]
 
 
@@ -275,7 +275,7 @@ class arrow( meta_enabled, drawable, with_line, line_colored, container, interac
   # -- private drawing methods for different arrow types --
 
   def _draw_normal_old( self):
-    ps = tuple(j for i in map(lambda b: b.get_xy_on_screen(), self.points) for j in i)
+    ps = tuple(j for i in [b.get_xy_on_screen() for b in self.points] for j in i)
     item = self.paper.create_line( ps, tags='arrow', arrow=self._pins[ self.pin], arrowshape=self.shape,\
                                    width=self.line_width, smooth=self.spline, fill=self.line_color)
     return [item]

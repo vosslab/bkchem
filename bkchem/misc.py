@@ -36,7 +36,7 @@ def myisstr(obj):
   if sys.version_info[0] > 2:
     return isinstance(obj, str)
   else:
-    return isinstance(obj, basestring)
+    return isinstance(obj, str)
 
 
 def intersection( a, b):

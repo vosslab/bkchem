@@ -40,7 +40,7 @@ def serialize(o, doc, parent_element):
       # serialize it
       if type(v) == types.InstanceType:
         serialize( v, doc, e)
-      elif type(v) in (types.ListType, types.TupleType):
+      elif type(v) in (list, tuple):
         [serialize( j, doc, e) for j in v]
       else:
         e.setAttribute( i, str( v))

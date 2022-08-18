@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
+
 
 import os
 import sys
@@ -17,7 +17,7 @@ if os.name != 'posix':
   sys.path.insert(0, 'bkchem')
 
 # all the apicdoc directories and files
-apidocs = [('share/doc/bkchem/'+path[4:], map(os.path.join, len(filenames)*[path], filenames))
+apidocs = [('share/doc/bkchem/'+path[4:], list(map(os.path.join, len(filenames)*[path], filenames)))
               for (path, dirnames, filenames) in os.walk('doc/api')]
 
 # available languages to pack

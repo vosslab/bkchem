@@ -24,7 +24,7 @@
 try:
     import tkinter as Tkinter
 except ImportError:
-    import Tkinter
+    import tkinter
 
 import os_support
 
@@ -46,7 +46,7 @@ class images_dict(dict):
       return dict.__getitem__(self, item)
     except:
       try:
-        i = Tkinter.PhotoImage(file=os_support.get_path(item + '.gif', 'pixmap'))
+        i = tkinter.PhotoImage(file=os_support.get_path(item + '.gif', 'pixmap'))
         self.__setitem__(item, i)
         return i
       except ValueError:
@@ -62,7 +62,7 @@ class images_dict(dict):
       return 1
     else:
       try:
-        self.__setitem__(item, Tkinter.PhotoImage(file=os_support.get_path(item + '.gif', 'pixmap')))
+        self.__setitem__(item, tkinter.PhotoImage(file=os_support.get_path(item + '.gif', 'pixmap')))
         return 1
       except:
         return 0

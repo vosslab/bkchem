@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import PIL.Image as Image
 import os.path

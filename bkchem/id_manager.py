@@ -65,11 +65,11 @@ class id_manager(object):
 
 
   def is_registered_object(self, obj):
-    return (obj in self.id_map.values())
+    return (obj in list(self.id_map.values()))
 
 
   def get_id_of_object(self, obj):
-    for k, v in self.id_map.items():
+    for k, v in list(self.id_map.items()):
       if v == obj:
         return k
     return None

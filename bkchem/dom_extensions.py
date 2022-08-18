@@ -74,7 +74,7 @@ def getTextFromElement( element):
 
 
 def childNodesWithoutEmptySpaces( node):
-  return filter( isNotEmptyText, node.childNodes)
+  return list(filter( isNotEmptyText, node.childNodes))
 
 
 def isNotEmptyText( element):
@@ -135,7 +135,7 @@ def isOnlyTags( text):
       if isinstance(text, str):
         text = text.encode('utf-8')
     else:
-      if isinstance(text, unicode):
+      if isinstance(text, str):
         text = text.encode('utf-8')
     doc = dom.parseString('<a>%s</a>' % text)
   except IOError:

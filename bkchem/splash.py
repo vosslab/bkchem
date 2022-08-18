@@ -26,28 +26,28 @@
 try:
   import tkinter as Tkinter
 except ImportError:
-  import Tkinter
+  import tkinter
 
 import messages
 import os_support
 
 
 
-class Splash( Tkinter.Toplevel):
+class Splash( tkinter.Toplevel):
 
   def __init__( self):
-    Tkinter.Toplevel.__init__( self)
+    tkinter.Toplevel.__init__( self)
 
     self.title(_('BKChem is starting...'))
 
     # splash image
     splash_image_path = 'logo.ppm'
     try:
-      self.splash_image = Tkinter.PhotoImage( file = os_support.get_path( splash_image_path, 'image'))
+      self.splash_image = tkinter.PhotoImage( file = os_support.get_path( splash_image_path, 'image'))
     except:
       self.splash_image = None
 
-    text = Tkinter.Label( self,
+    text = tkinter.Label( self,
                           font=('Helvetica', 12, 'normal'),
                           relief = 'raised',
                           borderwidth = 2,

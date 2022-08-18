@@ -1,0 +1,4566 @@
+--- ./tools/check_translation.py	(original)
++++ ./tools/check_translation.py	(refactored)
+@@ -1,5 +1,5 @@
+ 
+-from __future__ import print_function
++
+ 
+ import os
+ 
+--- ./plugins/fetch_name_from_webbook.py	(original)
++++ ./plugins/fetch_name_from_webbook.py	(refactored)
+@@ -10,7 +10,7 @@
+ try:
+     from urllib.request import urlopen
+ except ImportError:
+-    from urllib import urlopen
++    from urllib.request import urlopen
+ 
+ import dialogs
+ import oasa_bridge
+--- ./plugins/fragment_search.py	(original)
++++ ./plugins/fragment_search.py	(refactored)
+@@ -1,11 +1,11 @@
+-from __future__ import division
++
+ 
+ import os
+ import time
+ try:
+     import tkinter.filedialog as tkFileDialog
+ except ImportError:
+-    import tkFileDialog
++    import tkinter.filedialog
+ 
+ import logger
+ import dialogs
+@@ -33,7 +33,7 @@
+                 for mol in App.paper.molecules:
+                     gen = mol.select_matching_substructures(fragment, implicit_freesites=True)
+                     try:
+-                        gen.next()
++                        next(gen)
+                     except StopIteration:
+                         pass
+                     else:
+@@ -73,7 +73,7 @@
+     # we may proceed
+     fragment = selected_mols[0]
+ 
+-    directory = tkFileDialog.askdirectory(parent=App,
++    directory = tkinter.filedialog.askdirectory(parent=App,
+                                           initialdir=App.save_dir or "./")
+ 
+     if directory:
+--- ./plugins/angle_between_bonds.py	(original)
++++ ./plugins/angle_between_bonds.py	(refactored)
+@@ -1,4 +1,4 @@
+-from __future__ import print_function
++
+ 
+ import math
+ import operator
+--- ./plugins/text_to_group.py	(original)
++++ ./plugins/text_to_group.py	(refactored)
+@@ -1,4 +1,4 @@
+-from __future__ import print_function
++
+ 
+ from group import group
+ from textatom import textatom
+--- ./plugins/fetch_from_webbook.py	(original)
++++ ./plugins/fetch_from_webbook.py	(refactored)
+@@ -3,7 +3,7 @@
+ try:
+     from urllib.request import urlopen
+ except ImportError:
+-    from urllib import urlopen
++    from urllib.request import urlopen
+ 
+ import dialogs
+ import oasa_bridge
+@@ -63,7 +63,7 @@
+     try:
+         from io import StringIO
+     except ImportError:
+-        from StringIO import StringIO
++        from io import StringIO
+ 
+     molcas = get_mol_from_web_molfile(name)
+     if molcas:
+--- ./pixmaps/png2ppm.py	(original)
++++ ./pixmaps/png2ppm.py	(refactored)
+@@ -1,4 +1,4 @@
+-from __future__ import print_function
++
+ 
+ import PIL.Image as Image
+ import os.path
+--- ./bkchem/validator.py	(original)
++++ ./bkchem/validator.py	(refactored)
+@@ -69,8 +69,8 @@
+ 
+ 
+   def validate_molecule( self, mol):
+-    map( self.validate_atom, mol.atoms)
+-    map( self.validate_bond, mol.bonds)
++    list(map( self.validate_atom, mol.atoms))
++    list(map( self.validate_bond, mol.bonds))
+ 
+   def validate_list( self, objs):
+     [self.validate_object( o) for o in objs]
+--- ./bkchem/external_data.py	(original)
++++ ./bkchem/external_data.py	(refactored)
+@@ -67,7 +67,7 @@
+       if ext == ".xml":
+         self.read_data_definition(os.path.join(d, name))
+ 
+-    return self.definitions.keys()
++    return list(self.definitions.keys())
+ 
+ 
+   def read_data_definition( self, filename):
+@@ -104,7 +104,7 @@
+ 
+ 
+   def get_definition_classes( self):
+-    return self.definitions.keys()
++    return list(self.definitions.keys())
+ 
+ 
+   def set_data( self, dclass, obj, category, value):
+@@ -133,7 +133,7 @@
+           return None
+         else:
+           raise ValueError("wrong category '%s' for type '%s' in dclass '%s'" % ( category, obj.object_type, dclass))
+-      elif obj.object_type in self.definitions[dclass].keys():
++      elif obj.object_type in list(self.definitions[dclass].keys()):
+         return None
+       else:
+         raise ValueError("wrong object type '%s' for dclass '%s'" % ( obj.object_type, dclass)        )
+@@ -142,11 +142,11 @@
+ 
+   def value_matches_definition( self, dclass, obj, category, value):
+     """checks if the value is of the type provided in definition"""
+-    if not dclass in self.records.keys():
++    if not dclass in list(self.records.keys()):
+       raise ValueError("not registered dclass: %s" % dclass)
+-    if not obj.object_type in self.definitions[dclass].keys():
++    if not obj.object_type in list(self.definitions[dclass].keys()):
+       raise ValueError("wrong object type '%s' for dclass '%s'" % ( obj.object_type, dclass))
+-    if not category in self.definitions[dclass][obj.object_type].keys():
++    if not category in list(self.definitions[dclass][obj.object_type].keys()):
+       raise ValueError("wrong category '%s' for type '%s' in dclass '%s'" % ( category, obj.object_type, dclass))
+ 
+     t = self.definitions[ dclass][ obj.object_type][ category]['type']
+@@ -165,7 +165,7 @@
+ 
+     v = self.convert_to_type( value, t)
+     if t in self.types:
+-      if filter( None, [isinstance( v, tt) for tt in self.types[t]]):
++      if [_f for _f in [isinstance( v, tt) for tt in self.types[t]] if _f]:
+         return True
+       else:
+         return False
+@@ -178,7 +178,7 @@
+ 
+ 
+   def get_package( self, doc):
+-    if not self.records or sum( map( len, self.records.values())) == 0:
++    if not self.records or sum( map( len, list(self.records.values()))) == 0:
+       return None
+     e = doc.createElement( 'external-data')
+     for dclass in self.records:
+@@ -200,7 +200,7 @@
+     files, use read_data_definition instead"""
+     for ecls in dom_ext.simpleXPathSearch( root, "class"):
+       cls = ecls.getAttribute( 'name')
+-      if not cls in self.records.keys():
++      if not cls in list(self.records.keys()):
+         self.records[ cls] = {}
+       for eobj in dom_ext.simpleXPathSearch( ecls, "object"):
+         obj = Store.id_manager.get_object_with_id( eobj.getAttribute( 'ref'))
+@@ -228,7 +228,7 @@
+ try:
+   from tkinter import Entry
+ except ImportError:
+-  from Tkinter import Entry
++  from tkinter import Entry
+ import Pmw
+ 
+ 
+--- ./bkchem/singleton_store.py	(original)
++++ ./bkchem/singleton_store.py	(refactored)
+@@ -75,7 +75,7 @@
+     x = point.getAttribute( 'x')
+     y = point.getAttribute( 'y')
+     z = point.getAttribute( 'z')
+-    return map( self.any_to_px, (x,y,z))
++    return list(map( self.any_to_px, (x,y,z)))
+ 
+ 
+   @classmethod
+--- ./bkchem/graphics.py	(original)
++++ ./bkchem/graphics.py	(refactored)
+@@ -179,8 +179,8 @@
+ 
+   def read_package( self, pack):
+     """reads the dom element pack and sets internal state according to it"""
+-    self.coords = self.paper.real_to_screen_coords( map( Screen.any_to_px,
+-                                                         dom_extensions.getAttributes( pack, ['x1', 'y1', 'x2', 'y2'])))
++    self.coords = self.paper.real_to_screen_coords( list(map( Screen.any_to_px,
++                                                         dom_extensions.getAttributes( pack, ['x1', 'y1', 'x2', 'y2']))))
+     for attr in ("area_color", "line_color"):
+       if pack.getAttributeNode( attr):
+         setattr( self, attr, pack.getAttribute( attr))
+@@ -281,8 +281,8 @@
+ 
+   def read_package( self, pack):
+     """reads the dom element pack and sets internal state according to it"""
+-    self.coords = self.paper.real_to_screen_coords( map( Screen.any_to_px,
+-                                                         dom_extensions.getAttributes( pack, ['x1', 'y1', 'x2', 'y2'])))
++    self.coords = self.paper.real_to_screen_coords( list(map( Screen.any_to_px,
++                                                         dom_extensions.getAttributes( pack, ['x1', 'y1', 'x2', 'y2']))))
+ 
+     for attr in ("area_color", "line_color"):
+       if pack.getAttributeNode( attr):
+@@ -365,7 +365,7 @@
+ 
+   def draw( self):
+     [p.draw() for p in self.points]
+-    coords = (j for i in map(lambda b: b.get_xy(), self.points)
++    coords = (j for i in [b.get_xy() for b in self.points]
+                   for j in i)
+     self.item = self.paper.create_polygon( tuple( coords),
+                                            fill=self.area_color,
+@@ -384,7 +384,7 @@
+     if not self.item:
+       self.draw()
+     else:
+-      coords = (j for i in map(lambda b: b.get_xy(), self.points)
++      coords = (j for i in [b.get_xy() for b in self.points]
+                     for j in i)
+       self.paper.coords( self.item, tuple( coords))
+       self.paper.itemconfig( self.item, width=self.line_width, fill=self.area_color, outline=self.line_color)
+@@ -503,7 +503,7 @@
+ 
+   def draw( self):
+     [p.draw() for p in self.points]
+-    coords = (j for i in map(lambda b: b.get_xy_on_screen(), self.points)
++    coords = (j for i in [b.get_xy_on_screen() for b in self.points]
+                   for j in i)
+     self.item = self.paper.create_line( tuple( coords),
+                                         fill=self.line_color,
+@@ -525,7 +525,7 @@
+     if not self.item:
+       self.draw()
+     else:
+-      coords = (j for i in map(lambda b: b.get_xy_on_screen(), self.points)
++      coords = (j for i in [b.get_xy_on_screen() for b in self.points]
+                     for j in i)
+       self.paper.coords( self.item, tuple( coords))
+       self.paper.itemconfig( self.item, width=self.line_width, fill=self.line_color, smooth=self.spline)
+--- ./bkchem/misc.py	(original)
++++ ./bkchem/misc.py	(refactored)
+@@ -36,7 +36,7 @@
+   if sys.version_info[0] > 2:
+     return isinstance(obj, str)
+   else:
+-    return isinstance(obj, basestring)
++    return isinstance(obj, str)
+ 
+ 
+ def intersection( a, b):
+--- ./bkchem/edit_pool.py	(original)
++++ ./bkchem/edit_pool.py	(refactored)
+@@ -27,8 +27,8 @@
+   import tkinter as Tkinter
+   from tkinter import Frame, Button, Entry
+ except ImportError:
+-  import Tkinter
+-  from Tkinter import Frame, Button, Entry
++  import tkinter
++  from tkinter import Frame, Button, Entry
+ 
+ from xml.sax import saxutils
+ 
+@@ -227,11 +227,11 @@
+ 
+   def _tag_it( self, tag):
+     if self.editPool.selection_present():
+-      self.editPool.insert( Tkinter.SEL_FIRST, '<%s>' % tag)
+-      self.editPool.insert( Tkinter.SEL_LAST, '</%s>' % tag)
+-    else:
+-      self.editPool.insert( Tkinter.INSERT, '<%s></%s>' % (tag, tag))
+-      self.editPool.icursor( self.editPool.index( Tkinter.INSERT) - len( tag) - 3)
++      self.editPool.insert( tkinter.SEL_FIRST, '<%s>' % tag)
++      self.editPool.insert( tkinter.SEL_LAST, '</%s>' % tag)
++    else:
++      self.editPool.insert( tkinter.INSERT, '<%s></%s>' % (tag, tag))
++      self.editPool.icursor( self.editPool.index( tkinter.INSERT) - len( tag) - 3)
+ 
+ 
+   def _key( self, event):
+@@ -249,11 +249,11 @@
+ 
+   def _insertText( self, text):
+     if text is not None:
+-      self.editPool.insert( Tkinter.INSERT, text)
++      self.editPool.insert( tkinter.INSERT, text)
+     self.grab_set()
+ 
+ 
+-class special_character_menu( Tkinter.Menu):
++class special_character_menu( tkinter.Menu):
+ 
+   chars = {_("minus"): "&#8722;",
+            _("arrow-left"): "&#x2190;",
+@@ -264,7 +264,7 @@
+ 
+   def __init__( self, callback, **kw):
+     self.callback = callback
+-    Tkinter.Menu.__init__( self, Store.app, tearoff=0, **kw)
++    tkinter.Menu.__init__( self, Store.app, tearoff=0, **kw)
+     keys = sorted(self.chars.keys())
+     for k in keys:
+       self.add_command( label=k, command=misc.lazy_apply( self.itemselected, (k,)))
+@@ -276,7 +276,7 @@
+ 
+ 
+   def post( self, x, y):
+-    Tkinter.Menu.post( self, x, y)
++    tkinter.Menu.post( self, x, y)
+     if os.name != 'nt':
+       self.grab_set()
+ 
+--- ./bkchem/queryatom.py	(original)
++++ ./bkchem/queryatom.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import division
++
+ 
+ import re
+ import sys
+@@ -251,7 +251,7 @@
+     if self.area_color != self.paper.standard.area_color:
+       a.setAttribute( 'background-color', self.area_color)
+     # needed to support transparent handling of molecular size
+-    x, y, z = map( Screen.px_to_text_with_unit, self.get_xyz( real=1))
++    x, y, z = list(map( Screen.px_to_text_with_unit, self.get_xyz( real=1)))
+     if self.z:
+       dom_extensions.elementUnder( a, 'point', attributes=(('x', x), ('y', y), ('z', z)))
+     else:
+--- ./bkchem/textatom.py	(original)
++++ ./bkchem/textatom.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import division
++
+ 
+ import re
+ import sys
+@@ -180,7 +180,7 @@
+     if self.area_color != self.paper.standard.area_color:
+       a.setAttribute( 'background-color', self.area_color)
+     # needed to support transparent handling of molecular size
+-    x, y, z = map( Screen.px_to_text_with_unit, self.get_xyz( real=1))
++    x, y, z = list(map( Screen.px_to_text_with_unit, self.get_xyz( real=1)))
+     if self.z:
+       dom_extensions.elementUnder( a, 'point', attributes=(('x', x), ('y', y), ('z', z)))
+     else:
+--- ./bkchem/keysymdef.py	(original)
++++ ./bkchem/keysymdef.py	(refactored)
+@@ -1,4 +1,4 @@
+-from __future__ import unicode_literals
++
+ 
+ 
+ keysyms = {
+--- ./bkchem/molecule.py	(original)
++++ ./bkchem/molecule.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import division
++
+ 
+ import copy
+ import oasa
+@@ -267,7 +267,7 @@
+         [o.redraw() for o in self.atoms]
+     else:
+       offspring = self.check_integrity()
+-      deleted += map( self.delete_bond, copy.copy( self.bonds))
++      deleted += list(map( self.delete_bond, copy.copy( self.bonds)))
+     return deleted, offspring
+ 
+ 
+@@ -330,7 +330,7 @@
+     self.name = package.getAttribute( 'name')
+     if package.getAttribute( 'id'):
+       self.id = package.getAttribute( 'id')
+-    for name, cls in {'atom': atom, 'group': group, 'text': textatom, 'query': queryatom}.items():
++    for name, cls in list({'atom': atom, 'group': group, 'text': textatom, 'query': queryatom}.items()):
+       for a in dom_extensions.simpleXPathSearch( package, name):
+         self.insert_atom( cls( standard=std, package=a, molecule=self))
+ 
+--- ./bkchem/plugin_support.py	(original)
++++ ./bkchem/plugin_support.py	(refactored)
+@@ -52,7 +52,7 @@
+           #except:
+           #  debug.log( "could not load plugin file", name)
+ 
+-    return self.plugins.keys()
++    return list(self.plugins.keys())
+ 
+ 
+   def read_plugin_file( self, dir, name):
+@@ -102,9 +102,9 @@
+ 
+   def get_names( self, type=""):
+     if not type:
+-      return self.plugins.keys()
++      return list(self.plugins.keys())
+     else:
+-      return [k for k, v in self.plugins.items() if v.type == type]
++      return [k for k, v in list(self.plugins.items()) if v.type == type]
+ 
+ 
+   def get_description( self, name):
+--- ./bkchem/context_menu.py	(original)
++++ ./bkchem/context_menu.py	(refactored)
+@@ -23,7 +23,7 @@
+ try:
+   import tkinter as Tkinter
+ except ImportError:
+-  import Tkinter
++  import tkinter
+ 
+ from oasa import periodic_table as PT
+ 
+@@ -38,17 +38,17 @@
+ 
+ 
+ 
+-class context_menu( Tkinter.Menu):
++class context_menu( tkinter.Menu):
+ 
+   def __init__( self, selected, **kw):
+-    Tkinter.Menu.__init__( self, Store.app, tearoff=0, **kw)
++    tkinter.Menu.__init__( self, Store.app, tearoff=0, **kw)
+     self.selected = selected
+     self.changes_made = 0
+     already_there = []
+     self.configurable = {} # this is similar to configurable but is prepared on init to take dynamic things into account
+     # at first prepare all the items
+     items = {}
+-    for obj_type in configurable.keys():
++    for obj_type in list(configurable.keys()):
+       if misc.myisstr(obj_type):
+         objs = [o for o in self.selected if o.object_type == obj_type]
+       else:
+@@ -81,7 +81,7 @@
+     # then sort the items and polulate the menu
+     keys = sorted(items.keys())
+     for key in keys:
+-      casc = Tkinter.Menu( self, tearoff=0)
++      casc = tkinter.Menu( self, tearoff=0)
+       self.add_cascade( label=key, menu=casc)
+       for (v1, attr, objs, v0) in items[ key]:
+         casc.add_command( label=v1, command=misc.lazy_apply( self.callback, (attr, objs, v0)))
+@@ -135,7 +135,7 @@
+ 
+ 
+   def post( self, x, y):
+-    Tkinter.Menu.post( self, x, y)
++    tkinter.Menu.post( self, x, y)
+     if os.name != 'nt':
+       self.grab_set()
+ 
+--- ./bkchem/plugins/odf.py	(original)
++++ ./bkchem/plugins/odf.py	(refactored)
+@@ -26,7 +26,7 @@
+ # in the Tcl/Tk 8.3.4 than in the version I have used before. Maybe I would have to switch
+ # to px sizes instead of pt sizes.
+ 
+-from __future__ import print_function
++
+ 
+ import math
+ 
+@@ -150,11 +150,11 @@
+     # the export itself
+     if b.type in 'nhd':
+       for i in items:
+-        coords = map( Screen.px_to_cm, self.paper.coords( i))
++        coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         self.create_oo_line( coords, page, style_name)
+     elif b.type == 'o':
+       for i in items:
+-        x, y, x2, y2 = map( Screen.px_to_cm, self.paper.coords( i))
++        x, y, x2, y2 = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         size = Screen.px_to_cm( x2-x)
+         dom_extensions.elementUnder( page, 'draw:ellipse',
+                                      (( 'svg:x', '%fcm' %  x),
+@@ -168,7 +168,7 @@
+                           stroke_width=Screen.px_to_cm( b.wedge_width))
+       b_style_name = self.get_appropriate_style_name( s)
+       for i in items:
+-        coords = map( Screen.px_to_cm, self.paper.coords( i))
++        coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         self.create_oo_line( coords, page, b_style_name)
+     elif b.type == 'w':
+       s = graphics_style( stroke_color=self.paper.any_color_to_rgb_string( b.line_color),
+@@ -176,7 +176,7 @@
+                           stroke_width=Screen.px_to_cm( b.line_width))
+       style_name = self.get_appropriate_style_name( s)
+       for i in items:
+-        coords = map( Screen.px_to_cm, self.paper.coords( i))
++        coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         point_array = []
+         for i in range( 0, len( coords), 2):
+           point_array.append( (coords[i], coords[i+1]))
+@@ -193,14 +193,14 @@
+         self.create_oo_polyline( points, page, style_name)
+     # line_items
+     for i in line_items:
+-      coords = map( Screen.px_to_cm, self.paper.coords( i))
++      coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+       self.create_oo_line( coords, page, style_name)
+ 
+ 
+   def add_atom( self, a, page):
+     """adds atom to document"""
+     if a.show:
+-      coords = map( Screen.px_to_cm, self.paper.coords( a.selector))
++      coords = list(map( Screen.px_to_cm, self.paper.coords( a.selector)))
+       # we need to use negative padding of the text because oo puts too much space above
+       # and under text
+       dy = abs( coords[3]-coords[1])
+@@ -248,7 +248,7 @@
+     txt_style = text_style( font_size='%dpx' % round(a.font_size*1), font_family=a.font_family)
+     txt_style_name = self.get_appropriate_style_name( txt_style)
+ 
+-    coords = map( Screen.px_to_cm, self.paper.coords( a.selector))
++    coords = list(map( Screen.px_to_cm, self.paper.coords( a.selector)))
+     self.create_oo_text( '<ftext>%s</ftext>' % a.xml_ftext, coords, page, para_style_name, txt_style_name, gr_style_name)
+ 
+ 
+@@ -262,7 +262,7 @@
+     txt_style = text_style( font_size='%dpx' % round(a.font_size*1), font_family=a.font_family)
+     txt_style_name = self.get_appropriate_style_name( txt_style)
+ 
+-    coords = map( Screen.px_to_cm, self.paper.coords( a.selector))
++    coords = list(map( Screen.px_to_cm, self.paper.coords( a.selector)))
+     self.create_oo_text( '<ftext>+</ftext>', coords, page, para_style_name, txt_style_name, gr_style_name)
+ 
+ 
+@@ -278,7 +278,7 @@
+                             stroke_width=Screen.px_to_cm( l_width))
+         style_name = self.get_appropriate_style_name( s)
+         ps = geometry.coordinate_flat_list_to_xy_tuples( self.paper.coords( item))
+-        points = [map( Screen.px_to_cm, p) for p in ps]
++        points = [list(map( Screen.px_to_cm, p)) for p in ps]
+         self.create_oo_polygon( points, page, style_name)
+       # polylines - standard arrows
+       elif self.paper.type( item) == "line":
+@@ -296,7 +296,7 @@
+                             stroke_width=Screen.px_to_cm( l_width))
+         style_name = self.get_appropriate_style_name( s)
+         ps = geometry.coordinate_flat_list_to_xy_tuples( self.paper.coords( item))
+-        points = [map( Screen.px_to_cm, p) for p in ps]
++        points = [list(map( Screen.px_to_cm, p)) for p in ps]
+         if self.paper.itemcget( item, "smooth") == "0":
+           self.create_oo_polyline( points, page, style_name)
+         else:
+@@ -308,7 +308,7 @@
+                         fill_color=self.paper.any_color_to_rgb_string( o.area_color),
+                         stroke_width=Screen.px_to_cm( o.line_width))
+     style_name = self.get_appropriate_style_name( s)
+-    points = [map( Screen.px_to_cm, p.get_xy()) for p in o.points]
++    points = [list(map( Screen.px_to_cm, p.get_xy())) for p in o.points]
+     self.create_oo_polygon( points, page, style_name)
+ 
+ 
+@@ -316,7 +316,7 @@
+     s = graphics_style( stroke_color=self.paper.any_color_to_rgb_string( o.line_color),
+                         stroke_width=Screen.px_to_cm( o.line_width))
+     style_name = self.get_appropriate_style_name( s)
+-    points = [map( Screen.px_to_cm, p.get_xy()) for p in o.points]
++    points = [list(map( Screen.px_to_cm, p.get_xy())) for p in o.points]
+     self.create_oo_polyline( points, page, style_name)
+ 
+ 
+@@ -325,7 +325,7 @@
+                         fill_color=self.paper.any_color_to_rgb_string( o.area_color),
+                         stroke_width=Screen.px_to_cm( o.line_width))
+     style_name = self.get_appropriate_style_name( s)
+-    x, y, x2, y2 = map( Screen.px_to_cm, o.coords)
++    x, y, x2, y2 = list(map( Screen.px_to_cm, o.coords))
+     dom_extensions.elementUnder( page, 'draw:rect',
+                                        (( 'svg:x', '%fcm' %  x),
+                                         ( 'svg:y', '%fcm' %  y),
+@@ -339,7 +339,7 @@
+                         fill_color=self.paper.any_color_to_rgb_string( o.area_color),
+                         stroke_width=Screen.px_to_cm( o.line_width))
+     style_name = self.get_appropriate_style_name( s)
+-    x, y, x2, y2 = map( Screen.px_to_cm, o.coords)
++    x, y, x2, y2 = list(map( Screen.px_to_cm, o.coords))
+     dom_extensions.elementUnder( page, 'draw:ellipse',
+                                        (( 'svg:x', '%fcm' %  x),
+                                         ( 'svg:y', '%fcm' %  y),
+@@ -354,7 +354,7 @@
+                         stroke_width=Screen.px_to_cm( 0.1))
+     style_name = self.get_appropriate_style_name( s)
+     for i in o.items:
+-      x, y, x2, y2 = map( Screen.px_to_cm, self.paper.coords( i))
++      x, y, x2, y2 = list(map( Screen.px_to_cm, self.paper.coords( i)))
+       size = Screen.px_to_cm( o.size)
+       dom_extensions.elementUnder( page, 'draw:ellipse',
+                                    (( 'svg:x', '%fcm' %  x),
+@@ -371,7 +371,7 @@
+                         fill_color=self.paper.any_color_to_rgb_string( o.atom.line_color),
+                         stroke_width=Screen.px_to_cm( width))
+     style_name = self.get_appropriate_style_name( s)
+-    coords = map( Screen.px_to_cm, self.paper.coords( i))
++    coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+     self.create_oo_line( coords, page, style_name)
+ 
+ 
+@@ -383,7 +383,7 @@
+     # we must process oval first - it would otherwise cover the lines
+     for i in o.items:
+       if self.paper.type( i) == "oval":
+-        x, y, x2, y2 = map( Screen.px_to_cm, self.paper.coords( i))
++        x, y, x2, y2 = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         size = Screen.px_to_cm( o.size)
+         dom_extensions.elementUnder( page, 'draw:ellipse',
+                                      (( 'svg:x', '%fcm' %  x),
+@@ -404,7 +404,7 @@
+         #  coords[1] += 0
+         #  coords[3] += -1
+         # end of hack
+-        coords = map( Screen.px_to_cm, coords)
++        coords = list(map( Screen.px_to_cm, coords))
+         self.create_oo_line( coords, page, style_name)
+ 
+ 
+@@ -421,7 +421,7 @@
+         x = c
+         i = 1
+       else:
+-        points.append( map( Screen.px_to_cm, (x, c)))
++        points.append( list(map( Screen.px_to_cm, (x, c))))
+         i = 0
+ 
+     self.create_oo_polygon( points, page, style_name)
+@@ -437,7 +437,7 @@
+     txt_style = text_style( font_size='%dpx' % round(a.size*1), font_family=a.atom.font_family)
+     txt_style_name = self.get_appropriate_style_name( txt_style)
+ 
+-    coords = map( Screen.px_to_cm, self.paper.bbox( a.items[0]))
++    coords = list(map( Screen.px_to_cm, self.paper.bbox( a.items[0])))
+     self.create_oo_text( '<ftext>%s</ftext>' % a.text, coords, page, para_style_name, txt_style_name, gr_style_name)
+ 
+ 
+--- ./bkchem/plugins/pdf_cairo.py	(original)
++++ ./bkchem/plugins/pdf_cairo.py	(refactored)
+@@ -44,7 +44,7 @@
+ 
+ 
+   def init_surface( self):
+-    w, h = map( int, map( round, self.pagesize))
++    w, h = list(map( int, list(map( round, self.pagesize))))
+     return cairo.PDFSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
+ 
+ 
+--- ./bkchem/plugins/png_cairo.py	(original)
++++ ./bkchem/plugins/png_cairo.py	(refactored)
+@@ -22,7 +22,7 @@
+ try:
+     import tkinter as Tkinter
+ except ImportError:
+-    import Tkinter
++    import tkinter
+ 
+ import Pmw
+ 
+@@ -44,7 +44,7 @@
+ 
+ 
+   def init_surface( self):
+-    w, h = map( int, map( round, self.pagesize))
++    w, h = list(map( int, list(map( round, self.pagesize))))
+     surface = cairo.ImageSurface( cairo.FORMAT_ARGB32, w, h)
+     return surface
+ 
+@@ -99,7 +99,7 @@
+                               title=_('PNG resolution and background color'),
+                               command=self.done)
+ 
+-    Tkinter.Label(self.dialog.interior(), text=_("Set the PNG picture resolution and background color using one of the criteria below.")).pack( pady=10, anchor="w", expand="1", padx=5)
++    tkinter.Label(self.dialog.interior(), text=_("Set the PNG picture resolution and background color using one of the criteria below.")).pack( pady=10, anchor="w", expand="1", padx=5)
+ 
+ 
+     # X RATIO
+@@ -125,7 +125,7 @@
+                                datatype = 'real')
+     self.entryy.pack(pady=3, anchor='n', padx=10)
+ 
+-    Tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
++    tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
+ 
+ 
+     # X RES
+@@ -152,7 +152,7 @@
+     self.entry_resy.pack(pady=3, anchor='n', padx=10)
+ 
+ 
+-    Tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
++    tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
+ 
+ 
+     # DPI
+@@ -168,7 +168,7 @@
+     self.entry_dpi.pack( pady=3, anchor='n', padx=10)
+ 
+ 
+-    Tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
++    tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
+ 
+     self.background_color_button = Pmw.RadioSelect( self.dialog.interior(),
+                                                     buttontype = 'radiobutton',
+@@ -195,7 +195,7 @@
+ 
+ 
+   def _set_value( self, entry, value):
+-    entry.component('entry').delete( 0, Tkinter.END)
++    entry.component('entry').delete( 0, tkinter.END)
+     entry.component('entry').insert( 0, value)
+ 
+ 
+--- ./bkchem/plugins/CDXML.py	(original)
++++ ./bkchem/plugins/CDXML.py	(refactored)
+@@ -94,7 +94,7 @@
+                   if elem4.nodeName=="s":
+                     if elem3.hasAttribute("color"):
+                       color1=colors[int(elem3.getAttribute("color"))-2]
+-                    for Id, Font in fonts.items():
++                    for Id, Font in list(fonts.items()):
+                       if Id==int(elem4.getAttribute("font")):
+                         font=Font
+                     Size= int(elem4.getAttribute("size"))
+@@ -135,7 +135,7 @@
+             bond = mol.create_edge()
+             if elem2.hasAttribute("Display"):
+               display = elem2.getAttribute("Display").strip()
+-              for bondC, bondB in bondType2.items():
++              for bondC, bondB in list(bondType2.items()):
+                 if bondC ==display:
+                   bond.type = bondB
+             bond.line_color = color2
+@@ -145,7 +145,7 @@
+             mol.add_edge( atom1, atom2, bond)
+ 
+         # here we reassign the symbols
+-        for id, atom in atom_id_to_atom.items():
++        for id, atom in list(atom_id_to_atom.items()):
+           text = atom_id_to_text[ id]
+           v = mol.create_vertex_according_to_text( atom, text)
+           atom.copy_settings( v)
+@@ -162,7 +162,7 @@
+ 
+     for elem5 in doc.getElementsByTagName("t"):
+       if elem5.parentNode.nodeName=="page":
+-        position = map( float, elem5.getAttribute("p").split())
++        position = list(map( float, elem5.getAttribute("p").split()))
+         assert len( position) == 2
+         celyText=""
+         for elem51 in elem5.childNodes:
+@@ -173,7 +173,7 @@
+                 text100=elem52.data
+                 if elem51.hasAttribute("face"):
+                   Face01=int(elem51.getAttribute("face"))
+-                  for face, parent in textik.items():
++                  for face, parent in list(textik.items()):
+                     for i in range(9):
+                       if not Face01&2**i==0:
+                         if face==Face01&2**i:
+@@ -205,7 +205,7 @@
+     # read graphics - plus
+     for elem6 in doc.getElementsByTagName("graphic"):
+       if elem6.getAttribute("GraphicType")=="Symbol" and elem6.getAttribute("SymbolType")=="Plus":
+-        position = map( float, elem6.getAttribute("BoundingBox").split())
++        position = list(map( float, elem6.getAttribute("BoundingBox").split()))
+         position2=[position[0],position[1]]
+         assert len(position2) == 2
+         if elem6.hasAttribute("color"):
+@@ -225,8 +225,8 @@
+       sipka.insert(1,elem7.getAttribute('Tail3D') )
+       if elem7.hasAttribute("color"):
+         sipka.insert(0,colors[(int(elem7.getAttribute("color"))-2)])
+-      point1 = map( float, sipka[1].split())
+-      point2 = map( float, sipka[2].split())
++      point1 = list(map( float, sipka[1].split()))
++      point2 = list(map( float, sipka[2].split()))
+       arr = arrow( self.paper, points=[point2[0:2],point1[0:2]], fill=sipka[0])
+       arr.line_color=sipka[0]
+       molecules.append( arr)
+@@ -336,7 +336,7 @@
+         elem2.appendChild(elem5)
+         elem5.setAttribute("B",re.sub("atom","",bond.atom1.id) )
+         elem5.setAttribute("E",re.sub("atom","",bond.atom2.id) )
+-        for bondB, bondC in bondType.items():
++        for bondB, bondC in list(bondType.items()):
+           if bond.type==bondB:
+             elem5.setAttribute("Display",bondC)
+           elif bond.type=="h" and bond.equithick==1:
+@@ -401,7 +401,7 @@
+         Faces=[]
+ 
+         for xxx in text2[1]:
+-          for P, F in textik.items():
++          for P, F in list(textik.items()):
+             if P==xxx:
+               Faces.append(F)
+ 
+@@ -448,7 +448,7 @@
+       elem10=out.createElement("graphic")
+       elem1.appendChild(elem10)
+       elem10.setAttribute("GraphicType","Line")
+-      for arrowB, arrowC in arrowType.items():
++      for arrowB, arrowC in list(arrowType.items()):
+           if arrow.type==arrowB:
+             elem10.setAttribute("ArrowType",arrowC[0])
+       NewColor=self.paper.any_color_to_rgb_string(arrow.line_color)
+@@ -461,7 +461,7 @@
+ 
+       elem11=out.createElement("arrow")
+       elem1.appendChild(elem11)
+-      for arrowB, arrowC in arrowType.items():
++      for arrowB, arrowC in list(arrowType.items()):
+           if arrow.type==arrowB:
+             elem11.setAttribute("ArrowheadHead",arrowC[1])
+             elem11.setAttribute("ArrowheadTail",arrowC[2])
+--- ./bkchem/plugins/tk2cairo.py	(original)
++++ ./bkchem/plugins/tk2cairo.py	(refactored)
+@@ -17,7 +17,7 @@
+ 
+ #--------------------------------------------------------------------------
+ 
+-from __future__ import print_function
++
+ 
+ import math
+ import string
+@@ -27,7 +27,7 @@
+ try:
+     import tkinter.font as tkFont
+ except ImportError:
+-    import tkFont
++    import tkinter.font
+ 
+ from oasa import transform
+ from oasa import geometry
+@@ -73,7 +73,7 @@
+       return False
+     else:
+       colors = self.paper.winfo_rgb( color)
+-      self.context.set_source_rgb( *map( lambda x: x/65535.0, colors))
++      self.context.set_source_rgb( *[x/65535.0 for x in colors])
+       return True
+ 
+ 
+@@ -156,7 +156,7 @@
+     text = self.paper.itemcget(item, 'text')
+     x1, y1, x2, y2 = self.paper.bbox( item)
+     x1, y1, x2, y2 = self.transformer.transform_4( (x1+1, y1, x2-2, y2))
+-    afont = tkFont.Font( font=self.paper.itemcget( item, 'font'))
++    afont = tkinter.font.Font( font=self.paper.itemcget( item, 'font'))
+     conf = afont.config()
+     font_family = conf['family']
+     slant =  'italic' in conf['slant'] and cairo.FONT_SLANT_ITALIC or cairo.FONT_SLANT_NORMAL
+@@ -263,7 +263,7 @@
+   def _create_arrow( self, shape, start, to, color):
+     """creates an arrow with 'shape' pointing from 'start' to 'to' filled with 'color'
+     and returns x, y - where the to should be to not to overlay the arrow"""
+-    a, b, c = map( float, shape.split())
++    a, b, c = list(map( float, shape.split()))
+     points = [a,0, a-b,c, 0,0, a-b,-c]
+     ang = geometry.clockwise_angle_from_east( to[0]-start[0], to[1]-start[1])
+     tr = transform.transform()
+--- ./bkchem/plugins/molfile.py	(original)
++++ ./bkchem/plugins/molfile.py	(refactored)
+@@ -25,7 +25,7 @@
+ try:
+   import tkinter.messagebox as tkMessageBox
+ except ImportError:
+-  import tkMessageBox
++  import tkinter.messagebox
+ 
+ from oasa import transform
+ 
+@@ -76,11 +76,11 @@
+     conts, u = self.paper.selected_to_unique_top_levels()
+     mols = [o for o in conts if o.object_type == 'molecule']
+     if not mols:
+-      tkMessageBox.showerror( _("No molecule selected."),
++      tkinter.messagebox.showerror( _("No molecule selected."),
+                               _('You have to select exactly one molecule (any atom or bond will do).'))
+       return 0
+     elif len( mols) > 1:
+-      tkMessageBox.showerror(
++      tkinter.messagebox.showerror(
+         ngettext("%d molecules selected.",
+                  "%d molecules selected.",
+                  len(mols)) % len(mols),
+@@ -98,7 +98,7 @@
+       else:
+         f = name
+     else:
+-      if isinstance(name, basestring):
++      if isinstance(name, str):
+         f = open(name, 'w')
+       else:
+         f = name
+--- ./bkchem/plugins/ps_cairo.py	(original)
++++ ./bkchem/plugins/ps_cairo.py	(refactored)
+@@ -44,7 +44,7 @@
+ 
+ 
+   def init_surface( self):
+-    w, h = map( int, map( round, self.pagesize))
++    w, h = list(map( int, list(map( round, self.pagesize))))
+     surf = cairo.PSSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
+     surf.set_eps( True)
+     return surf
+--- ./bkchem/plugins/__init__.py	(original)
++++ ./bkchem/plugins/__init__.py	(refactored)
+@@ -17,7 +17,7 @@
+ 
+ #--------------------------------------------------------------------------
+ 
+-from __future__ import print_function
++
+ 
+ __all__ = []
+ 
+--- ./bkchem/plugins/piddle/polyfunc.py	(original)
++++ ./bkchem/plugins/piddle/polyfunc.py	(refactored)
+@@ -12,7 +12,7 @@
+ # Testing:
+ #   works w/ piddlePS and piddlePIL
+ 
+-from __future__ import print_function
++
+ 
+ 
+ def quadratic(x,A,B,C):
+@@ -169,7 +169,7 @@
+ 
+         # would like to reshape the sequence, do w/ a loop for now
+         res = []
+-        for ii in xrange(0,N, 2):
++        for ii in range(0,N, 2):
+             pt = self.transformPt( (seq[ii], seq[ii+1]) )
+             res.extend(pt)
+ 
+@@ -215,7 +215,7 @@
+ def drawCircleAt(canvas, x,y,r, **kw):
+     # useful for marking a particular location w/ a glyph
+     df = canvas.__class__
+-    apply(df.drawEllipse, (canvas, x-r, y-r, x+r,y+r), kw)
++    df.drawEllipse(*(canvas, x-r, y-r, x+r,y+r), **kw)
+ 
+ 
+ def drawCubicPolynomial(canvas, frame, xinterval, A=0.0, B=0.0, C=0.0, D=0.0,
+@@ -289,7 +289,7 @@
+         frame.drawFrameBox(canvas)
+         # draw a family of quadratics w/in the box w/ x-intercept x=0
+         NA = 10.0
+-        for AA in xrange(1,NA,2):
++        for AA in range(1,NA,2):
+             drawQuad(canvas, frame, xinterval=(-10,10), A= AA/NA, B=0.0)
+ 
+         # now some other assorted quadratics
+--- ./bkchem/plugins/piddle/stringformat.py	(original)
++++ ./bkchem/plugins/piddle/stringformat.py	(refactored)
+@@ -36,7 +36,7 @@
+ #   To add or change greek letter to symbol font mappings only
+ #   the greekchars map needs to change.
+ 
+-from __future__ import print_function
++
+ 
+ import xmllib
+ import math
+@@ -249,7 +249,7 @@
+         }
+ 
+         # automatically add handlers for all of the greek characters
+-        for item in greekchars.keys():
++        for item in list(greekchars.keys()):
+             self.elements[item] = (lambda attr,self=self,letter=greekchars[item]: \
+                 self.start_greek(attr,letter), self.end_greek)
+ 
+@@ -257,7 +257,7 @@
+         self.greek = 0
+         # set up dictionary for greek characters, this is a class variable
+         # should I copy it and then update it?
+-        for item in greekchars.keys():
++        for item in list(greekchars.keys()):
+             self.entitydefs[item] = '<%s/>' % item
+ 
+     #----------------------------------------------------------------
+--- ./bkchem/plugins/piddle/piddle.py	(original)
++++ ./bkchem/plugins/piddle/piddle.py	(refactored)
+@@ -183,7 +183,7 @@
+     if sys.version_info[0] > 2:
+         return isinstance(obj, str)
+     else:
+-        return isinstance(obj, basestring)
++        return isinstance(obj, str)
+ 
+ def HexColor(val):
+     """This class converts a hex string, or an actual integer number,
+@@ -722,9 +722,9 @@
+             if op == figureLine:
+                 pointList.extend( [args[:2], args[2:]] )
+             elif op == figureArc:
+-                pointList.extend(apply(self.arcPoints,args))
++                pointList.extend(self.arcPoints(*args))
+             elif op == figureCurve:
+-                pointList.extend(apply(self.curvePoints,args))
++                pointList.extend(self.curvePoints(*args))
+             else:
+                 raise TypeError("unknown figure operator: " + op)
+ 
+--- ./bkchem/plugins/piddle/piddleTK2/piddleTK.py	(original)
++++ ./bkchem/plugins/piddle/piddleTK2/piddleTK.py	(refactored)
+@@ -18,7 +18,7 @@
+     import tkinter as Tkinter
+     import tkinter.font as tkFont
+ except ImportError:
+-    import Tkinter, tkFont
++    import tkinter, tkinter.font
+ tk = Tkinter
+ import piddle
+ import string
+@@ -123,7 +123,7 @@
+             # check if the user specified a generic face type
+             # like serif or monospaced. check is case-insenstive.
+             f = string.lower(font.face)
+-            if self.__alt_faces.has_key(f):
++            if f in self.__alt_faces:
+                 family = self.__alt_faces[f]
+             else:
+                 family = font.face
+@@ -141,7 +141,7 @@
+         key = (family,size,weight,slant,underline)
+ 
+         # check if we've already seen this font.
+-        if self.font_cache.has_key(key):
++        if key in self.font_cache:
+             # yep, don't bother creating a new one. just fetch it.
+             font = self.font_cache[key]
+         else:
+@@ -149,7 +149,7 @@
+             # this way we will return info about the actual font
+             # selected by Tk, which may be different than what we ask
+             # for if it's not availible.
+-            font = tkFont.Font(self.master, family=family, size=size, weight=weight,
++            font = tkinter.font.Font(self.master, family=family, size=size, weight=weight,
+                                slant=slant,underline=underline)
+             self.font_cache[(family,size,weight,slant,underline)] = font
+ 
+@@ -207,7 +207,7 @@
+         tk.Canvas.update(self)
+ 
+     def clear(self):
+-        map(self.delete,self._item_ids)
++        list(map(self.delete,self._item_ids))
+         self._item_ids = []
+ 
+     def _colorToTkColor(self, c):
+@@ -262,7 +262,7 @@
+         font  = self._font_manager.getTkFontString(font or self.defaultFont)
+         new_item = self.create_text(x, y, text=s,
+                                     font=font, fill=color,
+-                                    anchor=Tkinter.W)
++                                    anchor=tkinter.W)
+         self._item_ids.append(new_item)
+ 
+     def _drawRotatedString(self, s, x,y, font=None, color=None, angle=0):
+@@ -393,7 +393,7 @@
+             if fillColor == self.__TRANSPARENT:
+                 # draw open-ended set of lines
+                 d = { 'fill':edgeColor, 'width': edgeWidth}
+-                new_item = apply(self.create_line, pointlist, d)
++                new_item = self.create_line(*pointlist, **d)
+             else:
+                 # open filled shape.
+                 # draw it twice:
+@@ -406,7 +406,7 @@
+                 self._item_ids.append(new_item)
+ 
+                 d = { 'fill':edgeColor, 'width': edgeWidth}
+-                new_item = apply(self.create_line, pointlist, d)
++                new_item = self.create_line(*pointlist, **d)
+ 
+         self._item_ids.append(new_item)
+ 
+@@ -436,7 +436,7 @@
+         # unless I keep a copy of this PhotoImage, it seems to be garbage collected
+         # and the image is removed from the display after this function. weird
+         itk = ImageTk.PhotoImage(myimage, master=self)
+-        new_item = self.create_image(x1, y1, image=itk, anchor=Tkinter.NW)
++        new_item = self.create_image(x1, y1, image=itk, anchor=tkinter.NW)
+         self._item_ids.append(new_item)
+         self._images.append(itk)
+ 
+--- ./bkchem/plugins/piddle/discipline.py	(original)
++++ ./bkchem/plugins/piddle/discipline.py	(refactored)
+@@ -1,4 +1,4 @@
+-from __future__ import print_function
++
+ 
+ from types import *
+ 
+@@ -7,8 +7,8 @@
+ def checkMethods(parentMethod, childMethod):
+     "Make sure the child's method obey's the parent's interface; return 1 if OK."
+     # get the parameter names
+-    pf = parentMethod.func_code
+-    cf = childMethod.func_code
++    pf = parentMethod.__code__
++    cf = childMethod.__code__
+     pargs = pf.co_varnames[:pf.co_argcount]
+     cargs = cf.co_varnames[:cf.co_argcount]
+ 
+@@ -24,7 +24,7 @@
+     # if child has any additional arguments, make sure
+     # they have default values
+     extras = len(cargs) - len(pargs)
+-    defs = childMethod.func_defaults
++    defs = childMethod.__defaults__
+     if extras and (defs is None or len(defs) < extras):
+         print("need %s defaults, got %s" % (extras, defs))
+         print(cargs)
+@@ -44,14 +44,14 @@
+         if type(item) != MethodType or name[0] == '_':
+             pass  # print("     %s is not a public method" % name)
+         elif name in parentDir:
+-            if not checkMethods(getattr(parent, name).im_func, item.im_func):
++            if not checkMethods(getattr(parent, name).__func__, item.__func__):
+                 print("NAUGHTY CHILD disobeys arguments to", name)
+             else:
+                 print("     %s looks OK" % name)
+         else:
+             print("     %s is unique to the child" % name)
+ 
+-foo = raw_input("backend to check (e.g., PDF):")
++foo = input("backend to check (e.g., PDF):")
+ if foo:
+     canvasname = foo+"Canvas"
+     module = __import__("piddle"+foo, globals(), locals(), [canvasname] )
+--- ./bkchem/plugins/piddle/piddleVCR.py	(original)
++++ ./bkchem/plugins/piddle/piddleVCR.py	(refactored)
+@@ -44,7 +44,7 @@
+ Joe Strout (joe@strout.net), 10/21/99.
+ """
+ 
+-from __future__ import print_function
++
+ 
+ VERSION = 0.1
+ 
+@@ -61,7 +61,7 @@
+ 
+ def _reprs(*args):
+     "Convert a whole set of items into a tuple of their representations."
+-    return tuple(map(lambda x:_repr(x),args))
++    return tuple([_repr(x) for x in args])
+ 
+ 
+ class VCRCanvas( Canvas ):
+@@ -87,7 +87,7 @@
+ 
+     def _recordfunc(self,func,*args):
+         prototype = func + "(" + ("%s," * len(args))[:-1] + ")"
+-        s = prototype % apply(_reprs, args)
++        s = prototype % _reprs(*args)
+         if self.playthru:
+             exec('self.playthru.' + s)
+         self._record(s)
+--- ./bkchem/plugins/piddle/piddleSVG.py	(original)
++++ ./bkchem/plugins/piddle/piddleSVG.py	(refactored)
+@@ -73,7 +73,7 @@
+ 
+   """
+   outStr = ''
+-  for i in xrange(len(points)):
++  for i in range(len(points)):
+     outStr = outStr + '%.2f,%.2f '%(points[i][0],points[i][1])
+   # add back on the first point.  This is not required in the spec,
+   #  but Adobe's beta-quality viewer seems to not like it being skipped
+@@ -160,7 +160,7 @@
+         familyStr = '\'%s\''%(face)
+       else:
+         familyStr = face
+-      for i in xrange(1,len(font.face)):
++      for i in range(1,len(font.face)):
+         face = font.face[i]
+         if len(string.split(face)) > 1:
+           familyStr = ', \'%s\''%(face)
+@@ -572,8 +572,8 @@
+   canvas = SVGCanvas(name="test")
+ 
+   canvas.defaultLineColor = Color(0.7,0.7,1.0) # light blue
+-  canvas.drawLines( map(lambda i:(i*10,0,i*10,300), range(30)) )
+-  canvas.drawLines( map(lambda i:(0,i*10,300,i*10), range(30)) )
++  canvas.drawLines( [(i*10,0,i*10,300) for i in range(30)] )
++  canvas.drawLines( [(0,i*10,300,i*10) for i in range(30)] )
+   canvas.defaultLineColor = black
+ 
+   canvas.drawLine(10,200, 20,190, color=red)
+--- ./bkchem/plugins/piddle/piddletest.py	(original)
++++ ./bkchem/plugins/piddle/piddletest.py	(refactored)
+@@ -3,7 +3,7 @@
+ This module puts the various PIDDLE backends through their paces.
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import string
+ import math
+@@ -42,8 +42,8 @@
+ def drawBasics(canvas):
+     saver = StateSaver(canvas) # leave canvas state as you found it, restores state when leaves scope
+     canvas.defaultLineColor = Color(0.7,0.7,1.0)    # light blue
+-    canvas.drawLines( map(lambda i:(i*10,0,i*10,300), range(30)) )
+-    canvas.drawLines( map(lambda i:(0,i*10,300,i*10), range(30)) )
++    canvas.drawLines( [(i*10,0,i*10,300) for i in range(30)] )
++    canvas.drawLines( [(0,i*10,300,i*10) for i in range(30)] )
+     canvas.defaultLineColor = black
+ 
+     canvas.drawLine(10,200, 20,190, color=red)
+@@ -237,32 +237,32 @@
+         try:
+             import tkinter as Tkinter
+         except ImportError:
+-            import Tkinter
++            import tkinter
+     except:
+         print("A module needed for piddleTK is not available, select another backend")
+         return
+ 
+-    root = Tkinter.Tk()
+-    frame = Tkinter.Frame(root)  # label='piddletestTK'
++    root = tkinter.Tk()
++    frame = tkinter.Frame(root)  # label='piddletestTK'
+ 
+     #tkcanvas = piddleTK.TKCanvas(size=(400,400), name='piddletestTK', master = frame)
+     # try new Tk canvas
+     tkcanvas = piddleTK.TKCanvas(size=(400,400), name='piddletestTK', master = frame)
+-    bframe = Tkinter.Frame(root)
+-
+-    minimalB=Tkinter.Button(bframe, text='minimal test',
+-                command= lambda c=tkcanvas : (c.clear(),drawMinimal(c), c.flush())).pack(side=Tkinter.LEFT)
+-    basicB = Tkinter.Button(bframe, text='basic test',
+-                command= lambda c=tkcanvas: (c.clear(),drawBasics(c),c.flush()) ).pack(side=Tkinter.LEFT)
+-    spectB =Tkinter.Button(bframe, text='spectrum test',
+-                   command= lambda c=tkcanvas: (c.clear(),drawSpectrum(c),c.flush()) ).pack(side=Tkinter.LEFT)
+-    stringsB = Tkinter.Button(bframe, text='strings test',
+-                  command= lambda c=tkcanvas:(c.clear(),drawStrings(c),c.flush()) ).pack(side=Tkinter.LEFT)
+-    rotstrB = Tkinter.Button(bframe, text='rotated strings test',
+-                 command= lambda c=tkcanvas:(c.clear(), drawRotstring(c),c.flush()) ).pack(side=Tkinter.LEFT)
+-    advancedB = Tkinter.Button(bframe, text='advanced test',
+-                   command= lambda c=tkcanvas:(c.clear(), drawAdvanced(c),c.flush() ) ).pack(side=Tkinter.LEFT)
+-    bframe.pack(side=Tkinter.TOP)
++    bframe = tkinter.Frame(root)
++
++    minimalB=tkinter.Button(bframe, text='minimal test',
++                command= lambda c=tkcanvas : (c.clear(),drawMinimal(c), c.flush())).pack(side=tkinter.LEFT)
++    basicB = tkinter.Button(bframe, text='basic test',
++                command= lambda c=tkcanvas: (c.clear(),drawBasics(c),c.flush()) ).pack(side=tkinter.LEFT)
++    spectB =tkinter.Button(bframe, text='spectrum test',
++                   command= lambda c=tkcanvas: (c.clear(),drawSpectrum(c),c.flush()) ).pack(side=tkinter.LEFT)
++    stringsB = tkinter.Button(bframe, text='strings test',
++                  command= lambda c=tkcanvas:(c.clear(),drawStrings(c),c.flush()) ).pack(side=tkinter.LEFT)
++    rotstrB = tkinter.Button(bframe, text='rotated strings test',
++                 command= lambda c=tkcanvas:(c.clear(), drawRotstring(c),c.flush()) ).pack(side=tkinter.LEFT)
++    advancedB = tkinter.Button(bframe, text='advanced test',
++                   command= lambda c=tkcanvas:(c.clear(), drawAdvanced(c),c.flush() ) ).pack(side=tkinter.LEFT)
++    bframe.pack(side=tkinter.TOP)
+     frame.pack()
+     # try to draw before running mainloop
+     if testfunc== minimal:
+@@ -296,7 +296,7 @@
+         return
+ 
+         global wx_app
+-        if not globals().has_key("wx_app"):
++        if "wx_app" not in globals():
+             class CanvasApp(wxApp):
+                 "The wxApp that runs canvas.  Initializes windows, and handles redrawing"
+                 def OnInit(self):
+@@ -367,7 +367,7 @@
+             i = i+1
+         print()
+ 
+-        inp = raw_input("Selection (0 to exit): ")
++        inp = input("Selection (0 to exit): ")
+         print()
+ 
+         if inp == '0': return
+@@ -375,7 +375,7 @@
+             testinp = ''
+             if inp[-1] in string.letters: testinp = inp[-1]
+             elif inp[0] in string.letters: testinp = inp[0]
+-            backinp = string.join(filter(lambda x:x in '0123456789',inp))
++            backinp = string.join([x for x in inp if x in '0123456789'])
+             if backinp:
+                 backend = int(backinp)-1
+                 if backend < len(backends):
+--- ./bkchem/plugins/piddle/piddlePIL.py	(original)
++++ ./bkchem/plugins/piddle/piddlePIL.py	(refactored)
+@@ -43,11 +43,11 @@
+ 
+ # load font metrics
+ try:
+-    import cPickle
++    import pickle
+     with open(os.path.join(_fontprefix,'metrics.dat'), 'rb') as f:
+-        _widthmaps = cPickle.load(f)
+-        _ascents   = cPickle.load(f)
+-        _descents  = cPickle.load(f)
++        _widthmaps = pickle.load(f)
++        _ascents   = pickle.load(f)
++        _descents  = pickle.load(f)
+ except:
+     Log.write("Warning: unable to load font metrics!\n")
+     _widthmaps = {}
+@@ -87,12 +87,12 @@
+     if type(face) == StringType:
+         path = _pilFontPath(face,size,font.bold)
+         path = string.split(path,os.sep)[-1]
+-        if path in _widthmaps.keys(): return path
++        if path in list(_widthmaps.keys()): return path
+     else:
+         for item in font.face:
+             path = _pilFontPath(item,size,font.bold)
+             path = string.split(path,os.sep)[-1]
+-            if path in _widthmaps.keys(): return path
++            if path in list(_widthmaps.keys()): return path
+     # not found?  Try it with courier, which should always be there
+     path = _pilFontPath('courier',size,font.bold)
+     return string.split(path,os.sep)[-1]
+@@ -127,7 +127,7 @@
+         self._pen = ImageDraw.ImageDraw(self._image)
+         self._pen.setink(0)
+         self._setFont( Font() )
+-        self._pilversion = map(string.atoi, string.split(Image.VERSION, "."))
++        self._pilversion = list(map(string.atoi, string.split(Image.VERSION, ".")))
+         Canvas.__init__(self, size, name)
+ 
+     def __setattr__(self, attribute, value):
+@@ -392,8 +392,8 @@
+     canvas = PILCanvas()
+ 
+     canvas.defaultLineColor = Color(0.7,0.7,1.0)    # light blue
+-    canvas.drawLines( map(lambda i:(i*10,0,i*10,300), range(30)) )
+-    canvas.drawLines( map(lambda i:(0,i*10,300,i*10), range(30)) )
++    canvas.drawLines( [(i*10,0,i*10,300) for i in range(30)] )
++    canvas.drawLines( [(0,i*10,300,i*10) for i in range(30)] )
+     canvas.defaultLineColor = black
+ 
+     canvas.drawLine(10,200, 20,190, color=red)
+--- ./bkchem/plugins/piddle/pdfmetrics.py	(original)
++++ ./bkchem/plugins/piddle/pdfmetrics.py	(refactored)
+@@ -24,7 +24,7 @@
+ 13th June 1999
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import string
+ 
+@@ -129,7 +129,7 @@
+ 
+     def status(self):
+         #returns loaded fonts
+-        return self.__widtharrays.keys()
++        return list(self.__widtharrays.keys())
+ 
+ 
+ 
+--- ./bkchem/plugins/piddle/piddleAI.py	(original)
++++ ./bkchem/plugins/piddle/piddleAI.py	(refactored)
+@@ -16,14 +16,14 @@
+ 
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import string
+ import zlib
+ try:
+     from io import StringIO as cStringIO
+ except ImportError:
+-    import cStringIO
++    import io
+ 
+ from math import sin, cos, pi, ceil
+ 
+@@ -478,10 +478,10 @@
+             edgeWidth=None, fillColor=None, closed=0):
+         start = pointlist[0]
+         pointlist = pointlist[1:]
+-        x1 = min(map(lambda x, y: x, pointlist))
+-        x2 = max(map(lambda x, y: x, pointlist))
+-        y1 = min(map(lambda x, y: y, pointlist))
+-        y2 = max(map(lambda x, y: y, pointlist))
++        x1 = min(list(map(lambda x, y: x, pointlist)))
++        x2 = max(list(map(lambda x, y: x, pointlist)))
++        y1 = min(list(map(lambda x, y: y, pointlist)))
++        y2 = max(list(map(lambda x, y: y, pointlist)))
+         self._updateFillColor(fillColor)
+         self._updateLineWidth(edgeWidth)
+         self._updateLineColor(edgeColor)
+--- ./bkchem/plugins/piddle/piddleGL.py	(original)
++++ ./bkchem/plugins/piddle/piddleGL.py	(refactored)
+@@ -26,7 +26,7 @@
+ #
+ #####
+ 
+-from __future__ import print_function
++
+ 
+ __version__ = 0.1 # public release -- Sep 28, 1999
+ 
+@@ -153,7 +153,7 @@
+                 glCallList(list)
+             else:
+                 func, args, kw = list
+-                apply(func, args, kw)
++                func(*args, **kw)
+         glFlush()
+ 
+     def drawLine(self, x1,y1, x2,y2, color=None, width=None):
+@@ -361,7 +361,7 @@
+             if face is None: face = 'arial'
+             face = string.lower(face)
+             self.face = face
+-            if self.maps.has_key(face):
++            if face in self.maps:
+                 face = self.maps[face]
+             if bold:
+                 if italic:
+@@ -437,7 +437,7 @@
+     try:
+         import tkinter as Tkinter
+     except ImportError:
+-        import Tkinter
++        import tkinter
+     from OpenGL.Tk import RawOpengl
+     class TkInteractive:
+         def __init__(self):
+@@ -470,7 +470,7 @@
+                    'height':height})
+             self._width = width
+             self._height = height
+-            apply(RawOpengl.__init__, (self,), kw)
++            RawOpengl.__init__(*(self,), **kw)
+             _GLCanvas.__init__(self, size=size, name=name)
+             TkInteractive.__init__(self)
+             self.bind('<Configure>', self.resize)
+@@ -481,7 +481,7 @@
+             self.configure(width=w, height=h)
+             self._width = w
+             self._height= h
+-            Tkinter.Frame.configure(self)
++            tkinter.Frame.configure(self)
+ 
+         def redraw(self):
+             if self._inList: self._saveList()
+@@ -523,7 +523,7 @@
+             self.size=font.size
+             if face is None: face = 'glutStrokeRomanFixed'
+             face = string.lower(face)
+-            if self.maps.has_key(face):
++            if face in self.maps:
+                 face = self.maps[face]
+             self.glutface = face
+         def stringWidth(self, s):
+--- ./bkchem/plugins/piddle/pdfdoc.py	(original)
++++ ./bkchem/plugins/piddle/pdfdoc.py	(refactored)
+@@ -14,7 +14,7 @@
+ (C) Copyright Andy Robinson 1998-1999
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import os
+ import sys
+@@ -24,7 +24,7 @@
+ try:
+     from io import StringIO as cStringIO
+ except ImportError:
+-    import cStringIO
++    import io
+ from types import *
+ from math import sin, cos, pi, ceil
+ 
+@@ -238,7 +238,7 @@
+         #self.objects.append(page.stream)
+ 
+     def hasFont(self, psfontname):
+-        return self.fontMapping.has_key(psfontname)
++        return psfontname in self.fontMapping
+ 
+     def getInternalFontName(self, psfontname):
+         try:
+--- ./bkchem/plugins/piddle/aigen.py	(original)
++++ ./bkchem/plugins/piddle/aigen.py	(refactored)
+@@ -8,7 +8,7 @@
+ parts (C) Copyright Andy Robinson 1998-1999
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import os
+ import sys
+@@ -374,7 +374,7 @@
+         return w
+     def status(self):
+         #returns loaded fonts
+-        return self.__widtharrays.keys()
++        return list(self.__widtharrays.keys())
+ 
+ TheFontCache = FontCache()
+ 
+--- ./bkchem/plugins/piddle/piddlePS.py	(original)
++++ ./bkchem/plugins/piddle/piddlePS.py	(refactored)
+@@ -36,12 +36,12 @@
+ #  DSC: plan uses flags for keeping track of BeginX/EndX pairs.
+ #            convention: use flag _inXFlag
+ 
+-from __future__ import print_function
++
+ 
+ try:
+     from io import StringIO as cStringIO
+ except ImportError:
+-    import cStringIO
++    import io
+ import string
+ import math
+ 
+@@ -316,7 +316,7 @@
+         # once again, fall back to default, redundant, no?
+         face = string.lower(PiddleLegalFonts["serif"])
+         for reqFace in requested:
+-            if PiddleLegalFonts.has_key(string.lower(reqFace)):
++            if string.lower(reqFace) in PiddleLegalFonts:
+                 face = string.lower(PiddleLegalFonts[string.lower(reqFace)])
+                 break
+ 
+@@ -877,7 +877,7 @@
+        hex_encoded = self._AsciiHexEncode(rawimage)
+ 
+        # write in blocks of 78 chars per line
+-       outstream = cStringIO.StringIO(hex_encoded)
++       outstream = io.StringIO(hex_encoded)
+ 
+        dataline = outstream.read(78)
+        while dataline != "":
+@@ -891,7 +891,7 @@
+ 
+     def _AsciiHexEncode(self, input):  # also based on piddlePDF
+         "Helper function used by images"
+-        output = cStringIO.StringIO()
++        output = io.StringIO()
+         for char in input:
+             output.write('%02x' % ord(char))
+         output.reset()
+@@ -968,7 +968,7 @@
+         hex_encoded = self._AsciiHexEncode(rawimage)
+ 
+         # write in blocks of 78 chars per line
+-        outstream = cStringIO.StringIO(hex_encoded)
++        outstream = io.StringIO(hex_encoded)
+ 
+         dataline = outstream.read(78)
+         while dataline != "":
+--- ./bkchem/plugins/piddle/piddleGTK/core.py	(original)
++++ ./bkchem/plugins/piddle/piddleGTK/core.py	(refactored)
+@@ -4,7 +4,7 @@
+ 
+ """
+ 
+-from __future__ import print_function
++
+ 
+ __author__ = "Fred L. Drake, Jr.  <fdrake@acm.org>"
+ __version__ = '$Revision: 1.1 $'
+@@ -101,7 +101,7 @@
+         # and make sure the canvas is big enough:
+         iwidth = iheight = 0
+         for i in range(len(lineList)):
+-            x1, y1, x2, y2 = map(int, map(round, lineList[i]))
++            x1, y1, x2, y2 = list(map(int, list(map(round, lineList[i]))))
+             iwidth = max(iwidth, x1, x2)
+             iheight = max(iheight, y1, y2)
+         #
+--- ./bkchem/plugins/piddle/piddleGTK/tests.py	(original)
++++ ./bkchem/plugins/piddle/piddleGTK/tests.py	(refactored)
+@@ -36,8 +36,8 @@
+     top.add(bbox)
+     top.connect("destroy", gtk.mainquit)
+     top.connect("delete_event", gtk.mainquit)
+-    tests = map((lambda test: (string.capitalize(test.__name__), test)),
+-                piddletest.tests)
++    tests = list(map((lambda test: (string.capitalize(test.__name__), test)),
++                piddletest.tests))
+     tests.extend(testitems)
+     for name, test in tests:
+         b = gtk.GtkButton(name)
+--- ./bkchem/plugins/piddle/piddlePSmetrics.py	(original)
++++ ./bkchem/plugins/piddle/piddlePSmetrics.py	(refactored)
+@@ -24,7 +24,7 @@
+ 13th June 1999
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import string
+ 
+@@ -157,7 +157,7 @@
+ 
+     def status(self):
+         #returns loaded fonts
+-        return self.__widtharrays.keys()
++        return list(self.__widtharrays.keys())
+ 
+ TheFontCache = FontCache()
+ 
+--- ./bkchem/plugins/piddle/PixMapWrapper.py	(original)
++++ ./bkchem/plugins/piddle/PixMapWrapper.py	(refactored)
+@@ -5,7 +5,7 @@
+ 
+ J. Strout <joe@strout.net>  February 1999"""
+ 
+-from __future__ import print_function
++
+ 
+ import Qd
+ import QuickDraw
+@@ -111,7 +111,7 @@
+         elif attr == 'hRes' or attr == 'vRes':
+             # 16.16 fixed format, so just shift 16 bits
+             self._stuff(attr, int(val) << 16)
+-        elif attr in _pmElemFormat.keys():
++        elif attr in list(_pmElemFormat.keys()):
+             # any other pm attribute -- just stuff
+             self._stuff(attr, val)
+         else:
+@@ -131,7 +131,7 @@
+         elif attr == 'hRes' or attr == 'vRes':
+             # 16.16 fixed format, so just shift 16 bits
+             return self._unstuff(attr) >> 16
+-        elif attr in _pmElemFormat.keys():
++        elif attr in list(_pmElemFormat.keys()):
+             # any other pm attribute -- just unstuff
+             return self._unstuff(attr)
+         else:
+--- ./bkchem/plugins/piddle/piddleTK.py	(original)
++++ ./bkchem/plugins/piddle/piddleTK.py	(refactored)
+@@ -20,7 +20,7 @@
+     import tkinter as Tkinter
+     import tkinter.font as tkFont
+ except ImportError:
+-    import Tkinter, tkFont
++    import tkinter, tkinter.font
+ 
+ from . import piddle
+ 
+@@ -105,7 +105,7 @@
+             # check if the user specified a generic face type
+             # like serif or monospaced. check is case-insenstive.
+             f = string.lower(font.face)
+-            if self.__alt_faces.has_key(f):
++            if f in self.__alt_faces:
+                 family = self.__alt_faces[f]
+             else:
+                 family = font.face
+@@ -134,7 +134,7 @@
+         key = (family,size,weight,slant,underline)
+ 
+         # check if we've already seen this font.
+-        if self.font_cache.has_key(key):
++        if key in self.font_cache:
+             # yep, don't bother creating a new one. just fetch it.
+             font = self.font_cache[key]
+         else:
+@@ -142,7 +142,7 @@
+             # this way we will return info about the actual font
+             # selected by Tk, which may be different than what we ask
+             # for if it's not availible.
+-            font = tkFont.Font(family=family, size=size, weight=weight,
++            font = tkinter.font.Font(family=family, size=size, weight=weight,
+                                slant=slant,underline=underline)
+             self.font_cache[(family,size,weight,slant,underline)] = font
+ 
+@@ -172,27 +172,27 @@
+ 
+     def _create_widgets(self, master):
+ 
+-        draw_area = Tkinter.Canvas(master = master,
++        draw_area = tkinter.Canvas(master = master,
+                                    height=self.draw_height,
+                                    width=self.draw_width,
+-                                   relief=Tkinter.SUNKEN,
++                                   relief=tkinter.SUNKEN,
+                                    background="white",
+                                    borderwidth=2)
+         #draw_area.tk.call('package','require','Tkimaging')
+         self.draw_area = draw_area
+         self.draw_area.pack()
+ 
+-        self.quit_btn = Tkinter.Button(master,
++        self.quit_btn = tkinter.Button(master,
+                                        text='QUIT',
+                                        foreground='red',
+                                        command = self._quit)
+-        self.quit_btn.pack(side=Tkinter.LEFT)
+-
+-        self.clear_btn = Tkinter.Button(master,
++        self.quit_btn.pack(side=tkinter.LEFT)
++
++        self.clear_btn = tkinter.Button(master,
+                                         text='CLEAR',
+                                         foreground='red',
+                                         command = self.clear)
+-        self.clear_btn.pack(side=Tkinter.LEFT)
++        self.clear_btn.pack(side=tkinter.LEFT)
+ 
+     # special access method for underlying Tkinter.Canvas
+     def getTkinterCanvas(self):
+@@ -214,7 +214,7 @@
+         self.draw_area.update()
+ 
+     def clear(self):
+-        map(self.draw_area.delete,self._item_ids)
++        list(map(self.draw_area.delete,self._item_ids))
+         self._item_ids = []
+         self._images   = []
+ 
+@@ -264,7 +264,7 @@
+         font  = self._font_manager.getTkFontString(font or self.defaultFont)
+         new_item = self.draw_area.create_text(x, y, text=s,
+                                               font=font, fill=color,
+-                                              anchor=Tkinter.W
++                                              anchor=tkinter.W
+                                               )
+         self._item_ids.append(new_item)
+ 
+@@ -327,7 +327,7 @@
+             if fillColor == self.__TRANSPARENT:
+                 # draw open-ended set of lines
+                 d = { 'fill':edgeColor, 'width': edgeWidth}
+-                new_item = apply(self.draw_area.create_line, pointlist, d)
++                new_item = self.draw_area.create_line(*pointlist, **d)
+             else:
+                 # open filled shape.
+                 # draw it twice:
+@@ -340,7 +340,7 @@
+                 self._item_ids.append(new_item)
+ 
+                 d = { 'fill':edgeColor, 'width': edgeWidth}
+-                new_item = apply(self.draw_area.create_line, pointlist, d)
++                new_item = self.draw_area.create_line(*pointlist, **d)
+ 
+         self._item_ids.append(new_item)
+ 
+@@ -370,7 +370,7 @@
+         # unless I keep a copy of this PhotoImage, it seems to be garbage collected
+         # and the image is removed from the display after this function. weird
+         itk = ImageTk.PhotoImage(myimage)
+-        new_item = self.draw_area.create_image(x1, y1, image=itk, anchor=Tkinter.NW)
++        new_item = self.draw_area.create_image(x1, y1, image=itk, anchor=tkinter.NW)
+         self._item_ids.append(new_item)
+         self._images.append(itk)
+ 
+--- ./bkchem/plugins/piddle/piddlePDF.py	(original)
++++ ./bkchem/plugins/piddle/piddlePDF.py	(refactored)
+@@ -13,13 +13,13 @@
+ # except drawFigure, which doesn't behave like PostScript
+ # paths so I left it unchanged.
+ 
+-from __future__ import print_function
++
+ 
+ #standard python library modules
+ try:
+     from io import StringIO as cStringIO
+ except ImportError:
+-    import cStringIO
++    import io
+ import string
+ import glob
+ import os
+@@ -188,7 +188,7 @@
+ 
+         if hasattr(file, 'write'):
+             self.pdf.save(fileobj=file)
+-        elif isinstance(file, types.StringType) or isinstance(file, types.UnicodeType):
++        elif isinstance(file, bytes) or isinstance(file, str):
+             self.pdf.save(filename=file)
+         else:
+             self.pdf.save()
+--- ./bkchem/plugins/piddle/piddleWX.py	(original)
++++ ./bkchem/plugins/piddle/piddleWX.py	(refactored)
+@@ -81,7 +81,7 @@
+ #    easy to do).
+ 
+ 
+-from __future__ import print_function
++
+ 
+ from wxPython.wx import *
+ 
+--- ./bkchem/plugins/piddle/piddleQD.py	(original)
++++ ./bkchem/plugins/piddle/piddleQD.py	(refactored)
+@@ -38,7 +38,7 @@
+ #   The line color is stored in the QD fore color, and the fill color
+ #   is stored in the back color -- fills are actually done by erasing.
+ 
+-from __future__ import print_function
++
+ 
+ import Qd
+ import QuickDraw
+@@ -66,7 +66,7 @@
+ 
+ # global dictionary mapping font names to QD font IDs
+ _fontMap = {}
+-for item in filter(lambda x:x[0]!='_',dir(Fonts)):
++for item in [x for x in dir(Fonts) if x[0]!='_']:
+     _fontMap[string.lower(item)] = Fonts.__dict__[item]
+ _fontMap['system'] = Fonts.kFontIDGeneva
+ _fontMap['monospaced'] = Fonts.kFontIDMonaco
+@@ -586,8 +586,8 @@
+     canvas.onKey = myOnKey
+ 
+ 
+-    canvas.drawLines( map(lambda i:(i*10,0,i*10,300), range(30)) )
+-    canvas.drawLines( map(lambda i:(0,i*10,300,i*10), range(30)) )
++    canvas.drawLines( [(i*10,0,i*10,300) for i in range(30)] )
++    canvas.drawLines( [(0,i*10,300,i*10) for i in range(30)] )
+     canvas.defaultLineColor = black
+ 
+     canvas.drawLine(10,200, 20,190, color=red)
+--- ./bkchem/plugins/piddle/pdfgen.py	(original)
++++ ./bkchem/plugins/piddle/pdfgen.py	(refactored)
+@@ -46,7 +46,7 @@
+ 
+ """
+ 
+-from __future__ import print_function
++
+ 
+ ##  0.81    1999-10-13:
+ ##
+@@ -60,7 +60,7 @@
+ try:
+     from io import StringIO as cStringIO
+ except ImportError:
+-    import cStringIO
++    import io
+ from types import *
+ from math import sin, cos, tan, pi, ceil
+ 
+@@ -610,7 +610,7 @@
+                 #write in blocks of (??) 60 characters per line to a list
+                 compressed = imageFile.read()
+                 encoded = pdfutils._AsciiBase85Encode(compressed)
+-                outstream = cStringIO.StringIO(encoded)
++                outstream = io.StringIO(encoded)
+                 dataline = outstream.read(60)
+                 while dataline != "":
+                     imagedata.append(dataline)
+@@ -623,7 +623,7 @@
+                 cachedname = os.path.splitext(image)[0] + '.a85'
+                 imagedata = open(cachedname,'rb').readlines()
+                 #trim off newlines...
+-                imagedata = map(string.strip, imagedata)
++                imagedata = list(map(string.strip, imagedata))
+ 
+                 #parse line two for width, height
+                 words = string.split(imagedata[1])
+@@ -648,7 +648,7 @@
+             encoded = pdfutils._AsciiBase85Encode(compressed) #...sadly this isn't
+ 
+             #write in blocks of (??) 60 characters per line to a list
+-            outstream = cStringIO.StringIO(encoded)
++            outstream = io.StringIO(encoded)
+             dataline = outstream.read(60)
+             while dataline != "":
+                 imagedata.append(dataline)
+@@ -1035,7 +1035,7 @@
+         if type(stuff) == StringType:
+             lines = string.split(string.strip(stuff), '\n')
+             if trim==1:
+-                lines = map(string.strip,lines)
++                lines = list(map(string.strip,lines))
+         elif type(stuff) == ListType:
+             lines = stuff
+         elif type(stuff) == TupleType:
+--- ./bkchem/plugins/piddle/piddleWxDc.py	(original)
++++ ./bkchem/plugins/piddle/piddleWxDc.py	(refactored)
+@@ -17,7 +17,7 @@
+ see also piddleWxDcDemo.py
+ '''
+ 
+-from __future__ import print_function
++
+ 
+ from wxPython.wx import *
+ 
+@@ -239,7 +239,7 @@
+         #  instead of just 2-tuples.  Therefore, pointlist must be re-created as
+         #  only 2-tuples
+ 
+-        pointlist = map(lambda i: tuple(i), pointlist)
++        pointlist = [tuple(i) for i in pointlist]
+         if closed == 1:
+             pointlist.append(pointlist[0])
+ 
+--- ./bkchem/plugins/piddle/pdfutils.py	(original)
++++ ./bkchem/plugins/piddle/pdfutils.py	(refactored)
+@@ -1,7 +1,7 @@
+ # pdfutils.py - everything to do with images, streams,
+ # compression, and some constants
+ 
+-from __future__ import print_function
++
+ 
+ import os
+ import sys
+@@ -9,7 +9,7 @@
+ try:
+     from io import StringIO as cStringIO
+ except ImportError:
+-    import cStringIO
++    import io
+ 
+ LINEEND = '\015\012'
+ 
+@@ -38,7 +38,7 @@
+     encoded = _AsciiBase85Encode(compressed) #...sadly this isn't
+ 
+     #write in blocks of 60 characters per line
+-    outstream = cStringIO.StringIO(encoded)
++    outstream = io.StringIO(encoded)
+     dataline = outstream.read(60)
+     while dataline != "":
+         code.append(dataline)
+@@ -59,7 +59,7 @@
+     to save huge amounts of time when repeatedly building image
+     documents."""
+     import types
+-    if type(spec) is types.StringType:
++    if type(spec) is bytes:
+         filelist = glob.glob(spec)
+     else:  #list or tuple OK
+         filelist = spec
+@@ -116,7 +116,7 @@
+     """This is a verbose encoding used for binary data within
+     a PDF file.  One byte binary becomes two bytes of ASCII."""
+     "Helper function used by images"
+-    output = cStringIO.StringIO()
++    output = io.StringIO()
+     for char in input:
+         output.write('%02x' % ord(char))
+     output.write('>')
+@@ -131,7 +131,7 @@
+     stripped = stripped[:-1]  #chop off terminator
+     assert len(stripped) % 2 == 0, 'Ascii Hex stream has odd number of bytes'
+     i = 0
+-    output = cStringIO.StringIO()
++    output = io.StringIO()
+     while i < len(stripped):
+         twobytes = stripped[i:i+2]
+         output.write(chr(eval('0x'+twobytes)))
+@@ -158,7 +158,7 @@
+     """This is a compact encoding used for binary data within
+     a PDF file.  Four bytes of binary data become five bytes of
+     ASCII.  This is the default method used for encoding images."""
+-    outstream = cStringIO.StringIO()
++    outstream = io.StringIO()
+     # special rules apply if not a multiple of four bytes
+     whole_word_count, remainder_size = divmod(len(input), 4)
+     cut = 4 * whole_word_count
+@@ -171,7 +171,7 @@
+         b3 = ord(body[offset+2])
+         b4 = ord(body[offset+3])
+ 
+-        num = long(16777216) * b1 + 65536 * b2 + 256 * b3 + b4
++        num = int(16777216) * b1 + 65536 * b2 + 256 * b3 + b4
+ 
+         if num == 0:
+             #special case
+@@ -202,7 +202,7 @@
+         b3 = ord(lastbit[2])
+         b4 = ord(lastbit[3])
+ 
+-        num = long(16777216) * b1 + 65536 * b2 + 256 * b3 + b4
++        num = int(16777216) * b1 + 65536 * b2 + 256 * b3 + b4
+ 
+         #solve for c1..c5
+         temp, c5 = divmod(num, 85)
+@@ -225,7 +225,7 @@
+ def _AsciiBase85Decode(input):
+     """This is not used - Acrobat Reader decodes for you - but a round
+     trip is essential for testing."""
+-    outstream = cStringIO.StringIO()
++    outstream = io.StringIO()
+     #strip all whitespace
+     stripped = string.join(string.split(input),'')
+     #check end
+--- ./bkchem/plugins/piddle/piddleFIG.py	(original)
++++ ./bkchem/plugins/piddle/piddleFIG.py	(refactored)
+@@ -472,7 +472,7 @@
+             }
+         self.code.append(code)
+         line = []
+-        pointlist = map(lambda p, f=bp: (p[0]*bp, p[1]*bp), pointlist)
++        pointlist = list(map(lambda p, f=bp: (p[0]*bp, p[1]*bp), pointlist))
+         for coords in pointlist:
+             code = self.coord_fmt % coords
+             line.append(code)
+@@ -537,7 +537,7 @@
+         self.code.append(code)
+         code = []
+         pointlist = [(x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1)]
+-        pointlist = map(lambda p, f=bp: (p[0]*bp, p[1]*bp), pointlist)
++        pointlist = list(map(lambda p, f=bp: (p[0]*bp, p[1]*bp), pointlist))
+         for coords in pointlist:
+             code.append(self.coord_fmt % coords)
+         code = " ".join(code)
+--- ./bkchem/plugins/openoffice.py	(original)
++++ ./bkchem/plugins/openoffice.py	(refactored)
+@@ -138,11 +138,11 @@
+     # the export itself
+     if b.type in 'nhd':
+       for i in items:
+-        coords = map( Screen.px_to_cm, self.paper.coords( i))
++        coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         self.create_oo_line( coords, page, style_name)
+     elif b.type == 'o':
+       for i in items:
+-        x, y, x2, y2 = map( Screen.px_to_cm, self.paper.coords( i))
++        x, y, x2, y2 = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         size = Screen.px_to_cm( x2-x)
+         dom_extensions.elementUnder( page, 'draw:ellipse',
+                                      (( 'svg:x', '%fcm' %  x),
+@@ -156,7 +156,7 @@
+                           stroke_width=Screen.px_to_cm( b.wedge_width))
+       b_style_name = self.get_appropriate_style_name( s)
+       for i in items:
+-        coords = map( Screen.px_to_cm, self.paper.coords( i))
++        coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         self.create_oo_line( coords, page, b_style_name)
+     elif b.type == 'w':
+       s = graphics_style( stroke_color=self.paper.any_color_to_rgb_string( b.line_color),
+@@ -164,7 +164,7 @@
+                           stroke_width=Screen.px_to_cm( b.line_width))
+       style_name = self.get_appropriate_style_name( s)
+       for i in items:
+-        coords = map( Screen.px_to_cm, self.paper.coords( i))
++        coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         point_array = []
+         for i in range( 0, len( coords), 2):
+           point_array.append( (coords[i], coords[i+1]))
+@@ -181,14 +181,14 @@
+         self.create_oo_polyline( points, page, style_name)
+     # line_items
+     for i in line_items:
+-      coords = map( Screen.px_to_cm, self.paper.coords( i))
++      coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+       self.create_oo_line( coords, page, style_name)
+ 
+ 
+   def add_atom( self, a, page):
+     """adds atom to document"""
+     if a.show:
+-      coords = map( Screen.px_to_cm, self.paper.coords( a.selector))
++      coords = list(map( Screen.px_to_cm, self.paper.coords( a.selector)))
+       # we need to use negative padding of the text because oo puts too much space above
+       # and under text
+       dy = abs( coords[3]-coords[1])
+@@ -248,7 +248,7 @@
+     txt_style = text_style( font_size='%dpx' % round(a.font_size*1), font_family=a.font_family)
+     txt_style_name = self.get_appropriate_style_name( txt_style)
+ 
+-    coords = map( Screen.px_to_cm, self.paper.coords( a.selector))
++    coords = list(map( Screen.px_to_cm, self.paper.coords( a.selector)))
+     self.create_oo_text( '<ftext>%s</ftext>' % a.xml_ftext, coords, page, para_style_name, txt_style_name, gr_style_name)
+ 
+ 
+@@ -262,7 +262,7 @@
+     txt_style = text_style( font_size='%dpx' % round(a.font_size*1), font_family=a.font_family)
+     txt_style_name = self.get_appropriate_style_name( txt_style)
+ 
+-    coords = map( Screen.px_to_cm, self.paper.coords( a.selector))
++    coords = list(map( Screen.px_to_cm, self.paper.coords( a.selector)))
+     self.create_oo_text( '<ftext>+</ftext>', coords, page, para_style_name, txt_style_name, gr_style_name)
+ 
+ 
+@@ -278,7 +278,7 @@
+                             stroke_width=Screen.px_to_cm( l_width))
+         style_name = self.get_appropriate_style_name( s)
+         ps = geometry.coordinate_flat_list_to_xy_tuples( self.paper.coords( item))
+-        points = [map( Screen.px_to_cm, p) for p in ps]
++        points = [list(map( Screen.px_to_cm, p)) for p in ps]
+         self.create_oo_polygon( points, page, style_name)
+       # polylines - standard arrows
+       elif self.paper.type( item) == "line":
+@@ -296,7 +296,7 @@
+                             stroke_width=Screen.px_to_cm( l_width))
+         style_name = self.get_appropriate_style_name( s)
+         ps = geometry.coordinate_flat_list_to_xy_tuples( self.paper.coords( item))
+-        points = [map( Screen.px_to_cm, p) for p in ps]
++        points = [list(map( Screen.px_to_cm, p)) for p in ps]
+         if self.paper.itemcget( item, "smooth") == "0":
+           self.create_oo_polyline( points, page, style_name)
+         else:
+@@ -308,7 +308,7 @@
+                         fill_color=self.paper.any_color_to_rgb_string( o.area_color),
+                         stroke_width=Screen.px_to_cm( o.line_width))
+     style_name = self.get_appropriate_style_name( s)
+-    points = [map( Screen.px_to_cm, p.get_xy()) for p in o.points]
++    points = [list(map( Screen.px_to_cm, p.get_xy())) for p in o.points]
+     self.create_oo_polygon( points, page, style_name)
+ 
+ 
+@@ -317,7 +317,7 @@
+                         fill_color=self.paper.any_color_to_rgb_string( o.area_color),
+                         stroke_width=Screen.px_to_cm( o.line_width))
+     style_name = self.get_appropriate_style_name( s)
+-    x, y, x2, y2 = map( Screen.px_to_cm, o.coords)
++    x, y, x2, y2 = list(map( Screen.px_to_cm, o.coords))
+     dom_extensions.elementUnder( page, 'draw:rect',
+                                        (( 'svg:x', '%fcm' %  x),
+                                         ( 'svg:y', '%fcm' %  y),
+@@ -331,7 +331,7 @@
+                         fill_color=self.paper.any_color_to_rgb_string( o.area_color),
+                         stroke_width=Screen.px_to_cm( o.line_width))
+     style_name = self.get_appropriate_style_name( s)
+-    x, y, x2, y2 = map( Screen.px_to_cm, o.coords)
++    x, y, x2, y2 = list(map( Screen.px_to_cm, o.coords))
+     dom_extensions.elementUnder( page, 'draw:ellipse',
+                                        (( 'svg:x', '%fcm' %  x),
+                                         ( 'svg:y', '%fcm' %  y),
+@@ -346,7 +346,7 @@
+                         stroke_width=Screen.px_to_cm( 0.1))
+     style_name = self.get_appropriate_style_name( s)
+     for i in o.items:
+-      x, y, x2, y2 = map( Screen.px_to_cm, self.paper.coords( i))
++      x, y, x2, y2 = list(map( Screen.px_to_cm, self.paper.coords( i)))
+       size = Screen.px_to_cm( o.size)
+       dom_extensions.elementUnder( page, 'draw:ellipse',
+                                    (( 'svg:x', '%fcm' %  x),
+@@ -363,7 +363,7 @@
+                         fill_color=self.paper.any_color_to_rgb_string( o.atom.line_color),
+                         stroke_width=Screen.px_to_cm( width))
+     style_name = self.get_appropriate_style_name( s)
+-    coords = map( Screen.px_to_cm, self.paper.coords( i))
++    coords = list(map( Screen.px_to_cm, self.paper.coords( i)))
+     self.create_oo_line( coords, page, style_name)
+ 
+ 
+@@ -375,7 +375,7 @@
+     # we must process oval first - it would otherwise cover the lines
+     for i in o.items:
+       if self.paper.type( i) == "oval":
+-        x, y, x2, y2 = map( Screen.px_to_cm, self.paper.coords( i))
++        x, y, x2, y2 = list(map( Screen.px_to_cm, self.paper.coords( i)))
+         size = Screen.px_to_cm( o.size)
+         dom_extensions.elementUnder( page, 'draw:ellipse',
+                                      (( 'svg:x', '%fcm' %  x),
+@@ -396,7 +396,7 @@
+         #  coords[1] += 0
+         #  coords[3] += -1
+         # end of hack
+-        coords = map( Screen.px_to_cm, coords)
++        coords = list(map( Screen.px_to_cm, coords))
+         self.create_oo_line( coords, page, style_name)
+ 
+ 
+@@ -413,7 +413,7 @@
+         x = c
+         i = 1
+       else:
+-        points.append( map( Screen.px_to_cm, (x, c)))
++        points.append( list(map( Screen.px_to_cm, (x, c))))
+         i = 0
+ 
+     self.create_oo_polygon( points, page, style_name)
+@@ -429,7 +429,7 @@
+     txt_style = text_style( font_size='%dpx' % round(a.size*1), font_family=a.atom.font_family)
+     txt_style_name = self.get_appropriate_style_name( txt_style)
+ 
+-    coords = map( Screen.px_to_cm, self.paper.bbox( a.items[0]))
++    coords = list(map( Screen.px_to_cm, self.paper.bbox( a.items[0])))
+     self.create_oo_text( '<ftext>%s</ftext>' % a.text, coords, page, para_style_name, txt_style_name, gr_style_name)
+ 
+ 
+--- ./bkchem/plugins/CML.py	(original)
++++ ./bkchem/plugins/CML.py	(refactored)
+@@ -26,7 +26,7 @@
+ try:
+   import tkinter.messagebox as tkMessageBox
+ except ImportError:
+-  import tkMessageBox
++  import tkinter.messagebox
+ 
+ import validator
+ import dom_extensions as dom_ext
+@@ -201,7 +201,7 @@
+ 
+   def on_begin( self):
+     if self.check_chemistry():
+-      yes = tkMessageBox.askyesno( _("Normalize bond length?"),
++      yes = tkinter.messagebox.askyesno( _("Normalize bond length?"),
+                                    _("If you are exporting to some kind of computational software it might be important to rescale the molecule, so that the bond lengths are in range of normal chemical bonds. Do you want to do this? It will influence only the exported CML file, not the drawing."))
+       if yes:
+         self.scale = self.compute_scaling()
+@@ -215,17 +215,17 @@
+     val = validator.validator()
+     val.validate( self.paper.molecules)
+     if val.report.text_atoms:
+-      tkMessageBox.showerror( _("CML export error"),
++      tkinter.messagebox.showerror( _("CML export error"),
+                               _("Sorry but your drawing includes 'text atoms'\n - atoms with no chemical sense.") + "\n\n" +
+                               _("It is not possible to export it to valid CML.") + "\n\n" +
+                               _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
+       return 0
+     if val.report.exceeded_valency:
+-      tkMessageBox.showwarning( _("CML export warning"),
++      tkinter.messagebox.showwarning( _("CML export warning"),
+                                 _("Your drawing includes some atoms with exceeded valency.") + "\n\n" +
+                                 _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
+     if val.report.group_atoms:
+-      yes = tkMessageBox.askyesno( _("Expand groups?"),
++      yes = tkinter.messagebox.askyesno( _("Expand groups?"),
+                                 _("Your drawing includes some groups.") + "\n\n" +
+                                 _("These must be expanded in order to export to valid CML. The expansion could be undone with undo after the export") + "\n\n"+
+                                 _("Proceed with expansion?"))
+--- ./bkchem/plugins/svg_cairo.py	(original)
++++ ./bkchem/plugins/svg_cairo.py	(refactored)
+@@ -44,7 +44,7 @@
+ 
+ 
+   def init_surface( self):
+-    w, h = map( int, map( round, self.pagesize))
++    w, h = list(map( int, list(map( round, self.pagesize))))
+     return cairo.SVGSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
+ 
+ 
+--- ./bkchem/plugins/tk2piddle.py	(original)
++++ ./bkchem/plugins/tk2piddle.py	(refactored)
+@@ -17,12 +17,12 @@
+ 
+ #--------------------------------------------------------------------------
+ 
+-from __future__ import print_function
++
+ 
+ try:
+   import tkinter.font as tkFont
+ except ImportError:
+-  import tkFont
++  import tkinter.font
+ 
+ from oasa import transform
+ from oasa import geometry
+@@ -56,7 +56,7 @@
+     if not color:
+       return piddle.transparent
+     colors = self.paper.winfo_rgb( color)
+-    return piddle.Color( *map( lambda x: x/65535.0, colors))
++    return piddle.Color( *[x/65535.0 for x in colors])
+ 
+ 
+   def paper_to_canvas_coord( self, x):
+@@ -135,7 +135,7 @@
+     text = self.paper.itemcget( item, 'text')
+     #x, y = map( self.convert, self.paper.coords( item))
+     x1, y1, x2, y2 = self.transformer.transform_4( self.paper.bbox( item))
+-    afont = tkFont.Font( font=self.paper.itemcget( item, 'font'))
++    afont = tkinter.font.Font( font=self.paper.itemcget( item, 'font'))
+     conf = afont.config()
+     font_family = conf['family']
+     font_size = conf[ 'size']
+@@ -179,7 +179,7 @@
+   def _create_arrow( self, shape, start, to, color):
+     """creates an arrow with 'shape' pointing from 'start' to 'to' filled with 'color'
+     and returns x, y - where the to should be to not to overlay the arrow"""
+-    a, b, c = map( float, shape.split())
++    a, b, c = list(map( float, shape.split()))
+     points = [a,0, a-b,c, 0,0, a-b,-c]
+     ang = geometry.clockwise_angle_from_east( to[0]-start[0], to[1]-start[1])
+     tr = transform.transform()
+--- ./bkchem/plugins/gtml.py	(original)
++++ ./bkchem/plugins/gtml.py	(refactored)
+@@ -27,7 +27,7 @@
+ try:
+   from io import StringIO
+ except ImportError:
+-  import StringIO
++  import io
+ 
+ from xml import xpath
+ from oasa.transform import transform
+@@ -70,7 +70,7 @@
+     self.molecules = []
+ 
+     # prepare the file to resolve entities
+-    f = StringIO.StringIO()
++    f = io.StringIO()
+     f.write( "<!DOCTYPE item [")
+     with open('mathmlentities.ent') as entities:
+       f.write(entities.read())
+--- ./bkchem/plugins/povray.py	(original)
++++ ./bkchem/plugins/povray.py	(refactored)
+@@ -25,7 +25,7 @@
+ 
+ import plugin
+ import operator
+-import StringIO
++import io
+ 
+ class POV_exporter( plugin.exporter):
+   """export to POVRAY formate"""
+@@ -33,14 +33,14 @@
+     self.paper = paper
+ 
+   def on_begin( self):
+-    import tkMessageBox
+-    yes = tkMessageBox.askyesno( _("Really export?"),
++    import tkinter.messagebox
++    yes = tkinter.messagebox.askyesno( _("Really export?"),
+                                  _('This plugin is not finished and will probably not work correctly.') + ' ' +
+                                  _('Proceed?'))
+     return yes
+ 
+   def fill_header( self):
+-    self.doc = StringIO.StringIO()
++    self.doc = io.StringIO()
+     self.doc.write(  '''#include "colors.inc"\n#include "textures.inc"\n#include "shapes.inc"\n''')
+     self.doc.write( '''global_settings { ambient_light rgb<1, 1, 1> }\n''')
+     self.doc.write( '''#declare bond =  texture { 
+@@ -76,7 +76,7 @@
+   def fill_image( self):
+     for item in self.paper.find_all():
+       if self.paper.type( item) == "line":
+-        a = map( int, self.paper.coords( item))
++        a = list(map( int, self.paper.coords( item)))
+         t = float( self.paper.itemcget( item, 'width'))
+         if not (a[0]==a[2] and a[1]==a[3]): 
+           self.doc.write( '''cylinder {<%d, %d, 0>, <%d, %d, 0>, %1.1f\n texture { bond }}\n''' % ( a[0], 480-a[1], a[2], 480-a[3], t))
+--- ./bkchem/os_support.py	(original)
++++ ./bkchem/os_support.py	(refactored)
+@@ -165,7 +165,7 @@
+   dir = ""
+   if os.name == "nt":
+     try:
+-      import _winreg as reg
++      import winreg as reg
+       dir = reg.QueryValueEx( reg.OpenKey( reg.HKEY_CURRENT_USER, "Volatile Environment"), "APPDATA")[0]
+       dir = os.path.join( dir, "bkchem")
+     except EnvironmentError:
+--- ./bkchem/id_manager.py	(original)
++++ ./bkchem/id_manager.py	(refactored)
+@@ -65,11 +65,11 @@
+ 
+ 
+   def is_registered_object(self, obj):
+-    return (obj in self.id_map.values())
++    return (obj in list(self.id_map.values()))
+ 
+ 
+   def get_id_of_object(self, obj):
+-    for k, v in self.id_map.items():
++    for k, v in list(self.id_map.items()):
+       if v == obj:
+         return k
+     return None
+--- ./bkchem/arrow.py	(original)
++++ ./bkchem/arrow.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import division
++
+ 
+ import xml.dom.minidom as dom
+ 
+@@ -135,8 +135,8 @@
+ 
+   def redraw( self):
+     if self.items:
+-      map( self.paper.unregister_id, self.items)
+-      map( self.paper.delete, self.items)
++      list(map( self.paper.unregister_id, self.items))
++      list(map( self.paper.delete, self.items))
+     self.draw()
+ 
+   def focus( self):
+@@ -181,8 +181,8 @@
+   def delete( self):
+     [p.delete() for p in self.points]
+     self.points = []
+-    map( self.paper.unregister_id, self.items)
+-    map( self.paper.delete, self.items)
++    list(map( self.paper.unregister_id, self.items))
++    list(map( self.paper.delete, self.items))
+     self.items = []
+ 
+   def is_empty_or_single_point( self):
+@@ -262,7 +262,7 @@
+ 
+   def lift( self):
+     if self.items:
+-      map( self.paper.lift, self.items)
++      list(map( self.paper.lift, self.items))
+     [o.lift() for o in self.points]
+ 
+ 
+@@ -275,7 +275,7 @@
+   # -- private drawing methods for different arrow types --
+ 
+   def _draw_normal_old( self):
+-    ps = tuple(j for i in map(lambda b: b.get_xy_on_screen(), self.points) for j in i)
++    ps = tuple(j for i in [b.get_xy_on_screen() for b in self.points] for j in i)
+     item = self.paper.create_line( ps, tags='arrow', arrow=self._pins[ self.pin], arrowshape=self.shape,\
+                                    width=self.line_width, smooth=self.spline, fill=self.line_color)
+     return [item]
+--- ./bkchem/paper.py	(original)
++++ ./bkchem/paper.py	(refactored)
+@@ -20,8 +20,8 @@
+ 
+ """
+ 
+-from __future__ import division
+-from __future__ import print_function
++
++
+ 
+ import os
+ import sys
+@@ -37,8 +37,8 @@
+   import tkinter.font as tkFont
+   import tkinter.messagebox as tkMessageBox
+ except ImportError:
+-  import tkFont
+-  import tkMessageBox
++  import tkinter.font
++  import tkinter.messagebox
+ 
+ from warnings import warn
+ from oasa import geometry
+@@ -48,7 +48,7 @@
+ try:
+   from tkinter import Canvas, ALL
+ except ImportError:
+-  from Tkinter import Canvas, ALL
++  from tkinter import Canvas, ALL
+ 
+ import Pmw
+ import misc
+@@ -291,8 +291,8 @@
+     Store.app.update_cursor_position( event.x, event.y)
+     Store.app.mode.mouse_drag( event)
+     b = self.find_overlapping( event.x-2, event.y-2, event.x+2, event.y+2)
+-    b = filter( self.is_registered_id, b)
+-    a = map( self.id_to_object, b)
++    b = list(filter( self.is_registered_id, b))
++    a = list(map( self.id_to_object, b))
+     a = [i for i in a if i not in self._do_not_focus]
+     if a:
+       a = a[-1]
+@@ -332,7 +332,7 @@
+     Store.app.mode.mouse_move( event)
+ 
+     b = self.find_overlapping( event.x-3, event.y-3, event.x+3, event.y+3)
+-    b = filter( self.is_registered_id, b)
++    b = list(filter( self.is_registered_id, b))
+     id_objs = [(x, self.id_to_object( x)) for x in b]
+     a = [i for i in id_objs if i[1] not in self._do_not_focus]
+ 
+@@ -441,14 +441,14 @@
+           to_delete += [a]
+       else:
+         a.redraw()
+-    map( self.stack.remove, to_delete)
++    list(map( self.stack.remove, to_delete))
+     [o.delete() for o in to_delete]
+     # PLUS
+-    to_delete = filter( lambda o: o.object_type == 'plus', self.selected)
+-    map( lambda o: o.delete(), to_delete)
+-    map( self.stack.remove, to_delete)
++    to_delete = [o for o in self.selected if o.object_type == 'plus']
++    list(map( lambda o: o.delete(), to_delete))
++    list(map( self.stack.remove, to_delete))
+     # TEXT
+-    to_delete = filter( lambda o: o.object_type == 'text', self.selected)
++    to_delete = [o for o in self.selected if o.object_type == 'text']
+     for t in to_delete:
+       t.delete()
+       self.stack.remove( t)
+@@ -465,7 +465,7 @@
+             to_delete += [a]
+         else:
+           a.redraw()
+-    map( self.stack.remove, to_delete)
++    list(map( self.stack.remove, to_delete))
+     [o.delete() for o in to_delete]
+     # BOND AND ATOM
+     bonds = [o for o in self.selected if o.object_type == 'bond']
+@@ -482,9 +482,9 @@
+       if new_mols:
+         mols_to_delete.append( mol)
+     if new:
+-      map( self.stack.remove, mols_to_delete)
++      list(map( self.stack.remove, mols_to_delete))
+       self.stack.extend( new)
+-    empty_mols = filter( lambda o: o.is_empty(), self.molecules)
++    empty_mols = [o for o in self.molecules if o.is_empty()]
+     [self.stack.remove( o) for o in empty_mols]
+     # start new undo
+     if self.selected:
+@@ -519,7 +519,7 @@
+ 
+ 
+   def arrows_to_update( self):
+-    a = map( lambda o: o.arrow, filter( lambda p: p.object_type == 'point', self.selected))
++    a = [o.arrow for o in [p for p in self.selected if p.object_type == 'point']]
+     return misc.filter_unique( a)
+ 
+ 
+@@ -529,7 +529,7 @@
+     original_version = CDML.getAttribute( 'version')
+     success = CDML_versions.transform_dom_to_version( CDML, config.current_CDML_version)
+     if not success:
+-      if not tkMessageBox.askokcancel(_('Proceed'),
++      if not tkinter.messagebox.askokcancel(_('Proceed'),
+                                       _('''This CDML document does not seem to have supported version.
+                                       \n Do you want to proceed reading this document?'''),
+                                       default = 'ok',
+@@ -557,7 +557,7 @@
+     viewport = dom_extensions.getFirstChildNamed( CDML, 'viewport')
+     if viewport:
+       viewport = viewport.getAttribute( 'viewport')
+-      self.set_viewport( view= map( float, viewport.split(' ')))
++      self.set_viewport( view= list(map( float, viewport.split(' '))))
+     else:
+       self.set_viewport()
+     # standard must be read before all items
+@@ -589,7 +589,7 @@
+             o.draw()
+     # now check if the old standard differs
+     if new_standard and old_standard != self.standard and not Store.app.in_batch_mode:
+-      if not tkMessageBox.askokcancel(_('Replace standard values'),
++      if not tkinter.messagebox.askokcancel(_('Replace standard values'),
+                                       messages.standards_differ_text,
+                                       default = 'ok',
+                                       parent=self):
+@@ -752,7 +752,7 @@
+ 
+     deleted = []
+     if overlap:
+-      mols = misc.filter_unique( map( lambda a: map( lambda b: b.molecule, a), overlap))
++      mols = misc.filter_unique( [[b.molecule for b in a] for a in overlap])
+       a_eatenby_b1 = []
+       a_eatenby_b2 = []
+       for (mol, mol2) in mols:
+@@ -832,7 +832,7 @@
+ 
+ 
+   def object_to_id( self, obj):
+-    for k, v in self._id_2_object.items():
++    for k, v in list(self._id_2_object.items()):
+       if v == obj:
+         return k
+     return None
+@@ -840,11 +840,11 @@
+ 
+   def is_registered_object( self, o):
+     """has this object a registered id?"""
+-    return o in self._id_2_object.values()
++    return o in list(self._id_2_object.values())
+ 
+ 
+   def is_registered_id( self, id):
+-    return id in self._id_2_object.keys()
++    return id in list(self._id_2_object.keys())
+ 
+ 
+   def new_molecule( self):
+@@ -1062,8 +1062,8 @@
+       else:
+         xmaxs = [bboxes[i] for i in range( 0, len( bboxes), 4)]
+         xmins = [bboxes[i] for i in range( 2, len( bboxes), 4)]
+-        xs = map( operator.add, xmaxs, xmins)
+-        xs = map( operator.div, xs, len(xs)*[2])
++        xs = list(map( operator.add, xmaxs, xmins))
++        xs = list(map( operator.div, xs, len(xs)*[2]))
+         x = (max(xs) + min(xs)) / 2
+       for i in range( len( xs)):
+         to_align[i].move( x-xs[i], 0)
+@@ -1078,8 +1078,8 @@
+       else:
+         ymaxs = [bboxes[i] for i in range( 1, len( bboxes), 4)]
+         ymins = [bboxes[i] for i in range( 3, len( bboxes), 4)]
+-        ys = map( operator.add, ymaxs, ymins)
+-        ys = map( operator.div, ys, len(ys)*[2])
++        ys = list(map( operator.add, ymaxs, ymins))
++        ys = list(map( operator.div, ys, len(ys)*[2]))
+         y = (max(ys) + min(ys)) / 2
+       for i in range( len( ys)):
+         to_align[i].move( 0, y-ys[i])
+@@ -1496,7 +1496,7 @@
+     if not color:
+       return "none"
+     else:
+-      r, g, b = map( lambda x: (x < 256 and x) or (x >= 256 and x//256),  self.winfo_rgb( color))
++      r, g, b = [(x < 256 and x) or (x >= 256 and x//256) for x in self.winfo_rgb( color)]
+       return "#%02x%02x%02x" % (r,g,b)
+ 
+ 
+--- ./bkchem/xml_writer.py	(original)
++++ ./bkchem/xml_writer.py	(refactored)
+@@ -243,7 +243,7 @@
+         # the pins
+         line_pin = a._pins.index( self.paper.itemcget( item, 'arrow'))
+         if line_pin == 1 or line_pin == 3:
+-          d1, d2, d3 = map( int, self.paper.itemcget( item, "arrowshape").split())
++          d1, d2, d3 = list(map( int, self.paper.itemcget( item, "arrowshape").split()))
+           defs = dom_extensions.elementUnder( self.group, 'defs')
+           arrow_point = dom_extensions.elementUnder( defs, 'marker', (('id','Arrow'+str(i)),('refX',str(d2)),('refY',str(d3)),
+                                                                 ('markerUnits','userSpaceOnUse'),
+@@ -253,7 +253,7 @@
+                                                                 ('fill', self.cc( a.line_color))))
+           dom_extensions.elementUnder( arrow_point, 'path', (('d', 'M %d %d L 0 0 L %d %d L 0 %d z'%(d2, d3, d2-d1, d3, 2*d3)),))
+         if line_pin == 2 or line_pin == 3:
+-          d1, d2, d3 = map( int, self.paper.itemcget( item, "arrowshape").split())
++          d1, d2, d3 = list(map( int, self.paper.itemcget( item, "arrowshape").split()))
+           defs = dom_extensions.elementUnder( self.group, 'defs')
+           arrow_point = dom_extensions.elementUnder( defs, 'marker', (('id','ArrowBack'+str(i)),('refX','0'),('refY',str(d3)),
+                                                                 ('markerUnits','userSpaceOnUse'),
+@@ -490,7 +490,7 @@
+       ftext_dom_to_svg_dom( el, doc, add_to=my_svg)
+   else:
+     if replace_minus:
+-      element.appendChild( doc.createTextNode( ftext.nodeValue.replace( "-", unichr( 8722))))
++      element.appendChild( doc.createTextNode( ftext.nodeValue.replace( "-", chr( 8722))))
+     else:
+       element.appendChild( doc.createTextNode( ftext.nodeValue))
+ 
+--- ./bkchem/http_server.py	(original)
++++ ./bkchem/http_server.py	(refactored)
+@@ -21,12 +21,12 @@
+ 
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import time
+ import string
+ import os.path
+-import BaseHTTPServer
++import http.server
+ import xml.dom.minidom as dom
+ 
+ import xml_writer
+@@ -36,16 +36,16 @@
+ 
+ 
+ 
+-class bkchem_http_handler( BaseHTTPServer.BaseHTTPRequestHandler):
++class bkchem_http_handler( http.server.BaseHTTPRequestHandler):
+ 
+   dirs = ('smiles','inchi','gtml')
+ 
+   def __init__( self, *args):
+-    BaseHTTPServer.BaseHTTPRequestHandler.__init__( self, *args)
++    http.server.BaseHTTPRequestHandler.__init__( self, *args)
+ 
+ 
+   def do_GET( self):
+-    path_list = filter( None, self.path.split("/"))
++    path_list = [_f for _f in self.path.split("/") if _f]
+ 
+     if len( path_list) == 1 or path_list[0] not in self.dirs:
+       # these are static pages
+@@ -130,8 +130,8 @@
+ 
+ 
+ 
+-class bkchem_http_server( BaseHTTPServer.HTTPServer):
++class bkchem_http_server( http.server.HTTPServer):
+ 
+   def __init__( self, *args):
+-    BaseHTTPServer.HTTPServer.__init__( self, *args)
++    http.server.HTTPServer.__init__( self, *args)
+ 
+--- ./bkchem/xml_serializer.py	(original)
++++ ./bkchem/xml_serializer.py	(refactored)
+@@ -40,7 +40,7 @@
+       # serialize it
+       if type(v) == types.InstanceType:
+         serialize( v, doc, e)
+-      elif type(v) in (types.ListType, types.TupleType):
++      elif type(v) in (list, tuple):
+         [serialize( j, doc, e) for j in v]
+       else:
+         e.setAttribute( i, str( v))
+--- ./bkchem/logger.py	(original)
++++ ./bkchem/logger.py	(refactored)
+@@ -17,13 +17,13 @@
+ 
+ #--------------------------------------------------------------------------
+ 
+-from __future__ import print_function
++
+ 
+ import sys
+ try:
+   import tkinter.messagebox as tkMessageBox
+ except ImportError:
+-  import tkMessageBox
++  import tkinter.messagebox
+ 
+ from singleton_store import Store
+ 
+@@ -79,15 +79,15 @@
+   def log_to_dialog( self, message, message_type="info", delay=4):
+     heading = self.type_to_text[ message_type]
+     if message_type == "error":
+-      tkMessageBox.showerror( heading, message)
++      tkinter.messagebox.showerror( heading, message)
+     elif message_type == "warning":
+-      tkMessageBox.showwarning( heading, message)
++      tkinter.messagebox.showwarning( heading, message)
+     elif message_type == "info":
+-      tkMessageBox.showinfo( heading, message)
++      tkinter.messagebox.showinfo( heading, message)
+     elif message_type == "debug":
+-      tkMessageBox.showinfo( heading, message)
++      tkinter.messagebox.showinfo( heading, message)
+     elif message_type == "hint":
+-      tkMessageBox.showinfo( heading, message)
++      tkinter.messagebox.showinfo( heading, message)
+ 
+ 
+   def set_handling( self, what, how):
+--- ./bkchem/bkchem_exceptions.py	(original)
++++ ./bkchem/bkchem_exceptions.py	(refactored)
+@@ -17,7 +17,7 @@
+ 
+ #--------------------------------------------------------------------------
+ 
+-from __future__ import print_function
++
+ 
+ 
+ 
+--- ./bkchem/modes.py	(original)
++++ ./bkchem/modes.py	(refactored)
+@@ -31,8 +31,8 @@
+   import tkinter as Tkinter
+   import tkinter.messagebox as tkMessageBox
+ except ImportError:
+-  import Tkinter
+-  import tkMessageBox
++  import tkinter
++  import tkinter.messagebox
+ 
+ from warnings import warn
+ from oasa import geometry
+@@ -152,7 +152,7 @@
+         self._recent_key_seq = ''
+       else:
+         # or its a prefix of some registered sequence
+-        for key in self._key_sequences.keys():
++        for key in list(self._key_sequences.keys()):
+           if not key.find(self._recent_key_seq):
+             Store.log( self._recent_key_seq)
+             return None
+@@ -170,7 +170,7 @@
+     """cleans status of all special keys;
+     needed because especially after C-x C-f the C-release is grabbed by dialog
+     and never makes it to paper, therefore paper calls this after a file was read"""
+-    for key in self._specials_pressed.keys():
++    for key in list(self._specials_pressed.keys()):
+       self._specials_pressed[ key] = 0
+ 
+ 
+@@ -213,7 +213,7 @@
+             (sequence, function.__name__, self._key_sequences[ sequence].__name__),
+             UserWarning, 2)
+     elif use_warning:
+-      for key in self._key_sequences.keys():
++      for key in list(self._key_sequences.keys()):
+         if not key.find(sequence):
+           warn( "binding of sequence %s to function %s shadows %s (binded to %s)" %
+                 (sequence, function.__name__, key, self._key_sequences[ key].__name__),
+@@ -344,8 +344,8 @@
+     self.register_key_sequence( 'C-o C-b', lambda : Store.app.paper.lower_selected_to_bottom())
+     self.register_key_sequence( 'C-o C-s', lambda : Store.app.paper.swap_selected_on_stack())
+     # mode switching
+-    self.register_key_sequence_ending_with_number_range( 'C-', self.switch_mode, numbers=range(1,10))
+-    self.register_key_sequence_ending_with_number_range( 'C-A-', self.switch_mode, numbers=range(1,10), attrs={"add":9})
++    self.register_key_sequence_ending_with_number_range( 'C-', self.switch_mode, numbers=list(range(1,10)))
++    self.register_key_sequence_ending_with_number_range( 'C-A-', self.switch_mode, numbers=list(range(1,10)), attrs={"add":9})
+     
+     # debug, simo
+     self.register_key_sequence( 'C-p', lambda : Store.app.paper.print_all_coords())
+@@ -412,7 +412,7 @@
+     self.register_key_sequence( 'C-k', lambda : Store.app.paper.selected_to_clipboard( delete_afterwards=1))
+     # 'C-a' from windoze is in use - 'C-S-a' instead
+     # chains (C-d as draw)
+-    self.register_key_sequence_ending_with_number_range( 'C-d', self.add_chain, numbers=range(2,10))
++    self.register_key_sequence_ending_with_number_range( 'C-d', self.add_chain, numbers=list(range(2,10)))
+     # config
+     self.rectangle_selection = True  # this can be overriden by children
+ 
+@@ -652,9 +652,8 @@
+ 
+ 
+   def _end_of_empty_drag( self, x1, y1, x2, y2):
+-    Store.app.paper.select( filter( lambda o: o,\
+-                                    map( Store.app.paper.id_to_object,\
+-                                         Store.app.paper.find_enclosed( x1, y1, x2, y2))))
++    Store.app.paper.select( [o for o in map( Store.app.paper.id_to_object,\
++                                         Store.app.paper.find_enclosed( x1, y1, x2, y2)) if o])
+ 
+ 
+   ## METHODS FOR KEY EVENTS RESPONSES
+@@ -1346,9 +1345,9 @@
+       self._centery = y1+(y2-y1)/2.0
+     elif self.focused:
+       if self.get_submode(0) == '3D':
+-        tkMessageBox.showerror( _("You can only rotate molecules in 3D!"), _("Sorry but you can only rotate molecules in 3D."))
++        tkinter.messagebox.showerror( _("You can only rotate molecules in 3D!"), _("Sorry but you can only rotate molecules in 3D."))
+       else:
+-        tkMessageBox.showerror( _("You can only rotate molecules and arrows in 2D!"), _("Sorry but you can only rotate molecules and arrows in 2D."))
++        tkinter.messagebox.showerror( _("You can only rotate molecules and arrows in 2D!"), _("Sorry but you can only rotate molecules and arrows in 2D."))
+ 
+ 
+   def mouse_up( self, event):
+@@ -1957,7 +1956,7 @@
+   def mouse_down( self, event, modifiers=[]):
+     if self.focused:
+       if not self.arrow:
+-        tkMessageBox.showerror( _("No arrow present"),
++        tkinter.messagebox.showerror( _("No arrow present"),
+                                 _("""The reaction information in BKChem are associated with arrows, therefore you have to have at least one arrow before you can construct any reaction."""))
+         return
+ 
+@@ -2114,7 +2113,7 @@
+ 
+   def _get_active_entry( self):
+     e = Store.app.focus_get()
+-    if e in self._entries.values() and e.type_class == "reference":
++    if e in list(self._entries.values()) and e.type_class == "reference":
+       return e
+ 
+ 
+@@ -2129,7 +2128,7 @@
+   def _populate_table_for_active_object( self):
+     defs = Store.app.paper.edm.get_definitions_for_class_and_type( self.get_submode( 1), self.get_submode( 0))
+     if defs:
+-      for k,v in defs.items():
++      for k,v in list(defs.items()):
+         val = Store.app.paper.edm.get_data( self.get_submode( 1), self._active_object, k)
+         if hasattr( val, 'id'):
+           self._entries[ k].value = val.id
+@@ -2154,7 +2153,7 @@
+   def _set_data( self):
+     defs = Store.app.paper.edm.get_definitions_for_class_and_type( self.get_submode( 1), self.get_submode( 0))
+     if defs:
+-      for k,v in defs.items():
++      for k,v in list(defs.items()):
+         val = self._entries[ k].value
+         if val != '':
+           if v['type'] in Store.app.paper.edm.reference_types:
+@@ -2173,15 +2172,15 @@
+   def _show_table_for_submode( self):
+     defs = Store.app.paper.edm.get_definitions_for_class_and_type( self.get_submode( 1), self.get_submode( 0))
+     if defs:
+-      self._frame = Tkinter.Frame( Store.app.paper)
++      self._frame = tkinter.Frame( Store.app.paper)
+       self._win = Store.app.paper.create_window( 500, 100, window=self._frame)
+-      for k,v in defs.items():
+-        label = Tkinter.Label( self._frame, text=v['text'])
++      for k,v in list(defs.items()):
++        label = tkinter.Label( self._frame, text=v['text'])
+         if v['type'] in Store.app.paper.edm.reference_types:
+           entry = external_data.ExternalDataEntry( self._frame, v['type'], "reference")
+           entry.bind( "<FocusIn>", lambda e: self._entry_entered( e.widget))
+           entry.bind( "<FocusOut>", lambda e: self._entry_left())
+-        elif type( v['type']) == types.ListType:
++        elif type( v['type']) == list:
+           entry = external_data.ExternalDataListSelection( self._frame, v['type'])
+         else:
+           entry = external_data.ExternalDataEntry( self._frame, v['type'], "internal")
+@@ -2189,11 +2188,11 @@
+         self._entries[ k] = entry
+         label.pack()
+         entry.pack()
+-      Tkinter.Button( self._frame, text=_("Set"), command=self._set_data).pack()
++      tkinter.Button( self._frame, text=_("Set"), command=self._set_data).pack()
+ 
+ 
+   def _draw_the_arrows( self):
+-    for e in self._entries.values():
++    for e in list(self._entries.values()):
+       if e.type_class == "reference":
+         e.cleanup( Store.app.paper)
+         obj = Store.id_manager.get_object_with_id_or_none( e.value)
+@@ -2256,7 +2255,7 @@
+     pap = paper or Store.app.paper
+     if self._win:
+       self._items = set()
+-      [e.cleanup( pap) for e in self._entries.values()]
++      [e.cleanup( pap) for e in list(self._entries.values())]
+       self._entries = {}
+       self._frame = None
+       pap.delete( self._win)
+--- ./bkchem/widgets.py	(original)
++++ ./bkchem/widgets.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import division
++
+ 
+ import re
+ import math
+@@ -32,10 +32,10 @@
+     import tkinter.colorchooser as tkColorChooser
+     import tkinter.filedialog as tkFileDialog
+ except ImportError:
+-    import Tkinter
+-    import tkFont
+-    import tkColorChooser
+-    import tkFileDialog
++    import tkinter
++    import tkinter.font
++    import tkinter.colorchooser
++    import tkinter.filedialog
+ 
+ from oasa import geometry
+ 
+@@ -49,7 +49,7 @@
+ 
+ 
+ 
+-class ColorButton(Tkinter.Button):
++class ColorButton(tkinter.Button):
+   """Button used for color selection.
+ 
+   Has the choosen color in background and when pressed
+@@ -58,7 +58,7 @@
+   def __init__(self, master=None, color=None, text=''):
+     self.master = master
+     self.set_color( color)
+-    Tkinter.Button.__init__( self, master=master, command=self._select_color,
++    tkinter.Button.__init__( self, master=master, command=self._select_color,
+                              background=self.color, activebackground=self.color,
+                              foreground=self.foreground_color, activeforeground=self.foreground_color,
+                              text=text)
+@@ -87,9 +87,9 @@
+ 
+   def _select_color( self):
+     if self.color:
+-      color = tkColorChooser.askcolor( self.color)
+-    else:
+-      color = tkColorChooser.askcolor()
++      color = tkinter.colorchooser.askcolor( self.color)
++    else:
++      color = tkinter.colorchooser.askcolor()
+     if color[1]:
+       self.set_color( color[1])
+       self.rgb = color[0]
+@@ -98,15 +98,15 @@
+ 
+ 
+ 
+-class ColorButtonWithTransparencyChecker(Tkinter.Frame, object):
++class ColorButtonWithTransparencyChecker(tkinter.Frame, object):
+ 
+   def __init__(self, master=None, color=None, text=''):
+-    Tkinter.Frame.__init__( self, master)
++    tkinter.Frame.__init__( self, master)
+     self.master = master
+     self.button = ColorButton( master=self, color=color, text=text)
+-    self.transparent = Tkinter.IntVar()
++    self.transparent = tkinter.IntVar()
+     self.transparent.set( color == '' and 1 or 0)
+-    self.checker = Tkinter.Checkbutton( self,
++    self.checker = tkinter.Checkbutton( self,
+                                         text=_("Transparent"),
+                                         variable=self.transparent,
+                                         command=self._set_trasparency)
+@@ -116,7 +116,7 @@
+   def pack( self, **kw):
+     self.button.pack( anchor="w", padx=0, pady=0)
+     self.checker.pack( anchor="w", padx=0, pady=0)
+-    Tkinter.Frame.pack( self, **kw)
++    tkinter.Frame.pack( self, **kw)
+ 
+ 
+   @property
+@@ -135,11 +135,11 @@
+ 
+ 
+ 
+-class GraphicalAngleChooser(Tkinter.Frame):
++class GraphicalAngleChooser(tkinter.Frame):
+ 
+   def __init__(self, parent, angle, line_color="#000", fill_color="#ffffff"):
+-    Tkinter.Frame.__init__( self, parent)
+-    self.canvas = Tkinter.Canvas( self, width=60, height=60)
++    tkinter.Frame.__init__( self, parent)
++    self.canvas = tkinter.Canvas( self, width=60, height=60)
+     self.canvas.bind('<Button-1>', self._click)
+     self.canvas.bind('<B1-Motion>', self._click)
+     self.canvas.pack()
+@@ -203,7 +203,7 @@
+ class FontFamilyChooser(Pmw.ScrolledListBox):
+ 
+   def __init__(self, parent, value):
+-      available_families = sorted(list(tkFont.families()))
++      available_families = sorted(list(tkinter.font.families()))
+       available_families.insert(-1, '')
+       for fnt in data.always_available_fonts:
+         available_families.insert(1, fnt)
+@@ -277,7 +277,7 @@
+ 
+ 
+ 
+-class ValueWithUnitParent(Tkinter.Frame):
++class ValueWithUnitParent(tkinter.Frame):
+ 
+   def __init__(self, parent, value, counter, label=None, units={}):
+     """Initialize ValueWithUnitParent object.
+@@ -287,7 +287,7 @@
+     units   - dictionary of dictionaries keyed by unit name with ratio,
+               round and increment
+     """
+-    Tkinter.Frame.__init__( self, parent)
++    tkinter.Frame.__init__( self, parent)
+     self.units = units
+     v, self._recent_unit = misc.split_number_and_unit( value)
+     # the counter widget
+@@ -297,7 +297,7 @@
+     if self._recent_unit:
+       self.counter['increment'] = self.units[self._recent_unit]['increment']
+     else:
+-      self._recent_unit = units.keys()[0]
++      self._recent_unit = list(units.keys())[0]
+     self.counter.pack( side='left')
+     # the unit selection widget
+     us = sorted(units.keys())
+@@ -344,22 +344,22 @@
+ 
+ 
+ # a meta dialog for opening files
+-class FileSelectionEntry(Tkinter.Frame):
++class FileSelectionEntry(tkinter.Frame):
+ 
+   def __init__(self, parent, prompt="", value="", filetypes=(), type="open"):
+-    Tkinter.Frame.__init__( self, parent)
++    tkinter.Frame.__init__( self, parent)
+     self.parent = parent
+     self.value = value
+     self.filetypes = filetypes
+     self.type = type
+ 
+-    Tkinter.Label( self, text=prompt).pack( side="left", padx=0)
+-
+-    self.entry = Tkinter.Entry( self, width=40)
++    tkinter.Label( self, text=prompt).pack( side="left", padx=0)
++
++    self.entry = tkinter.Entry( self, width=40)
+     self.entry.pack( side="left", padx=0)
+     self.update_entry()
+ 
+-    self.button = Tkinter.Button( self,
++    self.button = tkinter.Button( self,
+                                   text = _("Browse"),
+                                   command = self.browse)
+     self.button.pack( side="left", padx=0)
+@@ -367,13 +367,13 @@
+ 
+   def browse( self):
+     if self.type == "open":
+-      a = tkFileDialog.askopenfilename( defaultextension = "",
++      a = tkinter.filedialog.askopenfilename( defaultextension = "",
+                                         initialdir = os.path.dirname( self.value),
+                                         title = _("Select the file"),
+                                         parent = self.parent,
+                                         filetypes = self.filetypes)
+     else:
+-      a = tkFileDialog.asksaveasfilename( defaultextension = "",
++      a = tkinter.filedialog.asksaveasfilename( defaultextension = "",
+                                           initialdir = os.path.dirname( self.value),
+                                           title = _("File to create"),
+                                           parent = self.parent,
+@@ -409,15 +409,15 @@
+ 
+ 
+ 
+-class HTMLLikeInput(Tkinter.Frame, object):
++class HTMLLikeInput(tkinter.Frame, object):
+ 
+   font_decorations = ('italic', 'bold', 'subscript', 'superscript')
+   font_decorations_to_html = {'italic':'i', 'bold':'b', 'subscript':'sub', 'superscript':'sup'}
+ 
+ 
+   def __init__(self, master, **kw):
+-    Tkinter.Frame.__init__( self, master, **kw)
+-    self.editPool = Tkinter.Entry( self, width=60)
++    tkinter.Frame.__init__( self, master, **kw)
++    self.editPool = tkinter.Entry( self, width=60)
+     self.editPool.pack( side='left')
+ 
+     self.editPool.bind("<KeyPress>", self._key)
+@@ -425,13 +425,13 @@
+     # subscript numbers
+     pix = Store.app.request( 'pixmap', name='subnum')
+     if pix:
+-      self.numbersToSubButton = Tkinter.Button( self,
++      self.numbersToSubButton = tkinter.Button( self,
+                                                 image=pix,
+                                                 command=self._numbersToSubButtonPressed,
+                                                 bd=config.border_width)
+       Store.app.balloon.bind( self.numbersToSubButton, _('Subscript numbers'))
+     else:
+-      self.numbersToSubButton = Tkinter.Button( self,
++      self.numbersToSubButton = tkinter.Button( self,
+                                                text=_('Sub numbers'),
+                                                command=self._numbersToSubButtonPressed,
+                                                bd=config.border_width)
+@@ -440,13 +440,13 @@
+     # superscript charges
+     pix = Store.app.request( 'pixmap', name='supcharge')
+     if pix:
+-      self.chargesToSupButton = Tkinter.Button( self,
++      self.chargesToSupButton = tkinter.Button( self,
+                                                 image=pix,
+                                                 command=self._chargesToSupButtonPressed,
+                                                 bd=config.border_width)
+       Store.app.balloon.bind( self.chargesToSupButton, _('Superscript charges'))
+     else:
+-      self.chargesToSupButton = Tkinter.Button( self,
++      self.chargesToSupButton = tkinter.Button( self,
+                                                 text=_('Sup charges'),
+                                                 command=self._chargesToSupButtonPressed,
+                                                 bd=config.border_width)
+@@ -456,13 +456,13 @@
+     for i in self.font_decorations:
+       pix = Store.app.request( 'pixmap', name=i)
+       if pix:
+-        self.__dict__[ i] = Tkinter.Button( self,
++        self.__dict__[ i] = tkinter.Button( self,
+                                     image=pix,
+                                     command=misc.lazy_apply( self._tag_it, (self.font_decorations_to_html[i],)),
+                                     bd=config.border_width)
+         Store.app.balloon.bind( self.__dict__[i], i)
+       else:
+-        self.__dict__[ i] = Tkinter.Button( self,
++        self.__dict__[ i] = tkinter.Button( self,
+                                     text=i,
+                                     command=misc.lazy_apply( self._tag_it, (self.font_decorations_to_html[i],)),
+                                     bd=config.border_width)
+@@ -493,11 +493,11 @@
+ 
+   def _tag_it( self, tag):
+     if self.editPool.selection_present():
+-      self.editPool.insert( Tkinter.SEL_FIRST, '<%s>' % tag)
+-      self.editPool.insert( Tkinter.SEL_LAST, '</%s>' % tag)
+-    else:
+-      self.editPool.insert( Tkinter.INSERT, '<%s></%s>' % (tag, tag))
+-      self.editPool.icursor( self.editPool.index( Tkinter.INSERT) - len( tag) - 3)
++      self.editPool.insert( tkinter.SEL_FIRST, '<%s>' % tag)
++      self.editPool.insert( tkinter.SEL_LAST, '</%s>' % tag)
++    else:
++      self.editPool.insert( tkinter.INSERT, '<%s></%s>' % (tag, tag))
++      self.editPool.icursor( self.editPool.index( tkinter.INSERT) - len( tag) - 3)
+ 
+ 
+   def _key( self, event):
+--- ./bkchem/marks.py	(original)
++++ ./bkchem/marks.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import division
++
+ 
+ import math
+ import warnings
+@@ -29,7 +29,7 @@
+ try:
+   import tkinter.font as tkFont
+ except ImportError:
+-  import tkFont
++  import tkinter.font
+ 
+ from oasa import geometry
+ from oasa import transform
+@@ -166,13 +166,13 @@
+ 
+   def get_package( self, doc):
+     a = doc.createElement('mark')
+-    x ,y = map( Screen.px_to_text_with_unit, (self.x, self.y))
++    x ,y = list(map( Screen.px_to_text_with_unit, (self.x, self.y)))
+     dom_extensions.setAttributes( a, (('type', self.__class__.__name__),
+                                       ('x', x),
+                                       ('y', y),
+                                       ('auto', str( int( self.auto))),
+                                       ('size', str( self.size))))
+-    for (attr, typ) in self.meta__save_attrs.items():
++    for (attr, typ) in list(self.meta__save_attrs.items()):
+       val = getattr( self, attr)
+       if typ == bool:
+         value = data.booleans[ int( val)]
+@@ -196,7 +196,7 @@
+         m = cls( atom, x, y, auto=int(auto))
+ 
+       # class specific attributes
+-      for (attr, typ) in m.meta__save_attrs.items():
++      for (attr, typ) in list(m.meta__save_attrs.items()):
+         val = package.getAttribute( attr)
+         if val != '':
+           if typ == bool:
+@@ -545,7 +545,7 @@
+   def get_svg_element( self, doc):
+     e = doc.createElement( 'g')
+     x, y = self.x, self.y
+-    font = tkFont.Font( family=self.atom.font_family, size=self.size)
++    font = tkinter.font.Font( family=self.atom.font_family, size=self.size)
+     dx = font.measure( self.text) / 2
+     y += font.metrics('descent')
+ 
+--- ./bkchem/dom_extensions.py	(original)
++++ ./bkchem/dom_extensions.py	(refactored)
+@@ -74,7 +74,7 @@
+ 
+ 
+ def childNodesWithoutEmptySpaces( node):
+-  return filter( isNotEmptyText, node.childNodes)
++  return list(filter( isNotEmptyText, node.childNodes))
+ 
+ 
+ def isNotEmptyText( element):
+@@ -135,7 +135,7 @@
+       if isinstance(text, str):
+         text = text.encode('utf-8')
+     else:
+-      if isinstance(text, unicode):
++      if isinstance(text, str):
+         text = text.encode('utf-8')
+     doc = dom.parseString('<a>%s</a>' % text)
+   except IOError:
+--- ./bkchem/fragment.py	(original)
++++ ./bkchem/fragment.py	(refactored)
+@@ -99,7 +99,7 @@
+       dom_ext.elementUnder( el, "bond", (("id", e.id),))
+     for v in self.vertices:
+       dom_ext.elementUnder( el, "vertex", (("id", v.id),))
+-    for k, v in self.properties.items():
++    for k, v in list(self.properties.items()):
+       itype = 'UnicodeType'
+       for tn in types.__dict__:
+         if type( v) == types.__dict__[ tn]:
+--- ./bkchem/interactors.py	(original)
++++ ./bkchem/interactors.py	(refactored)
+@@ -26,7 +26,7 @@
+ try:
+   import tkinter.messagebox as tkMessageBox
+ except ImportError:
+-  import tkMessageBox
++  import tkinter.messagebox
+ 
+ import Pmw
+ import dialogs
+@@ -47,7 +47,7 @@
+   ms = [o for o in top_levels if isinstance( o, molecule)]
+ 
+   if not ms:
+-    tkMessageBox.showerror( _("No molecule selected."),
++    tkinter.messagebox.showerror( _("No molecule selected."),
+                             _("At least one molecule must be selected. Please select it."))
+     return
+ 
+@@ -77,12 +77,12 @@
+   ms = [o for o in top_levels if isinstance( o, molecule)]
+ 
+   if not ms:
+-    tkMessageBox.showerror( _("No molecule selected."),
++    tkinter.messagebox.showerror( _("No molecule selected."),
+                             _("At least one molecule must be selected. Please select it."))
+     return
+ 
+   if len( ms) > 1:
+-    tkMessageBox.showerror( _("Only one molecule should be selected."),
++    tkinter.messagebox.showerror( _("Only one molecule should be selected."),
+                             _("ID must be unique value, therefore it is obviously possible to set it to one molecule only. Please select only one molecule"))
+     return
+ 
+@@ -107,7 +107,7 @@
+     collision = 0
+     for mol in paper.molecules:
+       if mol != m and mol.id == id:
+-        tkMessageBox.showerror( _("ID collision"),
++        tkinter.messagebox.showerror( _("ID collision"),
+                                 _("This ID is already used, use a different one"))
+         collision = 1
+         break
+@@ -123,17 +123,17 @@
+   val = validator.validator()
+   val.validate( mols)
+   if val.report.text_atoms:
+-    tkMessageBox.showerror( _("Validity error"),
++    tkinter.messagebox.showerror( _("Validity error"),
+                             _("Sorry but your drawing includes 'text atoms'\n - atoms with no chemical sense.") + "\n\n" +
+                             _("It is not possible to export them.") + "\n\n" +
+                             _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
+     return 0
+   if val.report.exceeded_valency:
+-    tkMessageBox.showwarning( _("Validity warning"),
++    tkinter.messagebox.showwarning( _("Validity warning"),
+                               _("Your drawing includes some atoms with exceeded valency.") + "\n\n" +
+                               _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
+   if val.report.group_atoms:
+-    yes = tkMessageBox.askokcancel( _("Expand groups?"),
++    yes = tkinter.messagebox.askokcancel( _("Expand groups?"),
+                                     _("Your drawing includes some groups.") + "\n\n" +
+                                     _("These must be expanded in order to get chemicaly valid drawing. The expansion could be undone afterwards.") + "\n\n"+
+                                     _("Proceed with expansion?"))
+@@ -166,7 +166,7 @@
+   ms = [o for o in top_levels if isinstance( o, molecule)]
+ 
+   if not ms:
+-    tkMessageBox.showerror( _("No molecule selected."),
++    tkinter.messagebox.showerror( _("No molecule selected."),
+                             _("At least one molecule must be selected. Please select it."))
+     return
+ 
+@@ -195,7 +195,7 @@
+       try:
+         xml.sax.parseString( "<a>%s</a>" % df, xml.sax.ContentHandler())
+       except xml.sax.SAXParseException:
+-        tkMessageBox.showerror( _("Parse Error"), _("Unable to parse the text-\nprobably problem with input encoding!"))
++        tkinter.messagebox.showerror( _("Parse Error"), _("Unable to parse the text-\nprobably problem with input encoding!"))
+         Store.app.paper.bell()
+         return
+   else:
+@@ -217,7 +217,7 @@
+     if not mol.name:
+       missing[ 'name'] = missing.get( 'name', 0) + 1
+ 
+-  errors = missing.has_key( 'atom') or missing.has_key('name')
++  errors = 'atom' in missing or 'name' in missing
+ 
+   if missing:
+     dialog = Pmw.TextDialog( paper, title=_("Template summary"))
+@@ -226,19 +226,19 @@
+     if errors:
+       dialog.insert( 'end', _("Errors"), 'headline')
+       dialog.insert( 'end', "\n")
+-    if missing.has_key( 'atom'):
++    if 'atom' in missing:
+       dialog.insert('end', ngettext(
+         "%d molecule have no template atom specified",
+         "%d molecules have no template atom specified",
+         int(missing['atom'])) % missing['atom'])
+       dialog.insert( 'end', "\n")
+-    if missing.has_key('name'):
++    if 'name' in missing:
+       dialog.insert('end', ngettext(
+         "%d molecule have no name specified",
+         "%d molecules have no name specified",
+         int(missing['name'])) % missing['name'])
+       dialog.insert( 'end', "\n")
+-    if missing.has_key( 'bond'):
++    if 'bond' in missing:
+       dialog.insert( 'end', "\n")
+       dialog.insert( 'end', _("Warnings"), 'headline')
+       dialog.insert( 'end', "\n")
+@@ -266,7 +266,7 @@
+       if path:
+         path = os_support.create_personal_config_directory( "templates")
+       if not path:
+-        tkMessageBox.showerror( _("Directory creation failed."),
++        tkinter.messagebox.showerror( _("Directory creation failed."),
+                                 _("It was not possible to create the personal directory %s.") % os_support.get_personal_config_directory())
+         return
+ 
+@@ -287,7 +287,7 @@
+       name = os.path.join( path ,name) + '.svg'
+ 
+       if os.path.exists( name):
+-        q = tkMessageBox.askokcancel( _("The file already exists."),
++        q = tkinter.messagebox.askokcancel( _("The file already exists."),
+                                       _("Template with this name already exists (path %s).\nShould I rewrite it?") % name)
+         if q:
+           return name
+@@ -361,7 +361,7 @@
+         Store.pm.remove_preference( "lang")
+       else:
+         Store.pm.add_preference( "lang", a.languages[lang[0]])
+-      tkMessageBox.showinfo( _("Info"),
++      tkinter.messagebox.showinfo( _("Info"),
+                              _("The selected language will be used the next time you start BKChem."))
+ 
+ 
+@@ -459,7 +459,7 @@
+     Store.log( _("Groups must be expanded to compute oxidation number for them."), message_type="hint")
+     logged = True
+   # we have to check if the neighbors of the atoms we are processing are not groups or so...
+-  ns = set().union(*map(set, [a.neighbors for a in paper.selected_atoms]))
++  ns = set().union(*list(map(set, [a.neighbors for a in paper.selected_atoms])))
+   v.validate( ns)
+   if v.report.group_atoms or v.report.text_atoms:
+     Store.log( _("Unexpanded groups or text-only atoms may cause incorrect computation of oxidation number."), message_type="warning")
+--- ./bkchem/http_server2.py	(original)
++++ ./bkchem/http_server2.py	(refactored)
+@@ -21,13 +21,13 @@
+ 
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import time
+ import string
+ import os.path
+-import urlparse
+-import BaseHTTPServer
++import urllib.parse
++import http.server
+ import xml.dom.minidom as dom
+ 
+ import xml_writer
+@@ -38,17 +38,17 @@
+ 
+ 
+ 
+-class bkchem_http_handler( BaseHTTPServer.BaseHTTPRequestHandler):
++class bkchem_http_handler( http.server.BaseHTTPRequestHandler):
+ 
+   dirs = ('smiles','inchi','gtml','images')
+ 
+   def __init__( self, *args):
+-    BaseHTTPServer.BaseHTTPRequestHandler.__init__( self, *args)
++    http.server.BaseHTTPRequestHandler.__init__( self, *args)
+ 
+ 
+   def do_GET_fallback( self):
+-    protocol, address, path, parameters, query, fragment = urlparse.urlparse( self.path)
+-    path_list = filter( None, path.split("/"))
++    protocol, address, path, parameters, query, fragment = urllib.parse.urlparse( self.path)
++    path_list = [_f for _f in path.split("/") if _f]
+ 
+     if len( path_list) == 1 or path_list[0] not in self.dirs:
+       # these are static pages
+@@ -184,7 +184,7 @@
+ 
+ 
+   def do_GET( self):
+-    protocol, address, path, parameters, query, fragment = urlparse.urlparse( self.path)
++    protocol, address, path, parameters, query, fragment = urllib.parse.urlparse( self.path)
+     if path == "/" or path == "content.html":
+       attrs = self._get_attrs( query)
+       if "action" in attrs:
+@@ -287,10 +287,10 @@
+ 
+ 
+ 
+-class bkchem_http_server( BaseHTTPServer.HTTPServer):
++class bkchem_http_server( http.server.HTTPServer):
+ 
+   def __init__( self, *args):
+-    BaseHTTPServer.HTTPServer.__init__( self, *args)
++    http.server.HTTPServer.__init__( self, *args)
+ 
+ 
+ 
+--- ./bkchem/debug.py	(original)
++++ ./bkchem/debug.py	(refactored)
+@@ -17,7 +17,7 @@
+ 
+ #--------------------------------------------------------------------------
+ 
+-from __future__ import print_function
++
+ 
+ import sys
+ import inspect
+--- ./bkchem/ftext.py	(original)
++++ ./bkchem/ftext.py	(refactored)
+@@ -32,7 +32,7 @@
+ try:
+   import tkinter.font as tkFont
+ except ImportError:
+-  import tkFont
++  import tkinter.font
+ 
+ import tuning
+ import dom_extensions
+@@ -53,7 +53,7 @@
+     if font:
+       self.font = font
+     else:
+-      self.font = tkFont.Font( family="Helvetica", size=12)
++      self.font = tkinter.font.Font( family="Helvetica", size=12)
+     self._font_family = self.font.actual('family')
+     self._font_size = int( self.font.actual('size'))
+     self.pos = pos
+@@ -149,7 +149,7 @@
+       if isinstance(text, str):
+         text = text.encode('utf-8')
+     else:
+-      if isinstance(text, unicode):
++      if isinstance(text, str):
+         text = text.encode('utf-8')
+     handler = FtextHandler()
+     xml.sax.parseString( text, handler)
+@@ -292,7 +292,7 @@
+ try:
+   from html.entities import name2codepoint
+ except ImportError:
+-  from htmlentitydefs import name2codepoint
++  from html.entities import name2codepoint
+ 
+ 
+ def unescape_html_entity_references( text):
+@@ -302,7 +302,7 @@
+     if isinstance(text, bytes):
+       reX = reX.encode('utf-8')
+   else:
+-    if isinstance(text, unicode):
++    if isinstance(text, str):
+       reX = reX.decode('utf-8')
+   return re.sub(reX , _unescape_one_html_entity_reference, text)
+ 
+@@ -314,7 +314,7 @@
+     if sys.version_info[0] > 2:
+       return chr(name2codepoint[hit])
+     else:
+-      return unichr(name2codepoint[hit])
++      return chr(name2codepoint[hit])
+   else:
+     return "&"+hit+";"
+ 
+--- ./bkchem/undo.py	(original)
++++ ./bkchem/undo.py	(refactored)
+@@ -147,7 +147,7 @@
+           if not self.compare_records( i, state_rec1, state_rec2):
+             return False
+       elif isinstance(obj, dict):
+-        for i in obj.itervalues():
++        for i in obj.values():
+           if not self.compare_records( i, state_rec1, state_rec2):
+             return False
+       else:
+@@ -222,7 +222,7 @@
+       if isinstance(obj, (list, set)):
+         [self.record_object( i) for i in obj]
+       elif isinstance(obj, dict):
+-        [self.record_object( i) for i in obj.itervalues() if i]
++        [self.record_object( i) for i in obj.values() if i]
+       else:
+         self.record_object( obj)
+ 
+@@ -355,7 +355,7 @@
+           if self.object_changed( i):
+             return True
+       elif isinstance(obj, dict):
+-        for i in obj.itervalues():
++        for i in obj.values():
+           if self.object_changed( i):
+             return True
+       else:
+--- ./bkchem/group.py	(original)
++++ ./bkchem/group.py	(refactored)
+@@ -21,8 +21,8 @@
+ 
+ """
+ 
+-from __future__ import division
+-from __future__ import print_function
++
++
+ 
+ import re
+ import sys
+@@ -135,7 +135,7 @@
+         if sys.version_info[0] > 2:
+           x = re.sub("-", chr(8722), x)
+         else:
+-          x = re.sub("-", unichr(8722), x)
++          x = re.sub("-", chr(8722), x)
+       return x
+ 
+ 
+@@ -296,7 +296,7 @@
+     if self.area_color != self.paper.standard.area_color:
+       a.setAttribute( 'background-color', self.area_color)
+     # needed to support transparent handling of molecular size
+-    x, y, z = map( Screen.px_to_text_with_unit, self.get_xyz( real=1))
++    x, y, z = list(map( Screen.px_to_text_with_unit, self.get_xyz( real=1)))
+     if self.z:
+       dom_extensions.elementUnder( a, 'point', attributes=(('x', x), ('y', y), ('z', z)))
+     else:
+--- ./bkchem/non_xml_writer.py	(original)
++++ ./bkchem/non_xml_writer.py	(refactored)
+@@ -36,7 +36,7 @@
+ try:
+   from io import StringIO
+ except ImportError:
+-  import StringIO
++  import io
+ 
+ 
+ 
+--- ./bkchem/bkchem.py	(original)
++++ ./bkchem/bkchem.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import print_function
++
+ 
+ ## support for loading from outside of bkchem dir
+ import sys
+@@ -56,7 +56,7 @@
+   if sys.version_info[2] > 2:
+     import builtins
+   else:
+-    import __builtin__ as builtins
++    import builtins as builtins
+   builtins.__dict__['_'] = lambda m: m
+   builtins.__dict__['ngettext'] = gettext.ngettext
+   Store.lang = "en"
+@@ -77,7 +77,7 @@
+ 
+         tr = gettext.translation( 'BKChem', localedir=localedir, languages=lang)
+         try:
+-          tr.install(unicode=True, names=['ngettext'])
++          tr.install(str=True, names=['ngettext'])
+         except TypeError:
+           # In newer Python unicode keyword is dropped
+           tr.install(names=['ngettext'])
+@@ -89,7 +89,7 @@
+     if sys.version_info[0] > 2:
+       import builtins
+     else:
+-      import __builtin__ as builtins
++      import builtins as builtins
+     builtins.__dict__['_'] = lambda m: m
+     builtins.__dict__['ngettext'] = gettext.ngettext
+     Store.lang = "en"
+@@ -139,7 +139,7 @@
+                               (sys.version_info[0] < 3 and isinstance(i, str)))]
+   opts.extend(i for i in sys.argv[1:]
+                   if ((sys.version_info[0] > 2 and isinstance(i, str)) or
+-                      (sys.version_info[0] < 3 and isinstance(i, unicode))))
++                      (sys.version_info[0] < 3 and isinstance(i, str))))
+ 
+   if "-v" in opts or "--version" in opts:
+     print("BKChem", config.current_BKChem_version)
+--- ./bkchem/tuning.py	(original)
++++ ./bkchem/tuning.py	(refactored)
+@@ -45,7 +45,7 @@
+             if font_size in d:
+                 return d[font_size]
+             # it isn't
+-            keys = d.keys()
++            keys = list(d.keys())
+             diffs = [abs(k-font_size) for k in keys]
+             best_i = diffs.index( min( diffs))
+             best_key = keys[best_i]
+--- ./bkchem/dialogs.py	(original)
++++ ./bkchem/dialogs.py	(refactored)
+@@ -28,9 +28,9 @@
+     import tkinter.font as tkFont
+     import tkinter.messagebox as tkMessageBox
+ except ImportError:
+-    import Tkinter
+-    import tkFont
+-    import tkMessageBox
++    import tkinter
++    import tkinter.font
++    import tkinter.messagebox
+ 
+ import Pmw
+ import data
+@@ -78,22 +78,22 @@
+                                datatype = 'integer')
+     self.entryy.pack(pady=10, anchor='w', padx=10)
+ 
+-    self.preserve_ratio = Tkinter.IntVar()
+-    self.preserve_ratio_entry = Tkinter.Checkbutton( self.dialog.interior(),
++    self.preserve_ratio = tkinter.IntVar()
++    self.preserve_ratio_entry = tkinter.Checkbutton( self.dialog.interior(),
+                                                      text=_('Preserve aspect ratio?'),
+                                                      variable = self.preserve_ratio,
+                                                      command = self._preserve_ratio_changed)
+     self.preserve_ratio_entry.pack( anchor="w")
+     self.preserve_ratio.set( 1)
+ 
+-    self.preserve_centers = Tkinter.IntVar()
+-    self.preserve_centers_entry = Tkinter.Checkbutton( self.dialog.interior(),
++    self.preserve_centers = tkinter.IntVar()
++    self.preserve_centers_entry = tkinter.Checkbutton( self.dialog.interior(),
+                                                        text=_('Fix position of centers of objects?'),
+                                                        variable = self.preserve_centers)
+     self.preserve_centers_entry.pack( anchor="w")
+ 
+-    self.scale_fonts = Tkinter.IntVar()
+-    self.scale_fonts_entry = Tkinter.Checkbutton( self.dialog.interior(),
++    self.scale_fonts = tkinter.IntVar()
++    self.scale_fonts_entry = tkinter.Checkbutton( self.dialog.interior(),
+                                                        text=_('Scale font and mark sizes?'),
+                                                        variable = self.scale_fonts)
+     self.scale_fonts_entry.pack( anchor="w")
+@@ -244,7 +244,7 @@
+     if 'bond' in types:
+       self.bond_page = self.pages.add(_('Bond'))
+       # bond_widths (former distances)
+-      dists = misc.filter_unique( map( abs, [o.bond_width for o in items if o.object_type == 'bond']))
++      dists = misc.filter_unique( list(map( abs, [o.bond_width for o in items if o.object_type == 'bond'])))
+       if len( dists) == 1:
+         dist = dists[0]
+       else:
+@@ -255,7 +255,7 @@
+       self.bond_dist.pack( anchor='ne', padx=10, pady=5)
+ 
+       # wedge_widths
+-      dists = misc.filter_unique( map( abs, [o.wedge_width for o in items if o.object_type == 'bond']))
++      dists = misc.filter_unique( list(map( abs, [o.wedge_width for o in items if o.object_type == 'bond'])))
+       if len( dists) == 1:
+         dist = dists[0]
+       else:
+@@ -285,12 +285,12 @@
+ 
+       # arrow start pins
+       arrow_starts = misc.filter_unique( [o.get_pins()[0] for o in arrow_items])
+-      self.arrow_start = Tkinter.IntVar()
++      self.arrow_start = tkinter.IntVar()
+       if len( arrow_starts) == 1:
+         self.arrow_start.set( arrow_starts[0])
+       else:
+         self.arrow_start.set( 0)
+-      self.arrow_start_entry = Tkinter.Checkbutton( self.arrow_page,
++      self.arrow_start_entry = tkinter.Checkbutton( self.arrow_page,
+                                                     text=_('Arrow-head on start'),
+                                                     variable = self.arrow_start,
+                                                     command = self._arrow_start_changed)
+@@ -298,12 +298,12 @@
+ 
+       # arrow end pins
+       arrow_ends = misc.filter_unique( [o.get_pins()[1] for o in arrow_items])
+-      self.arrow_end = Tkinter.IntVar()
++      self.arrow_end = tkinter.IntVar()
+       if len( arrow_ends) == 1:
+         self.arrow_end.set( arrow_ends[0])
+       else:
+         self.arrow_end.set( 0)
+-      self.arrow_end_entry = Tkinter.Checkbutton( self.arrow_page,
++      self.arrow_end_entry = tkinter.Checkbutton( self.arrow_page,
+                                                   text=_('Arrow-head on end'),
+                                                   variable = self.arrow_end,
+                                                   command = self._arrow_end_changed)
+@@ -311,12 +311,12 @@
+ 
+       # spline?
+       splines = misc.filter_unique( [o.spline for o in arrow_items])
+-      self.spline = Tkinter.IntVar()
++      self.spline = tkinter.IntVar()
+       if len( splines) == 1:
+         self.spline.set( splines[0])
+       else:
+         self.spline.set( 0)
+-      self.spline_entry = Tkinter.Checkbutton( self.arrow_page,
++      self.spline_entry = tkinter.Checkbutton( self.arrow_page,
+                                                text=_('Spline arrow'),
+                                                variable = self.spline,
+                                                command = self._spline_changed)
+@@ -328,7 +328,7 @@
+     # PLUS
+ 
+     # FONT
+-    font_items = filter( lambda x: hasattr( x, 'font_family'), items)
++    font_items = [x for x in items if hasattr( x, 'font_family')]
+     if font_items:
+       self.font_page = self.pages.add(_('Font'))
+ 
+@@ -350,7 +350,7 @@
+ 
+     # COMMON
+     self.common_page = self.pages.add(_('Common'))
+-    line_items = filter( lambda x: hasattr( x, 'line_width'), items)
++    line_items = [x for x in items if hasattr( x, 'line_width')]
+     if line_items:
+       widths = misc.filter_unique( [o.line_width for o in line_items])
+       if len( widths) == 1:
+@@ -362,7 +362,7 @@
+       self.line_width = widgets.WidthChooser( self.common_page, width, label=_('Line width'))
+       self.line_width.pack( anchor='nw', padx=10, pady=5)
+ 
+-    line_color_items = filter( lambda x: hasattr( x, 'line_color'), items)
++    line_color_items = [x for x in items if hasattr( x, 'line_color')]
+     if line_color_items:
+       lines = misc.filter_unique( [o.line_color for o in line_color_items])
+       if len( lines) == 1:
+@@ -372,7 +372,7 @@
+       self.line_color = widgets.ColorButtonWithTransparencyChecker( self.common_page, color=line, text=_("Line color"))
+       self.line_color.pack( anchor='nw', padx=10, pady=10)
+ 
+-    area_color_items = filter( lambda x: hasattr( x, 'area_color'), items)
++    area_color_items = [x for x in items if hasattr( x, 'area_color')]
+     if area_color_items:
+       areas = misc.filter_unique( [o.area_color for o in area_color_items])
+       if len( areas) == 1:
+@@ -535,7 +535,7 @@
+ 
+ 
+   def draw( self):
+-    paper_frame = Tkinter.Frame( self.dialog.interior(),
++    paper_frame = tkinter.Frame( self.dialog.interior(),
+                                  bd=2,
+                                  relief="groove")
+     paper_frame.pack( padx=10, pady=10, anchor="n", fill="x")
+@@ -568,14 +568,14 @@
+     self.paper_orientation_chooser.invoke( i)
+ 
+     # full svg or just the filled part
+-    crop_frame = Tkinter.Frame( self.dialog.interior(),
++    crop_frame = tkinter.Frame( self.dialog.interior(),
+                                  bd=2,
+                                  relief="groove")
+     crop_frame.pack( padx=10, pady=10, anchor="n", fill="x")
+ 
+-    self.crop_paper_in_svg = Tkinter.IntVar()
++    self.crop_paper_in_svg = tkinter.IntVar()
+     self.crop_paper_in_svg.set( self.paper.get_paper_property( 'crop_svg'))
+-    crop = Tkinter.Checkbutton( crop_frame,
++    crop = tkinter.Checkbutton( crop_frame,
+                                 anchor="n",
+                                 text=_('Auto crop image in SVG?\n(applies to some other exports as well)'),
+                                 variable=self.crop_paper_in_svg,
+@@ -593,21 +593,21 @@
+                                      datatype = 'integer')
+     self.margin_entry.pack( anchor='n', padx=5, pady=5)
+     # use real minus ?
+-    minus_frame = Tkinter.Frame( self.dialog.interior(),
++    minus_frame = tkinter.Frame( self.dialog.interior(),
+                                  bd=2,
+                                  relief="groove")
+     minus_frame.pack( padx=10, pady=10, anchor="n", fill="x")
+ 
+-    self.use_real_minus = Tkinter.IntVar()
+-    use_real_minus_button = Tkinter.Checkbutton( minus_frame,
++    self.use_real_minus = tkinter.IntVar()
++    use_real_minus_button = tkinter.Checkbutton( minus_frame,
+                                                  text=_('Use real minus character (instead of hyphen)?'),
+                                                  variable = self.use_real_minus)
+     self.use_real_minus.set( self.paper.get_paper_property( 'use_real_minus'))
+     use_real_minus_button.pack( anchor='w', padx=5, pady=5)
+ 
+     # replace hyphens with minuses in export?
+-    self.replace_minus = Tkinter.IntVar()
+-    replace_minus_button = Tkinter.Checkbutton( minus_frame,
++    self.replace_minus = tkinter.IntVar()
++    replace_minus_button = tkinter.Checkbutton( minus_frame,
+                                                 text=_('Replace hyphens with minus in SVG export?'),
+                                                 variable = self.replace_minus)
+     self.replace_minus.set( self.paper.get_paper_property( 'replace_minus'))
+@@ -686,9 +686,9 @@
+ 
+     # ATOM
+     atom_group = self.pages.add( _('Atom'))
+-    self.show_hydrogens = Tkinter.IntVar()
++    self.show_hydrogens = tkinter.IntVar()
+     self.show_hydrogens.set( int( self.standard.show_hydrogens))
+-    sh = Tkinter.Checkbutton( atom_group, text=_('Show hydrogens on visible atoms'), variable=self.show_hydrogens)
++    sh = tkinter.Checkbutton( atom_group, text=_('Show hydrogens on visible atoms'), variable=self.show_hydrogens)
+     sh.pack( anchor='w', padx=10, pady=10)
+ 
+     # BOND
+@@ -747,9 +747,9 @@
+       i = 1
+     self.paper_orientation_chooser.invoke( i)
+     # full svg or just the filled part
+-    self.crop_paper_in_svg = Tkinter.IntVar()
++    self.crop_paper_in_svg = tkinter.IntVar()
+     self.crop_paper_in_svg.set( self.paper.get_paper_property( 'crop_svg'))
+-    crop = Tkinter.Checkbutton( paper_group, text=_('Auto crop image in SVG?'), variable=self.crop_paper_in_svg)
++    crop = tkinter.Checkbutton( paper_group, text=_('Auto crop image in SVG?'), variable=self.crop_paper_in_svg)
+     crop.pack( anchor='w', padx=10, pady=10)
+     # crop margin
+     margin = self.paper.get_paper_property( 'crop_margin')
+@@ -798,10 +798,10 @@
+     if button == _('Save'):
+       a = self.parent.paper.save_personal_standard( self.get_the_standard())
+       if a:
+-        tkMessageBox.showinfo( _("Standard saved"),
++        tkinter.messagebox.showinfo( _("Standard saved"),
+                                _("The standard was successfully saved as personal standard to %s\n\nIt is not automatically applied to the current drawing and will be activated after you restart BKChem.\nYou can still apply the changes to the current drawing from the dialog window.") % a)
+       else:
+-        tkMessageBox.showerror( _("Standard not saved"),
++        tkinter.messagebox.showerror( _("Standard not saved"),
+                                 _("For some reason the standard couldn't be saved. Probably the right location for personal profile couldn't be found or wasn't writable. Sorry for the inconvenience."))
+       return
+     self.dialog.deactivate()
+@@ -870,9 +870,9 @@
+                               master='parent')
+     self.body = self.dialog.interior()
+     #self.body.pack( fill='both', expand=1)
+-    self.replace_minus = Tkinter.IntVar()
++    self.replace_minus = tkinter.IntVar()
+     self.replace_minus.set( self.preferences.get_preference( "replace_minus") or 0)
+-    self.use_real_minus = Tkinter.IntVar()
++    self.use_real_minus = tkinter.IntVar()
+     self.use_real_minus.set( self.preferences.get_preference( "use_real_minus") or 0)
+     self.use_real_minus_old = self.use_real_minus.get()
+     self.result = 0
+@@ -887,7 +887,7 @@
+     # COMMON
+     common_page = self.pages.add( _('Common'))
+     # use real minus ?
+-    replace_minus_button = Tkinter.Checkbutton( common_page, text=_('Use real minus character (instead of hyphen)?'),
++    replace_minus_button = tkinter.Checkbutton( common_page, text=_('Use real minus character (instead of hyphen)?'),
+                                                 variable=self.use_real_minus)
+     replace_minus_button.pack( anchor='w', padx=10, pady=10)
+ 
+@@ -954,7 +954,7 @@
+       for frag in m.fragments:
+         text_form = "%s (%s)" % (frag.name, frag.id)
+         self._frags[ text_form] = frag
+-    return self._frags.keys()
++    return list(self._frags.keys())
+ 
+ 
+   def select( self):
+@@ -977,7 +977,7 @@
+ 
+ 
+   def clean( self):
+-    map( self.paper.delete, self._items)
++    list(map( self.paper.delete, self._items))
+     self._items = set()
+ 
+ 
+@@ -1016,10 +1016,10 @@
+   def init_list( self):
+     root = self.interior()
+     self.choosers = {}
+-    Tkinter.Label( root, text=_("Choose how each type of message is to be shown:"), font=("Helvetica", 12, "bold")).pack( pady=10)
++    tkinter.Label( root, text=_("Choose how each type of message is to be shown:"), font=("Helvetica", 12, "bold")).pack( pady=10)
+     for message_type in self.logger.type_order:
+-      f = Tkinter.Frame( root)
+-      label = Tkinter.Label( f, text=self.logger.type_to_text[message_type], font=("Helvetica", 12, "bold"))
++      f = tkinter.Frame( root)
++      label = tkinter.Label( f, text=self.logger.type_to_text[message_type], font=("Helvetica", 12, "bold"))
+       label.pack( side='left', anchor="w")
+       chooser = Pmw.RadioSelect( f,
+                                  buttontype='radiobutton',
+@@ -1031,13 +1031,13 @@
+       chooser.invoke( self.logger.handle_order.index( self.logger.handling[message_type]))
+       chooser.pack( side='right', anchor='e', padx=5, pady=5)
+       f.pack( fill="x")
+-    Tkinter.Label( root, text=_("The setting will be immediately applied and saved on application exit.")).pack( pady=10)
++    tkinter.Label( root, text=_("The setting will be immediately applied and saved on application exit.")).pack( pady=10)
+ 
+ 
+   def done( self, button):
+     if button == _("OK"):
+       self.proceed = True
+-      for message_type,chooser in self.choosers.items():
++      for message_type,chooser in list(self.choosers.items()):
+         index = chooser.index( chooser.getvalue())
+         self.logger.set_handling( message_type, self.logger.handle_order[index])
+     self.deactivate()
+@@ -1064,7 +1064,7 @@
+     langs = []
+     import gettext
+     self.languages = {}
+-    for lang, language in data.languages.items():
++    for lang, language in list(data.languages.items()):
+       system = gettext.find('BKChem', os.path.normpath(os.path.join(
+         os_support.get_bkchem_run_dir(), '../../../../share/locale')), [lang])
+       if not system:
+@@ -1100,7 +1100,7 @@
+ 
+ ## -------------------- PROGRESS DIALOG --------------------
+ 
+-class progress_dialog( Tkinter.Toplevel):
++class progress_dialog( tkinter.Toplevel):
+ 
+   bar_width = 300
+   bar_height = 20
+@@ -1111,7 +1111,7 @@
+ 
+     self.parent = parent
+ 
+-    Tkinter.Toplevel.__init__(self, parent)
++    tkinter.Toplevel.__init__(self, parent)
+     self.transient(parent)
+     self.geometry("+%d+%d" % (parent.winfo_rootx()+200,
+                               parent.winfo_rooty()+200))
+@@ -1121,13 +1121,13 @@
+     if title:
+       self.title(title)
+ 
+-    body = Tkinter.Frame(self)
++    body = tkinter.Frame(self)
+     body.pack(padx=5, pady=5, side="left", expand=1, fill="both")
+ 
+-    self.top_text = Tkinter.StringVar()
+-    Tkinter.Label( body, textvariable=self.top_text, width=50, height=1, anchor="w").grid( row=1, sticky="W")
+-
+-    self.canvas = Tkinter.Canvas( body, width=self.bar_width, height=self.bar_height, background="white")
++    self.top_text = tkinter.StringVar()
++    tkinter.Label( body, textvariable=self.top_text, width=50, height=1, anchor="w").grid( row=1, sticky="W")
++
++    self.canvas = tkinter.Canvas( body, width=self.bar_width, height=self.bar_height, background="white")
+     self.canvas.grid( row=2)
+     self.bar = self.canvas.create_rectangle( 0, 0, 0, self.bar_height, fill="#7395c8")
+     self.ratio = self.canvas.create_text( (self.bar_width/2)-10,
+@@ -1135,8 +1135,8 @@
+                                           text="0%",
+                                           font="Helvetica %d normal" % self.bar_fontsize)
+ 
+-    self.bottom_text = Tkinter.StringVar()
+-    Tkinter.Label( body, textvariable=self.bottom_text, width=50, height=1, anchor="w").grid( row=3, sticky="W")
++    self.bottom_text = tkinter.StringVar()
++    tkinter.Label( body, textvariable=self.bottom_text, width=50, height=1, anchor="w").grid( row=3, sticky="W")
+ 
+     self.grab_set()
+     self.protocol("WM_DELETE_WINDOW", self.close)
+--- ./bkchem/classes.py	(original)
++++ ./bkchem/classes.py	(refactored)
+@@ -21,15 +21,15 @@
+ 
+ """
+ 
+-from __future__ import division
+-from __future__ import generators
++
++
+ 
+ import sys
+ import xml.dom.minidom as dom
+ try:
+   import tkinter.font as tkFont
+ except ImportError:
+-  import tkFont
++  import tkinter.font
+ 
+ from math import atan2, sin, cos, pi, sqrt
+ from warnings import warn
+@@ -78,7 +78,7 @@
+ 
+ 
+   def __eq__( self, other):
+-    for k, v in self.__dict__.items():
++    for k, v in list(self.__dict__.items()):
+       if str( v) != str( other.__dict__[ k]):
+         return 0
+     return 1
+@@ -298,7 +298,7 @@
+     doc is the parent document which is used for element creation
+     (the returned element is not inserted into the document)"""
+     pnt = doc.createElement('point')
+-    x, y = map( Screen.px_to_text_with_unit, self.paper.screen_to_real_coords( (self.x, self.y)))
++    x, y = list(map( Screen.px_to_text_with_unit, self.paper.screen_to_real_coords( (self.x, self.y))))
+     dom_extensions.setAttributes( pnt, (('x', x),
+                                         ('y', y)))
+     return pnt
+@@ -488,7 +488,7 @@
+ 
+ 
+   def update_font( self):
+-    self.font = tkFont.Font( family=self.font_family, size=self.font_size)
++    self.font = tkinter.font.Font( family=self.font_family, size=self.font_size)
+ 
+ 
+   def lift( self):
+@@ -736,7 +736,7 @@
+ 
+   def update_font( self):
+     #if 'font_family' in self.__dict__ and 'font_size' in self.__dict__:
+-    self.font = tkFont.Font( family=self.font_family, size=self.font_size)
++    self.font = tkinter.font.Font( family=self.font_family, size=self.font_size)
+ 
+ 
+   def scale_font( self, ratio):
+@@ -747,7 +747,7 @@
+   def on_screen_font(self):
+     """Returns a font adequate for on-screen display, using appropriate scaling."""
+     screen_font_size = int( round( self.paper.real_to_canvas(self.font_size) ))
+-    return tkFont.Font( family=self.font_family, size=screen_font_size)
++    return tkinter.font.Font( family=self.font_family, size=screen_font_size)
+ 
+ 
+   def lift( self):
+--- ./bkchem/special_parents.py	(original)
++++ ./bkchem/special_parents.py	(refactored)
+@@ -23,7 +23,7 @@
+ try:
+   import tkinter.font as tkFont
+ except ImportError:
+-  import tkFont
++  import tkinter.font
+ 
+ from oasa import geometry
+ from math import sin, cos, sqrt, pi
+@@ -630,7 +630,7 @@
+ 
+ 
+   def update_font( self):
+-    self.font = tkFont.Font( family=self.font_family, size=self.font_size)
++    self.font = tkinter.font.Font( family=self.font_family, size=self.font_size)
+ 
+ 
+   def scale_font( self, ratio):
+@@ -641,7 +641,7 @@
+   def on_screen_font(self):
+     """Returns a font adequate for on-screen display, using appropriate scaling."""
+     screen_font_size = int( round( self.paper.real_to_canvas(self.font_size) ))
+-    return tkFont.Font( family=self.font_family, size=screen_font_size)
++    return tkinter.font.Font( family=self.font_family, size=screen_font_size)
+ 
+   def lift( self):
+     # marks
+@@ -671,7 +671,7 @@
+       box = self.paper.bbox( self.item)
+       if substract_font_descent and self.show:
+         hack_y = self.font.metrics()['descent']
+-        x1, y1, x2, y2 = map( operator.add, box, Tuning.Screen.drawable_chem_vertex_bbox_mod_after_descent_removal)
++        x1, y1, x2, y2 = list(map( operator.add, box, Tuning.Screen.drawable_chem_vertex_bbox_mod_after_descent_removal))
+         box =  x1, y1, x2, y2-hack_y
+       #if Store.app.in_batch_mode:
+       #  # in batch mode the bboxes work really strangely and this fixes it somehow
+--- ./bkchem/bond.py	(original)
++++ ./bkchem/bond.py	(refactored)
+@@ -19,7 +19,7 @@
+ 
+ """
+ 
+-from __future__ import division
++
+ 
+ import math
+ import oasa
+@@ -734,7 +734,7 @@
+     _d = dashing[0]
+     while not _d > d:
+       _d += sum( dashing)
+-    dashing = map( lambda x: x * d/_d, dashing)
++    dashing = [x * d/_d for x in dashing]
+     # //
+     dx = (x2 - x1)/d
+     dy = (y2 - y1)/d
+@@ -1159,11 +1159,11 @@
+     [self.paper.delete( i) for i in self.third]
+     self.third = []
+     if self.items:
+-      map( self.paper.delete, self.items)
++      list(map( self.paper.delete, self.items))
+       self.items = []
+     x1, y1 = self.atom1.get_xy()
+     x2, y2 = self.atom2.get_xy()
+-    x1, y1, x2, y2 = map( round, [x1, y1, x2, y2])
++    x1, y1, x2, y2 = list(map( round, [x1, y1, x2, y2]))
+     if self.item and not self.paper.type( self.item) == "line":
+       self.paper.unregister_id( self.item)
+       self.paper.delete( self.item)
+@@ -1260,7 +1260,7 @@
+     self.second = []
+     self.third = []
+     self.items = []
+-    map( self.paper.delete, items)
++    list(map( self.paper.delete, items))
+     return self
+ 
+ 
+--- ./bkchem/main.py	(original)
++++ ./bkchem/main.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import print_function
++
+ 
+ import os
+ import oasa
+@@ -35,9 +35,9 @@
+   from tkinter.filedialog import asksaveasfilename, askopenfilename
+   import tkinter.messagebox as tkMessageBox
+ except ImportError:
+-  from Tkinter import *
+-  from tkFileDialog import asksaveasfilename, askopenfilename
+-  import tkMessageBox
++  from tkinter import *
++  from tkinter.filedialog import asksaveasfilename, askopenfilename
++  import tkinter.messagebox
+ 
+ import Pmw
+ import data
+@@ -743,7 +743,7 @@
+       if self._save_according_to_extension( a):
+         name = self.get_name_dic( a)
+         if self.check_if_the_file_is_opened( name['name'], check_current=0):
+-          tkMessageBox.showerror( _("File already opened!"), _("Sorry but you are already editing a file with this name (%s), please choose a different name or close the other file.") % name['name'])
++          tkinter.messagebox.showerror( _("File already opened!"), _("Sorry but you are already editing a file with this name (%s), please choose a different name or close the other file.") % name['name'])
+           return None
+         self.paper.file_name = self.get_name_dic( a)
+         self.notebook.tab( self.get_paper_tab_name( self.paper)).configure( text = self.paper.file_name['name'])
+@@ -797,7 +797,7 @@
+     if replace == 0 the content of the file is added to the current content of the file"""
+     if not file:
+       if self.paper.changes_made and replace:
+-        if tkMessageBox.askokcancel( _("Forget changes?"),_("Forget changes in currently visiting file?"), default='ok', parent=self) == 0:
++        if tkinter.messagebox.askokcancel( _("Forget changes?"),_("Forget changes in currently visiting file?"), default='ok', parent=self) == 0:
+           return 0
+       a = askopenfilename( defaultextension = "",
+                            initialdir = self.save_dir,
+@@ -878,7 +878,7 @@
+           docs = doc.getElementsByTagName( 'cdml')
+           if docs:
+             # ask if we should proceed with incorrect namespace
+-            proceed = tkMessageBox.askokcancel(_("Proceed?"),
++            proceed = tkinter.messagebox.askokcancel(_("Proceed?"),
+                                                _("CDML data seem present in SVG but have wrong namespace. Proceed?"),
+                                                default='ok',
+                                                parent=self)
+@@ -984,7 +984,7 @@
+     plugin = self.plugins[ pl_id]
+     if not filename:
+       if self.paper.changes_made:
+-        if tkMessageBox.askokcancel( _("Forget changes?"),_("Forget changes in currently visiting file?"), default='ok', parent=self) == 0:
++        if tkinter.messagebox.askokcancel( _("Forget changes?"),_("Forget changes in currently visiting file?"), default='ok', parent=self) == 0:
+           return 0
+       types = []
+       if 'extensions' in plugin.__dict__ and plugin.extensions:
+@@ -1015,7 +1015,7 @@
+         try:
+           doc = importer.get_cdml_dom( filename)
+         except plugins.plugin.import_exception as detail:
+-          tkMessageBox.showerror(_("Import error"), _("Plugin failed to import with following error:\n %s") % detail)
++          tkinter.messagebox.showerror(_("Import error"), _("Plugin failed to import with following error:\n %s") % detail)
+           return 0
+       # others give directly a molecule object
+       elif importer.gives_molecule:
+@@ -1023,7 +1023,7 @@
+         try:
+           doc = importer.get_molecules( filename)
+         except plugins.plugin.import_exception as detail:
+-          tkMessageBox.showerror(_("Import error"), _("Plugin failed to import with following error:\n %s") % detail)
++          tkinter.messagebox.showerror(_("Import error"), _("Plugin failed to import with following error:\n %s") % detail)
+       self.paper.clean_paper()
+       if cdml == 0:
+         # doc is a molecule
+@@ -1070,7 +1070,7 @@
+         try:
+           doc = exporter.write_to_file( a)
+         except:
+-          tkMessageBox.showerror(_("Export error"), _("Plugin failed to export with following error:\n %s") % sys.exc_value)
++          tkinter.messagebox.showerror(_("Export error"), _("Plugin failed to export with following error:\n %s") % sys.exc_info()[1])
+           return False
+       else:
+         doc = exporter.write_to_file( a)
+@@ -1173,33 +1173,33 @@
+           mol = oasa_bridge.read_inchi( text, self.paper)
+         except oasa.oasa_exceptions.oasa_not_implemented_error as e:
+           if not inchi:
+-            tkMessageBox.showerror(_("Error processing %s") % 'InChI',
++            tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
+                                    _("Some feature of the submitted InChI is not supported.\n\nYou have most probaly submitted a multicomponent structure (having a . in the sumary layer"))
+             return
+           else:
+-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_value)
++            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
+         except oasa.oasa_exceptions.oasa_inchi_error as e:
+           if not inchi:
+-            tkMessageBox.showerror(_("Error processing %s") % 'InChI',
++            tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
+                                    _("There was an error reading the submitted InChI.\n\nIf you are sure it is a valid InChI, please send me a bug report."))
+             return
+           else:
+-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_value)
++            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
+         except oasa.oasa_exceptions.oasa_unsupported_inchi_version_error as e:
+           if not inchi:
+-            tkMessageBox.showerror(_("Error processing %s") % 'InChI',
++            tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
+                                    _("The submitted InChI has unsupported version '%s'.\n\nYou migth try resubmitting with the version string (the first part of InChI) changed to '1'.") % e.version)
+             return
+           else:
+-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_value)
++            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
+         except:
+ 
+           if not inchi:
+-            tkMessageBox.showerror(_("Error processing %s") % 'InChI',
+-                                   _("The reading of InChI failed with following error:\n\n'%s'\n\nIf you are sure you have submitted a valid InChI, please send me a bug report.") % sys.exc_value)
++            tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
++                                   _("The reading of InChI failed with following error:\n\n'%s'\n\nIf you are sure you have submitted a valid InChI, please send me a bug report.") % sys.exc_info()[1])
+             return
+           else:
+-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_value)
++            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
+ 
+       self.paper.stack.append( mol)
+       mol.draw()
+@@ -1334,7 +1334,7 @@
+     # store logging settings
+     if not self.in_batch_mode:
+       # we do not save (or load) handling info when in batch mode
+-      for key, value in Store.logger.handling.items():
++      for key, value in list(Store.logger.handling.items()):
+         Store.pm.add_preference("logging_%s" % key, value)
+     f = os_support.get_opened_config_file("prefs.xml",
+                                           level="personal",
+--- ./bkchem/atom.py	(original)
++++ ./bkchem/atom.py	(refactored)
+@@ -21,7 +21,7 @@
+ 
+ """
+ 
+-from __future__ import division
++
+ 
+ import re
+ import sys
+@@ -225,7 +225,7 @@
+       if self.charge -self.get_charge_from_marks() > 0:
+         ch = '<sup>%s+</sup>' % ch
+       else:
+-        ch = '<sup>%s%s</sup>' % (ch, self.paper.get_paper_property('use_real_minus') and unichr(8722) or "-")
++        ch = '<sup>%s%s</sup>' % (ch, self.paper.get_paper_property('use_real_minus') and chr(8722) or "-")
+     else:
+       ch = ''
+     if self.pos == 'center-last':
+@@ -281,7 +281,7 @@
+       form = PT.text_to_hydrogenated_atom( name)
+       if form:
+         # it is!
+-        a = form.keys()
++        a = list(form.keys())
+         a.remove( 'H')
+         if occupied_valency is None:
+           valency = self.occupied_valency
+@@ -454,7 +454,7 @@
+     if self.area_color != self.paper.standard.area_color:
+       a.setAttribute( 'background-color', self.area_color)
+     # needed to support transparent handling of molecular size
+-    x, y, z = map( Screen.px_to_text_with_unit, self.get_xyz( real=1))
++    x, y, z = list(map( Screen.px_to_text_with_unit, self.get_xyz( real=1)))
+     if self.z:
+       dom_extensions.elementUnder( a, 'point', attributes=(('x', x), ('y', y), ('z', z)))
+     else:
+@@ -565,7 +565,7 @@
+       return None
+     match = splitter.match( txt.lower())
+     if match:
+-      if match.group(1).capitalize() not in PT.periodic_table or 'query' in PT.periodic_table[ match.group(1).capitalize()].keys():
++      if match.group(1).capitalize() not in PT.periodic_table or 'query' in list(PT.periodic_table[ match.group(1).capitalize()].keys()):
+         return None
+       if match.group(3) == '+':
+         charge = match.group(2) and int( match.group(2)) or 1
+--- ./bkchem/pref_manager.py	(original)
++++ ./bkchem/pref_manager.py	(refactored)
+@@ -17,7 +17,7 @@
+ 
+ #--------------------------------------------------------------------------
+ 
+-from __future__ import print_function
++
+ 
+ import os
+ import sys
+@@ -29,7 +29,7 @@
+ 
+ 
+ if sys.version_info[0] > 2:
+-  unicode = str
++  str = str
+ 
+ 
+ class pref_manager( object):
+@@ -75,13 +75,13 @@
+     top = doc.getElementsByTagName("bkchem-prefs")[0]
+     for child in dom_extensions.childNodesWithoutEmptySpaces(top):
+       name = child.nodeName
+-      itype = child.getAttribute('type') or unicode
++      itype = child.getAttribute('type') or str
+ 
+       if itype in ("ListType", "TupleType", "DictType"):
+         value = eval(dom_extensions.getAllTextFromElement(child))
+       else:
+         if itype in ("UnicodeType"):
+-          itype = unicode
++          itype = str
+         else:
+           itype = types.__dict__[itype]
+         try:
+@@ -101,7 +101,7 @@
+     top = doc.createElement("bkchem-prefs")
+     doc.appendChild(top)
+ 
+-    for k, v in self.data.items():
++    for k, v in list(self.data.items()):
+       itype = 'UnicodeType'
+       for tn in types.__dict__:
+         if type(v) == types.__dict__[tn]:
+@@ -118,7 +118,7 @@
+         if isinstance(v, str):
+           v = v.decode('utf-8')
+           itype = 'UnicodeType'
+-        elif isinstance(v, unicode):
++        elif isinstance(v, str):
+           itype = 'UnicodeType'
+       el = dom_extensions.textOnlyElementUnder(top, k, v,
+                                                attributes = (("type", itype),))
+--- ./bkchem/splash.py	(original)
++++ ./bkchem/splash.py	(refactored)
+@@ -26,28 +26,28 @@
+ try:
+   import tkinter as Tkinter
+ except ImportError:
+-  import Tkinter
++  import tkinter
+ 
+ import messages
+ import os_support
+ 
+ 
+ 
+-class Splash( Tkinter.Toplevel):
++class Splash( tkinter.Toplevel):
+ 
+   def __init__( self):
+-    Tkinter.Toplevel.__init__( self)
++    tkinter.Toplevel.__init__( self)
+ 
+     self.title(_('BKChem is starting...'))
+ 
+     # splash image
+     splash_image_path = 'logo.ppm'
+     try:
+-      self.splash_image = Tkinter.PhotoImage( file = os_support.get_path( splash_image_path, 'image'))
++      self.splash_image = tkinter.PhotoImage( file = os_support.get_path( splash_image_path, 'image'))
+     except:
+       self.splash_image = None
+ 
+-    text = Tkinter.Label( self,
++    text = tkinter.Label( self,
+                           font=('Helvetica', 12, 'normal'),
+                           relief = 'raised',
+                           borderwidth = 2,
+--- ./bkchem/pixmaps.py	(original)
++++ ./bkchem/pixmaps.py	(refactored)
+@@ -24,7 +24,7 @@
+ try:
+     import tkinter as Tkinter
+ except ImportError:
+-    import Tkinter
++    import tkinter
+ 
+ import os_support
+ 
+@@ -46,7 +46,7 @@
+       return dict.__getitem__(self, item)
+     except:
+       try:
+-        i = Tkinter.PhotoImage(file=os_support.get_path(item + '.gif', 'pixmap'))
++        i = tkinter.PhotoImage(file=os_support.get_path(item + '.gif', 'pixmap'))
+         self.__setitem__(item, i)
+         return i
+       except ValueError:
+@@ -62,7 +62,7 @@
+       return 1
+     else:
+       try:
+-        self.__setitem__(item, Tkinter.PhotoImage(file=os_support.get_path(item + '.gif', 'pixmap')))
++        self.__setitem__(item, tkinter.PhotoImage(file=os_support.get_path(item + '.gif', 'pixmap')))
+         return 1
+       except:
+         return 0
+--- ./setup.py	(original)
++++ ./setup.py	(refactored)
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env python
+ 
+-from __future__ import print_function
++
+ 
+ import os
+ import sys
+@@ -17,7 +17,7 @@
+   sys.path.insert(0, 'bkchem')
+ 
+ # all the apicdoc directories and files
+-apidocs = [('share/doc/bkchem/'+path[4:], map(os.path.join, len(filenames)*[path], filenames))
++apidocs = [('share/doc/bkchem/'+path[4:], list(map(os.path.join, len(filenames)*[path], filenames)))
+               for (path, dirnames, filenames) in os.walk('doc/api')]
+ 
+ # available languages to pack
+--- ./doc/scripts/batch_demo1.py	(original)
++++ ./doc/scripts/batch_demo1.py	(refactored)
+@@ -1,5 +1,5 @@
+ 
+-from __future__ import print_function
++
+ 
+ import os
+ 
+--- ./doc/scripts/script1.py	(original)
++++ ./doc/scripts/script1.py	(refactored)
+@@ -1,5 +1,5 @@
+ 
+-from __future__ import print_function
++
+ 
+ import sys
+ 

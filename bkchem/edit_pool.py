@@ -27,8 +27,8 @@ try:
   import tkinter as Tkinter
   from tkinter import Frame, Button, Entry
 except ImportError:
-  import Tkinter
-  from Tkinter import Frame, Button, Entry
+  import tkinter
+  from tkinter import Frame, Button, Entry
 
 from xml.sax import saxutils
 
@@ -227,11 +227,11 @@ class editPool( Frame):
 
   def _tag_it( self, tag):
     if self.editPool.selection_present():
-      self.editPool.insert( Tkinter.SEL_FIRST, '<%s>' % tag)
-      self.editPool.insert( Tkinter.SEL_LAST, '</%s>' % tag)
+      self.editPool.insert( tkinter.SEL_FIRST, '<%s>' % tag)
+      self.editPool.insert( tkinter.SEL_LAST, '</%s>' % tag)
     else:
-      self.editPool.insert( Tkinter.INSERT, '<%s></%s>' % (tag, tag))
-      self.editPool.icursor( self.editPool.index( Tkinter.INSERT) - len( tag) - 3)
+      self.editPool.insert( tkinter.INSERT, '<%s></%s>' % (tag, tag))
+      self.editPool.icursor( self.editPool.index( tkinter.INSERT) - len( tag) - 3)
 
 
   def _key( self, event):
@@ -249,11 +249,11 @@ class editPool( Frame):
 
   def _insertText( self, text):
     if text is not None:
-      self.editPool.insert( Tkinter.INSERT, text)
+      self.editPool.insert( tkinter.INSERT, text)
     self.grab_set()
 
 
-class special_character_menu( Tkinter.Menu):
+class special_character_menu( tkinter.Menu):
 
   chars = {_("minus"): "&#8722;",
            _("arrow-left"): "&#x2190;",
@@ -264,7 +264,7 @@ class special_character_menu( Tkinter.Menu):
 
   def __init__( self, callback, **kw):
     self.callback = callback
-    Tkinter.Menu.__init__( self, Store.app, tearoff=0, **kw)
+    tkinter.Menu.__init__( self, Store.app, tearoff=0, **kw)
     keys = sorted(self.chars.keys())
     for k in keys:
       self.add_command( label=k, command=misc.lazy_apply( self.itemselected, (k,)))
@@ -276,7 +276,7 @@ class special_character_menu( Tkinter.Menu):
 
 
   def post( self, x, y):
-    Tkinter.Menu.post( self, x, y)
+    tkinter.Menu.post( self, x, y)
     if os.name != 'nt':
       self.grab_set()
 

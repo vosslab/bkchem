@@ -32,7 +32,7 @@ import xml.sax
 try:
   import tkinter.font as tkFont
 except ImportError:
-  import tkFont
+  import tkinter.font
 
 import tuning
 import dom_extensions
@@ -53,7 +53,7 @@ class ftext(object):
     if font:
       self.font = font
     else:
-      self.font = tkFont.Font( family="Helvetica", size=12)
+      self.font = tkinter.font.Font( family="Helvetica", size=12)
     self._font_family = self.font.actual('family')
     self._font_size = int( self.font.actual('size'))
     self.pos = pos
@@ -149,7 +149,7 @@ class ftext(object):
       if isinstance(text, str):
         text = text.encode('utf-8')
     else:
-      if isinstance(text, unicode):
+      if isinstance(text, str):
         text = text.encode('utf-8')
     handler = FtextHandler()
     xml.sax.parseString( text, handler)
@@ -292,7 +292,7 @@ import re
 try:
   from html.entities import name2codepoint
 except ImportError:
-  from htmlentitydefs import name2codepoint
+  from html.entities import name2codepoint
 
 
 def unescape_html_entity_references( text):
@@ -302,7 +302,7 @@ def unescape_html_entity_references( text):
     if isinstance(text, bytes):
       reX = reX.encode('utf-8')
   else:
-    if isinstance(text, unicode):
+    if isinstance(text, str):
       reX = reX.decode('utf-8')
   return re.sub(reX , _unescape_one_html_entity_reference, text)
 
@@ -314,7 +314,7 @@ def _unescape_one_html_entity_reference( m):
     if sys.version_info[0] > 2:
       return chr(name2codepoint[hit])
     else:
-      return unichr(name2codepoint[hit])
+      return chr(name2codepoint[hit])
   else:
     return "&"+hit+";"
 

@@ -27,7 +27,7 @@ import xml.dom.minidom as dom
 try:
   from io import StringIO
 except ImportError:
-  import StringIO
+  import io
 
 from xml import xpath
 from oasa.transform import transform
@@ -70,7 +70,7 @@ class gtml_importer(object):
     self.molecules = []
 
     # prepare the file to resolve entities
-    f = StringIO.StringIO()
+    f = io.StringIO()
     f.write( "<!DOCTYPE item [")
     with open('mathmlentities.ent') as entities:
       f.write(entities.read())

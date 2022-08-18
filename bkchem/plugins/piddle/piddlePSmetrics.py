@@ -24,7 +24,7 @@ Postscript font names within this module, but have not yet done so.
 13th June 1999
 """
 
-from __future__ import print_function
+
 
 import string
 
@@ -157,7 +157,7 @@ class FontCache(object):
 
     def status(self):
         #returns loaded fonts
-        return self.__widtharrays.keys()
+        return list(self.__widtharrays.keys())
 
 TheFontCache = FontCache()
 

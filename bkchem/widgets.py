@@ -21,7 +21,7 @@
 
 """
 
-from __future__ import division
+
 
 import re
 import math
@@ -32,10 +32,10 @@ try:
     import tkinter.colorchooser as tkColorChooser
     import tkinter.filedialog as tkFileDialog
 except ImportError:
-    import Tkinter
-    import tkFont
-    import tkColorChooser
-    import tkFileDialog
+    import tkinter
+    import tkinter.font
+    import tkinter.colorchooser
+    import tkinter.filedialog
 
 from oasa import geometry
 
@@ -49,7 +49,7 @@ from singleton_store import Store
 
 
 
-class ColorButton(Tkinter.Button):
+class ColorButton(tkinter.Button):
   """Button used for color selection.
 
   Has the choosen color in background and when pressed
@@ -58,7 +58,7 @@ class ColorButton(Tkinter.Button):
   def __init__(self, master=None, color=None, text=''):
     self.master = master
     self.set_color( color)
-    Tkinter.Button.__init__( self, master=master, command=self._select_color,
+    tkinter.Button.__init__( self, master=master, command=self._select_color,
                              background=self.color, activebackground=self.color,
                              foreground=self.foreground_color, activeforeground=self.foreground_color,
                              text=text)
@@ -87,9 +87,9 @@ class ColorButton(Tkinter.Button):
 
   def _select_color( self):
     if self.color:
-      color = tkColorChooser.askcolor( self.color)
+      color = tkinter.colorchooser.askcolor( self.color)
     else:
-      color = tkColorChooser.askcolor()
+      color = tkinter.colorchooser.askcolor()
     if color[1]:
       self.set_color( color[1])
       self.rgb = color[0]
@@ -98,15 +98,15 @@ class ColorButton(Tkinter.Button):
 
 
 
-class ColorButtonWithTransparencyChecker(Tkinter.Frame, object):
+class ColorButtonWithTransparencyChecker(tkinter.Frame, object):
 
   def __init__(self, master=None, color=None, text=''):
-    Tkinter.Frame.__init__( self, master)
+    tkinter.Frame.__init__( self, master)
     self.master = master
     self.button = ColorButton( master=self, color=color, text=text)
-    self.transparent = Tkinter.IntVar()
+    self.transparent = tkinter.IntVar()
     self.transparent.set( color == '' and 1 or 0)
-    self.checker = Tkinter.Checkbutton( self,
+    self.checker = tkinter.Checkbutton( self,
                                         text=_("Transparent"),
                                         variable=self.transparent,
                                         command=self._set_trasparency)
@@ -116,7 +116,7 @@ class ColorButtonWithTransparencyChecker(Tkinter.Frame, object):
   def pack( self, **kw):
     self.button.pack( anchor="w", padx=0, pady=0)
     self.checker.pack( anchor="w", padx=0, pady=0)
-    Tkinter.Frame.pack( self, **kw)
+    tkinter.Frame.pack( self, **kw)
 
 
   @property
@@ -135,11 +135,11 @@ class ColorButtonWithTransparencyChecker(Tkinter.Frame, object):
 
 
 
-class GraphicalAngleChooser(Tkinter.Frame):
+class GraphicalAngleChooser(tkinter.Frame):
 
   def __init__(self, parent, angle, line_color="#000", fill_color="#ffffff"):
-    Tkinter.Frame.__init__( self, parent)
-    self.canvas = Tkinter.Canvas( self, width=60, height=60)
+    tkinter.Frame.__init__( self, parent)
+    self.canvas = tkinter.Canvas( self, width=60, height=60)
     self.canvas.bind('<Button-1>', self._click)
     self.canvas.bind('<B1-Motion>', self._click)
     self.canvas.pack()
@@ -203,7 +203,7 @@ class FontSizeChooser(Pmw.Counter):
 class FontFamilyChooser(Pmw.ScrolledListBox):
 
   def __init__(self, parent, value):
-      available_families = sorted(list(tkFont.families()))
+      available_families = sorted(list(tkinter.font.families()))
       available_families.insert(-1, '')
       for fnt in data.always_available_fonts:
         available_families.insert(1, fnt)
@@ -277,7 +277,7 @@ class RatioCounter(Pmw.Counter):
 
 
 
-class ValueWithUnitParent(Tkinter.Frame):
+class ValueWithUnitParent(tkinter.Frame):
 
   def __init__(self, parent, value, counter, label=None, units={}):
     """Initialize ValueWithUnitParent object.
@@ -287,7 +287,7 @@ class ValueWithUnitParent(Tkinter.Frame):
     units   - dictionary of dictionaries keyed by unit name with ratio,
               round and increment
     """
-    Tkinter.Frame.__init__( self, parent)
+    tkinter.Frame.__init__( self, parent)
     self.units = units
     v, self._recent_unit = misc.split_number_and_unit( value)
     # the counter widget
@@ -297,7 +297,7 @@ class ValueWithUnitParent(Tkinter.Frame):
     if self._recent_unit:
       self.counter['increment'] = self.units[self._recent_unit]['increment']
     else:
-      self._recent_unit = units.keys()[0]
+      self._recent_unit = list(units.keys())[0]
     self.counter.pack( side='left')
     # the unit selection widget
     us = sorted(units.keys())
@@ -344,22 +344,22 @@ class LengthChooser(ValueWithUnitParent):
 
 
 # a meta dialog for opening files
-class FileSelectionEntry(Tkinter.Frame):
+class FileSelectionEntry(tkinter.Frame):
 
   def __init__(self, parent, prompt="", value="", filetypes=(), type="open"):
-    Tkinter.Frame.__init__( self, parent)
+    tkinter.Frame.__init__( self, parent)
     self.parent = parent
     self.value = value
     self.filetypes = filetypes
     self.type = type
 
-    Tkinter.Label( self, text=prompt).pack( side="left", padx=0)
+    tkinter.Label( self, text=prompt).pack( side="left", padx=0)
 
-    self.entry = Tkinter.Entry( self, width=40)
+    self.entry = tkinter.Entry( self, width=40)
     self.entry.pack( side="left", padx=0)
     self.update_entry()
 
-    self.button = Tkinter.Button( self,
+    self.button = tkinter.Button( self,
                                   text = _("Browse"),
                                   command = self.browse)
     self.button.pack( side="left", padx=0)
@@ -367,13 +367,13 @@ class FileSelectionEntry(Tkinter.Frame):
 
   def browse( self):
     if self.type == "open":
-      a = tkFileDialog.askopenfilename( defaultextension = "",
+      a = tkinter.filedialog.askopenfilename( defaultextension = "",
                                         initialdir = os.path.dirname( self.value),
                                         title = _("Select the file"),
                                         parent = self.parent,
                                         filetypes = self.filetypes)
     else:
-      a = tkFileDialog.asksaveasfilename( defaultextension = "",
+      a = tkinter.filedialog.asksaveasfilename( defaultextension = "",
                                           initialdir = os.path.dirname( self.value),
                                           title = _("File to create"),
                                           parent = self.parent,
@@ -409,15 +409,15 @@ class FileSelectionWithText(Pmw.Dialog):
 
 
 
-class HTMLLikeInput(Tkinter.Frame, object):
+class HTMLLikeInput(tkinter.Frame, object):
 
   font_decorations = ('italic', 'bold', 'subscript', 'superscript')
   font_decorations_to_html = {'italic':'i', 'bold':'b', 'subscript':'sub', 'superscript':'sup'}
 
 
   def __init__(self, master, **kw):
-    Tkinter.Frame.__init__( self, master, **kw)
-    self.editPool = Tkinter.Entry( self, width=60)
+    tkinter.Frame.__init__( self, master, **kw)
+    self.editPool = tkinter.Entry( self, width=60)
     self.editPool.pack( side='left')
 
     self.editPool.bind("<KeyPress>", self._key)
@@ -425,13 +425,13 @@ class HTMLLikeInput(Tkinter.Frame, object):
     # subscript numbers
     pix = Store.app.request( 'pixmap', name='subnum')
     if pix:
-      self.numbersToSubButton = Tkinter.Button( self,
+      self.numbersToSubButton = tkinter.Button( self,
                                                 image=pix,
                                                 command=self._numbersToSubButtonPressed,
                                                 bd=config.border_width)
       Store.app.balloon.bind( self.numbersToSubButton, _('Subscript numbers'))
     else:
-      self.numbersToSubButton = Tkinter.Button( self,
+      self.numbersToSubButton = tkinter.Button( self,
                                                text=_('Sub numbers'),
                                                command=self._numbersToSubButtonPressed,
                                                bd=config.border_width)
@@ -440,13 +440,13 @@ class HTMLLikeInput(Tkinter.Frame, object):
     # superscript charges
     pix = Store.app.request( 'pixmap', name='supcharge')
     if pix:
-      self.chargesToSupButton = Tkinter.Button( self,
+      self.chargesToSupButton = tkinter.Button( self,
                                                 image=pix,
                                                 command=self._chargesToSupButtonPressed,
                                                 bd=config.border_width)
       Store.app.balloon.bind( self.chargesToSupButton, _('Superscript charges'))
     else:
-      self.chargesToSupButton = Tkinter.Button( self,
+      self.chargesToSupButton = tkinter.Button( self,
                                                 text=_('Sup charges'),
                                                 command=self._chargesToSupButtonPressed,
                                                 bd=config.border_width)
@@ -456,13 +456,13 @@ class HTMLLikeInput(Tkinter.Frame, object):
     for i in self.font_decorations:
       pix = Store.app.request( 'pixmap', name=i)
       if pix:
-        self.__dict__[ i] = Tkinter.Button( self,
+        self.__dict__[ i] = tkinter.Button( self,
                                     image=pix,
                                     command=misc.lazy_apply( self._tag_it, (self.font_decorations_to_html[i],)),
                                     bd=config.border_width)
         Store.app.balloon.bind( self.__dict__[i], i)
       else:
-        self.__dict__[ i] = Tkinter.Button( self,
+        self.__dict__[ i] = tkinter.Button( self,
                                     text=i,
                                     command=misc.lazy_apply( self._tag_it, (self.font_decorations_to_html[i],)),
                                     bd=config.border_width)
@@ -493,11 +493,11 @@ class HTMLLikeInput(Tkinter.Frame, object):
 
   def _tag_it( self, tag):
     if self.editPool.selection_present():
-      self.editPool.insert( Tkinter.SEL_FIRST, '<%s>' % tag)
-      self.editPool.insert( Tkinter.SEL_LAST, '</%s>' % tag)
+      self.editPool.insert( tkinter.SEL_FIRST, '<%s>' % tag)
+      self.editPool.insert( tkinter.SEL_LAST, '</%s>' % tag)
     else:
-      self.editPool.insert( Tkinter.INSERT, '<%s></%s>' % (tag, tag))
-      self.editPool.icursor( self.editPool.index( Tkinter.INSERT) - len( tag) - 3)
+      self.editPool.insert( tkinter.INSERT, '<%s></%s>' % (tag, tag))
+      self.editPool.icursor( self.editPool.index( tkinter.INSERT) - len( tag) - 3)
 
 
   def _key( self, event):

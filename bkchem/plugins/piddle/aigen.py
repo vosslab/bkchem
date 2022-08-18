@@ -8,7 +8,7 @@ complete Reporting solution in Python.
 parts (C) Copyright Andy Robinson 1998-1999
 """
 
-from __future__ import print_function
+
 
 import os
 import sys
@@ -374,7 +374,7 @@ class FontCache(object):
         return w
     def status(self):
         #returns loaded fonts
-        return self.__widtharrays.keys()
+        return list(self.__widtharrays.keys())
 
 TheFontCache = FontCache()
 

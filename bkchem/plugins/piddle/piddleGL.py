@@ -26,7 +26,7 @@
 #
 #####
 
-from __future__ import print_function
+
 
 __version__ = 0.1 # public release -- Sep 28, 1999
 
@@ -153,7 +153,7 @@ class _GLCanvas(Canvas):
                 glCallList(list)
             else:
                 func, args, kw = list
-                apply(func, args, kw)
+                func(*args, **kw)
         glFlush()
 
     def drawLine(self, x1,y1, x2,y2, color=None, width=None):
@@ -361,7 +361,7 @@ def getGLTTFontWrapper():
             if face is None: face = 'arial'
             face = string.lower(face)
             self.face = face
-            if self.maps.has_key(face):
+            if face in self.maps:
                 face = self.maps[face]
             if bold:
                 if italic:
@@ -437,7 +437,7 @@ try:
     try:
         import tkinter as Tkinter
     except ImportError:
-        import Tkinter
+        import tkinter
     from OpenGL.Tk import RawOpengl
     class TkInteractive:
         def __init__(self):
@@ -470,7 +470,7 @@ try:
                    'height':height})
             self._width = width
             self._height = height
-            apply(RawOpengl.__init__, (self,), kw)
+            RawOpengl.__init__(*(self,), **kw)
             _GLCanvas.__init__(self, size=size, name=name)
             TkInteractive.__init__(self)
             self.bind('<Configure>', self.resize)
@@ -481,7 +481,7 @@ try:
             self.configure(width=w, height=h)
             self._width = w
             self._height= h
-            Tkinter.Frame.configure(self)
+            tkinter.Frame.configure(self)
 
         def redraw(self):
             if self._inList: self._saveList()
@@ -523,7 +523,7 @@ def getGLUTFontWrapper():
             self.size=font.size
             if face is None: face = 'glutStrokeRomanFixed'
             face = string.lower(face)
-            if self.maps.has_key(face):
+            if face in self.maps:
                 face = self.maps[face]
             self.glutface = face
         def stringWidth(self, s):

@@ -13,13 +13,13 @@ self.pdf which offers numerous lower-level drawing routines.
 # except drawFigure, which doesn't behave like PostScript
 # paths so I left it unchanged.
 
-from __future__ import print_function
+
 
 #standard python library modules
 try:
     from io import StringIO as cStringIO
 except ImportError:
-    import cStringIO
+    import io
 import string
 import glob
 import os
@@ -188,7 +188,7 @@ class PDFCanvas(Canvas):
 
         if hasattr(file, 'write'):
             self.pdf.save(fileobj=file)
-        elif isinstance(file, types.StringType) or isinstance(file, types.UnicodeType):
+        elif isinstance(file, bytes) or isinstance(file, str):
             self.pdf.save(filename=file)
         else:
             self.pdf.save()

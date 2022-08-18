@@ -147,7 +147,7 @@ class undo_manager(object):
           if not self.compare_records( i, state_rec1, state_rec2):
             return False
       elif isinstance(obj, dict):
-        for i in obj.itervalues():
+        for i in obj.values():
           if not self.compare_records( i, state_rec1, state_rec2):
             return False
       else:
@@ -222,7 +222,7 @@ class state_record(object):
       if isinstance(obj, (list, set)):
         [self.record_object( i) for i in obj]
       elif isinstance(obj, dict):
-        [self.record_object( i) for i in obj.itervalues() if i]
+        [self.record_object( i) for i in obj.values() if i]
       else:
         self.record_object( obj)
 
@@ -355,7 +355,7 @@ class state_record(object):
           if self.object_changed( i):
             return True
       elif isinstance(obj, dict):
-        for i in obj.itervalues():
+        for i in obj.values():
           if self.object_changed( i):
             return True
       else:

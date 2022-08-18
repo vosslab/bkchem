@@ -21,12 +21,12 @@
 
 """
 
-from __future__ import print_function
+
 
 import time
 import string
 import os.path
-import BaseHTTPServer
+import http.server
 import xml.dom.minidom as dom
 
 import xml_writer
@@ -36,16 +36,16 @@ from singleton_store import Store
 
 
 
-class bkchem_http_handler( BaseHTTPServer.BaseHTTPRequestHandler):
+class bkchem_http_handler( http.server.BaseHTTPRequestHandler):
 
   dirs = ('smiles','inchi','gtml')
 
   def __init__( self, *args):
-    BaseHTTPServer.BaseHTTPRequestHandler.__init__( self, *args)
+    http.server.BaseHTTPRequestHandler.__init__( self, *args)
 
 
   def do_GET( self):
-    path_list = filter( None, self.path.split("/"))
+    path_list = [_f for _f in self.path.split("/") if _f]
 
     if len( path_list) == 1 or path_list[0] not in self.dirs:
       # these are static pages
@@ -130,8 +130,8 @@ class bkchem_http_handler( BaseHTTPServer.BaseHTTPRequestHandler):
 
 
 
-class bkchem_http_server( BaseHTTPServer.HTTPServer):
+class bkchem_http_server( http.server.HTTPServer):
 
   def __init__( self, *args):
-    BaseHTTPServer.HTTPServer.__init__( self, *args)
+    http.server.HTTPServer.__init__( self, *args)
 

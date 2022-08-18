@@ -183,7 +183,7 @@ def myisstring(obj):
     if sys.version_info[0] > 2:
         return isinstance(obj, str)
     else:
-        return isinstance(obj, basestring)
+        return isinstance(obj, str)
 
 def HexColor(val):
     """This class converts a hex string, or an actual integer number,
@@ -722,9 +722,9 @@ class Canvas(object):
             if op == figureLine:
                 pointList.extend( [args[:2], args[2:]] )
             elif op == figureArc:
-                pointList.extend(apply(self.arcPoints,args))
+                pointList.extend(self.arcPoints(*args))
             elif op == figureCurve:
-                pointList.extend(apply(self.curvePoints,args))
+                pointList.extend(self.curvePoints(*args))
             else:
                 raise TypeError("unknown figure operator: " + op)
 

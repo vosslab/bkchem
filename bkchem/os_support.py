@@ -165,7 +165,7 @@ def get_bkchem_private_dir():
   dir = ""
   if os.name == "nt":
     try:
-      import _winreg as reg
+      import winreg as reg
       dir = reg.QueryValueEx( reg.OpenKey( reg.HKEY_CURRENT_USER, "Volatile Environment"), "APPDATA")[0]
       dir = os.path.join( dir, "bkchem")
     except EnvironmentError:

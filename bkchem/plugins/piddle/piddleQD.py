@@ -38,7 +38,7 @@ Joe Strout (joe@strout.net), September 1999
 #   The line color is stored in the QD fore color, and the fill color
 #   is stored in the back color -- fills are actually done by erasing.
 
-from __future__ import print_function
+
 
 import Qd
 import QuickDraw
@@ -66,7 +66,7 @@ _curCanvas = None
 
 # global dictionary mapping font names to QD font IDs
 _fontMap = {}
-for item in filter(lambda x:x[0]!='_',dir(Fonts)):
+for item in [x for x in dir(Fonts) if x[0]!='_']:
     _fontMap[string.lower(item)] = Fonts.__dict__[item]
 _fontMap['system'] = Fonts.kFontIDGeneva
 _fontMap['monospaced'] = Fonts.kFontIDMonaco
@@ -586,8 +586,8 @@ def test():
     canvas.onKey = myOnKey
 
 
-    canvas.drawLines( map(lambda i:(i*10,0,i*10,300), range(30)) )
-    canvas.drawLines( map(lambda i:(0,i*10,300,i*10), range(30)) )
+    canvas.drawLines( [(i*10,0,i*10,300) for i in range(30)] )
+    canvas.drawLines( [(0,i*10,300,i*10) for i in range(30)] )
     canvas.defaultLineColor = black
 
     canvas.drawLine(10,200, 20,190, color=red)

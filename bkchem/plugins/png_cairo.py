@@ -22,7 +22,7 @@ import cairo
 try:
     import tkinter as Tkinter
 except ImportError:
-    import Tkinter
+    import tkinter
 
 import Pmw
 
@@ -44,7 +44,7 @@ support and antialiased fonts. The output should look the same as the PDF (Cairo
 
 
   def init_surface( self):
-    w, h = map( int, map( round, self.pagesize))
+    w, h = list(map( int, list(map( round, self.pagesize))))
     surface = cairo.ImageSurface( cairo.FORMAT_ARGB32, w, h)
     return surface
 
@@ -99,7 +99,7 @@ class scale_dialog(object):
                               title=_('PNG resolution and background color'),
                               command=self.done)
 
-    Tkinter.Label(self.dialog.interior(), text=_("Set the PNG picture resolution and background color using one of the criteria below.")).pack( pady=10, anchor="w", expand="1", padx=5)
+    tkinter.Label(self.dialog.interior(), text=_("Set the PNG picture resolution and background color using one of the criteria below.")).pack( pady=10, anchor="w", expand="1", padx=5)
 
 
     # X RATIO
@@ -125,7 +125,7 @@ class scale_dialog(object):
                                datatype = 'real')
     self.entryy.pack(pady=3, anchor='n', padx=10)
 
-    Tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
+    tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
 
 
     # X RES
@@ -152,7 +152,7 @@ class scale_dialog(object):
     self.entry_resy.pack(pady=3, anchor='n', padx=10)
 
 
-    Tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
+    tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
 
 
     # DPI
@@ -168,7 +168,7 @@ class scale_dialog(object):
     self.entry_dpi.pack( pady=3, anchor='n', padx=10)
 
 
-    Tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
+    tkinter.Label(self.dialog.interior(), text=" ").pack( pady=1, anchor="w", expand="1")
 
     self.background_color_button = Pmw.RadioSelect( self.dialog.interior(),
                                                     buttontype = 'radiobutton',
@@ -195,7 +195,7 @@ class scale_dialog(object):
 
 
   def _set_value( self, entry, value):
-    entry.component('entry').delete( 0, Tkinter.END)
+    entry.component('entry').delete( 0, tkinter.END)
     entry.component('entry').insert( 0, value)
 
 

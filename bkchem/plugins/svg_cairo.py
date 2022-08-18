@@ -44,7 +44,7 @@ class svg_cairo_exporter(cairo_exporter):
 
 
   def init_surface( self):
-    w, h = map( int, map( round, self.pagesize))
+    w, h = list(map( int, list(map( round, self.pagesize))))
     return cairo.SVGSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
 
 

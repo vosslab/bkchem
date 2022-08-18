@@ -21,7 +21,7 @@
 
 """
 
-from __future__ import print_function
+
 
 ## support for loading from outside of bkchem dir
 import sys
@@ -56,7 +56,7 @@ if user_lang == "en":
   if sys.version_info[2] > 2:
     import builtins
   else:
-    import __builtin__ as builtins
+    import builtins as builtins
   builtins.__dict__['_'] = lambda m: m
   builtins.__dict__['ngettext'] = gettext.ngettext
   Store.lang = "en"
@@ -77,7 +77,7 @@ else:
 
         tr = gettext.translation( 'BKChem', localedir=localedir, languages=lang)
         try:
-          tr.install(unicode=True, names=['ngettext'])
+          tr.install(str=True, names=['ngettext'])
         except TypeError:
           # In newer Python unicode keyword is dropped
           tr.install(names=['ngettext'])
@@ -89,7 +89,7 @@ else:
     if sys.version_info[0] > 2:
       import builtins
     else:
-      import __builtin__ as builtins
+      import builtins as builtins
     builtins.__dict__['_'] = lambda m: m
     builtins.__dict__['ngettext'] = gettext.ngettext
     Store.lang = "en"
@@ -139,7 +139,7 @@ if __name__ == '__main__':
                               (sys.version_info[0] < 3 and isinstance(i, str)))]
   opts.extend(i for i in sys.argv[1:]
                   if ((sys.version_info[0] > 2 and isinstance(i, str)) or
-                      (sys.version_info[0] < 3 and isinstance(i, unicode))))
+                      (sys.version_info[0] < 3 and isinstance(i, str))))
 
   if "-v" in opts or "--version" in opts:
     print("BKChem", config.current_BKChem_version)

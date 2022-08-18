@@ -26,7 +26,7 @@ import xml
 try:
   import tkinter.messagebox as tkMessageBox
 except ImportError:
-  import tkMessageBox
+  import tkinter.messagebox
 
 import Pmw
 import dialogs
@@ -47,7 +47,7 @@ def ask_name_for_selected( paper):
   ms = [o for o in top_levels if isinstance( o, molecule)]
 
   if not ms:
-    tkMessageBox.showerror( _("No molecule selected."),
+    tkinter.messagebox.showerror( _("No molecule selected."),
                             _("At least one molecule must be selected. Please select it."))
     return
 
@@ -77,12 +77,12 @@ def ask_id_for_selected( paper):
   ms = [o for o in top_levels if isinstance( o, molecule)]
 
   if not ms:
-    tkMessageBox.showerror( _("No molecule selected."),
+    tkinter.messagebox.showerror( _("No molecule selected."),
                             _("At least one molecule must be selected. Please select it."))
     return
 
   if len( ms) > 1:
-    tkMessageBox.showerror( _("Only one molecule should be selected."),
+    tkinter.messagebox.showerror( _("Only one molecule should be selected."),
                             _("ID must be unique value, therefore it is obviously possible to set it to one molecule only. Please select only one molecule"))
     return
 
@@ -107,7 +107,7 @@ def ask_id_for_selected( paper):
     collision = 0
     for mol in paper.molecules:
       if mol != m and mol.id == id:
-        tkMessageBox.showerror( _("ID collision"),
+        tkinter.messagebox.showerror( _("ID collision"),
                                 _("This ID is already used, use a different one"))
         collision = 1
         break
@@ -123,17 +123,17 @@ def check_validity( mols):
   val = validator.validator()
   val.validate( mols)
   if val.report.text_atoms:
-    tkMessageBox.showerror( _("Validity error"),
+    tkinter.messagebox.showerror( _("Validity error"),
                             _("Sorry but your drawing includes 'text atoms'\n - atoms with no chemical sense.") + "\n\n" +
                             _("It is not possible to export them.") + "\n\n" +
                             _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
     return 0
   if val.report.exceeded_valency:
-    tkMessageBox.showwarning( _("Validity warning"),
+    tkinter.messagebox.showwarning( _("Validity warning"),
                               _("Your drawing includes some atoms with exceeded valency.") + "\n\n" +
                               _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
   if val.report.group_atoms:
-    yes = tkMessageBox.askokcancel( _("Expand groups?"),
+    yes = tkinter.messagebox.askokcancel( _("Expand groups?"),
                                     _("Your drawing includes some groups.") + "\n\n" +
                                     _("These must be expanded in order to get chemicaly valid drawing. The expansion could be undone afterwards.") + "\n\n"+
                                     _("Proceed with expansion?"))
@@ -166,7 +166,7 @@ def ask_display_form_for_selected( paper):
   ms = [o for o in top_levels if isinstance( o, molecule)]
 
   if not ms:
-    tkMessageBox.showerror( _("No molecule selected."),
+    tkinter.messagebox.showerror( _("No molecule selected."),
                             _("At least one molecule must be selected. Please select it."))
     return
 
@@ -195,7 +195,7 @@ def ask_display_form_for_selected( paper):
       try:
         xml.sax.parseString( "<a>%s</a>" % df, xml.sax.ContentHandler())
       except xml.sax.SAXParseException:
-        tkMessageBox.showerror( _("Parse Error"), _("Unable to parse the text-\nprobably problem with input encoding!"))
+        tkinter.messagebox.showerror( _("Parse Error"), _("Unable to parse the text-\nprobably problem with input encoding!"))
         Store.app.paper.bell()
         return
   else:
@@ -217,7 +217,7 @@ def save_as_template( paper):
     if not mol.name:
       missing[ 'name'] = missing.get( 'name', 0) + 1
 
-  errors = missing.has_key( 'atom') or missing.has_key('name')
+  errors = 'atom' in missing or 'name' in missing
 
   if missing:
     dialog = Pmw.TextDialog( paper, title=_("Template summary"))
@@ -226,19 +226,19 @@ def save_as_template( paper):
     if errors:
       dialog.insert( 'end', _("Errors"), 'headline')
       dialog.insert( 'end', "\n")
-    if missing.has_key( 'atom'):
+    if 'atom' in missing:
       dialog.insert('end', ngettext(
         "%d molecule have no template atom specified",
         "%d molecules have no template atom specified",
         int(missing['atom'])) % missing['atom'])
       dialog.insert( 'end', "\n")
-    if missing.has_key('name'):
+    if 'name' in missing:
       dialog.insert('end', ngettext(
         "%d molecule have no name specified",
         "%d molecules have no name specified",
         int(missing['name'])) % missing['name'])
       dialog.insert( 'end', "\n")
-    if missing.has_key( 'bond'):
+    if 'bond' in missing:
       dialog.insert( 'end', "\n")
       dialog.insert( 'end', _("Warnings"), 'headline')
       dialog.insert( 'end', "\n")
@@ -266,7 +266,7 @@ def save_as_template( paper):
       if path:
         path = os_support.create_personal_config_directory( "templates")
       if not path:
-        tkMessageBox.showerror( _("Directory creation failed."),
+        tkinter.messagebox.showerror( _("Directory creation failed."),
                                 _("It was not possible to create the personal directory %s.") % os_support.get_personal_config_directory())
         return
 
@@ -287,7 +287,7 @@ def save_as_template( paper):
       name = os.path.join( path ,name) + '.svg'
 
       if os.path.exists( name):
-        q = tkMessageBox.askokcancel( _("The file already exists."),
+        q = tkinter.messagebox.askokcancel( _("The file already exists."),
                                       _("Template with this name already exists (path %s).\nShould I rewrite it?") % name)
         if q:
           return name
@@ -361,7 +361,7 @@ def select_language( paper):
         Store.pm.remove_preference( "lang")
       else:
         Store.pm.add_preference( "lang", a.languages[lang[0]])
-      tkMessageBox.showinfo( _("Info"),
+      tkinter.messagebox.showinfo( _("Info"),
                              _("The selected language will be used the next time you start BKChem."))
 
 
@@ -459,7 +459,7 @@ def compute_oxidation_number( paper):
     Store.log( _("Groups must be expanded to compute oxidation number for them."), message_type="hint")
     logged = True
   # we have to check if the neighbors of the atoms we are processing are not groups or so...
-  ns = set().union(*map(set, [a.neighbors for a in paper.selected_atoms]))
+  ns = set().union(*list(map(set, [a.neighbors for a in paper.selected_atoms])))
   v.validate( ns)
   if v.report.group_atoms or v.report.text_atoms:
     Store.log( _("Unexpanded groups or text-only atoms may cause incorrect computation of oxidation number."), message_type="warning")

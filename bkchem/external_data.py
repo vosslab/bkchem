@@ -67,7 +67,7 @@ class external_data_manager( object):
       if ext == ".xml":
         self.read_data_definition(os.path.join(d, name))
 
-    return self.definitions.keys()
+    return list(self.definitions.keys())
 
 
   def read_data_definition( self, filename):
@@ -104,7 +104,7 @@ class external_data_manager( object):
 
 
   def get_definition_classes( self):
-    return self.definitions.keys()
+    return list(self.definitions.keys())
 
 
   def set_data( self, dclass, obj, category, value):
@@ -133,7 +133,7 @@ class external_data_manager( object):
           return None
         else:
           raise ValueError("wrong category '%s' for type '%s' in dclass '%s'" % ( category, obj.object_type, dclass))
-      elif obj.object_type in self.definitions[dclass].keys():
+      elif obj.object_type in list(self.definitions[dclass].keys()):
         return None
       else:
         raise ValueError("wrong object type '%s' for dclass '%s'" % ( obj.object_type, dclass)        )
@@ -142,11 +142,11 @@ class external_data_manager( object):
 
   def value_matches_definition( self, dclass, obj, category, value):
     """checks if the value is of the type provided in definition"""
-    if not dclass in self.records.keys():
+    if not dclass in list(self.records.keys()):
       raise ValueError("not registered dclass: %s" % dclass)
-    if not obj.object_type in self.definitions[dclass].keys():
+    if not obj.object_type in list(self.definitions[dclass].keys()):
       raise ValueError("wrong object type '%s' for dclass '%s'" % ( obj.object_type, dclass))
-    if not category in self.definitions[dclass][obj.object_type].keys():
+    if not category in list(self.definitions[dclass][obj.object_type].keys()):
       raise ValueError("wrong category '%s' for type '%s' in dclass '%s'" % ( category, obj.object_type, dclass))
 
     t = self.definitions[ dclass][ obj.object_type][ category]['type']
@@ -165,7 +165,7 @@ class external_data_manager( object):
 
     v = self.convert_to_type( value, t)
     if t in self.types:
-      if filter( None, [isinstance( v, tt) for tt in self.types[t]]):
+      if [_f for _f in [isinstance( v, tt) for tt in self.types[t]] if _f]:
         return True
       else:
         return False
@@ -178,7 +178,7 @@ class external_data_manager( object):
 
 
   def get_package( self, doc):
-    if not self.records or sum( map( len, self.records.values())) == 0:
+    if not self.records or sum( map( len, list(self.records.values()))) == 0:
       return None
     e = doc.createElement( 'external-data')
     for dclass in self.records:
@@ -200,7 +200,7 @@ class external_data_manager( object):
     files, use read_data_definition instead"""
     for ecls in dom_ext.simpleXPathSearch( root, "class"):
       cls = ecls.getAttribute( 'name')
-      if not cls in self.records.keys():
+      if not cls in list(self.records.keys()):
         self.records[ cls] = {}
       for eobj in dom_ext.simpleXPathSearch( ecls, "object"):
         obj = Store.id_manager.get_object_with_id( eobj.getAttribute( 'ref'))
@@ -228,7 +228,7 @@ class external_data_manager( object):
 try:
   from tkinter import Entry
 except ImportError:
-  from Tkinter import Entry
+  from tkinter import Entry
 import Pmw
 
 

@@ -21,7 +21,7 @@
 
 """
 
-from __future__ import division
+
 
 import re
 import sys
@@ -225,7 +225,7 @@ class atom(drawable_chem_vertex, oasa.atom):
       if self.charge -self.get_charge_from_marks() > 0:
         ch = '<sup>%s+</sup>' % ch
       else:
-        ch = '<sup>%s%s</sup>' % (ch, self.paper.get_paper_property('use_real_minus') and unichr(8722) or "-")
+        ch = '<sup>%s%s</sup>' % (ch, self.paper.get_paper_property('use_real_minus') and chr(8722) or "-")
     else:
       ch = ''
     if self.pos == 'center-last':
@@ -281,7 +281,7 @@ class atom(drawable_chem_vertex, oasa.atom):
       form = PT.text_to_hydrogenated_atom( name)
       if form:
         # it is!
-        a = form.keys()
+        a = list(form.keys())
         a.remove( 'H')
         if occupied_valency is None:
           valency = self.occupied_valency
@@ -454,7 +454,7 @@ class atom(drawable_chem_vertex, oasa.atom):
     if self.area_color != self.paper.standard.area_color:
       a.setAttribute( 'background-color', self.area_color)
     # needed to support transparent handling of molecular size
-    x, y, z = map( Screen.px_to_text_with_unit, self.get_xyz( real=1))
+    x, y, z = list(map( Screen.px_to_text_with_unit, self.get_xyz( real=1)))
     if self.z:
       dom_extensions.elementUnder( a, 'point', attributes=(('x', x), ('y', y), ('z', z)))
     else:
@@ -565,7 +565,7 @@ class atom(drawable_chem_vertex, oasa.atom):
       return None
     match = splitter.match( txt.lower())
     if match:
-      if match.group(1).capitalize() not in PT.periodic_table or 'query' in PT.periodic_table[ match.group(1).capitalize()].keys():
+      if match.group(1).capitalize() not in PT.periodic_table or 'query' in list(PT.periodic_table[ match.group(1).capitalize()].keys()):
         return None
       if match.group(3) == '+':
         charge = match.group(2) and int( match.group(2)) or 1

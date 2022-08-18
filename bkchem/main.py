@@ -21,7 +21,7 @@
 
 """
 
-from __future__ import print_function
+
 
 import os
 import oasa
@@ -35,9 +35,9 @@ try:
   from tkinter.filedialog import asksaveasfilename, askopenfilename
   import tkinter.messagebox as tkMessageBox
 except ImportError:
-  from Tkinter import *
-  from tkFileDialog import asksaveasfilename, askopenfilename
-  import tkMessageBox
+  from tkinter import *
+  from tkinter.filedialog import asksaveasfilename, askopenfilename
+  import tkinter.messagebox
 
 import Pmw
 import data
@@ -743,7 +743,7 @@ class BKChem( Tk):
       if self._save_according_to_extension( a):
         name = self.get_name_dic( a)
         if self.check_if_the_file_is_opened( name['name'], check_current=0):
-          tkMessageBox.showerror( _("File already opened!"), _("Sorry but you are already editing a file with this name (%s), please choose a different name or close the other file.") % name['name'])
+          tkinter.messagebox.showerror( _("File already opened!"), _("Sorry but you are already editing a file with this name (%s), please choose a different name or close the other file.") % name['name'])
           return None
         self.paper.file_name = self.get_name_dic( a)
         self.notebook.tab( self.get_paper_tab_name( self.paper)).configure( text = self.paper.file_name['name'])
@@ -797,7 +797,7 @@ class BKChem( Tk):
     if replace == 0 the content of the file is added to the current content of the file"""
     if not file:
       if self.paper.changes_made and replace:
-        if tkMessageBox.askokcancel( _("Forget changes?"),_("Forget changes in currently visiting file?"), default='ok', parent=self) == 0:
+        if tkinter.messagebox.askokcancel( _("Forget changes?"),_("Forget changes in currently visiting file?"), default='ok', parent=self) == 0:
           return 0
       a = askopenfilename( defaultextension = "",
                            initialdir = self.save_dir,
@@ -878,7 +878,7 @@ class BKChem( Tk):
           docs = doc.getElementsByTagName( 'cdml')
           if docs:
             # ask if we should proceed with incorrect namespace
-            proceed = tkMessageBox.askokcancel(_("Proceed?"),
+            proceed = tkinter.messagebox.askokcancel(_("Proceed?"),
                                                _("CDML data seem present in SVG but have wrong namespace. Proceed?"),
                                                default='ok',
                                                parent=self)
@@ -984,7 +984,7 @@ class BKChem( Tk):
     plugin = self.plugins[ pl_id]
     if not filename:
       if self.paper.changes_made:
-        if tkMessageBox.askokcancel( _("Forget changes?"),_("Forget changes in currently visiting file?"), default='ok', parent=self) == 0:
+        if tkinter.messagebox.askokcancel( _("Forget changes?"),_("Forget changes in currently visiting file?"), default='ok', parent=self) == 0:
           return 0
       types = []
       if 'extensions' in plugin.__dict__ and plugin.extensions:
@@ -1015,7 +1015,7 @@ class BKChem( Tk):
         try:
           doc = importer.get_cdml_dom( filename)
         except plugins.plugin.import_exception as detail:
-          tkMessageBox.showerror(_("Import error"), _("Plugin failed to import with following error:\n %s") % detail)
+          tkinter.messagebox.showerror(_("Import error"), _("Plugin failed to import with following error:\n %s") % detail)
           return 0
       # others give directly a molecule object
       elif importer.gives_molecule:
@@ -1023,7 +1023,7 @@ class BKChem( Tk):
         try:
           doc = importer.get_molecules( filename)
         except plugins.plugin.import_exception as detail:
-          tkMessageBox.showerror(_("Import error"), _("Plugin failed to import with following error:\n %s") % detail)
+          tkinter.messagebox.showerror(_("Import error"), _("Plugin failed to import with following error:\n %s") % detail)
       self.paper.clean_paper()
       if cdml == 0:
         # doc is a molecule
@@ -1070,7 +1070,7 @@ class BKChem( Tk):
         try:
           doc = exporter.write_to_file( a)
         except:
-          tkMessageBox.showerror(_("Export error"), _("Plugin failed to export with following error:\n %s") % sys.exc_value)
+          tkinter.messagebox.showerror(_("Export error"), _("Plugin failed to export with following error:\n %s") % sys.exc_info()[1])
           return False
       else:
         doc = exporter.write_to_file( a)
@@ -1173,33 +1173,33 @@ Enter InChI:""")
           mol = oasa_bridge.read_inchi( text, self.paper)
         except oasa.oasa_exceptions.oasa_not_implemented_error as e:
           if not inchi:
-            tkMessageBox.showerror(_("Error processing %s") % 'InChI',
+            tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
                                    _("Some feature of the submitted InChI is not supported.\n\nYou have most probaly submitted a multicomponent structure (having a . in the sumary layer"))
             return
           else:
-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_value)
+            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
         except oasa.oasa_exceptions.oasa_inchi_error as e:
           if not inchi:
-            tkMessageBox.showerror(_("Error processing %s") % 'InChI',
+            tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
                                    _("There was an error reading the submitted InChI.\n\nIf you are sure it is a valid InChI, please send me a bug report."))
             return
           else:
-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_value)
+            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
         except oasa.oasa_exceptions.oasa_unsupported_inchi_version_error as e:
           if not inchi:
-            tkMessageBox.showerror(_("Error processing %s") % 'InChI',
+            tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
                                    _("The submitted InChI has unsupported version '%s'.\n\nYou migth try resubmitting with the version string (the first part of InChI) changed to '1'.") % e.version)
             return
           else:
-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_value)
+            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
         except:
 
           if not inchi:
-            tkMessageBox.showerror(_("Error processing %s") % 'InChI',
-                                   _("The reading of InChI failed with following error:\n\n'%s'\n\nIf you are sure you have submitted a valid InChI, please send me a bug report.") % sys.exc_value)
+            tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
+                                   _("The reading of InChI failed with following error:\n\n'%s'\n\nIf you are sure you have submitted a valid InChI, please send me a bug report.") % sys.exc_info()[1])
             return
           else:
-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_value)
+            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
 
       self.paper.stack.append( mol)
       mol.draw()
@@ -1334,7 +1334,7 @@ Enter InChI:""")
     # store logging settings
     if not self.in_batch_mode:
       # we do not save (or load) handling info when in batch mode
-      for key, value in Store.logger.handling.items():
+      for key, value in list(Store.logger.handling.items()):
         Store.pm.add_preference("logging_%s" % key, value)
     f = os_support.get_opened_config_file("prefs.xml",
                                           level="personal",

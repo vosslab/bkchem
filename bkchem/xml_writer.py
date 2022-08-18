@@ -243,7 +243,7 @@ class SVG_writer(XML_writer):
         # the pins
         line_pin = a._pins.index( self.paper.itemcget( item, 'arrow'))
         if line_pin == 1 or line_pin == 3:
-          d1, d2, d3 = map( int, self.paper.itemcget( item, "arrowshape").split())
+          d1, d2, d3 = list(map( int, self.paper.itemcget( item, "arrowshape").split()))
           defs = dom_extensions.elementUnder( self.group, 'defs')
           arrow_point = dom_extensions.elementUnder( defs, 'marker', (('id','Arrow'+str(i)),('refX',str(d2)),('refY',str(d3)),
                                                                 ('markerUnits','userSpaceOnUse'),
@@ -253,7 +253,7 @@ class SVG_writer(XML_writer):
                                                                 ('fill', self.cc( a.line_color))))
           dom_extensions.elementUnder( arrow_point, 'path', (('d', 'M %d %d L 0 0 L %d %d L 0 %d z'%(d2, d3, d2-d1, d3, 2*d3)),))
         if line_pin == 2 or line_pin == 3:
-          d1, d2, d3 = map( int, self.paper.itemcget( item, "arrowshape").split())
+          d1, d2, d3 = list(map( int, self.paper.itemcget( item, "arrowshape").split()))
           defs = dom_extensions.elementUnder( self.group, 'defs')
           arrow_point = dom_extensions.elementUnder( defs, 'marker', (('id','ArrowBack'+str(i)),('refX','0'),('refY',str(d3)),
                                                                 ('markerUnits','userSpaceOnUse'),
@@ -490,7 +490,7 @@ def ftext_dom_to_svg_dom( ftext, doc, add_to=None, replace_minus=False):
       ftext_dom_to_svg_dom( el, doc, add_to=my_svg)
   else:
     if replace_minus:
-      element.appendChild( doc.createTextNode( ftext.nodeValue.replace( "-", unichr( 8722))))
+      element.appendChild( doc.createTextNode( ftext.nodeValue.replace( "-", chr( 8722))))
     else:
       element.appendChild( doc.createTextNode( ftext.nodeValue))
 

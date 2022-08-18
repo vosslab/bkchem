@@ -16,14 +16,14 @@ BB 28/09/99 Added Rewrote drawEllipse, drawroundRect and drawArc to use drawBezi
 
 """
 
-from __future__ import print_function
+
 
 import string
 import zlib
 try:
     from io import StringIO as cStringIO
 except ImportError:
-    import cStringIO
+    import io
 
 from math import sin, cos, pi, ceil
 
@@ -478,10 +478,10 @@ class AICanvas(Canvas):
             edgeWidth=None, fillColor=None, closed=0):
         start = pointlist[0]
         pointlist = pointlist[1:]
-        x1 = min(map(lambda x, y: x, pointlist))
-        x2 = max(map(lambda x, y: x, pointlist))
-        y1 = min(map(lambda x, y: y, pointlist))
-        y2 = max(map(lambda x, y: y, pointlist))
+        x1 = min(list(map(lambda x, y: x, pointlist)))
+        x2 = max(list(map(lambda x, y: x, pointlist)))
+        y1 = min(list(map(lambda x, y: y, pointlist)))
+        y2 = max(list(map(lambda x, y: y, pointlist)))
         self._updateFillColor(fillColor)
         self._updateLineWidth(edgeWidth)
         self._updateLineColor(edgeColor)

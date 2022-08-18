@@ -31,8 +31,8 @@ try:
   import tkinter as Tkinter
   import tkinter.messagebox as tkMessageBox
 except ImportError:
-  import Tkinter
-  import tkMessageBox
+  import tkinter
+  import tkinter.messagebox
 
 from warnings import warn
 from oasa import geometry
@@ -152,7 +152,7 @@ class mode( object):
         self._recent_key_seq = ''
       else:
         # or its a prefix of some registered sequence
-        for key in self._key_sequences.keys():
+        for key in list(self._key_sequences.keys()):
           if not key.find(self._recent_key_seq):
             Store.log( self._recent_key_seq)
             return None
@@ -170,7 +170,7 @@ class mode( object):
     """cleans status of all special keys;
     needed because especially after C-x C-f the C-release is grabbed by dialog
     and never makes it to paper, therefore paper calls this after a file was read"""
-    for key in self._specials_pressed.keys():
+    for key in list(self._specials_pressed.keys()):
       self._specials_pressed[ key] = 0
 
 
@@ -213,7 +213,7 @@ class mode( object):
             (sequence, function.__name__, self._key_sequences[ sequence].__name__),
             UserWarning, 2)
     elif use_warning:
-      for key in self._key_sequences.keys():
+      for key in list(self._key_sequences.keys()):
         if not key.find(sequence):
           warn( "binding of sequence %s to function %s shadows %s (binded to %s)" %
                 (sequence, function.__name__, key, self._key_sequences[ key].__name__),
@@ -344,8 +344,8 @@ class basic_mode( simple_mode):
     self.register_key_sequence( 'C-o C-b', lambda : Store.app.paper.lower_selected_to_bottom())
     self.register_key_sequence( 'C-o C-s', lambda : Store.app.paper.swap_selected_on_stack())
     # mode switching
-    self.register_key_sequence_ending_with_number_range( 'C-', self.switch_mode, numbers=range(1,10))
-    self.register_key_sequence_ending_with_number_range( 'C-A-', self.switch_mode, numbers=range(1,10), attrs={"add":9})
+    self.register_key_sequence_ending_with_number_range( 'C-', self.switch_mode, numbers=list(range(1,10)))
+    self.register_key_sequence_ending_with_number_range( 'C-A-', self.switch_mode, numbers=list(range(1,10)), attrs={"add":9})
     
     # debug, simo
     self.register_key_sequence( 'C-p', lambda : Store.app.paper.print_all_coords())
@@ -412,7 +412,7 @@ class edit_mode(basic_mode):
     self.register_key_sequence( 'C-k', lambda : Store.app.paper.selected_to_clipboard( delete_afterwards=1))
     # 'C-a' from windoze is in use - 'C-S-a' instead
     # chains (C-d as draw)
-    self.register_key_sequence_ending_with_number_range( 'C-d', self.add_chain, numbers=range(2,10))
+    self.register_key_sequence_ending_with_number_range( 'C-d', self.add_chain, numbers=list(range(2,10)))
     # config
     self.rectangle_selection = True  # this can be overriden by children
 
@@ -652,9 +652,8 @@ class edit_mode(basic_mode):
 
 
   def _end_of_empty_drag( self, x1, y1, x2, y2):
-    Store.app.paper.select( filter( lambda o: o,\
-                                    map( Store.app.paper.id_to_object,\
-                                         Store.app.paper.find_enclosed( x1, y1, x2, y2))))
+    Store.app.paper.select( [o for o in map( Store.app.paper.id_to_object,\
+                                         Store.app.paper.find_enclosed( x1, y1, x2, y2)) if o])
 
 
   ## METHODS FOR KEY EVENTS RESPONSES
@@ -1346,9 +1345,9 @@ class rotate_mode( edit_mode):
       self._centery = y1+(y2-y1)/2.0
     elif self.focused:
       if self.get_submode(0) == '3D':
-        tkMessageBox.showerror( _("You can only rotate molecules in 3D!"), _("Sorry but you can only rotate molecules in 3D."))
+        tkinter.messagebox.showerror( _("You can only rotate molecules in 3D!"), _("Sorry but you can only rotate molecules in 3D."))
       else:
-        tkMessageBox.showerror( _("You can only rotate molecules and arrows in 2D!"), _("Sorry but you can only rotate molecules and arrows in 2D."))
+        tkinter.messagebox.showerror( _("You can only rotate molecules and arrows in 2D!"), _("Sorry but you can only rotate molecules and arrows in 2D."))
 
 
   def mouse_up( self, event):
@@ -1957,7 +1956,7 @@ class reaction_mode( basic_mode):
   def mouse_down( self, event, modifiers=[]):
     if self.focused:
       if not self.arrow:
-        tkMessageBox.showerror( _("No arrow present"),
+        tkinter.messagebox.showerror( _("No arrow present"),
                                 _("""The reaction information in BKChem are associated with arrows, therefore you have to have at least one arrow before you can construct any reaction."""))
         return
 
@@ -2114,7 +2113,7 @@ class external_data_mode( basic_mode):
 
   def _get_active_entry( self):
     e = Store.app.focus_get()
-    if e in self._entries.values() and e.type_class == "reference":
+    if e in list(self._entries.values()) and e.type_class == "reference":
       return e
 
 
@@ -2129,7 +2128,7 @@ class external_data_mode( basic_mode):
   def _populate_table_for_active_object( self):
     defs = Store.app.paper.edm.get_definitions_for_class_and_type( self.get_submode( 1), self.get_submode( 0))
     if defs:
-      for k,v in defs.items():
+      for k,v in list(defs.items()):
         val = Store.app.paper.edm.get_data( self.get_submode( 1), self._active_object, k)
         if hasattr( val, 'id'):
           self._entries[ k].value = val.id
@@ -2154,7 +2153,7 @@ class external_data_mode( basic_mode):
   def _set_data( self):
     defs = Store.app.paper.edm.get_definitions_for_class_and_type( self.get_submode( 1), self.get_submode( 0))
     if defs:
-      for k,v in defs.items():
+      for k,v in list(defs.items()):
         val = self._entries[ k].value
         if val != '':
           if v['type'] in Store.app.paper.edm.reference_types:
@@ -2173,15 +2172,15 @@ class external_data_mode( basic_mode):
   def _show_table_for_submode( self):
     defs = Store.app.paper.edm.get_definitions_for_class_and_type( self.get_submode( 1), self.get_submode( 0))
     if defs:
-      self._frame = Tkinter.Frame( Store.app.paper)
+      self._frame = tkinter.Frame( Store.app.paper)
       self._win = Store.app.paper.create_window( 500, 100, window=self._frame)
-      for k,v in defs.items():
-        label = Tkinter.Label( self._frame, text=v['text'])
+      for k,v in list(defs.items()):
+        label = tkinter.Label( self._frame, text=v['text'])
         if v['type'] in Store.app.paper.edm.reference_types:
           entry = external_data.ExternalDataEntry( self._frame, v['type'], "reference")
           entry.bind( "<FocusIn>", lambda e: self._entry_entered( e.widget))
           entry.bind( "<FocusOut>", lambda e: self._entry_left())
-        elif type( v['type']) == types.ListType:
+        elif type( v['type']) == list:
           entry = external_data.ExternalDataListSelection( self._frame, v['type'])
         else:
           entry = external_data.ExternalDataEntry( self._frame, v['type'], "internal")
@@ -2189,11 +2188,11 @@ class external_data_mode( basic_mode):
         self._entries[ k] = entry
         label.pack()
         entry.pack()
-      Tkinter.Button( self._frame, text=_("Set"), command=self._set_data).pack()
+      tkinter.Button( self._frame, text=_("Set"), command=self._set_data).pack()
 
 
   def _draw_the_arrows( self):
-    for e in self._entries.values():
+    for e in list(self._entries.values()):
       if e.type_class == "reference":
         e.cleanup( Store.app.paper)
         obj = Store.id_manager.get_object_with_id_or_none( e.value)
@@ -2256,7 +2255,7 @@ class external_data_mode( basic_mode):
     pap = paper or Store.app.paper
     if self._win:
       self._items = set()
-      [e.cleanup( pap) for e in self._entries.values()]
+      [e.cleanup( pap) for e in list(self._entries.values())]
       self._entries = {}
       self._frame = None
       pap.delete( self._win)

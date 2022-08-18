@@ -17,13 +17,13 @@
 
 #--------------------------------------------------------------------------
 
-from __future__ import print_function
+
 
 import sys
 try:
   import tkinter.messagebox as tkMessageBox
 except ImportError:
-  import tkMessageBox
+  import tkinter.messagebox
 
 from singleton_store import Store
 
@@ -79,15 +79,15 @@ class logger(object):
   def log_to_dialog( self, message, message_type="info", delay=4):
     heading = self.type_to_text[ message_type]
     if message_type == "error":
-      tkMessageBox.showerror( heading, message)
+      tkinter.messagebox.showerror( heading, message)
     elif message_type == "warning":
-      tkMessageBox.showwarning( heading, message)
+      tkinter.messagebox.showwarning( heading, message)
     elif message_type == "info":
-      tkMessageBox.showinfo( heading, message)
+      tkinter.messagebox.showinfo( heading, message)
     elif message_type == "debug":
-      tkMessageBox.showinfo( heading, message)
+      tkinter.messagebox.showinfo( heading, message)
     elif message_type == "hint":
-      tkMessageBox.showinfo( heading, message)
+      tkinter.messagebox.showinfo( heading, message)
 
 
   def set_handling( self, what, how):

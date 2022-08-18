@@ -17,7 +17,7 @@ Code factoring and pil image support by Jeffrey Kunce
 see also piddleWxDcDemo.py
 '''
 
-from __future__ import print_function
+
 
 from wxPython.wx import *
 
@@ -239,7 +239,7 @@ class PiddleWxDc(piddle.Canvas):
         #  instead of just 2-tuples.  Therefore, pointlist must be re-created as
         #  only 2-tuples
 
-        pointlist = map(lambda i: tuple(i), pointlist)
+        pointlist = [tuple(i) for i in pointlist]
         if closed == 1:
             pointlist.append(pointlist[0])
 

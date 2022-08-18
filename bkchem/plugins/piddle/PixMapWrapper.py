@@ -5,7 +5,7 @@ Python Imaging Library Image object.
 
 J. Strout <joe@strout.net>  February 1999"""
 
-from __future__ import print_function
+
 
 import Qd
 import QuickDraw
@@ -111,7 +111,7 @@ class PixMapWrapper(object):
         elif attr == 'hRes' or attr == 'vRes':
             # 16.16 fixed format, so just shift 16 bits
             self._stuff(attr, int(val) << 16)
-        elif attr in _pmElemFormat.keys():
+        elif attr in list(_pmElemFormat.keys()):
             # any other pm attribute -- just stuff
             self._stuff(attr, val)
         else:
@@ -131,7 +131,7 @@ class PixMapWrapper(object):
         elif attr == 'hRes' or attr == 'vRes':
             # 16.16 fixed format, so just shift 16 bits
             return self._unstuff(attr) >> 16
-        elif attr in _pmElemFormat.keys():
+        elif attr in list(_pmElemFormat.keys()):
             # any other pm attribute -- just unstuff
             return self._unstuff(attr)
         else:

@@ -21,7 +21,7 @@
 
 """
 
-from __future__ import division
+
 
 import math
 import warnings
@@ -29,7 +29,7 @@ import xml.dom.minidom as dom
 try:
   import tkinter.font as tkFont
 except ImportError:
-  import tkFont
+  import tkinter.font
 
 from oasa import geometry
 from oasa import transform
@@ -166,13 +166,13 @@ class mark( simple_parent):
 
   def get_package( self, doc):
     a = doc.createElement('mark')
-    x ,y = map( Screen.px_to_text_with_unit, (self.x, self.y))
+    x ,y = list(map( Screen.px_to_text_with_unit, (self.x, self.y)))
     dom_extensions.setAttributes( a, (('type', self.__class__.__name__),
                                       ('x', x),
                                       ('y', y),
                                       ('auto', str( int( self.auto))),
                                       ('size', str( self.size))))
-    for (attr, typ) in self.meta__save_attrs.items():
+    for (attr, typ) in list(self.meta__save_attrs.items()):
       val = getattr( self, attr)
       if typ == bool:
         value = data.booleans[ int( val)]
@@ -196,7 +196,7 @@ class mark( simple_parent):
         m = cls( atom, x, y, auto=int(auto))
 
       # class specific attributes
-      for (attr, typ) in m.meta__save_attrs.items():
+      for (attr, typ) in list(m.meta__save_attrs.items()):
         val = package.getAttribute( attr)
         if val != '':
           if typ == bool:
@@ -545,7 +545,7 @@ class text_mark( mark):
   def get_svg_element( self, doc):
     e = doc.createElement( 'g')
     x, y = self.x, self.y
-    font = tkFont.Font( family=self.atom.font_family, size=self.size)
+    font = tkinter.font.Font( family=self.atom.font_family, size=self.size)
     dx = font.measure( self.text) / 2
     y += font.metrics('descent')
 

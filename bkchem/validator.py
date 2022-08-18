@@ -69,8 +69,8 @@ class validator(object):
 
 
   def validate_molecule( self, mol):
-    map( self.validate_atom, mol.atoms)
-    map( self.validate_bond, mol.bonds)
+    list(map( self.validate_atom, mol.atoms))
+    list(map( self.validate_bond, mol.bonds))
 
   def validate_list( self, objs):
     [self.validate_object( o) for o in objs]

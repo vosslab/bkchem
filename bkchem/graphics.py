@@ -179,8 +179,8 @@ class rect( vector_graphics_item, area_colored):
 
   def read_package( self, pack):
     """reads the dom element pack and sets internal state according to it"""
-    self.coords = self.paper.real_to_screen_coords( map( Screen.any_to_px,
-                                                         dom_extensions.getAttributes( pack, ['x1', 'y1', 'x2', 'y2'])))
+    self.coords = self.paper.real_to_screen_coords( list(map( Screen.any_to_px,
+                                                         dom_extensions.getAttributes( pack, ['x1', 'y1', 'x2', 'y2']))))
     for attr in ("area_color", "line_color"):
       if pack.getAttributeNode( attr):
         setattr( self, attr, pack.getAttribute( attr))
@@ -281,8 +281,8 @@ class oval( vector_graphics_item):
 
   def read_package( self, pack):
     """reads the dom element pack and sets internal state according to it"""
-    self.coords = self.paper.real_to_screen_coords( map( Screen.any_to_px,
-                                                         dom_extensions.getAttributes( pack, ['x1', 'y1', 'x2', 'y2'])))
+    self.coords = self.paper.real_to_screen_coords( list(map( Screen.any_to_px,
+                                                         dom_extensions.getAttributes( pack, ['x1', 'y1', 'x2', 'y2']))))
 
     for attr in ("area_color", "line_color"):
       if pack.getAttributeNode( attr):
@@ -365,7 +365,7 @@ class polygon( vector_graphics_item, container, area_colored):
 
   def draw( self):
     [p.draw() for p in self.points]
-    coords = (j for i in map(lambda b: b.get_xy(), self.points)
+    coords = (j for i in [b.get_xy() for b in self.points]
                   for j in i)
     self.item = self.paper.create_polygon( tuple( coords),
                                            fill=self.area_color,
@@ -384,7 +384,7 @@ class polygon( vector_graphics_item, container, area_colored):
     if not self.item:
       self.draw()
     else:
-      coords = (j for i in map(lambda b: b.get_xy(), self.points)
+      coords = (j for i in [b.get_xy() for b in self.points]
                     for j in i)
       self.paper.coords( self.item, tuple( coords))
       self.paper.itemconfig( self.item, width=self.line_width, fill=self.area_color, outline=self.line_color)
@@ -503,7 +503,7 @@ class polyline( vector_graphics_item, container, line_colored):
 
   def draw( self):
     [p.draw() for p in self.points]
-    coords = (j for i in map(lambda b: b.get_xy_on_screen(), self.points)
+    coords = (j for i in [b.get_xy_on_screen() for b in self.points]
                   for j in i)
     self.item = self.paper.create_line( tuple( coords),
                                         fill=self.line_color,
@@ -525,7 +525,7 @@ class polyline( vector_graphics_item, container, line_colored):
     if not self.item:
       self.draw()
     else:
-      coords = (j for i in map(lambda b: b.get_xy_on_screen(), self.points)
+      coords = (j for i in [b.get_xy_on_screen() for b in self.points]
                     for j in i)
       self.paper.coords( self.item, tuple( coords))
       self.paper.itemconfig( self.item, width=self.line_width, fill=self.line_color, smooth=self.spline)

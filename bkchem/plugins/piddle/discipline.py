@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 from types import *
 
@@ -7,8 +7,8 @@ from .piddle import *
 def checkMethods(parentMethod, childMethod):
     "Make sure the child's method obey's the parent's interface; return 1 if OK."
     # get the parameter names
-    pf = parentMethod.func_code
-    cf = childMethod.func_code
+    pf = parentMethod.__code__
+    cf = childMethod.__code__
     pargs = pf.co_varnames[:pf.co_argcount]
     cargs = cf.co_varnames[:cf.co_argcount]
 
@@ -24,7 +24,7 @@ def checkMethods(parentMethod, childMethod):
     # if child has any additional arguments, make sure
     # they have default values
     extras = len(cargs) - len(pargs)
-    defs = childMethod.func_defaults
+    defs = childMethod.__defaults__
     if extras and (defs is None or len(defs) < extras):
         print("need %s defaults, got %s" % (extras, defs))
         print(cargs)
@@ -44,14 +44,14 @@ def checkClasses(parent, child):
         if type(item) != MethodType or name[0] == '_':
             pass  # print("     %s is not a public method" % name)
         elif name in parentDir:
-            if not checkMethods(getattr(parent, name).im_func, item.im_func):
+            if not checkMethods(getattr(parent, name).__func__, item.__func__):
                 print("NAUGHTY CHILD disobeys arguments to", name)
             else:
                 print("     %s looks OK" % name)
         else:
             print("     %s is unique to the child" % name)
 
-foo = raw_input("backend to check (e.g., PDF):")
+foo = input("backend to check (e.g., PDF):")
 if foo:
     canvasname = foo+"Canvas"
     module = __import__("piddle"+foo, globals(), locals(), [canvasname] )

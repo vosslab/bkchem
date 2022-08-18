@@ -36,12 +36,12 @@ piddlePS - a PostScript backend for the PIDDLE drawing module
 #  DSC: plan uses flags for keeping track of BeginX/EndX pairs.
 #            convention: use flag _inXFlag
 
-from __future__ import print_function
+
 
 try:
     from io import StringIO as cStringIO
 except ImportError:
-    import cStringIO
+    import io
 import string
 import math
 
@@ -316,7 +316,7 @@ translate
         # once again, fall back to default, redundant, no?
         face = string.lower(PiddleLegalFonts["serif"])
         for reqFace in requested:
-            if PiddleLegalFonts.has_key(string.lower(reqFace)):
+            if string.lower(reqFace) in PiddleLegalFonts:
                 face = string.lower(PiddleLegalFonts[string.lower(reqFace)])
                 break
 
@@ -877,7 +877,7 @@ translate
        hex_encoded = self._AsciiHexEncode(rawimage)
 
        # write in blocks of 78 chars per line
-       outstream = cStringIO.StringIO(hex_encoded)
+       outstream = io.StringIO(hex_encoded)
 
        dataline = outstream.read(78)
        while dataline != "":
@@ -891,7 +891,7 @@ translate
 
     def _AsciiHexEncode(self, input):  # also based on piddlePDF
         "Helper function used by images"
-        output = cStringIO.StringIO()
+        output = io.StringIO()
         for char in input:
             output.write('%02x' % ord(char))
         output.reset()
@@ -968,7 +968,7 @@ translate
         hex_encoded = self._AsciiHexEncode(rawimage)
 
         # write in blocks of 78 chars per line
-        outstream = cStringIO.StringIO(hex_encoded)
+        outstream = io.StringIO(hex_encoded)
 
         dataline = outstream.read(78)
         while dataline != "":

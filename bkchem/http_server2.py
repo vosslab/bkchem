@@ -21,13 +21,13 @@
 
 """
 
-from __future__ import print_function
+
 
 import time
 import string
 import os.path
-import urlparse
-import BaseHTTPServer
+import urllib.parse
+import http.server
 import xml.dom.minidom as dom
 
 import xml_writer
@@ -38,17 +38,17 @@ from singleton_store import Store
 
 
 
-class bkchem_http_handler( BaseHTTPServer.BaseHTTPRequestHandler):
+class bkchem_http_handler( http.server.BaseHTTPRequestHandler):
 
   dirs = ('smiles','inchi','gtml','images')
 
   def __init__( self, *args):
-    BaseHTTPServer.BaseHTTPRequestHandler.__init__( self, *args)
+    http.server.BaseHTTPRequestHandler.__init__( self, *args)
 
 
   def do_GET_fallback( self):
-    protocol, address, path, parameters, query, fragment = urlparse.urlparse( self.path)
-    path_list = filter( None, path.split("/"))
+    protocol, address, path, parameters, query, fragment = urllib.parse.urlparse( self.path)
+    path_list = [_f for _f in path.split("/") if _f]
 
     if len( path_list) == 1 or path_list[0] not in self.dirs:
       # these are static pages
@@ -184,7 +184,7 @@ class bkchem_http_handler( BaseHTTPServer.BaseHTTPRequestHandler):
 
 
   def do_GET( self):
-    protocol, address, path, parameters, query, fragment = urlparse.urlparse( self.path)
+    protocol, address, path, parameters, query, fragment = urllib.parse.urlparse( self.path)
     if path == "/" or path == "content.html":
       attrs = self._get_attrs( query)
       if "action" in attrs:
@@ -287,10 +287,10 @@ class bkchem_http_handler( BaseHTTPServer.BaseHTTPRequestHandler):
 
 
 
-class bkchem_http_server( BaseHTTPServer.HTTPServer):
+class bkchem_http_server( http.server.HTTPServer):
 
   def __init__( self, *args):
-    BaseHTTPServer.HTTPServer.__init__( self, *args)
+    http.server.HTTPServer.__init__( self, *args)
 
 
 

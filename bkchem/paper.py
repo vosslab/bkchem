@@ -20,8 +20,8 @@
 
 """
 
-from __future__ import division
-from __future__ import print_function
+
+
 
 import os
 import sys
@@ -37,8 +37,8 @@ try:
   import tkinter.font as tkFont
   import tkinter.messagebox as tkMessageBox
 except ImportError:
-  import tkFont
-  import tkMessageBox
+  import tkinter.font
+  import tkinter.messagebox
 
 from warnings import warn
 from oasa import geometry
@@ -48,7 +48,7 @@ from oasa.transform3d import transform3d
 try:
   from tkinter import Canvas, ALL
 except ImportError:
-  from Tkinter import Canvas, ALL
+  from tkinter import Canvas, ALL
 
 import Pmw
 import misc
@@ -291,8 +291,8 @@ class chem_paper(Canvas, object):
     Store.app.update_cursor_position( event.x, event.y)
     Store.app.mode.mouse_drag( event)
     b = self.find_overlapping( event.x-2, event.y-2, event.x+2, event.y+2)
-    b = filter( self.is_registered_id, b)
-    a = map( self.id_to_object, b)
+    b = list(filter( self.is_registered_id, b))
+    a = list(map( self.id_to_object, b))
     a = [i for i in a if i not in self._do_not_focus]
     if a:
       a = a[-1]
@@ -332,7 +332,7 @@ class chem_paper(Canvas, object):
     Store.app.mode.mouse_move( event)
 
     b = self.find_overlapping( event.x-3, event.y-3, event.x+3, event.y+3)
-    b = filter( self.is_registered_id, b)
+    b = list(filter( self.is_registered_id, b))
     id_objs = [(x, self.id_to_object( x)) for x in b]
     a = [i for i in id_objs if i[1] not in self._do_not_focus]
 
@@ -441,14 +441,14 @@ class chem_paper(Canvas, object):
           to_delete += [a]
       else:
         a.redraw()
-    map( self.stack.remove, to_delete)
+    list(map( self.stack.remove, to_delete))
     [o.delete() for o in to_delete]
     # PLUS
-    to_delete = filter( lambda o: o.object_type == 'plus', self.selected)
-    map( lambda o: o.delete(), to_delete)
-    map( self.stack.remove, to_delete)
+    to_delete = [o for o in self.selected if o.object_type == 'plus']
+    list(map( lambda o: o.delete(), to_delete))
+    list(map( self.stack.remove, to_delete))
     # TEXT
-    to_delete = filter( lambda o: o.object_type == 'text', self.selected)
+    to_delete = [o for o in self.selected if o.object_type == 'text']
     for t in to_delete:
       t.delete()
       self.stack.remove( t)
@@ -465,7 +465,7 @@ class chem_paper(Canvas, object):
             to_delete += [a]
         else:
           a.redraw()
-    map( self.stack.remove, to_delete)
+    list(map( self.stack.remove, to_delete))
     [o.delete() for o in to_delete]
     # BOND AND ATOM
     bonds = [o for o in self.selected if o.object_type == 'bond']
@@ -482,9 +482,9 @@ class chem_paper(Canvas, object):
       if new_mols:
         mols_to_delete.append( mol)
     if new:
-      map( self.stack.remove, mols_to_delete)
+      list(map( self.stack.remove, mols_to_delete))
       self.stack.extend( new)
-    empty_mols = filter( lambda o: o.is_empty(), self.molecules)
+    empty_mols = [o for o in self.molecules if o.is_empty()]
     [self.stack.remove( o) for o in empty_mols]
     # start new undo
     if self.selected:
@@ -519,7 +519,7 @@ class chem_paper(Canvas, object):
 
 
   def arrows_to_update( self):
-    a = map( lambda o: o.arrow, filter( lambda p: p.object_type == 'point', self.selected))
+    a = [o.arrow for o in [p for p in self.selected if p.object_type == 'point']]
     return misc.filter_unique( a)
 
 
@@ -529,7 +529,7 @@ class chem_paper(Canvas, object):
     original_version = CDML.getAttribute( 'version')
     success = CDML_versions.transform_dom_to_version( CDML, config.current_CDML_version)
     if not success:
-      if not tkMessageBox.askokcancel(_('Proceed'),
+      if not tkinter.messagebox.askokcancel(_('Proceed'),
                                       _('''This CDML document does not seem to have supported version.
                                       \n Do you want to proceed reading this document?'''),
                                       default = 'ok',
@@ -557,7 +557,7 @@ class chem_paper(Canvas, object):
     viewport = dom_extensions.getFirstChildNamed( CDML, 'viewport')
     if viewport:
       viewport = viewport.getAttribute( 'viewport')
-      self.set_viewport( view= map( float, viewport.split(' ')))
+      self.set_viewport( view= list(map( float, viewport.split(' '))))
     else:
       self.set_viewport()
     # standard must be read before all items
@@ -589,7 +589,7 @@ class chem_paper(Canvas, object):
             o.draw()
     # now check if the old standard differs
     if new_standard and old_standard != self.standard and not Store.app.in_batch_mode:
-      if not tkMessageBox.askokcancel(_('Replace standard values'),
+      if not tkinter.messagebox.askokcancel(_('Replace standard values'),
                                       messages.standards_differ_text,
                                       default = 'ok',
                                       parent=self):
@@ -752,7 +752,7 @@ class chem_paper(Canvas, object):
 
     deleted = []
     if overlap:
-      mols = misc.filter_unique( map( lambda a: map( lambda b: b.molecule, a), overlap))
+      mols = misc.filter_unique( [[b.molecule for b in a] for a in overlap])
       a_eatenby_b1 = []
       a_eatenby_b2 = []
       for (mol, mol2) in mols:
@@ -832,7 +832,7 @@ class chem_paper(Canvas, object):
 
 
   def object_to_id( self, obj):
-    for k, v in self._id_2_object.items():
+    for k, v in list(self._id_2_object.items()):
       if v == obj:
         return k
     return None
@@ -840,11 +840,11 @@ class chem_paper(Canvas, object):
 
   def is_registered_object( self, o):
     """has this object a registered id?"""
-    return o in self._id_2_object.values()
+    return o in list(self._id_2_object.values())
 
 
   def is_registered_id( self, id):
-    return id in self._id_2_object.keys()
+    return id in list(self._id_2_object.keys())
 
 
   def new_molecule( self):
@@ -1062,8 +1062,8 @@ class chem_paper(Canvas, object):
       else:
         xmaxs = [bboxes[i] for i in range( 0, len( bboxes), 4)]
         xmins = [bboxes[i] for i in range( 2, len( bboxes), 4)]
-        xs = map( operator.add, xmaxs, xmins)
-        xs = map( operator.div, xs, len(xs)*[2])
+        xs = list(map( operator.add, xmaxs, xmins))
+        xs = list(map( operator.div, xs, len(xs)*[2]))
         x = (max(xs) + min(xs)) / 2
       for i in range( len( xs)):
         to_align[i].move( x-xs[i], 0)
@@ -1078,8 +1078,8 @@ class chem_paper(Canvas, object):
       else:
         ymaxs = [bboxes[i] for i in range( 1, len( bboxes), 4)]
         ymins = [bboxes[i] for i in range( 3, len( bboxes), 4)]
-        ys = map( operator.add, ymaxs, ymins)
-        ys = map( operator.div, ys, len(ys)*[2])
+        ys = list(map( operator.add, ymaxs, ymins))
+        ys = list(map( operator.div, ys, len(ys)*[2]))
         y = (max(ys) + min(ys)) / 2
       for i in range( len( ys)):
         to_align[i].move( 0, y-ys[i])
@@ -1496,7 +1496,7 @@ class chem_paper(Canvas, object):
     if not color:
       return "none"
     else:
-      r, g, b = map( lambda x: (x < 256 and x) or (x >= 256 and x//256),  self.winfo_rgb( color))
+      r, g, b = [(x < 256 and x) or (x >= 256 and x//256) for x in self.winfo_rgb( color)]
       return "#%02x%02x%02x" % (r,g,b)
 
 

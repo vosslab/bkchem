@@ -4,7 +4,7 @@ The real documentation is in piddleGTK.
 
 """
 
-from __future__ import print_function
+
 
 __author__ = "Fred L. Drake, Jr.  <fdrake@acm.org>"
 __version__ = '$Revision: 1.1 $'
@@ -101,7 +101,7 @@ class BasicCanvas(piddle.Canvas):
         # and make sure the canvas is big enough:
         iwidth = iheight = 0
         for i in range(len(lineList)):
-            x1, y1, x2, y2 = map(int, map(round, lineList[i]))
+            x1, y1, x2, y2 = list(map(int, list(map(round, lineList[i]))))
             iwidth = max(iwidth, x1, x2)
             iheight = max(iheight, y1, y2)
         #

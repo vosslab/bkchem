@@ -73,7 +73,7 @@ def _PointListToSVG(points,dupFirst=0):
 
   """
   outStr = ''
-  for i in xrange(len(points)):
+  for i in range(len(points)):
     outStr = outStr + '%.2f,%.2f '%(points[i][0],points[i][1])
   # add back on the first point.  This is not required in the spec,
   #  but Adobe's beta-quality viewer seems to not like it being skipped
@@ -160,7 +160,7 @@ class SVGCanvas( Canvas ):
         familyStr = '\'%s\''%(face)
       else:
         familyStr = face
-      for i in xrange(1,len(font.face)):
+      for i in range(1,len(font.face)):
         face = font.face[i]
         if len(string.split(face)) > 1:
           familyStr = ', \'%s\''%(face)
@@ -572,8 +572,8 @@ def test():
   canvas = SVGCanvas(name="test")
 
   canvas.defaultLineColor = Color(0.7,0.7,1.0) # light blue
-  canvas.drawLines( map(lambda i:(i*10,0,i*10,300), range(30)) )
-  canvas.drawLines( map(lambda i:(0,i*10,300,i*10), range(30)) )
+  canvas.drawLines( [(i*10,0,i*10,300) for i in range(30)] )
+  canvas.drawLines( [(0,i*10,300,i*10) for i in range(30)] )
   canvas.defaultLineColor = black
 
   canvas.drawLine(10,200, 20,190, color=red)

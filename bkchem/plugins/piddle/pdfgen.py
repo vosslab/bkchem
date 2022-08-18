@@ -46,7 +46,7 @@ Progress Reports:
 
 """
 
-from __future__ import print_function
+
 
 ##  0.81    1999-10-13:
 ##
@@ -60,7 +60,7 @@ import tempfile
 try:
     from io import StringIO as cStringIO
 except ImportError:
-    import cStringIO
+    import io
 from types import *
 from math import sin, cos, tan, pi, ceil
 
@@ -610,7 +610,7 @@ class Canvas(object):
                 #write in blocks of (??) 60 characters per line to a list
                 compressed = imageFile.read()
                 encoded = pdfutils._AsciiBase85Encode(compressed)
-                outstream = cStringIO.StringIO(encoded)
+                outstream = io.StringIO(encoded)
                 dataline = outstream.read(60)
                 while dataline != "":
                     imagedata.append(dataline)
@@ -623,7 +623,7 @@ class Canvas(object):
                 cachedname = os.path.splitext(image)[0] + '.a85'
                 imagedata = open(cachedname,'rb').readlines()
                 #trim off newlines...
-                imagedata = map(string.strip, imagedata)
+                imagedata = list(map(string.strip, imagedata))
 
                 #parse line two for width, height
                 words = string.split(imagedata[1])
@@ -648,7 +648,7 @@ class Canvas(object):
             encoded = pdfutils._AsciiBase85Encode(compressed) #...sadly this isn't
 
             #write in blocks of (??) 60 characters per line to a list
-            outstream = cStringIO.StringIO(encoded)
+            outstream = io.StringIO(encoded)
             dataline = outstream.read(60)
             while dataline != "":
                 imagedata.append(dataline)
@@ -1035,7 +1035,7 @@ class PDFTextObject(object):
         if type(stuff) == StringType:
             lines = string.split(string.strip(stuff), '\n')
             if trim==1:
-                lines = map(string.strip,lines)
+                lines = list(map(string.strip,lines))
         elif type(stuff) == ListType:
             lines = stuff
         elif type(stuff) == TupleType:

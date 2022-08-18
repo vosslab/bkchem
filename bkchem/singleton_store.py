@@ -75,7 +75,7 @@ class Screen(object):
     x = point.getAttribute( 'x')
     y = point.getAttribute( 'y')
     z = point.getAttribute( 'z')
-    return map( self.any_to_px, (x,y,z))
+    return list(map( self.any_to_px, (x,y,z)))
 
 
   @classmethod

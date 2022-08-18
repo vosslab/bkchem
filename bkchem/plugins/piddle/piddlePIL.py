@@ -43,11 +43,11 @@ else:
 
 # load font metrics
 try:
-    import cPickle
+    import pickle
     with open(os.path.join(_fontprefix,'metrics.dat'), 'rb') as f:
-        _widthmaps = cPickle.load(f)
-        _ascents   = cPickle.load(f)
-        _descents  = cPickle.load(f)
+        _widthmaps = pickle.load(f)
+        _ascents   = pickle.load(f)
+        _descents  = pickle.load(f)
 except:
     Log.write("Warning: unable to load font metrics!\n")
     _widthmaps = {}
@@ -87,12 +87,12 @@ def _matchingFontPath(font):
     if type(face) == StringType:
         path = _pilFontPath(face,size,font.bold)
         path = string.split(path,os.sep)[-1]
-        if path in _widthmaps.keys(): return path
+        if path in list(_widthmaps.keys()): return path
     else:
         for item in font.face:
             path = _pilFontPath(item,size,font.bold)
             path = string.split(path,os.sep)[-1]
-            if path in _widthmaps.keys(): return path
+            if path in list(_widthmaps.keys()): return path
     # not found?  Try it with courier, which should always be there
     path = _pilFontPath('courier',size,font.bold)
     return string.split(path,os.sep)[-1]
@@ -127,7 +127,7 @@ class PILCanvas( Canvas ):
         self._pen = ImageDraw.ImageDraw(self._image)
         self._pen.setink(0)
         self._setFont( Font() )
-        self._pilversion = map(string.atoi, string.split(Image.VERSION, "."))
+        self._pilversion = list(map(string.atoi, string.split(Image.VERSION, ".")))
         Canvas.__init__(self, size, name)
 
     def __setattr__(self, attribute, value):
@@ -392,8 +392,8 @@ def test():
     canvas = PILCanvas()
 
     canvas.defaultLineColor = Color(0.7,0.7,1.0)    # light blue
-    canvas.drawLines( map(lambda i:(i*10,0,i*10,300), range(30)) )
-    canvas.drawLines( map(lambda i:(0,i*10,300,i*10), range(30)) )
+    canvas.drawLines( [(i*10,0,i*10,300) for i in range(30)] )
+    canvas.drawLines( [(0,i*10,300,i*10) for i in range(30)] )
     canvas.defaultLineColor = black
 
     canvas.drawLine(10,200, 20,190, color=red)
