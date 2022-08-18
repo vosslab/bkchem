@@ -70,7 +70,7 @@ class XML_writer(object):
 
 
 
-# Tkinter states that it takes font sizes in pt. However this is not true (as for python 2.2.2)
+# tkinter states that it takes font sizes in pt. However this is not true (as for python 2.2.2)
 # therefore there is this variable to quickly change the settings and control the SVG output
 pt_or_px="pt"
 

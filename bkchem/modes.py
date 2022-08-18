@@ -27,12 +27,8 @@ import time
 import string
 import xml.sax
 import xml.sax.saxutils
-try:
-  import tkinter as Tkinter
-  import tkinter.messagebox as tkMessageBox
-except ImportError:
-  import tkinter
-  import tkinter.messagebox
+import tkinter
+import tkinter.messagebox
 
 from warnings import warn
 from .oasa import geometry

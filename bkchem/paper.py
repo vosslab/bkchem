@@ -33,12 +33,8 @@ try:
   import exceptions
 except ImportError:
   pass
-try:
-  import tkinter.font as tkFont
-  import tkinter.messagebox as tkMessageBox
-except ImportError:
-  import tkinter.font
-  import tkinter.messagebox
+import tkinter.font
+import tkinter.messagebox
 
 from warnings import warn
 from .oasa import geometry
@@ -1845,7 +1841,7 @@ class chem_paper(Canvas, object):
 
   def common_bbox( self, objects):
     """returns the bbox of all 'objects', in contrast to list_bbox it works with BKChem
-    objects, not Tkinter canvas objects"""
+    objects, not tkinter canvas objects"""
     if not objects:
       return None
     xmin, ymin, xmax, ymax = objects[0].bbox()

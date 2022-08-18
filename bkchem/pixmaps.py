@@ -21,10 +21,7 @@
 
 """
 
-try:
-    import tkinter as Tkinter
-except ImportError:
-    import tkinter
+import tkinter
 
 from . import os_support
 

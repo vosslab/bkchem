@@ -23,14 +23,9 @@
 
 import os
 import re
-try:
-    import tkinter as Tkinter
-    import tkinter.font as tkFont
-    import tkinter.messagebox as tkMessageBox
-except ImportError:
-    import tkinter
-    import tkinter.font
-    import tkinter.messagebox
+import tkinter
+import tkinter.font
+import tkinter.messagebox
 
 import Pmw
 from . import data
@@ -893,7 +888,7 @@ class preferences_dialog(object):
 
     # replace hyphens with minuses in export?
     # ***HACK***
-    #replace_minus_button = Tkinter.Checkbutton( common_page, text=_('Replace hyphens with minus in SVG export?'),
+    #replace_minus_button = tkinter.Checkbutton( common_page, text=_('Replace hyphens with minus in SVG export?'),
     #                                            variable=self.replace_minus)
     #replace_minus_button.pack( anchor='w', padx=10, pady=10)
 

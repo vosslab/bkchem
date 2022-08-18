@@ -26,16 +26,10 @@
 import re
 import math
 import os.path
-try:
-    import tkinter as Tkinter
-    import tkinter.font as tkFont
-    import tkinter.colorchooser as tkColorChooser
-    import tkinter.filedialog as tkFileDialog
-except ImportError:
-    import tkinter
-    import tkinter.font
-    import tkinter.colorchooser
-    import tkinter.filedialog
+import tkinter
+import tkinter.font
+import tkinter.colorchooser
+import tkinter.filedialog
 
 from .oasa import geometry
 

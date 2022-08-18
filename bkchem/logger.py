@@ -73,7 +73,7 @@ class logger(object):
 
 
   def log_to_console( self, message, message_type="info", delay=4):
-    print(self.type_to_text[message_type]+":", message, file=sys.stderr)
+    print(self.type_to_text[message_type]+":", message)
 
 
   def log_to_dialog( self, message, message_type="info", delay=4):

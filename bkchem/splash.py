@@ -23,10 +23,7 @@
 
 """the Splash class resides here"""
 
-try:
-  import tkinter as Tkinter
-except ImportError:
-  import tkinter
+import tkinter
 
 from . import messages
 from . import os_support

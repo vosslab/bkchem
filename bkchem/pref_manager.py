@@ -88,8 +88,7 @@ class pref_manager( object):
           value = itype(dom_extensions.getAllTextFromElement(child))
         except:
           print("Preference manager: ignoring value %s of type %s"
-                % (dom_extensions.getAllTextFromElement(child), itype),
-                file=sys.stderr)
+                % (dom_extensions.getAllTextFromElement(child), itype),)
           break
       self.add_preference(name, value)
 

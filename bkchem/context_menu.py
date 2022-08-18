@@ -20,10 +20,7 @@
 import os
 from . import oasa
 import collections
-try:
-  import tkinter as Tkinter
-except ImportError:
-  import tkinter
+import tkinter
 
 from .oasa import periodic_table as PT
 

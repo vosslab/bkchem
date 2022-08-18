@@ -23,12 +23,8 @@
 
 import os
 import re
-try:
-  import tkinter as Tkinter
-  from tkinter import Frame, Button, Entry
-except ImportError:
-  import tkinter
-  from tkinter import Frame, Button, Entry
+import tkinter
+from tkinter import Frame, Button, Entry
 
 from xml.sax import saxutils
 
