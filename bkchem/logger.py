@@ -25,7 +25,7 @@ try:
 except ImportError:
   import tkinter.messagebox
 
-from singleton_store import Store
+from .singleton_store import Store
 
 
 

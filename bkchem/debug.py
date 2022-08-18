@@ -22,7 +22,7 @@
 import sys
 import inspect
 
-import config
+from . import config
 
 
 
