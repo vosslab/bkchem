@@ -24,20 +24,15 @@
 
 
 import os
-from . import oasa
+import oasa
 import string
 import warnings
 import collections
 import xml.dom.minidom as dom
 
-try:
-  from tkinter import *
-  from tkinter.filedialog import asksaveasfilename, askopenfilename
-  import tkinter.messagebox as tkMessageBox
-except ImportError:
-  from tkinter import *
-  from tkinter.filedialog import asksaveasfilename, askopenfilename
-  import tkinter.messagebox
+from tkinter import *
+from tkinter.filedialog import asksaveasfilename, askopenfilename
+import tkinter.messagebox
 
 import Pmw
 from . import data
@@ -57,7 +52,7 @@ from . import oasa_bridge
 from . import dom_extensions
 from . import non_xml_writer
 from . import import_checker
-from . import plugins.plugin
+from .plugins import plugin
 
 from .paper import chem_paper
 from .edit_pool import editPool
