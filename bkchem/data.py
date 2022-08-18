@@ -131,18 +131,18 @@ FROM_STRING = 0
 TO_STRING = 1
 
 
-languages = {'en': _('English'),
-             'cs': _('Czech'),
-             'de': _('German'),
-             'fr': _('French'),
-             'pl': _('Polish'),
-             'zh_TW': _('Traditional Chinese, Taiwan'),
-             'it': _('Italian'),
-             'es': _('Spanish'),
-             'ja': _('Japanese'),
-             'lv': _('Latvian'),
-             'ru': _('Russian'),
-             'tr': _('Turkish'),
+languages = {'en':('English'),
+             'cs':('Czech'),
+             'de':('German'),
+             'fr':('French'),
+             'pl':('Polish'),
+             'zh_TW':('Traditional Chinese, Taiwan'),
+             'it':('Italian'),
+             'es':('Spanish'),
+             'ja':('Japanese'),
+             'lv':('Latvian'),
+             'ru':('Russian'),
+             'tr':('Turkish'),
              }
 
 
