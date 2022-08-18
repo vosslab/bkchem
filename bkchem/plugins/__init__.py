@@ -43,7 +43,7 @@ for _name in _names:
     exec('from . import %s' % _name)
     __all__.append(_name)
   except (IOError, ImportError):
-    print("Could not load module %s" % _name, file=sys.stderr)
+    print("Could not load module %s" % _name)
 
 del _name
 del _names
