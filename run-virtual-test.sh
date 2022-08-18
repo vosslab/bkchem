@@ -12,6 +12,7 @@ python3 ./setup.py build
 
 echo "INSTALL"
 python3 ./setup.py install
+#echo $(cat bkchem.egg-info/dependency_links.txt)
 
 echo "IMPORT"
 python3 -c 'import bkchem'
