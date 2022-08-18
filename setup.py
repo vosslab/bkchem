@@ -61,9 +61,6 @@ conf = setup(
 
   packages = ['bkchem',
               'bkchem/plugins',
-              'bkchem/oasa',
-              'bkchem/oasa/oasa',
-              'bkchem/oasa/oasa/graph',
               'bkchem/plugins/piddle'],
 
   data_files = [('share/bkchem/templates', glob.glob('templates/*.cdml') + glob.glob('templates/*.xml')),
