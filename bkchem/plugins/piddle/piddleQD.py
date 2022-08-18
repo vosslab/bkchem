@@ -543,7 +543,7 @@ class QDCanvas( Canvas ):
         """Draw a PIL Image into the specified rectangle.  If x2 and y2 are
         omitted, they are calculated from the image size."""
 
-        from PixMapWrapper import PixMapWrapper
+        from .PixMapWrapper import PixMapWrapper
         pm = PixMapWrapper()    # make a QD pixel map
         pm.fromImage(image)     # load the image into it
         if x2==None: x2 = x1 + pm.bounds[2]-pm.bounds[0]

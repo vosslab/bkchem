@@ -37,15 +37,15 @@ except ImportError:
     import tkinter.colorchooser
     import tkinter.filedialog
 
-from oasa import geometry
+from .oasa import geometry
 
 import Pmw
-import data
-import misc
-import config
+from . import data
+from . import misc
+from . import config
 
-from keysymdef import keysyms
-from singleton_store import Store
+from .keysymdef import keysyms
+from .singleton_store import Store
 
 
 

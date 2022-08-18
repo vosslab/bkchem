@@ -28,8 +28,8 @@ try:
 except ImportError:
   import tkinter
 
-import messages
-import os_support
+from . import messages
+from . import os_support
 
 
 

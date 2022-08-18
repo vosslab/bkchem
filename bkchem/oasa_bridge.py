@@ -21,17 +21,17 @@ import math
 
 oasa_available = 1
 try:
-  import oasa
+  from . import oasa
 except ImportError:
   oasa_available = 0
 
-from oasa import transform3d
+from .oasa import transform3d
 
-import bond
-import atom
-import molecule
+from . import bond
+from . import atom
+from . import molecule
 
-from singleton_store import Screen
+from .singleton_store import Screen
 
 
 

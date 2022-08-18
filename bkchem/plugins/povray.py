@@ -23,7 +23,7 @@
 
 """provides export plugin to povray"""
 
-import plugin
+from . import plugin
 import operator
 import io
 

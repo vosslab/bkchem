@@ -29,15 +29,15 @@ except ImportError:
   import tkinter.messagebox
 
 import Pmw
-import dialogs
-import widgets
-import validator
-import os_support
-import bkchem_exceptions as excs
+from . import dialogs
+from . import widgets
+from . import validator
+from . import os_support
+from . import bkchem_exceptions as excs
 
-from atom import atom
-from molecule import molecule
-from singleton_store import Store
+from .atom import atom
+from .molecule import molecule
+from .singleton_store import Store
 
 
 

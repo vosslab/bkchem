@@ -26,20 +26,20 @@
 
 import re
 import sys
-import oasa
+from . import oasa
 
 from warnings import warn
-from oasa import periodic_table as PT
-from oasa.known_groups import name_to_smiles
+from .oasa import periodic_table as PT
+from .oasa.known_groups import name_to_smiles
 
-import data
-import debug
-import marks
-import dom_extensions
-import groups_table as GT
+from . import data
+from . import debug
+from . import marks
+from . import dom_extensions
+from . import groups_table as GT
 
-from singleton_store import Store, Screen
-from special_parents import drawable_chem_vertex
+from .singleton_store import Store, Screen
+from .special_parents import drawable_chem_vertex
 
 
 ### NOTE: now that all classes are children of meta_enabled, so the read_standard_values method

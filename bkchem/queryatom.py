@@ -25,18 +25,18 @@
 
 import re
 import sys
-import oasa
+from . import oasa
 
-from oasa import periodic_table as PT
+from .oasa import periodic_table as PT
 
-import data
-import debug
-import marks
-import dom_extensions
+from . import data
+from . import debug
+from . import marks
+from . import dom_extensions
 
 from warnings import warn
-from singleton_store import Screen
-from special_parents import drawable_chem_vertex
+from .singleton_store import Screen
+from .special_parents import drawable_chem_vertex
 
 
 

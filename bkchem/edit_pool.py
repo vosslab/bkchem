@@ -32,12 +32,12 @@ except ImportError:
 
 from xml.sax import saxutils
 
-import misc
-import config
+from . import misc
+from . import config
 
-from keysymdef import keysyms
-from singleton_store import Store
-from groups_table import groups_table
+from .keysymdef import keysyms
+from .singleton_store import Store
+from .groups_table import groups_table
 
 
 

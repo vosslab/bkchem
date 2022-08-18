@@ -24,10 +24,10 @@ Used to provide mostly the desired meta_behaviour.
 
 import xml.dom.minidom as dom
 
-import ftext
-import dom_extensions
+from . import ftext
+from . import dom_extensions
 
-from singleton_store import Store
+from .singleton_store import Store
 
 
 

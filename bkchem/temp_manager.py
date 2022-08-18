@@ -27,14 +27,14 @@ import xml.sax
 import xml.dom.minidom as dom
 
 from warnings import warn
-from oasa.transform import transform
+from .oasa.transform import transform
 
-import misc
-import config
-import os_support
+from . import misc
+from . import config
+from . import os_support
 
-from molecule import molecule
-from singleton_store import Store, Screen
+from .molecule import molecule
+from .singleton_store import Store, Screen
 
 
 
@@ -58,7 +58,7 @@ class template_manager(object):
       warn( "template file %s cannot be parsed - ignoring" % file)
       return
     # when loading old versions of CDML try to convert them, but do nothing when they cannot be converted
-    import CDML_versions
+    from . import CDML_versions
     CDML_versions.transform_dom_to_version( doc, config.current_CDML_version)
     Store.app.paper.onread_id_sandbox_activate()
     added = []

@@ -26,7 +26,7 @@
 import os
 import sys
 import math
-import oasa
+from . import oasa
 import operator
 import xml.dom.minidom as dom
 try:
@@ -41,44 +41,44 @@ except ImportError:
   import tkinter.messagebox
 
 from warnings import warn
-from oasa import geometry
-from oasa import periodic_table as PT
-from oasa.transform import transform
-from oasa.transform3d import transform3d
+from .oasa import geometry
+from .oasa import periodic_table as PT
+from .oasa.transform import transform
+from .oasa.transform3d import transform3d
 try:
   from tkinter import Canvas, ALL
 except ImportError:
   from tkinter import Canvas, ALL
 
 import Pmw
-import misc
+from . import misc
 import copy
-import data
-import undo
-import arrow
-import checks
-import config
-import classes
-import dialogs
-import parents
-import graphics
-import messages
-import os_support
-import xml_writer
-import interactors
-import CDML_versions
-import dom_extensions
+from . import data
+from . import undo
+from . import arrow
+from . import checks
+from . import config
+from . import classes
+from . import dialogs
+from . import parents
+from . import graphics
+from . import messages
+from . import os_support
+from . import xml_writer
+from . import interactors
+from . import CDML_versions
+from . import dom_extensions
 
-from atom import atom
-from group import group
-from textatom import textatom
-from molecule import molecule
-from reaction import reaction
-from id_manager import id_manager
-from temp_manager import template_manager
-from singleton_store import Store, Screen
-from helper_graphics import selection_rect
-from external_data import external_data_manager
+from .atom import atom
+from .group import group
+from .textatom import textatom
+from .molecule import molecule
+from .reaction import reaction
+from .id_manager import id_manager
+from .temp_manager import template_manager
+from .singleton_store import Store, Screen
+from .helper_graphics import selection_rect
+from .external_data import external_data_manager
 
 
 
@@ -1352,7 +1352,7 @@ class chem_paper(Canvas, object):
 
 
   def check_chemistry_of_selected( self):
-    import validator
+    from . import validator
     val = validator.validator()
     s_mols = [m for m in self.selected_to_unique_top_levels()[0] if m.object_type == 'molecule']
     if not s_mols:

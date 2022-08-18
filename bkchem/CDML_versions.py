@@ -21,8 +21,8 @@
 
 """
 
-import data
-import dom_extensions as dom_ext
+from . import data
+from . import dom_extensions as dom_ext
 
 
 

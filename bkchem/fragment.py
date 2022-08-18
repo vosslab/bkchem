@@ -19,11 +19,11 @@
 
 import types
 import xml.sax.saxutils
-import dom_extensions as dom_ext
+from . import dom_extensions as dom_ext
 
-from parents import simple_parent
-from singleton_store import Store
-from bkchem_exceptions import bkchem_fragment_error
+from .parents import simple_parent
+from .singleton_store import Store
+from .bkchem_exceptions import bkchem_fragment_error
 
 
 class fragment( simple_parent):

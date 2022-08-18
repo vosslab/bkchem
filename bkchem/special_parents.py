@@ -17,7 +17,7 @@
 
 #--------------------------------------------------------------------------
 
-import oasa
+from . import oasa
 import operator
 import xml.dom.minidom as dom
 try:
@@ -25,16 +25,16 @@ try:
 except ImportError:
   import tkinter.font
 
-from oasa import geometry
+from .oasa import geometry
 from math import sin, cos, sqrt, pi
 
-import misc
-import marks
+from . import misc
+from . import marks
 
-from ftext import ftext
-from tuning import Tuning
-from singleton_store import Store, Screen
-from parents import meta_enabled, area_colored, point_drawable, text_like, child_with_paper
+from .ftext import ftext
+from .tuning import Tuning
+from .singleton_store import Store, Screen
+from .parents import meta_enabled, area_colored, point_drawable, text_like, child_with_paper
 
 
 

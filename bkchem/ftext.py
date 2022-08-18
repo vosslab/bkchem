@@ -34,8 +34,8 @@ try:
 except ImportError:
   import tkinter.font
 
-import tuning
-import dom_extensions
+from . import tuning
+from . import dom_extensions
 
 
 

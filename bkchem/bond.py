@@ -22,18 +22,18 @@
 
 
 import math
-import oasa
+from . import oasa
 import xml.dom.minidom as dom
 
-from oasa import geometry
+from .oasa import geometry
 from warnings import warn
 
-import misc
-import dom_extensions
+from . import misc
+from . import dom_extensions
 
-from ftext import ftext
-from singleton_store import Store, Screen
-from parents import meta_enabled, line_colored, drawable, with_line, interactive, child_with_paper
+from .ftext import ftext
+from .singleton_store import Store, Screen
+from .parents import meta_enabled, line_colored, drawable, with_line, interactive, child_with_paper
 
 
 ### NOTE: now that all classes are children of meta_enabled, so the read_standard_values method

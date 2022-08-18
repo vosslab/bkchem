@@ -18,23 +18,23 @@
 #--------------------------------------------------------------------------
 
 import os
-import oasa
+from . import oasa
 import collections
 try:
   import tkinter as Tkinter
 except ImportError:
   import tkinter
 
-from oasa import periodic_table as PT
+from .oasa import periodic_table as PT
 
-import misc
-import marks
-import parents
-import interactors
+from . import misc
+from . import marks
+from . import parents
+from . import interactors
 
-from atom import atom
-from group import group
-from singleton_store import Store
+from .atom import atom
+from .group import group
+from .singleton_store import Store
 
 
 

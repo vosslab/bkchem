@@ -24,7 +24,7 @@
 
 
 import os
-import oasa
+from . import oasa
 import string
 import warnings
 import collections
@@ -40,32 +40,32 @@ except ImportError:
   import tkinter.messagebox
 
 import Pmw
-import data
-import misc
-import modes
-import config
-import export
-import logger
-import dialogs
-import pixmaps
-import plugins
-import messages
-import molecule
-import os_support
-import interactors
-import oasa_bridge
-import dom_extensions
-import non_xml_writer
-import import_checker
-import plugins.plugin
+from . import data
+from . import misc
+from . import modes
+from . import config
+from . import export
+from . import logger
+from . import dialogs
+from . import pixmaps
+from . import plugins
+from . import messages
+from . import molecule
+from . import os_support
+from . import interactors
+from . import oasa_bridge
+from . import dom_extensions
+from . import non_xml_writer
+from . import import_checker
+from . import plugins.plugin
 
-from paper import chem_paper
-from edit_pool import editPool
-from xml_writer import SVG_writer
-from id_manager import id_manager
-from temp_manager import template_manager
-from plugin_support import plugin_manager
-from singleton_store import Store, Screen
+from .paper import chem_paper
+from .edit_pool import editPool
+from .xml_writer import SVG_writer
+from .id_manager import id_manager
+from .temp_manager import template_manager
+from .plugin_support import plugin_manager
+from .singleton_store import Store, Screen
 
 
 
@@ -376,8 +376,8 @@ class BKChem( Tk):
 
         # support for tuning of piddle
         if plugin.name.endswith( "(Piddle)"):
-          from plugins import tk2piddle
-          import tuning
+          from .plugins import tk2piddle
+          from . import tuning
           tk2piddle.tk2piddle.text_x_shift = tuning.Tuning.Piddle.text_x_shift
 
     self.paper = None
@@ -1260,7 +1260,7 @@ Enter InChI:""")
 
   def start_server( self):
 
-    import http_server2 as http_server
+    from . import http_server2 as http_server
 
     server_address = ('', 8008)
     httpd = http_server.bkchem_http_server( server_address, http_server.bkchem_http_handler)

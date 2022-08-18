@@ -33,13 +33,13 @@ except ImportError:
     import tkinter.messagebox
 
 import Pmw
-import data
-import misc
-import classes
-import widgets
-import os_support
+from . import data
+from . import misc
+from . import classes
+from . import widgets
+from . import os_support
 
-from singleton_store import Store, Screen
+from .singleton_store import Store, Screen
 
 
 

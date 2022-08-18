@@ -25,11 +25,11 @@
 
 """
 
-import molecule
+from . import molecule
 
-from atom import atom
-from group import group
-from textatom import textatom
+from .atom import atom
+from .group import group
+from .textatom import textatom
 
 
 

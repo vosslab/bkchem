@@ -21,7 +21,7 @@
 
 """
 
-import oasa
+from . import oasa
 import math
 import time
 import string
@@ -35,35 +35,35 @@ except ImportError:
   import tkinter.messagebox
 
 from warnings import warn
-from oasa import geometry
-from oasa import periodic_table as PT
-from oasa.transform import transform
-from oasa.transform3d import transform3d
+from .oasa import geometry
+from .oasa import periodic_table as PT
+from .oasa.transform import transform
+from .oasa.transform3d import transform3d
 
 import Pmw
-import data
-import misc
-import marks
+from . import data
+from . import misc
+from . import marks
 import types
-import config
-import dialogs
-import parents
-import messages
-import interactors
-import external_data
-import dom_extensions
-import special_parents
-import helper_graphics as hg
+from . import config
+from . import dialogs
+from . import parents
+from . import messages
+from . import interactors
+from . import external_data
+from . import dom_extensions
+from . import special_parents
+from . import helper_graphics as hg
 
-from bond import bond
-from atom import atom
-from arrow import arrow
-from ftext import ftext
-from group import group
-from textatom import textatom
-from reaction import reaction
-from context_menu import context_menu
-from singleton_store import Store, Screen
+from .bond import bond
+from .atom import atom
+from .arrow import arrow
+from .ftext import ftext
+from .group import group
+from .textatom import textatom
+from .reaction import reaction
+from .context_menu import context_menu
+from .singleton_store import Store, Screen
 
 
 

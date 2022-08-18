@@ -25,17 +25,17 @@
 
 import xml.dom.minidom as dom
 
-from oasa import geometry
+from .oasa import geometry
 from warnings import warn
 
-import misc
-import dom_extensions
+from . import misc
+from . import dom_extensions
 
-from classes import point
-from reaction import reaction
-from singleton_store import Screen
-from parents import meta_enabled, container, with_line, line_colored
-from parents import point_drawable, interactive, drawable, top_level
+from .classes import point
+from .reaction import reaction
+from .singleton_store import Screen
+from .parents import meta_enabled, container, with_line, line_colored
+from .parents import point_drawable, interactive, drawable, top_level
 
 
 

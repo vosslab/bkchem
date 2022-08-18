@@ -10,6 +10,6 @@ import os
 
 sys.path.insert( 0, os.path.abspath('./bkchem/bkchem'))
 
-from bkchem import bkchem
+from .bkchem import bkchem
 
 

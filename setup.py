@@ -8,7 +8,7 @@ import glob
 
 from distutils.core import setup
 
-from bkchem import config
+from .bkchem import config
 
 
 

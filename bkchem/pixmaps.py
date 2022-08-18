@@ -26,7 +26,7 @@ try:
 except ImportError:
     import tkinter
 
-import os_support
+from . import os_support
 
 __all__ = ['images']
 
