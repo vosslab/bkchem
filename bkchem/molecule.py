@@ -27,9 +27,9 @@ import copy
 import oasa
 import xml.dom.minidom as dom
 
-from .oasa import geometry
+from oasa import geometry
 from warnings import warn
-from .oasa import periodic_table as PT
+from oasa import periodic_table as PT
 from math import atan2, sin, cos, pi, sqrt
 
 import misc

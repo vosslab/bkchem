@@ -28,7 +28,7 @@ import sys
 import oasa
 
 from warnings import warn
-from .oasa import periodic_table as PT
+from oasa import periodic_table as PT
 
 import data
 import marks

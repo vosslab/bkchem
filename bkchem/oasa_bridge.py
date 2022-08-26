@@ -25,7 +25,7 @@ try:
 except ImportError:
   oasa_available = 0
 
-from .oasa import transform3d
+from oasa import transform3d
 
 import bond
 import atom

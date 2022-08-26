@@ -27,7 +27,7 @@ import re
 import sys
 import oasa
 
-from .oasa import periodic_table as PT
+from oasa import periodic_table as PT
 
 import data
 import debug

@@ -25,7 +25,7 @@
 
 import xml.dom.minidom as dom
 
-from .oasa import geometry
+from oasa import geometry
 from warnings import warn
 
 import misc

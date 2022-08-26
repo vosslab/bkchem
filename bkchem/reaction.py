@@ -21,7 +21,7 @@ import sys
 
 import dom_extensions
 
-from .singleton_store import Store
+from singleton_store import Store
 
 
 singulars = ['reactant', 'product', 'arrow', 'condition', 'plus']

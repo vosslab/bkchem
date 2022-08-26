@@ -36,12 +36,12 @@ from warnings import warn
 
 import dom_extensions
 
-from .ftext import ftext
-from .parents import meta_enabled, container, with_line, text_like, line_colored
-from .parents import area_colored, point_drawable, interactive, drawable, top_level
-from .parents import child, with_font
-from .reaction import reaction
-from .singleton_store import Screen
+from ftext import ftext
+from parents import meta_enabled, container, with_line, text_like, line_colored
+from parents import area_colored, point_drawable, interactive, drawable, top_level
+from parents import child, with_font
+from reaction import reaction
+from singleton_store import Screen
 
 ### NOTE: now that all classes are children of meta_enabled, so the read_standard_values method
 ### is called during their __init__ (in fact meta_enabled.__init__), therefore these values are
