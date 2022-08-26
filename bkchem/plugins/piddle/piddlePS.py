@@ -46,7 +46,7 @@ import string
 import math
 
 from .piddle import *
-from . import piddlePSmetrics # for font info
+import piddlePSmetrics # for font info
 
 linesep = '\n'
 ### constants for fonts ###

@@ -23,7 +23,7 @@
 
 import tkinter
 
-from . import os_support
+import os_support
 
 __all__ = ['images']
 

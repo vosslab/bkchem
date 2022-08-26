@@ -24,7 +24,7 @@ import sys
 import types
 import xml.dom.minidom as dom
 
-from . import dom_extensions
+import dom_extensions
 
 
 

@@ -38,7 +38,7 @@ from oasa import geometry
 
 import os_support
 
-from . import plugin
+import plugin
 from singleton_store import Screen
 
 

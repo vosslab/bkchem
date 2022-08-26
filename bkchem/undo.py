@@ -30,7 +30,7 @@ exported in __all__.
 import copy
 import inspect
 
-from . import misc
+import misc
 
 
 

@@ -23,7 +23,7 @@
 
 __all__ = ['enabled', 'Bitmap_writer']
 
-from . import import_checker
+import import_checker
 # try to import PIL
 if import_checker.PIL_available:
   if import_checker.PIL_prefix:

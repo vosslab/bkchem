@@ -30,9 +30,9 @@ import oasa
 from warnings import warn
 from .oasa import periodic_table as PT
 
-from . import data
-from . import marks
-from . import dom_extensions
+import data
+import marks
+import dom_extensions
 import xml.dom.minidom as dom
 
 from .singleton_store import Screen

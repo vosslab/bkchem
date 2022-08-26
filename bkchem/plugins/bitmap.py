@@ -18,7 +18,7 @@
 #--------------------------------------------------------------------------
 
 
-from . import plugin
+import plugin
 from .piddle import piddlePIL
 from .tk2piddle import tk2piddle
 

@@ -25,8 +25,8 @@
 
 import tkinter
 
-from . import messages
-from . import os_support
+import messages
+import os_support
 
 
 

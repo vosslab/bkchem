@@ -29,9 +29,9 @@ import oasa
 
 from warnings import warn
 
-from . import data
-from . import marks
-from . import dom_extensions
+import data
+import marks
+import dom_extensions
 
 from .oasa import periodic_table as PT
 from .singleton_store import Screen, Store

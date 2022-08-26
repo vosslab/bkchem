@@ -50,7 +50,7 @@ import string, os, types
 
 from math import *
 
-from . import pdfmetrics # for font info
+import pdfmetrics # for font info
 from .piddle import *
 
 SVG_HEADER = """<?xml version="1.0" encoding="iso-8859-1"?>

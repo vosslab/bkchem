@@ -6,6 +6,7 @@ source venv/bin/activate
 
 echo "RSYNC"
 rsync -rt ~/nsh/bkchem/* .
+pip3 install Pmw
 
 echo "BUILD"
 python3 ./setup.py build

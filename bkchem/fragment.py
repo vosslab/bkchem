@@ -19,7 +19,7 @@
 
 import types
 import xml.sax.saxutils
-from . import dom_extensions as dom_ext
+import dom_extensions as dom_ext
 
 from .parents import simple_parent
 from .singleton_store import Store

@@ -25,7 +25,7 @@
 
 """
 
-from . import molecule
+import molecule
 
 from .atom import atom
 from .group import group

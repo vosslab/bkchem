@@ -28,8 +28,8 @@ from tkinter import Frame, Button, Entry
 
 from xml.sax import saxutils
 
-from . import misc
-from . import config
+import misc
+import config
 
 from .keysymdef import keysyms
 from .singleton_store import Store

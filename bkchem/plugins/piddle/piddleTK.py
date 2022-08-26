@@ -22,7 +22,7 @@ try:
 except ImportError:
     import tkinter, tkinter.font
 
-from . import piddle
+import piddle
 
 __version__ = "0.3"
 __date__    = "April 8, 1999"

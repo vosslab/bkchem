@@ -21,7 +21,7 @@
 
 """
 
-from . import misc
+import misc
 
 
 

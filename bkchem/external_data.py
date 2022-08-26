@@ -27,8 +27,8 @@ import types
 import os.path
 import xml.dom.minidom as dom
 
-from . import os_support
-from . import dom_extensions as dom_ext
+import os_support
+import dom_extensions as dom_ext
 
 from .atom import atom
 from .bond import bond

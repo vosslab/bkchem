@@ -21,9 +21,9 @@ import os
 import sys
 import xml.dom.minidom as dom
 
-from . import debug
-from . import os_support
-from . import dom_extensions as dom_ext
+import debug
+import os_support
+import dom_extensions as dom_ext
 
 from .singleton_store import Store
 

@@ -31,7 +31,7 @@ from oasa import transform
 
 import oasa_bridge
 
-from . import plugin
+import plugin
 
 
 

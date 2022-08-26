@@ -31,14 +31,14 @@ try:
 except ImportError:
   import tkinter.font
 
-from .oasa import geometry
-from .oasa import transform
+from oasa import geometry
+from oasa import transform
 
-from .parents import simple_parent
-from .singleton_store import Screen
+from parents import simple_parent
+from singleton_store import Screen
 
-from . import data
-from . import dom_extensions
+import data
+import dom_extensions
 
 
 

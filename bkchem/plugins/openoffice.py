@@ -36,7 +36,7 @@ import os_support
 import dom_extensions
 import dom_extensions as dom_ext
 
-from . import plugin
+import plugin
 from singleton_store import Screen
 
 

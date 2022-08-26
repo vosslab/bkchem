@@ -383,7 +383,7 @@ def drawString( canvas, s, x, y, font=None, color=None, angle=0):
 #------------------------------------------------------------------------
 # Testing
 #------------------------------------------------------------------------
-from . import piddlePDF
+import piddlePDF
 
 def test1():
     canvas = piddlePDF.PDFCanvas('test1.pdf')

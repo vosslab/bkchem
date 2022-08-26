@@ -34,7 +34,7 @@ except ImportError:
 from math import atan2, sin, cos, pi, sqrt
 from warnings import warn
 
-from . import dom_extensions
+import dom_extensions
 
 from .ftext import ftext
 from .parents import meta_enabled, container, with_line, text_like, line_colored

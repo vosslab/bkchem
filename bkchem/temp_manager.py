@@ -29,9 +29,9 @@ import xml.dom.minidom as dom
 from warnings import warn
 from .oasa.transform import transform
 
-from . import misc
-from . import config
-from . import os_support
+import misc
+import config
+import os_support
 
 from .molecule import molecule
 from .singleton_store import Store, Screen

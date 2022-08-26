@@ -27,9 +27,9 @@ except ImportError:
 
 from .oasa import transform3d
 
-from . import bond
-from . import atom
-from . import molecule
+import bond
+import atom
+import molecule
 
 from .singleton_store import Screen
 

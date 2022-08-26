@@ -27,7 +27,7 @@ except ImportError:
 
 from math import sin, cos, pi, ceil
 
-from . import aigen
+import aigen
 from .piddle import *
 
 author = 'Me'

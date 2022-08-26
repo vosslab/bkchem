@@ -19,7 +19,7 @@
 
 """The Store class which is a manager for application wide singletons resides here"""
 
-from . import misc
+import misc
 
 
 

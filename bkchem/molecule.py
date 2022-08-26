@@ -32,11 +32,11 @@ from warnings import warn
 from .oasa import periodic_table as PT
 from math import atan2, sin, cos, pi, sqrt
 
-from . import misc
-from . import dom_extensions
-from . import bkchem_exceptions
-from . import groups_table as GT
-from . import helper_graphics as hg
+import misc
+import dom_extensions
+import bkchem_exceptions
+import groups_table as GT
+import helper_graphics as hg
 
 from .bond import bond
 from .atom import atom

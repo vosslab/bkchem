@@ -31,7 +31,7 @@ except ImportError:
 import validator
 import dom_extensions as dom_ext
 
-from . import plugin
+import plugin
 
 
 

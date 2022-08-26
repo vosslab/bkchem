@@ -8,7 +8,7 @@ This module puts the various PIDDLE backends through their paces.
 import string
 import math
 
-from . import pagesizes
+import pagesizes
 from .piddle import *
 
 backends = sorted(['piddlePDF', 'piddlePIL', 'piddleVCR', 'piddleTK',

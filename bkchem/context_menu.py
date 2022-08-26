@@ -24,10 +24,10 @@ import tkinter
 
 from .oasa import periodic_table as PT
 
-from . import misc
-from . import marks
-from . import parents
-from . import interactors
+import misc
+import marks
+import parents
+import interactors
 
 from .atom import atom
 from .group import group

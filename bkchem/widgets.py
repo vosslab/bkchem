@@ -34,9 +34,9 @@ import tkinter.filedialog
 from .oasa import geometry
 
 import Pmw
-from . import data
-from . import misc
-from . import config
+import data
+import misc
+import config
 
 from .keysymdef import keysyms
 from .singleton_store import Store

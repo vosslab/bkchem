@@ -34,7 +34,7 @@ from oasa.transform import transform
 
 import dom_extensions as dom_ext
 
-from . import plugin
+import plugin
 from atom import atom
 from bond import bond
 from molecule import molecule

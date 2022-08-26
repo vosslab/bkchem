@@ -27,8 +27,8 @@ import xml.dom.minidom as dom
 from .oasa import geometry
 from xml.dom.minidom import Document
 
-from . import data
-from . import dom_extensions
+import data
+import dom_extensions
 
 from .tuning import Tuning
 from .ftext import ftext as ftext_class

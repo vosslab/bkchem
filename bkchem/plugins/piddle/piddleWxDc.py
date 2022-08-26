@@ -21,7 +21,7 @@ see also piddleWxDcDemo.py
 
 from wxPython.wx import *
 
-from . import piddle
+import piddle
 
 
 class PiddleWxDc(piddle.Canvas):

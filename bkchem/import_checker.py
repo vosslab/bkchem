@@ -47,7 +47,7 @@ except ImportError:
 
 oasa_available = 1
 try:
-  from . import oasa
+  import oasa
 except ImportError:
   oasa_available = 0
 

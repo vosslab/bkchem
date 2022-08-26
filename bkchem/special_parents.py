@@ -28,8 +28,8 @@ except ImportError:
 from .oasa import geometry
 from math import sin, cos, sqrt, pi
 
-from . import misc
-from . import marks
+import misc
+import marks
 
 from .ftext import ftext
 from .tuning import Tuning

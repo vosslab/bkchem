@@ -25,8 +25,8 @@ import xml.dom.minidom as dom
 
 import dom_extensions as dom_ext
 
-from . import CML
-from . import plugin
+import CML
+import plugin
 
 
 

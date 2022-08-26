@@ -22,7 +22,7 @@
 Mainly from paper and modules.
 """
 
-from . import interactors
+import interactors
 from .singleton_store import Store
 
 

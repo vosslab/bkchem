@@ -22,7 +22,7 @@ Also note that the max number of colours is 512, due to a .fig limitation.
 
 import math, string, re, os
 
-from . import piddlePSmetrics
+import piddlePSmetrics
 from .piddle import *
 
 degrees = math.pi / 180

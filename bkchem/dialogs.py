@@ -28,11 +28,11 @@ import tkinter.font
 import tkinter.messagebox
 
 import Pmw
-from . import data
-from . import misc
-from . import classes
-from . import widgets
-from . import os_support
+import data
+import misc
+import classes
+import widgets
+import os_support
 
 from .singleton_store import Store, Screen
 

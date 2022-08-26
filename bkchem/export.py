@@ -23,8 +23,8 @@
 
 import sys
 
-from . import xml_writer
-from . import dom_extensions
+import xml_writer
+import dom_extensions
 
 
 

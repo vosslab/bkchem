@@ -64,10 +64,10 @@ except ImportError:
 from types import *
 from math import sin, cos, tan, pi, ceil
 
-from . import pdfutils
-from . import pdfdoc
-from . import pdfmetrics
-from . import pdfgeom
+import pdfutils
+import pdfdoc
+import pdfmetrics
+import pdfgeom
 
 # Robert Kern
 # Constants for closing paths.

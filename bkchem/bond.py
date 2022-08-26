@@ -28,8 +28,8 @@ import xml.dom.minidom as dom
 from .oasa import geometry
 from warnings import warn
 
-from . import misc
-from . import dom_extensions
+import misc
+import dom_extensions
 
 from .ftext import ftext
 from .singleton_store import Store, Screen

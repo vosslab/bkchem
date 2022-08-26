@@ -26,14 +26,14 @@
 ## support for loading from outside of bkchem dir
 import sys
 
-from . import os_support
+import os_support
 
 sys.path.insert(1, os_support.get_module_path())
 
 ### now starting for real
-from . import pref_manager
+import pref_manager
 
-from .singleton_store import Store
+from singleton_store import Store
 
 # at first preference manager
 Store.pm = pref_manager.pref_manager(
@@ -96,13 +96,13 @@ else:
 
 
 
-from . import config
+import config
 
 if not config.debug:
   # checking of important modules availability
   # import modules
-  from . import import_checker
-  from . import messages
+  import import_checker
+  import messages
 
   # At least version 2.6 is required for the new exception syntax,
   # 'with' statement, built in next() and other future compatibility goodies
@@ -121,9 +121,9 @@ if not config.debug:
     sys.exit()
 
 
-from .main import BKChem
-from .splash import Splash
-from .singleton_store import Store
+from main import BKChem
+from splash import Splash
+from singleton_store import Store
 
 myapp = BKChem()
 myapp.withdraw()

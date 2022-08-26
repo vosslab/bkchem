@@ -21,7 +21,7 @@
 
 """
 
-from . import plugin
+import plugin
 
 
 

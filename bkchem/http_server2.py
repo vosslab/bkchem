@@ -30,9 +30,9 @@ import urllib.parse
 import http.server
 import xml.dom.minidom as dom
 
-from . import xml_writer
+import xml_writer
 import oasa_bridge
-from . import xml_serializer
+import xml_serializer
 
 from .singleton_store import Store
 

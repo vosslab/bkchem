@@ -27,11 +27,11 @@ import types
 from math import sin, cos, pi, ceil
 
 # app specific
-from . import pdfmetrics
-from . import pagesizes
+import pdfmetrics
+import pagesizes
 from .piddle import *
-from . import pdfgen
-from . import pdfgeom
+import pdfgen
+import pdfgeom
 
 #edit this is the setting offends you, or set it in the constructor
 DEFAULT_PAGE_SIZE = pagesizes.A4

@@ -19,7 +19,7 @@
 
 import sys
 
-from . import dom_extensions
+import dom_extensions
 
 from .singleton_store import Store
 

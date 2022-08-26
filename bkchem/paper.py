@@ -47,23 +47,23 @@ except ImportError:
   from tkinter import Canvas, ALL
 
 import Pmw
-from . import misc
+import misc
 import copy
-from . import data
-from . import undo
-from . import arrow
-from . import checks
-from . import config
-from . import classes
-from . import dialogs
-from . import parents
-from . import graphics
-from . import messages
-from . import os_support
-from . import xml_writer
-from . import interactors
-from . import CDML_versions
-from . import dom_extensions
+import data
+import undo
+import arrow
+import checks
+import config
+import classes
+import dialogs
+import parents
+import graphics
+import messages
+import os_support
+import xml_writer
+import interactors
+import CDML_versions
+import dom_extensions
 
 from .atom import atom
 from .group import group
