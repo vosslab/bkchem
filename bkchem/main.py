@@ -1369,7 +1369,7 @@ Enter InChI:""")
     for temp in self.menu_template:
       if temp[1] == "command" and temp[6] is not None:
         state = temp[6]
-        if isinstance(state, collections.Callable):
+        if isinstance(state, collections.abc.Callable):
           state = state() and 'normal' or 'disabled'
         elif state not in  ('normal', 'disabled'):
           state = getattr( self.paper, temp[6]) and 'normal' or 'disabled'
