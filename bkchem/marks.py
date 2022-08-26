@@ -31,8 +31,8 @@ try:
 except ImportError:
   import tkinter.font
 
-from .oasa import geometry
-from .oasa import transform
+from oasa import geometry
+from oasa import transform
 
 from .parents import simple_parent
 from .singleton_store import Screen

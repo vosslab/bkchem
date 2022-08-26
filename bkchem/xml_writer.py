@@ -24,7 +24,7 @@
 
 import xml.dom.minidom as dom
 
-from .oasa import geometry
+from oasa import geometry
 from xml.dom.minidom import Document
 
 from . import data

@@ -22,7 +22,7 @@ import oasa
 import collections
 import tkinter
 
-from .oasa import periodic_table as PT
+from oasa import periodic_table as PT
 
 from . import misc
 from . import marks

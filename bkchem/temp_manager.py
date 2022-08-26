@@ -27,7 +27,7 @@ import xml.sax
 import xml.dom.minidom as dom
 
 from warnings import warn
-from .oasa.transform import transform
+from oasa.transform import transform
 
 from . import misc
 from . import config

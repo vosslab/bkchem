@@ -37,10 +37,10 @@ import tkinter.font
 import tkinter.messagebox
 
 from warnings import warn
-from .oasa import geometry
-from .oasa import periodic_table as PT
-from .oasa.transform import transform
-from .oasa.transform3d import transform3d
+from oasa import geometry
+from oasa import periodic_table as PT
+from oasa.transform import transform
+from oasa.transform3d import transform3d
 try:
   from tkinter import Canvas, ALL
 except ImportError:

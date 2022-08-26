@@ -29,8 +29,8 @@ import sys
 import oasa
 
 from warnings import warn
-from .oasa import periodic_table as PT
-from .oasa.known_groups import name_to_smiles
+from oasa import periodic_table as PT
+from oasa.known_groups import name_to_smiles
 
 from . import data
 from . import debug

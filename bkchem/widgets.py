@@ -31,7 +31,7 @@ import tkinter.font
 import tkinter.colorchooser
 import tkinter.filedialog
 
-from .oasa import geometry
+from oasa import geometry
 
 import Pmw
 from . import data
