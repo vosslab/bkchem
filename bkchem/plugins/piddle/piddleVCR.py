@@ -52,7 +52,7 @@ import string
 
 from types import *
 
-from .piddle import *
+from piddle import *
 
 # internal utility functions
 def _repr(x):

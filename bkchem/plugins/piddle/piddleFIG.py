@@ -23,7 +23,7 @@ Also note that the max number of colours is 512, due to a .fig limitation.
 import math, string, re, os
 
 import piddlePSmetrics
-from .piddle import *
+from piddle import *
 
 degrees = math.pi / 180
 # XXX should just use bp all the time, even for text?  not clear from piddle

@@ -1,1 +1,1 @@
-from .piddleTK import *
+from piddleTK import *

@@ -28,7 +28,7 @@ except ImportError:
 from math import sin, cos, pi, ceil
 
 import aigen
-from .piddle import *
+from piddle import *
 
 author = 'Me'
 pageSize = (595, 842) #A4

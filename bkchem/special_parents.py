@@ -31,10 +31,10 @@ from math import sin, cos, sqrt, pi
 import misc
 import marks
 
-from .ftext import ftext
-from .tuning import Tuning
-from .singleton_store import Store, Screen
-from .parents import meta_enabled, area_colored, point_drawable, text_like, child_with_paper
+from ftext import ftext
+from tuning import Tuning
+from singleton_store import Store, Screen
+from parents import meta_enabled, area_colored, point_drawable, text_like, child_with_paper
 
 
 

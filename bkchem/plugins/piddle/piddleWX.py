@@ -85,7 +85,7 @@ wxWindows Python language bindings into a GUI window.
 
 from wxPython.wx import *
 
-from .piddleWxDc import PiddleWxDc
+from piddleWxDc import PiddleWxDc
 
 __version__ = "1.0"
 __date__    = "February 6, 2000"

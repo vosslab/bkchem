@@ -34,8 +34,8 @@ import marks
 import dom_extensions
 
 from oasa import periodic_table as PT
-from .singleton_store import Screen, Store
-from .special_parents import drawable_chem_vertex
+from singleton_store import Screen, Store
+from special_parents import drawable_chem_vertex
 
 
 ### NOTE: now that all classes are children of meta_enabled, so the read_standard_values method

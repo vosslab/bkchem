@@ -27,7 +27,7 @@ except ImportError:
 from oasa import transform
 from oasa import geometry
 
-from .piddle import piddle
+from piddle import piddle
 
 
 

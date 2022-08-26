@@ -17,9 +17,9 @@
 
 #--------------------------------------------------------------------------
 
-from .piddle import piddlePS
-from .tk2piddle import tk2piddle_ps
-from .piddle_lowlevel import piddle_exporter
+from piddle import piddlePS
+from tk2piddle import tk2piddle_ps
+from piddle_lowlevel import piddle_exporter
 
 
 

@@ -65,16 +65,16 @@ import interactors
 import CDML_versions
 import dom_extensions
 
-from .atom import atom
-from .group import group
-from .textatom import textatom
-from .molecule import molecule
-from .reaction import reaction
-from .id_manager import id_manager
-from .temp_manager import template_manager
-from .singleton_store import Store, Screen
-from .helper_graphics import selection_rect
-from .external_data import external_data_manager
+from atom import atom
+from group import group
+from textatom import textatom
+from molecule import molecule
+from reaction import reaction
+from id_manager import id_manager
+from temp_manager import template_manager
+from singleton_store import Store, Screen
+from helper_graphics import selection_rect
+from external_data import external_data_manager
 
 
 

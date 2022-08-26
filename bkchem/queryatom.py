@@ -35,8 +35,8 @@ import marks
 import dom_extensions
 
 from warnings import warn
-from .singleton_store import Screen
-from .special_parents import drawable_chem_vertex
+from singleton_store import Screen
+from special_parents import drawable_chem_vertex
 
 
 

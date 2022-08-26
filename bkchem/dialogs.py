@@ -34,7 +34,7 @@ import classes
 import widgets
 import os_support
 
-from .singleton_store import Store, Screen
+from singleton_store import Store, Screen
 
 
 

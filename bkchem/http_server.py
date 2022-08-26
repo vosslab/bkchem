@@ -32,7 +32,7 @@ import xml.dom.minidom as dom
 import xml_writer
 import xml_serializer
 
-from .singleton_store import Store
+from singleton_store import Store
 
 
 

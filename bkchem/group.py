@@ -38,8 +38,8 @@ import marks
 import dom_extensions
 import groups_table as GT
 
-from .singleton_store import Store, Screen
-from .special_parents import drawable_chem_vertex
+from singleton_store import Store, Screen
+from special_parents import drawable_chem_vertex
 
 
 ### NOTE: now that all classes are children of meta_enabled, so the read_standard_values method

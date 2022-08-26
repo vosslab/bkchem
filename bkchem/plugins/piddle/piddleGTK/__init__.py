@@ -68,7 +68,7 @@ __version__ = '$Revision: 1.1 $'
 
 from piddle import *
 
-from .core import \
+from core import \
      BasicCanvas, \
      InteractiveCanvas, \
      GTKCanvas, \

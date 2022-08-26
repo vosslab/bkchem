@@ -50,7 +50,7 @@ import Evt
 import string
 from types import *
 
-from .piddle import *
+from piddle import *
 
 # utility functions
 def _setForeColor(c):

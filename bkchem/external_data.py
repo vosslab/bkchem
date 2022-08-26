@@ -30,13 +30,13 @@ import xml.dom.minidom as dom
 import os_support
 import dom_extensions as dom_ext
 
-from .atom import atom
-from .bond import bond
-from .group import group
-from .molecule import molecule
-from .textatom import textatom
-from .queryatom import queryatom
-from .singleton_store import Store
+from atom import atom
+from bond import bond
+from group import group
+from molecule import molecule
+from textatom import textatom
+from queryatom import queryatom
+from singleton_store import Store
 
 
 

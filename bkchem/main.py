@@ -52,15 +52,15 @@ import oasa_bridge
 import dom_extensions
 import non_xml_writer
 import import_checker
-from .plugins import plugin
+from plugins import plugin
 
-from .paper import chem_paper
-from .edit_pool import editPool
-from .xml_writer import SVG_writer
-from .id_manager import id_manager
-from .temp_manager import template_manager
-from .plugin_support import plugin_manager
-from .singleton_store import Store, Screen
+from paper import chem_paper
+from edit_pool import editPool
+from xml_writer import SVG_writer
+from id_manager import id_manager
+from temp_manager import template_manager
+from plugin_support import plugin_manager
+from singleton_store import Store, Screen
 
 
 

@@ -49,7 +49,7 @@ __version__ = 0.1 # public release -- Sep 28, 1999
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from .piddle import *
+from piddle import *
 
 try:
     # the tesselator is currently broken.  As the latest spec says

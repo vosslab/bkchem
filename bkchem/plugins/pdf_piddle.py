@@ -17,9 +17,9 @@
 
 #--------------------------------------------------------------------------
 
-from .piddle import piddlePDF
-from .tk2piddle import tk2piddle_pdf
-from .piddle_lowlevel import piddle_exporter
+from piddle import piddlePDF
+from tk2piddle import tk2piddle_pdf
+from piddle_lowlevel import piddle_exporter
 
 
 

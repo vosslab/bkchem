@@ -130,7 +130,7 @@ myapp.withdraw()
 
 if __name__ == '__main__':
 
-  from . import messages
+  import messages
   enc = sys.getfilesystemencoding()
   if not enc:
     enc = sys.getdefaultencoding()

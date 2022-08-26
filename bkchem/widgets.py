@@ -38,8 +38,8 @@ import data
 import misc
 import config
 
-from .keysymdef import keysyms
-from .singleton_store import Store
+from keysymdef import keysyms
+from singleton_store import Store
 
 
 

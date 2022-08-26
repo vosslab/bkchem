@@ -3,7 +3,7 @@
 This module defines a few common page sizes in PIDDLE units (1/72 inch).
 """
 
-from .piddle import cm, inch
+from piddle import cm, inch
 
 _W, _H = (21*cm, 29.7*cm)
 

@@ -41,7 +41,7 @@ StringFormat XML characters
 import xmllib
 import math
 
-from .piddle import *
+from piddle import *
 
 #------------------------------------------------------------------------
 # constants

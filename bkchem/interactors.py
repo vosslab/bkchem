@@ -35,9 +35,9 @@ import validator
 import os_support
 import bkchem_exceptions as excs
 
-from .atom import atom
-from .molecule import molecule
-from .singleton_store import Store
+from atom import atom
+from molecule import molecule
+from singleton_store import Store
 
 
 

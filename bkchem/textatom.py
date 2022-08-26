@@ -35,8 +35,8 @@ import marks
 import dom_extensions
 import xml.dom.minidom as dom
 
-from .singleton_store import Screen
-from .special_parents import drawable_chem_vertex
+from singleton_store import Screen
+from special_parents import drawable_chem_vertex
 
 
 ### NOTE: now that all classes are children of meta_enabled, so the read_standard_values method

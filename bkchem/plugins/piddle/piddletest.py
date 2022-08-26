@@ -9,7 +9,7 @@ import string
 import math
 
 import pagesizes
-from .piddle import *
+from piddle import *
 
 backends = sorted(['piddlePDF', 'piddlePIL', 'piddleVCR', 'piddleTK',
                    'piddlePS', 'piddleAI', 'piddleQD', 'piddleGL', 'piddleWX'])

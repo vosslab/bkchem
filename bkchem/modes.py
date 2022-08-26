@@ -51,15 +51,15 @@ import dom_extensions
 import special_parents
 import helper_graphics as hg
 
-from .bond import bond
-from .atom import atom
-from .arrow import arrow
-from .ftext import ftext
-from .group import group
-from .textatom import textatom
-from .reaction import reaction
-from .context_menu import context_menu
-from .singleton_store import Store, Screen
+from bond import bond
+from atom import atom
+from arrow import arrow
+from ftext import ftext
+from group import group
+from textatom import textatom
+from reaction import reaction
+from context_menu import context_menu
+from singleton_store import Store, Screen
 
 
 

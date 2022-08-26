@@ -31,7 +31,7 @@ import bond
 import atom
 import molecule
 
-from .singleton_store import Screen
+from singleton_store import Screen
 
 
 

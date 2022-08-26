@@ -23,7 +23,7 @@ import cairo
 from oasa import transform
 
 import plugin
-from .tk2cairo import tk2cairo
+from tk2cairo import tk2cairo
 from singleton_store import Screen, Store
 
 

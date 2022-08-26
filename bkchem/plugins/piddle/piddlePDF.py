@@ -29,7 +29,7 @@ from math import sin, cos, pi, ceil
 # app specific
 import pdfmetrics
 import pagesizes
-from .piddle import *
+from piddle import *
 import pdfgen
 import pdfgeom
 

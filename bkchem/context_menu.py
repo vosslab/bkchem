@@ -29,9 +29,9 @@ import marks
 import parents
 import interactors
 
-from .atom import atom
-from .group import group
-from .singleton_store import Store
+from atom import atom
+from group import group
+from singleton_store import Store
 
 
 

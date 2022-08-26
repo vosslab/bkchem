@@ -30,9 +30,9 @@ from xml.dom.minidom import Document
 import data
 import dom_extensions
 
-from .tuning import Tuning
-from .ftext import ftext as ftext_class
-from .singleton_store import Screen
+from tuning import Tuning
+from ftext import ftext as ftext_class
+from singleton_store import Screen
 
 
 

@@ -38,14 +38,14 @@ import bkchem_exceptions
 import groups_table as GT
 import helper_graphics as hg
 
-from .bond import bond
-from .atom import atom
-from .group import group
-from .fragment import fragment
-from .textatom import textatom
-from .queryatom import queryatom
-from .singleton_store import Store, Screen
-from .parents import container, top_level, id_enabled, with_paper
+from bond import bond
+from atom import atom
+from group import group
+from fragment import fragment
+from textatom import textatom
+from queryatom import queryatom
+from singleton_store import Store, Screen
+from parents import container, top_level, id_enabled, with_paper
 
 
 

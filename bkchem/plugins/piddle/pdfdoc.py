@@ -37,8 +37,8 @@ except:
 
 import pdfutils
 import pdfmetrics
-from .pdfutils import LINEEND   # this constant needed in both
-from .pdfgeom import bezierArc
+from pdfutils import LINEEND   # this constant needed in both
+from pdfgeom import bezierArc
 
 ##############################################################
 #

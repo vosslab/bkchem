@@ -45,7 +45,7 @@ except ImportError:
 import string
 import math
 
-from .piddle import *
+from piddle import *
 import piddlePSmetrics # for font info
 
 linesep = '\n'

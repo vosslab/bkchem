@@ -32,7 +32,7 @@ import string
 
 import os, sys
 
-from .piddle import *
+from piddle import *
 
 Log =  sys.stderr
 

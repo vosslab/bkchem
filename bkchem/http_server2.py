@@ -34,7 +34,7 @@ import xml_writer
 import oasa_bridge
 import xml_serializer
 
-from .singleton_store import Store
+from singleton_store import Store
 
 
 

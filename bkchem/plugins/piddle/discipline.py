@@ -2,7 +2,7 @@
 
 from types import *
 
-from .piddle import *
+from piddle import *
 
 def checkMethods(parentMethod, childMethod):
     "Make sure the child's method obey's the parent's interface; return 1 if OK."

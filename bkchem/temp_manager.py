@@ -33,8 +33,8 @@ import misc
 import config
 import os_support
 
-from .molecule import molecule
-from .singleton_store import Store, Screen
+from molecule import molecule
+from singleton_store import Store, Screen
 
 
 

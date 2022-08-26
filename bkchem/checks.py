@@ -23,7 +23,7 @@ Mainly from paper and modules.
 """
 
 import interactors
-from .singleton_store import Store
+from singleton_store import Store
 
 
 

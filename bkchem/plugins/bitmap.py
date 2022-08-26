@@ -19,8 +19,8 @@
 
 
 import plugin
-from .piddle import piddlePIL
-from .tk2piddle import tk2piddle
+from piddle import piddlePIL
+from tk2piddle import tk2piddle
 
 
 class bitmap_exporter( plugin.exporter):
