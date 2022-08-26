@@ -279,7 +279,7 @@ def runtest():
                        uWidth= my_uWidth,
                        uHeight= my_uHeight)
 
-    from . import piddlePS
+    import piddlePS
 
     canvas = piddlePS.PSCanvas((400,400), 'qtest.ps')
 
@@ -318,6 +318,6 @@ def runtest():
 
 if __name__== '__main__':
     print('Running test drawing assorted quadratics to qtest.ps')
-    from . import piddle
+    import piddle
     runtest()
 

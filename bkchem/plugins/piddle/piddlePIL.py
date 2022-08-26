@@ -448,7 +448,7 @@ def test2():
     testit( canvas, "Foogar", 20, 240, font=Font(face='courier') )
 
 
-    from . import piddleQD
+    import piddleQD
     global qdcanvas
     try:
         qdcanvas.close()

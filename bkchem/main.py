@@ -1255,7 +1255,7 @@ Enter InChI:""")
 
   def start_server( self):
 
-    from . import http_server2 as http_server
+    import http_server2 as http_server
 
     server_address = ('', 8008)
     httpd = http_server.bkchem_http_server( server_address, http_server.bkchem_http_handler)

@@ -58,7 +58,7 @@ class template_manager(object):
       warn( "template file %s cannot be parsed - ignoring" % file)
       return
     # when loading old versions of CDML try to convert them, but do nothing when they cannot be converted
-    from . import CDML_versions
+    import CDML_versions
     CDML_versions.transform_dom_to_version( doc, config.current_CDML_version)
     Store.app.paper.onread_id_sandbox_activate()
     added = []

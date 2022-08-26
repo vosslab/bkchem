@@ -376,7 +376,7 @@ class BaseTKCanvas(piddle.Canvas):
 
 
 try :
-    from . import piddlePIL
+    import piddlePIL
 
     class TKCanvas(piddlePIL.PILCanvas):
 

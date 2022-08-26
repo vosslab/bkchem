@@ -249,7 +249,7 @@ class VCRCanvas( Canvas ):
 
 
 def test1():
-    from . import piddlePS
+    import piddlePS
     canvas = piddlePS.PSCanvas()
     vcr = VCRCanvas(canvas)
     vcr.defaultLineWidth = 3
@@ -266,7 +266,7 @@ def test2():
     vcr.load(f)
     f.close()
 
-    from . import piddlePS
+    import piddlePS
     canvas2 = piddlePS.PSCanvas()
     vcr.playBack(canvas2)
     canvas2.flush()

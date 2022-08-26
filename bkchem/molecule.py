@@ -687,7 +687,7 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
     """checks the consistency of a linear_form - returns either True (consistent) or
     False (inconsistent).
     Consistent fragments are automatically redrawn"""
-    from . import interactors
+    import interactors
     if f.type == "linear_form":
       if f.edges - self.edges or f.vertices - set( self.vertices):
         # something from the fragment was deleted

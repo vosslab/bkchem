@@ -1348,7 +1348,7 @@ class chem_paper(Canvas, object):
 
 
   def check_chemistry_of_selected( self):
-    from . import validator
+    import validator
     val = validator.validator()
     s_mols = [m for m in self.selected_to_unique_top_levels()[0] if m.object_type == 'molecule']
     if not s_mols:
