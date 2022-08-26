@@ -18,8 +18,7 @@ echo "IMPORT"
 python3 -c 'import bkchem'
 
 echo "RUN MAIN"
-cd bkchem
-python3 main.py
+python3 -m bkchem.bkchem
 
 echo "DONE"
 deactivate

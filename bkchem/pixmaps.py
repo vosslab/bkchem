@@ -27,8 +27,6 @@ from . import os_support
 
 __all__ = ['images']
 
-
-
 class images_dict(dict):
   """Paths to pictures.
 
