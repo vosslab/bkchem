@@ -26,10 +26,7 @@
 
 import sys
 import xml.dom.minidom as dom
-try:
-  import tkinter.font as tkFont
-except ImportError:
-  import tkinter.font
+import tkinter.font
 
 from math import atan2, sin, cos, pi, sqrt
 from warnings import warn
