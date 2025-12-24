@@ -36,7 +36,7 @@ def get_inchi_for_one(u):
 	if not interactors.check_validity(u):
 		return '', ["validity Error",]
 	try:
-		inchi_mol, key, warning = oasa_bridge.mol_to_inchi(u, program)
+		inchi_mol, _key, warning = oasa_bridge.mol_to_inchi(u, program)
 	except:
 		sms = [
 			"Unknown error occured during INChI generation, sorry",
