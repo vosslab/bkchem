@@ -17,8 +17,6 @@
 
 #--------------------------------------------------------------------------
 
-import sys
-
 import dom_extensions
 
 from singleton_store import Store
@@ -76,4 +74,3 @@ class reaction( object):
       for obj in self.__dict__[ name]:
         if obj not in available:
           self.__dict__[ name].remove( obj)
-

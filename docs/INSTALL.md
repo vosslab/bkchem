@@ -1,73 +1,73 @@
-Note: This file describes the installation of source release of BKChem. If you have
-      downloaded the binary release, please read the INSTALL.binary file instead.
+# Installation
 
+Note: This file describes the installation of the source release of BKChem. If you
+have downloaded the binary release, please read `INSTALL.binary` instead.
 
+## Before you start
 
-Installation of BKChem is very simple. But before you can run the program you
-must install the following:
+Installation of BKChem is simple, but you must install the following first:
 
-1/ Python.
-   On www.python.org get a distribution of Python for your platform. Note that
-   BKChem will run only on Python 2.6 or newer.
-2/ pycairo
-   This library is optional and is available only for Linux. It enables high quality
-   export to PDF and PNG formats with support for antialiased unicode texts.
-   It requires the cairo library. Both can be found on http://cairographics.org/snapshots/.
-   The current and tested version is 0.5.1.
+- Python. Get a distribution from [python.org](https://www.python.org/).
+  Note that BKChem runs only on Python 2.6 or newer.
+- pycairo (optional). This library is available only for Linux. It enables high
+  quality export to PDF and PNG formats with support for antialiased unicode
+  texts. It requires the cairo library. Both can be found at
+  [cairographics snapshots](http://cairographics.org/snapshots/). The current
+  tested version is 0.5.1.
 
+## Single directory deployment
 
+No installation is needed to run BKChem. You can run the program directly after
+unpacking the downloaded sources.
 
---- Single directory deployment ---
+Run `bkchem.py` located in the `bkchem-X.Y.Z/bkchem` directory, where `X.Y.Z` are
+version numbers of the BKChem release.
 
-No installation is needed to run BKChem. This means that you can run the program
-directly after unpacking the downloaded sources.
-Simply run the bkchem.py located in the 'bkchem-X.Y.Z/bkchem' directory, where X,Y,Z
-are version numbers of BKChem release.
+Example on Unix:
 
+```sh
+cd "the dir where you have downloaded the BKChem package"
+tar -xzf bkchem-X.X.X.tgz -C "the dir where you want to unpack BKChem"
+cd "the dir where you have unpacked BKChem"/bkchem-X.Y.Z/bkchem
+python bkchem.py
+```
 
-example:
-on Unix do
->cd "the dir where you have downloaded the BKChem package"
->tar -xzf bkchem-X.X.X.tgz -C "the dir where you want to unpack BKChem"
->cd "the dir where you have unpacked BKChem"/bkchem-X.Y.Z/bkchem
->python bkchem.py
+## System-wide install
 
+On Linux and other Unix systems you can use a classic system install. The main
+advantage is a `bkchem` program in your path, so you can run it from anywhere.
 
+BKChem uses `distutils` for installation. Run `setup.py` from the `bkchem`
+directory with the `install` argument:
 
---- System-wide install ---
+```sh
+python setup.py install
+```
 
-Under Linux and other Unix systems you have the possibility to use a 'classic'
-way of installing software. Major advantage of doing this is that it you will have
-a "bkchem" program in your path, thus easily startable from any path.
-For the purpose of installation BKChem uses a standard for installation of
-python modules - distutils. The installation is accomplished by simply running
-the setup.py script from the bkchem directory with 'install' argument:
+Note: You usually must be root to perform the install.
 
->python setup.py install
+This installs:
 
-NOTE: usually you have to be root in order to be able to perform the install!
+- Python sources into a standard directory for third-party modules, usually
+  something like `/usr/lib/python/site-packages`.
+- Templates, pixmaps, and other assets into `prefix/share/bkchem`, where `prefix`
+  is usually `usr` or `usr/local`.
+- Documentation into `prefix/share/doc/bkchem`.
+- A shell script at `prefix/bin/bkchem` so you can run BKChem from anywhere.
 
-This way all python sources will be installed in a standard directory for
-third-party modules - usually something like '/usr/lib/python/site-packages'.
-The templates, pixmaps and other such stuff will go into 'prefix/share/bkchem',
-where prefix is usually 'usr' or 'usr/local'.
-Documentation will be put in 'prefix/share/doc/bkchem'.
-Finally a sh-script 'prefix/bin/bkchem' will be created so that you can run
-bkchem from anywhere you want.
+To influence the paths used during install (especially `prefix`), run:
 
-To influence the paths that are used during install - especially the 'prefix'
-run:
+```sh
+python setup.py install --help
+```
 
->python setup.py install --help
+To see other install options, run:
 
-to see the available options.
+```sh
+python setup.py --help
+```
 
-Running
+## Feedback
 
->python setup.py --help
-
-will give you another set of options available for the install.
-
-
-Any comments or reports on installation process are especially welcome as this
-is very hard to test thoroughly on a single machine.
+Comments or reports on the installation process are especially welcome. This is
+hard to test thoroughly on a single machine.

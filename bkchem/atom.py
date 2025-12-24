@@ -363,8 +363,6 @@ class atom(drawable_chem_vertex, oasa.atom):
 
   def read_package( self, package):
     """reads the dom element package and sets internal state according to it"""
-    a = ['no','yes']
-    on_off = ['off','on']
     self.id = package.getAttribute( 'id')
     # marks (we read them here because they influence the charge)
     for m in package.getElementsByTagName( 'mark'):
@@ -581,4 +579,3 @@ class atom(drawable_chem_vertex, oasa.atom):
   def after_undo( self):
     """this is run after undo"""
     self._clean_cache()
-

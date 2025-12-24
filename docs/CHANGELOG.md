@@ -10,3 +10,7 @@
 - Scope `tests/run_pyflakes.sh` to core app sources under `bkchem/`.
 - Refactor plugin scripts to expose `main(app)` and call it from
   `bkchem/plugin_support.py`.
+- Fix core pyflakes warnings for missing gettext helpers and unused imports or
+  variables.
+- Rewrite `docs/INSTALL.md` with clearer Markdown structure and code blocks.
+- Add `pip_requirements.txt` for runtime and optional pip3 dependencies.

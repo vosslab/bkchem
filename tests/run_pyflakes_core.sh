@@ -20,12 +20,12 @@ if [ "${RESULT}" -eq 0 ]; then
     exit 0
 fi
 
-	echo "First 5 errors"
-	head -n 5 "${PYFLAKES_OUT}"
+	echo "First 15 errors"
+	head -n 15 "${PYFLAKES_OUT}"
 	echo ""
 
-	echo "Last 5 errors"
-	tail -n 5 "${PYFLAKES_OUT}"
+	echo "Last 15 errors"
+	tail -n 15 "${PYFLAKES_OUT}"
 	echo ""
 
 echo "Found ${RESULT} pyflakes errors"

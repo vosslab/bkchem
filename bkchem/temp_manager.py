@@ -29,7 +29,6 @@ import xml.dom.minidom as dom
 from warnings import warn
 from oasa.transform import transform
 
-import misc
 import config
 import os_support
 
@@ -149,4 +148,3 @@ class template_manager(object):
     Store.app.paper.apply_current_standard( [temp], template_mode=1)
     # return the ready template
     return temp
-

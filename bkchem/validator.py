@@ -25,6 +25,7 @@
 
 """
 
+import builtins
 import molecule
 
 from atom import atom
@@ -89,6 +90,11 @@ class validator_report(object):
     pass
 
   def get_summary( self):
+    _ = builtins.__dict__.get( '_', lambda m: m)
+    ngettext = builtins.__dict__.get(
+      'ngettext',
+      lambda s, p, n: s if n == 1 else p,
+    )
     out = ""
     if self.text_atoms:
       out += ngettext(

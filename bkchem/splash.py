@@ -23,11 +23,14 @@
 
 """the Splash class resides here"""
 
+import builtins
 import tkinter
 
 import messages
 import os_support
 
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 
 class Splash( tkinter.Toplevel):
@@ -53,4 +56,3 @@ class Splash( tkinter.Toplevel):
                           text = messages.splash_text
                           )
     text.pack(fill = 'both', expand = 1)
-
