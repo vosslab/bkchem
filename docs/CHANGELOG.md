@@ -14,3 +14,9 @@
   variables.
 - Rewrite `docs/INSTALL.md` with clearer Markdown structure and code blocks.
 - Add `pip_requirements.txt` for runtime and optional pip3 dependencies.
+- Address additional core pyflakes items in `external_data.py`,
+  `singleton_store.py`, `import_checker.py`, `graphics.py`, `misc.py`,
+  `edit_pool.py`, `main.py`, and `atom.py`.
+- Remove `from tkinter import *` from `bkchem/main.py`.
+- Add [docs/TODO.md](docs/TODO.md) with a note to replace Piddle exporters with
+  Cairo equivalents.

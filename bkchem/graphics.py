@@ -25,6 +25,7 @@ import misc
 import classes
 import dom_extensions
 import helper_graphics as hg
+from warnings import warn
 
 from singleton_store import Screen
 from parents import meta_enabled, drawable, interactive, area_colored, container, with_line, top_level, line_colored
@@ -621,4 +622,3 @@ class polyline( vector_graphics_item, container, line_colored):
 
     """
     return self.points
-

@@ -190,8 +190,8 @@ class external_data_manager( object):
             val = self.get_data( dclass, obj, cat)
             if hasattr( val, 'id'):
               val = val.id
-            ecat = dom_ext.elementUnder( eobj, "value", (("category", cat),
-                                                         ("value", str( val))))
+            dom_ext.elementUnder( eobj, "value", (("category", cat),
+                                                 ("value", str( val))))
     return e
 
 
@@ -326,4 +326,3 @@ class ExternalDataListSelection( Pmw.RadioSelect, object):
     if self.arrow:
       paper.delete( self.arrow)
       self.arrow = None
-

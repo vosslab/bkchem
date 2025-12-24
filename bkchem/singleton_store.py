@@ -20,6 +20,7 @@
 """The Store class which is a manager for application wide singletons resides here"""
 
 import misc
+from warnings import warn
 
 
 
@@ -136,4 +137,3 @@ class Screen(object):
       return '%f%s' % (self.px_to_unit( xyz, unit=unit, round_to=round_to), unit)
     else:
       return ('%.'+str( round_to)+'f%s') % (self.px_to_unit( xyz, unit=unit, round_to=round_to), unit)
-

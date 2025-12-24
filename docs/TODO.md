@@ -1,5 +1,3 @@
-7.
--arrow-heads in svg export are not perfect
+# TODO
 
-8.
--fonts in postscript are problem
+- Replace Piddle-based exporters with Cairo equivalents where possible.

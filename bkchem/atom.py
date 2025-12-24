@@ -34,7 +34,7 @@ import marks
 import dom_extensions
 
 from oasa import periodic_table as PT
-from singleton_store import Screen, Store
+from singleton_store import Screen
 from special_parents import drawable_chem_vertex
 
 

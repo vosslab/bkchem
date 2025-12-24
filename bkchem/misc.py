@@ -28,8 +28,6 @@ fit anywhere else. Does not contain any objects.
 import re
 import sys
 
-from warnings import warn
-
 
 
 def myisstr(obj):
@@ -101,7 +99,7 @@ def split_number_and_unit( txt):
     return v, ''
   except (TypeError, ValueError):
     pass
-  cutter = re.compile( "([+-]?\d*\.?\d*)\s*([a-zA-Z]*)")
+  cutter = re.compile( r"([+-]?\d*\.?\d*)\s*([a-zA-Z]*)")
   if txt:
     a = cutter.match( txt)
     if a and a.group(1):
@@ -177,4 +175,3 @@ def set_attr_or_property( obj, name, value):
     return True
   else:
     return False
-

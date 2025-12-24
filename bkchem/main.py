@@ -23,6 +23,7 @@
 
 
 
+import builtins
 import os
 import sys
 import oasa
@@ -31,7 +32,8 @@ import warnings
 import collections
 import xml.dom.minidom as dom
 
-from tkinter import *
+from tkinter import Frame, Label, Scrollbar, StringVar, Tk
+from tkinter import HORIZONTAL, LEFT, RAISED, SUNKEN, VERTICAL
 from tkinter.filedialog import asksaveasfilename, askopenfilename
 import tkinter.messagebox
 
@@ -62,6 +64,8 @@ from id_manager import id_manager
 from temp_manager import template_manager
 from plugin_support import plugin_manager
 from singleton_store import Store, Screen
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 
 
@@ -1399,11 +1403,11 @@ Enter InChI:""")
   def process_batch( self, opts):
 
     if opts[0] == "-b":
-      plugin = opts[1]
+      plugin_path = opts[1]
 
       the_globals = {'App': Store.app,
                      'Args': opts[2:]}
 
-      with open(plugin) as f:
-        code = compile(f.read(), filename, 'exec')
+      with open(plugin_path) as f:
+        code = compile(f.read(), plugin_path, 'exec')
         exec(code, the_globals)

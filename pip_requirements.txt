@@ -1,6 +1,7 @@
 # Required runtime dependencies
 Pmw
 Pillow
+oasa
 
 # Optional export dependencies
 pycairo

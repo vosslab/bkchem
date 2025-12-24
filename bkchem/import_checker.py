@@ -27,7 +27,8 @@ __all__ = ['PIL_available','Pmw_available','PIL_state','PIL_prefix',
 
 Pmw_available = 1
 try:
-  import Pmw
+  import Pmw as _Pmw
+  Pmw_available = bool( _Pmw) or 1
 except ImportError:
   Pmw_available = 0
 
@@ -35,11 +36,19 @@ PIL_available = 1
 PIL_state = 'normal'  # for buttons its callbacks rely on PIL
 PIL_prefix = 0   # whether PIL has the PIL prefix
 try:
-  import Image, ImageDraw, ImageTk
+  import Image as _Image
+  import ImageDraw as _ImageDraw
+  import ImageTk as _ImageTk
+  PIL_available = bool( _Image) and bool( _ImageDraw) and bool( _ImageTk)
 except ImportError:
   try:
-    import PIL.Image, PIL.ImageDraw, PIL.ImageTk
+    import PIL.Image as _PIL_Image
+    import PIL.ImageDraw as _PIL_ImageDraw
+    import PIL.ImageTk as _PIL_ImageTk
     PIL_prefix = 1
+    PIL_available = (
+      bool( _PIL_Image) and bool( _PIL_ImageDraw) and bool( _PIL_ImageTk)
+    )
   except ImportError:
     PIL_available = 0
     PIL_state = 'disabled'
@@ -47,7 +56,8 @@ except ImportError:
 
 oasa_available = 1
 try:
-  import oasa
+  import oasa as _oasa
+  oasa_available = bool( _oasa) or 1
 except ImportError:
   oasa_available = 0
 

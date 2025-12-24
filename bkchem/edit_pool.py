@@ -145,7 +145,7 @@ class editPool( Frame):
 
 
   def _numbersToSubButtonPressed( self, *e):
-    self._setText( re.sub( "\d+", '<sub>\g<0></sub>', self.editPool.get()))
+    self._setText( re.sub( r"\d+", r"<sub>\g<0></sub>", self.editPool.get()))
     self._quit()
 
 
@@ -275,4 +275,3 @@ class special_character_menu( tkinter.Menu):
     tkinter.Menu.post( self, x, y)
     if os.name != 'nt':
       self.grab_set()
-
