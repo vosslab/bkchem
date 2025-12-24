@@ -1,0 +1,6 @@
+# Required runtime dependencies
+Pmw
+Pillow
+
+# Optional export dependencies
+pycairo
