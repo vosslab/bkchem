@@ -28,8 +28,8 @@ import os
 import sys
 import oasa
 import string
-import warnings
 import collections
+import importlib.util
 import xml.dom.minidom as dom
 
 from tkinter import Frame, Label, Scrollbar, StringVar, Tk
@@ -53,9 +53,6 @@ import os_support
 import interactors
 import oasa_bridge
 import dom_extensions
-import non_xml_writer
-import import_checker
-from plugins import plugin
 
 from paper import chem_paper
 from edit_pool import editPool
@@ -423,7 +420,7 @@ class BKChem( Tk):
     Store.gm.add_template_from_CDML( "groups2.cdml")
 
     self.plug_man = plugin_manager()
-    plugs = self.plug_man.get_available_plugins()
+    self.plug_man.get_available_plugins()
 
 
   def init_preferences( self):
@@ -469,21 +466,20 @@ class BKChem( Tk):
                        'plus', 'text', 'bracket', 'rotate', 'bondalign', 'vector', 'misc']#  'reaction', 'externaldata'] #, 'rapiddraw']
 
     # import plugin modes
-    import imp
     for plug_name in self.plug_man.get_names( type="mode"):
       plug = self.plug_man.get_plugin_handler( plug_name)
       module_name = plug.get_module_name()
-      # no invalid characters in mode_name
-      mode_name = ''.join(x in string.ascii_letters and x or "X" for x in module_name)
       try:
-        module = imp.load_source( module_name, plug.filename)
+        spec = importlib.util.spec_from_file_location( module_name, plug.filename)
+        if not spec or not spec.loader:
+          continue
+        module = importlib.util.module_from_spec( spec)
+        spec.loader.exec_module( module)
       except ImportError:
         continue
       else:
         self.modes[ module_name.replace("_","")] = module.plugin_mode()
         self.modes_sort.append( module_name.replace("_",""))
-
-    del imp
 
 
   def init_mode_buttons( self):
@@ -719,7 +715,7 @@ class BKChem( Tk):
     in order to ask for the name"""
     if not name:
       if self.paper.file_name['auto']:
-        new_name = self.save_as_CDML()
+        self.save_as_CDML()
         return
       else:
         a = os.path.join( self.paper.file_name['dir'], self.paper.file_name['name'])
@@ -1068,19 +1064,19 @@ class BKChem( Tk):
     if a:
       if not config.debug:
         try:
-          doc = exporter.write_to_file( a)
+          _doc = exporter.write_to_file( a)
         except:
           tkinter.messagebox.showerror(_("Export error"), _("Plugin failed to export with following error:\n %s") % sys.exc_info()[1])
           return False
       else:
-        doc = exporter.write_to_file( a)
+        _doc = exporter.write_to_file( a)
       Store.log( _("exported file: ")+a)
       return True
     return False
 
 
   def change_properties( self):
-    dial = dialogs.file_properties_dialog( self, self.paper)
+    dialogs.file_properties_dialog( self, self.paper)
 
 
   def standard_values( self):
@@ -1171,14 +1167,14 @@ Enter InChI:""")
       else:
         try:
           mol = oasa_bridge.read_inchi( text, self.paper)
-        except oasa.oasa_exceptions.oasa_not_implemented_error as e:
+        except oasa.oasa_exceptions.oasa_not_implemented_error as _e:
           if not inchi:
             tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
                                    _("Some feature of the submitted InChI is not supported.\n\nYou have most probaly submitted a multicomponent structure (having a . in the sumary layer"))
             return
           else:
             raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
-        except oasa.oasa_exceptions.oasa_inchi_error as e:
+        except oasa.oasa_exceptions.oasa_inchi_error as _e:
           if not inchi:
             tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
                                    _("There was an error reading the submitted InChI.\n\nIf you are sure it is a valid InChI, please send me a bug report."))

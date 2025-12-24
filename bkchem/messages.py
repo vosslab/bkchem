@@ -19,6 +19,10 @@
 
 """messages for use throughout the program"""
 
+import builtins
+
+_ = builtins.__dict__.get( '_', lambda m: m)
+
 # -------------------- HELP MESSAGES FOR MODES --------------------
 
 edit_mode_startup = _("use SHIFT to drag only in X, CTRL to drag only in Y")

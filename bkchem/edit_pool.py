@@ -21,6 +21,7 @@
 
 """
 
+import builtins
 import os
 import re
 import tkinter
@@ -34,6 +35,9 @@ import config
 from keysymdef import keysyms
 from singleton_store import Store
 from groups_table import groups_table
+
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 
 

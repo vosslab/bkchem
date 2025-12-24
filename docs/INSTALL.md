@@ -67,6 +67,16 @@ To see other install options, run:
 python setup.py --help
 ```
 
+## macOS notes
+
+If you use Homebrew Python, Tk is not always included by default. Install the
+Tk support package and verify that Tk loads:
+
+```sh
+brew install python-tk@3.12
+python3 -c "import _tkinter, tkinter; print('tk', tkinter.TkVersion, 'tcl', tkinter.TclVersion)"
+```
+
 ## Feedback
 
 Comments or reports on the installation process are especially welcome. This is

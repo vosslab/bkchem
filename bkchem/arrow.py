@@ -23,6 +23,7 @@
 
 
 
+import builtins
 import xml.dom.minidom as dom
 
 from oasa import geometry
@@ -36,6 +37,9 @@ from reaction import reaction
 from singleton_store import Screen
 from parents import meta_enabled, container, with_line, line_colored
 from parents import point_drawable, interactive, drawable, top_level
+
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 
 
@@ -428,7 +432,7 @@ class arrow( meta_enabled, drawable, with_line, line_colored, container, interac
 
 
 def retro_arrow_head (x1,y1,x2,y2,length,width,d):
-  """arrow head at 2
+  r"""arrow head at 2
 #                    length
 #                   |---|  _
 #                  C\      |
@@ -483,4 +487,3 @@ def double_sided_arrow_head (x1,y1,x2,y2,a,b,c):
   xd,yd = geometry.point_at_distance_from_line (x1,y1,xp,yp,-c)
   xc,yc = geometry.elongate_line (x1,y1,x2,y2,-a)
   return xa,ya, xb,yb, xc,yc, xd,yd
-
