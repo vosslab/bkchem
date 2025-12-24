@@ -1,3 +1,0 @@
-[submodule "bkchem/oasa"]
-	path = packages/bkchem/bkchem/oasa
-	url = git://github.com/simone16/oasa.git
