@@ -94,6 +94,12 @@ class plugin_manager(object):
         with open(filename) as f:
           code = compile(f.read(), filename, 'exec')
           exec(code, the_globals)
+          plugin_main = the_globals.get( 'main')
+          if callable( plugin_main):
+            if hasattr( plugin_main, '__code__') and plugin_main.__code__.co_argcount == 0:
+              plugin_main()
+            else:
+              plugin_main( Store.app)
       finally:
         del sys.path[-1]
     else:
@@ -158,4 +164,3 @@ class plugin_handler(object):
   def get_directory_name( self):
     """returns directory where the plugin resides"""
     return os.path.split( self.filename)[0]
-

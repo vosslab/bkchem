@@ -2,13 +2,15 @@ from oasa.periodic_table import formula_dict
 
 
 def main(app):
-\tmols, unique = app.paper.selected_to_unique_top_levels()
+\tmols, _unique = app.paper.selected_to_unique_top_levels()
 
 \tcolors = ["#cc0000", "#00ff00", "#0000ff", "#ff00ff", "#00ffff", "#ff5500"]
 
 \tfor mol in mols:
 \t\tif mol.object_type == "molecule":
-\t\t\tcurrent_selected_bonds = set(mol.bonds) & set(app.paper.selected_bonds)
+\t\t\tcurrent_selected_bonds = set(mol.bonds) & set(
+\t\t\t\tapp.paper.selected_bonds
+\t\t\t)
 \t\t\tif current_selected_bonds:
 \t\t\t\tfor b in current_selected_bonds:
 \t\t\t\t\tmol.temporarily_disconnect_edge(b)

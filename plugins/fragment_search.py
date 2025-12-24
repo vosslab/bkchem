@@ -1,11 +1,6 @@
-
-
 import os
 import time
-try:
-    import tkinter.filedialog as tkFileDialog
-except ImportError:
-    import tkinter.filedialog
+import tkinter.filedialog
 
 import logger
 import dialogs
@@ -13,79 +8,96 @@ import dialogs
 from singleton_store import Store
 
 
+def process_directory(app, fragment, directory):
+\tfiles = 0
+\tmatching = 0
 
-def process_directory(directory):
-    files = 0
-    matching = 0
+\tdialog = dialogs.progress_dialog(app, title=_("Search progress"))
 
-    dialog = dialogs.progress_dialog(App, title=_("Search progress"))
+\tfiles_to_go = []
+\tfor filename in os.listdir(directory):
+\t\tpath = os.path.join(directory, filename)
+\t\tif os.path.isfile(path) and os.path.splitext(path)[1] in (".svg", ".cdml"):
+\t\t\tfiles_to_go.append(path)
 
-    files_to_go = [f for f in [os.path.join(directory, filename) for filename in os.listdir(directory)] if os.path.isfile(f) and os.path.splitext(f)[1] in (".svg",".cdml")]
+\tfor f in files_to_go:
+\t\t#print f
+\t\tdialog.update(
+\t\t\tfiles / len(files_to_go),
+\t\t\ttop_text=os.path.split(f)[1],
+\t\t\tbottom_text=_("Found: %d matching") % matching,
+\t\t)
+\t\tfiles += 1
+\t\tapp.in_batch_mode = True
+\t\tif app.add_new_paper(name=f):
+\t\t\tif app._load_CDML_file(f, draw=False):
+\t\t\t\tfound = False
+\t\t\t\tfor mol in app.paper.molecules:
+\t\t\t\t\tgen = mol.select_matching_substructures(
+\t\t\t\t\t\tfragment,
+\t\t\t\t\t\timplicit_freesites=True,
+\t\t\t\t\t)
+\t\t\t\t\ttry:
+\t\t\t\t\t\tnext(gen)
+\t\t\t\t\texcept StopIteration:
+\t\t\t\t\t\tpass
+\t\t\t\t\telse:
+\t\t\t\t\t\tfound = True
+\t\t\t\t\t\tmatching += 1
+\t\t\t\t\t\tmol.clean_after_search(fragment)
+\t\t\t\t\t\tbreak
+\t\t\t\tif not found:
+\t\t\t\t\tapp.close_current_paper()
+\t\t\t\telse:
+\t\t\t\t\tapp.in_batch_mode = False
+\t\t\t\t\t[o.draw() for o in app.paper.stack]
+\t\t\t\t\tapp.paper.set_bindings()
+\t\t\t\t\tapp.paper.add_bindings()
+\t\t\telse:
+\t\t\t\tapp.close_current_paper()
 
-    for f in files_to_go:
-        #print f
-        dialog.update(files/len(files_to_go), top_text=os.path.split(f)[1], bottom_text=_("Found: %d matching") % matching)
-        files += 1
-        App.in_batch_mode = True
-        if App.add_new_paper(name=f):
-            if App._load_CDML_file(f, draw=False):
-                found = False
-                for mol in App.paper.molecules:
-                    gen = mol.select_matching_substructures(fragment, implicit_freesites=True)
-                    try:
-                        next(gen)
-                    except StopIteration:
-                        pass
-                    else:
-                        found = True
-                        matching += 1
-                        mol.clean_after_search(fragment)
-                        break
-                if not found:
-                    App.close_current_paper()
-                else:
-                    App.in_batch_mode = False
-                    [o.draw() for o in App.paper.stack]
-                    App.paper.set_bindings()
-                    App.paper.add_bindings()
-            else:
-                App.close_current_paper()
-
-    App.in_batch_mode = False
-    dialog.close()
-    return files
-
-
-
-t = time.time()
-selected_mols = [o for o in App.paper.selected_to_unique_top_levels()[0] if o.object_type == 'molecule']
-if not selected_mols and len(App.paper.molecules) == 1:
-    selected_mols = App.paper.molecules
+\tapp.in_batch_mode = False
+\tdialog.close()
+\treturn files
 
 
-if len(selected_mols) > 1:
-    Store.log(_("Select only one molecule"), message_type="error")
+def main(app):
+\tt = time.time()
+\tselected_mols = [
+\t\to for o in app.paper.selected_to_unique_top_levels()[0]
+\t\tif o.object_type == 'molecule'
+\t]
+\tif not selected_mols and len(app.paper.molecules) == 1:
+\t\tselected_mols = app.paper.molecules
 
-elif len(selected_mols) == 0:
-    Store.log(_("Draw a molecule that you want to use as the fragment for search"), message_type="error")
+\tif len(selected_mols) > 1:
+\t\tStore.log(_("Select only one molecule"), message_type="error")
+\telif len(selected_mols) == 0:
+\t\tStore.log(
+\t\t\t_("Draw a molecule that you want to use as the fragment for search"),
+\t\t\tmessage_type="error",
+\t\t)
+\telse:
+\t\t# we may proceed
+\t\tfragment = selected_mols[0]
 
-else:
-    # we may proceed
-    fragment = selected_mols[0]
+\t\tdirectory = tkinter.filedialog.askdirectory(
+\t\t\tparent=app,
+\t\t\tinitialdir=app.save_dir or "./",
+\t\t)
 
-    directory = tkinter.filedialog.askdirectory(parent=App,
-                                          initialdir=App.save_dir or "./")
+\t\tif directory:
+\t\t\tStore.logger.handling = logger.ignorant
+\t\t\tfiles = process_directory(app, fragment, directory)
 
-    if directory:
-        Store.logger.handling = logger.ignorant
-        files = process_directory(directory)
+\t\t\tt = time.time() - t
+\t\t\t#print "%d files, %.2fs, %.2fms per file" % (files, t, 1000*(t/files))
 
-        t = time.time() - t
-        #print "%d files, %.2fs, %.2fms per file" % (files, t, 1000*(t/files))
-
-        Store.logger.handling = logger.normal
-        if files:
-            Store.log(_("Searched %d files, %.2fs, %.2fms per file") % (files, t, 1000*(t/files)))
-        else:
-            Store.log(_("No files to search in were found"))
-
+\t\t\tStore.logger.handling = logger.normal
+\t\t\tif files:
+\t\t\t\tStore.log(
+\t\t\t\t\t_("Searched %d files, %.2fs, %.2fms per file") %
+\t\t\t\t\t(files, t, 1000 * (t / files)),
+\t\t\t\t)
+\t\t\telse:
+\t\t\t\tStore.log(_("No files to search in were found"))

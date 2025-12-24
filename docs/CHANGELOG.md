@@ -8,3 +8,5 @@
 - Rename `README` to `README.md`.
 - Update packaging references to `README.md` in `MANIFEST.in` and `setup.py`.
 - Scope `tests/run_pyflakes.sh` to core app sources under `bkchem/`.
+- Refactor plugin scripts to expose `main(app)` and call it from
+  `bkchem/plugin_support.py`.

@@ -1,4 +1,3 @@
-
 def main(app):
 \t# at first we cancel all selections
 \tapp.paper.unselect_all()
