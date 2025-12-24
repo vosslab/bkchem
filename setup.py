@@ -68,7 +68,7 @@ conf = setup(
                 ('share/bkchem/pixmaps', glob.glob('pixmaps/*.gif')),
                 ('share/bkchem/dtd', glob.glob('dtd/*.dtd') + glob.glob('dtd/*.xsd')),
                 ('share/bkchem/plugins', glob.glob('plugins/*.py') + glob.glob('plugins/*.xml')),
-                ('share/doc/bkchem', glob.glob('doc/*.xml') + glob.glob('doc/*.html') + ['README', 'INSTALL', 'progress.log']),
+                ('share/doc/bkchem', glob.glob('doc/*.xml') + glob.glob('doc/*.html') + ['README.md', 'INSTALL', 'progress.log']),
                 #('share/doc/bkchem/pdf', glob.glob( 'doc/pdf/*')),
                 ('share/doc/bkchem/html', glob.glob('doc/html/*')),
                 ('share/doc/bkchem/scripts', glob.glob('doc/scripts/*')),
@@ -124,4 +124,3 @@ if len( sys.argv) > 1 and sys.argv[1] == 'install' and '--help' not in sys.argv:
     print("ERROR: failed to make %s executable" % exec_name)
     sys.exit( 201)
   print("file %s made executable" % exec_name)
-

@@ -1,44 +1,42 @@
-
-
 import math
 import operator
 
 from singleton_store import Store
 
 
+def main(app):
+\tbs = [b for b in app.paper.selected if b.object_type == "bond"]
+\tif not len(bs) == 2:
+\t\tStore.log(_("You have to have 2 bonds selected"), message_type="hint")
+\t\treturn
 
-bs = [b for b in App.paper.selected if b.object_type == "bond"]
-if not len(bs) == 2:
-    Store.log(_("You have to have 2 bonds selected"), message_type="hint")
-else:
-    b1, b2 = bs
-    center = set(b1.vertices) & set(b2.vertices)
-    if center:
-        a11 = center.pop()
-        a12 = b1.atom1 == a11 and b1.atom2 or b1.atom1
-        a22 = b2.atom1 == a11 and b2.atom2 or b2.atom1
-        v1 = (a12.x - a11.x, a12.y - a11.y, a12.z - a11.z)
-        v2 = (a22.x - a11.x, a22.y - a11.y, a22.z - a11.z)
-        print(v1, v2)
-    else:
-        v1 = (b1.atom1.x - b1.atom2.x, b1.atom1.y - b1.atom2.y, b1.atom1.z - b1.atom2.z)
-        v2 = (b2.atom1.x - b2.atom2.x, b2.atom1.y - b2.atom2.y, b2.atom1.z - b2.atom2.z)
+\tb1, b2 = bs
+\tcenter = set(b1.vertices) & set(b2.vertices)
+\tif center:
+\t\ta11 = center.pop()
+\t\ta12 = b1.atom1 == a11 and b1.atom2 or b1.atom1
+\t\ta22 = b2.atom1 == a11 and b2.atom2 or b2.atom1
+\t\tv1 = (a12.x - a11.x, a12.y - a11.y, a12.z - a11.z)
+\t\tv2 = (a22.x - a11.x, a22.y - a11.y, a22.z - a11.z)
+\t\tprint(v1, v2)
+\telse:
+\t\tv1 = (b1.atom1.x - b1.atom2.x, b1.atom1.y - b1.atom2.y, b1.atom1.z - b1.atom2.z)
+\t\tv2 = (b2.atom1.x - b2.atom2.x, b2.atom1.y - b2.atom2.y, b2.atom1.z - b2.atom2.z)
 
-    dot = sum(map(operator.mul, v1, v2))
-    dv1 = math.sqrt(sum(x**2 for x in v1))
-    dv2 = math.sqrt(sum(x**2 for x in v2))
+\tdot = sum(map(operator.mul, v1, v2))
+\tdv1 = math.sqrt(sum(x**2 for x in v1))
+\tdv2 = math.sqrt(sum(x**2 for x in v2))
 
-    cos_a = dot / dv1 / dv2
+\tcos_a = dot / dv1 / dv2
 
-    ret = math.acos(cos_a)
-    print(cos_a)
+\tret = math.acos(cos_a)
+\tprint(cos_a)
 
-    res = "%.2f" % (180*ret/math.pi)
+\tres = "%.2f" % (180 * ret / math.pi)
 
-    # draw the result
-    x = (b1.atom1.x + b1.atom2.x + b2.atom1.x + b2.atom2.x) / 4
-    y = (b1.atom1.y + b1.atom2.y + b2.atom1.y + b2.atom2.y) / 4
-    App.paper.new_text(x, y, text=res).draw()
+\t# draw the result
+\tx = (b1.atom1.x + b1.atom2.x + b2.atom1.x + b2.atom2.x) / 4
+\ty = (b1.atom1.y + b1.atom2.y + b2.atom1.y + b2.atom2.y) / 4
+\tapp.paper.new_text(x, y, text=res).draw()
 
-    Store.log(res)
-
+\tStore.log(res)

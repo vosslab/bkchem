@@ -1,22 +1,20 @@
 import os.path
 
 
+def main(app):
+\tcrop_svg = app.paper.get_paper_property('crop_svg')
+\tapp.paper.set_paper_properties(crop_svg=0)
 
-crop_svg = App.paper.get_paper_property('crop_svg')
-App.paper.set_paper_properties(crop_svg=0)
+\tname = app.paper.file_name['name']
+\tname, ext = os.path.splitext(name)
 
-name = App.paper.file_name['name']
+\tn = app.paper.um.get_number_of_records()
 
-name, ext = os.path.splitext(name)
+\tfor _i in range(n):
+\t\tapp.paper.undo()
 
-n = App.paper.um.get_number_of_records()
+\tfor i in range(n):
+\t\tapp.save_CDML(name="%s-%02d%s" % (name, i, ext))
+\t\tapp.paper.redo()
 
-for i in range(n):
-    App.paper.undo()
-
-for i in range(n):
-    App.save_CDML(name="%s-%02d%s" % (name, i, ext))
-    App.paper.redo()
-
-App.paper.set_paper_properties(crop_svg=crop_svg)
-
+\tapp.paper.set_paper_properties(crop_svg=crop_svg)

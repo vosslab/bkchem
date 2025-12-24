@@ -1,4 +1,4 @@
-include INSTALL README progress.log
+include INSTALL README.md progress.log
 include gpl.txt
 include templates/*.cdml
 include templates/*.xml
