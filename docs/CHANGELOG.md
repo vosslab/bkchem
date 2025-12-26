@@ -58,6 +58,8 @@
 - Consolidate test scripts under `tests/`, add OASA-specific runners with
   `oasa_` prefixes, and remove duplicate pyflakes scripts.
 - Update OASA docs and file structure notes to reference the new test paths.
+- Rename Markdown docs to ALL CAPS filenames and refresh references across
+  README, legacy HTML stubs, and doc links.
 - Expand [README.md](../README.md) with highlights, legacy screenshots, and
   updated wording for OASA and repository positioning.
 - Add dedicated BKChem and OASA sections to [README.md](../README.md) with
