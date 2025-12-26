@@ -34,7 +34,7 @@ def main():
 	root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 	if root_dir not in sys.path:
 		sys.path.insert(0, root_dir)
-	bkchem_dir = os.path.join(root_dir, 'bkchem')
+	bkchem_dir = os.path.join(root_dir, 'packages', 'bkchem')
 	if bkchem_dir not in sys.path:
 		sys.path.insert(0, bkchem_dir)
 	if '_' not in builtins.__dict__:
@@ -52,7 +52,7 @@ def main():
 			sys.exit(1)
 		raise
 	tkinter.TkVersion
-	import main as bkchem_main
+	import bkchem.main as bkchem_main
 	BKChem = bkchem_main.BKChem
 	app = BKChem()
 	app.withdraw()

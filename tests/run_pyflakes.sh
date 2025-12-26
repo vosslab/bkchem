@@ -7,7 +7,7 @@ cd "${REPO_ROOT}"
 # Run pyflakes on all Python files and capture output
 PYFLAKES_OUT="${REPO_ROOT}/pyflakes.txt"
 find "${REPO_ROOT}" \
-	-type d \( -name .git -o -name .venv -o -name bkchem_webpage -o -name bkchem_website \) -prune -o \
+	-type d \( -name .git -o -name .venv \) -prune -o \
 	-type f -name "*.py" -print0 \
 	| sort -z \
 	| xargs -0 pyflakes > "${PYFLAKES_OUT}" 2>&1 || true
