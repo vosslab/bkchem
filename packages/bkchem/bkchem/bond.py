@@ -23,7 +23,6 @@
 
 import math
 import oasa
-import xml.dom.minidom as dom
 
 from oasa import geometry
 from warnings import warn
@@ -31,7 +30,6 @@ from warnings import warn
 import misc
 import dom_extensions
 
-from ftext import ftext
 from singleton_store import Store, Screen
 from parents import meta_enabled, line_colored, drawable, with_line, interactive, child_with_paper
 
@@ -517,9 +515,6 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       # both atoms are shown - we don't want round edges at the ends of the central bond
       # and we don't want to apply shortening of other lines
       self.paper.itemconfig( self.item, capstyle="butt")
-      _k = 0
-    else:
-      _k = (1-self.double_length_ratio)/2
 
     x1, y1, x2, y2 = where
     if self.bond_width == None:
@@ -1431,7 +1426,6 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
   def _decide_distance_and_center( self):
     """according to molecular geometry decide what bond.center and bond.bond_width should be"""
-    line = self.atom1.get_xy() + self.atom2.get_xy()
     if not self.bond_width:
       self.bond_width = self.standard.bond_width
       #length = sqrt((line[0]-line[2])**2  + (line[1]-line[3])**2)

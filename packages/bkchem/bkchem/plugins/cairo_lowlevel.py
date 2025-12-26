@@ -18,6 +18,7 @@
 #--------------------------------------------------------------------------
 
 
+import builtins
 import cairo
 
 from oasa import transform
@@ -26,17 +27,19 @@ import plugin
 from tk2cairo import tk2cairo
 from singleton_store import Screen, Store
 
+_ = builtins.__dict__.get( '_', lambda m: m)
+
 
 
 class cairo_exporter(plugin.exporter):
 
   def __init__( self, paper, converter_class=None, attrs=None):
-    """converter_class is the class used for convert, it is tk2piddle or its derivative;
+    """converter_class is the class used for convert, it is tk2cairo or its derivative;
     attrs are passed to converter_class on init"""
     self.paper = paper
     self.attrs = attrs or {}
     if not converter_class:
-      self.converter_class = tk2piddle
+      self.converter_class = tk2cairo
     else:
       self.converter_class = converter_class
 
@@ -104,4 +107,3 @@ class cairo_exporter(plugin.exporter):
     self.context = self.init_context()
     self.converter.export_to_cairo( self.paper, self.context, transformer=self.transformer)
     self.save()
-

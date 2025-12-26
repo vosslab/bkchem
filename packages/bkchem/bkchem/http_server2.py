@@ -250,9 +250,8 @@ class bkchem_http_handler( http.server.BaseHTTPRequestHandler):
     self.send_header("Content-Type", content_type)
     self.end_headers()
 
-    f = file( filename, "rb")
-    self.wfile.write( f.read())
-    f.close()
+    with open( filename, "rb") as handle:
+    	self.wfile.write( handle.read())
 
 
   def _get_attrs( self, query):
@@ -299,4 +298,3 @@ class Event(object):
   def __init__( self, x, y):
     self.x = x
     self.y = y
-

@@ -18,6 +18,7 @@
 #--------------------------------------------------------------------------
 
 # Standard Library
+import os
 import sys
 
 MIN_PYTHON = (3, 10)
@@ -25,7 +26,25 @@ if sys.version_info < MIN_PYTHON:
 	min_version = f"{MIN_PYTHON[0]}.{MIN_PYTHON[1]}"
 	raise ImportError(f"Python {min_version}+ is required for OASA")
 
-__version__ = "0.16beta"
+def _read_repo_version( key, fallback):
+	version_path = os.path.abspath( os.path.join( os.path.dirname( __file__), "..", "..", "..", "version.txt"))
+	if not os.path.isfile( version_path):
+		return fallback
+	with open( version_path, "r") as handle:
+		for line in handle:
+			text = line.strip()
+			if not text or text.startswith( "#"):
+				continue
+			if "=" not in text:
+				continue
+			name, value = [part.strip() for part in text.split( "=", 1)]
+			if name.lower() == "version" and value:
+				return value
+			if name.lower() == key.lower() and value:
+				return value
+	return fallback
+
+__version__ = _read_repo_version( "oasa", "0.16beta")
 
 
 # local repo modules

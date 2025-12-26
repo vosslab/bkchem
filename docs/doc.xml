@@ -23,6 +23,9 @@
     </legalnotice>
 
   </bookinfo>
+  <!-- Legacy DocBook source. The GitHub repository is the primary homepage and
+       documentation source. Legacy email addresses are for attribution only.
+       See docs/user_guide.md for the Markdown version. -->
 
   <preface>
     <title>Foreword and Warning</title>
@@ -50,7 +53,8 @@
 	complete, but rather tries to cover the very basics and the things that are not easy to find
 	out without help. On the other hand many things are so self-evident that it would be useless
 	to describe them. If you find that something you would like to know is not described in this
-	manual, please email me to <email>beda@zirael.org</email>.</para>
+    manual, open an issue in the GitHub repository. The legacy email address
+    <email>beda@zirael.org</email> is retained for attribution only.</para>
     </chapter>
     <chapter>
       <title>Drawing</title>

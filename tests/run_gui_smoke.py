@@ -51,6 +51,7 @@ def main():
 			)
 			sys.exit(1)
 		raise
+	tkinter.TkVersion
 	import main as bkchem_main
 	BKChem = bkchem_main.BKChem
 	app = BKChem()

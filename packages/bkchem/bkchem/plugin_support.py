@@ -21,7 +21,6 @@ import os
 import sys
 import xml.dom.minidom as dom
 
-import debug
 import os_support
 import dom_extensions as dom_ext
 
@@ -39,7 +38,7 @@ class plugin_manager(object):
   def get_available_plugins( self):
     dir2 = os_support.get_dirs( 'plugin')
     dir1 = os_support.get_bkchem_private_dir()
-    dir1 = os.path.join( dir1, 'plugins')
+    dir1 = os.path.join( dir1, 'addons')
     dirs = dir2 + [dir1]
     for dir in dirs:
       if not os.path.isdir( dir):

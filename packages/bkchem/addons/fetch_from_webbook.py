@@ -1,3 +1,4 @@
+import builtins
 import re
 
 try:
@@ -8,6 +9,12 @@ except ImportError:
 import Pmw
 import dialogs
 import oasa_bridge
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 molfile_link = re.compile('(<a href=")(.*)(">2d Mol file</a>)')

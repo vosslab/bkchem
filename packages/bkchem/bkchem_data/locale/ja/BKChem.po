@@ -2535,13 +2535,6 @@ msgstr ""
 msgid "Sup charges"
 msgstr ""
 
-#: ../../bkchem/plugins/cairo_lowlevel.py:69
-#: ../../bkchem/plugins/piddle_lowlevel.py:52
-msgid ""
-"There is nothing to export. If you want to export an empty paper disable "
-"cropping of the drawing in the File/Properties menu."
-msgstr ""
-
 #: ../../bkchem/plugins/CDXML.py:47
 msgid "Imports a CDXML (ChemDraw XML format) document."
 msgstr ""
@@ -2671,17 +2664,6 @@ msgstr ""
 msgid "PDF (Cairo)"
 msgstr "PDF (Acrobat 5.x 形式)"
 
-#: ../../bkchem/plugins/pdf_piddle.py:33
-msgid ""
-"Exports PDF files via the Piddle library. It does a pretty good job, however "
-"does not support unicode strings (ASCII only) and the position of the text "
-"may be slightly off, depending on the fonts used."
-msgstr ""
-
-#: ../../bkchem/plugins/pdf_piddle.py:49
-msgid "PDF (Piddle)"
-msgstr "PDF (Acrobat 3.x 形式)"
-
 #: ../../bkchem/plugins/png_cairo.py:39
 msgid ""
 "Exports PNG files via the Cairo (pycairo) library. The output is usually "
@@ -2746,17 +2728,6 @@ msgstr ""
 
 #: ../../bkchem/plugins/ps_cairo.py:71
 msgid "Postscript (Cairo)"
-msgstr ""
-
-#: ../../bkchem/plugins/ps_piddle.py:32
-msgid ""
-"Exports Encapsulated PostScript files via the Piddle library. Usually gives "
-"better results than the builtin method, but does not support unicode and the "
-"texts might be slightly misplaced."
-msgstr ""
-
-#: ../../bkchem/plugins/ps_piddle.py:47
-msgid "PostScript (Piddle)"
 msgstr ""
 
 #: ../../bkchem/plugins/svg_cairo.py:40

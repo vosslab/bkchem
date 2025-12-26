@@ -1,17 +1,25 @@
 # BKChem and OASA monorepo
 
 This repo is an unofficial fork of BKChem that now bundles the BKChem GUI and
-the OASA chemistry library in one workspace.
+the OASA (Open Architecture for Sketching Atoms and Molecules) chemistry
+library in one workspace.
 
 ## Packages
 - `packages/bkchem/` BKChem Tk GUI for drawing chemical structures.
-- `packages/oasa/` OASA library and CLI converters used by BKChem.
+- `packages/oasa/` OASA (Open Architecture for Sketching Atoms and Molecules)
+  library and CLI converters used by BKChem.
 
 ## Docs
 - [docs/INSTALL.md](docs/INSTALL.md) for running from source and optional installs.
 - [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and
   [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) for repo layout details.
 - [docs/MIGRATION.md](docs/MIGRATION.md) for the repository merge summary.
+- [docs/user_guide.md](docs/user_guide.md) for the migrated BKChem manual.
+- [docs/batch_mode.md](docs/batch_mode.md) and
+  [docs/external_import.md](docs/external_import.md) for scripting and batch use.
+- [docs/custom_plugins.md](docs/custom_plugins.md) and
+  [docs/custom_templates.md](docs/custom_templates.md) for extension workflows.
+- [docs/release_distribution.md](docs/release_distribution.md) for release plans.
 - [packages/oasa/README.md](packages/oasa/README.md) for OASA-specific usage.
 
 ## Distribution

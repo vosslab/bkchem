@@ -23,18 +23,15 @@
 
 
 
-import re
 import sys
 import oasa
 
 from oasa import periodic_table as PT
 
 import data
-import debug
 import marks
 import dom_extensions
 
-from warnings import warn
 from singleton_store import Screen
 from special_parents import drawable_chem_vertex
 
@@ -188,8 +185,6 @@ class queryatom( drawable_chem_vertex, oasa.query_atom):
 
   def read_package( self, package):
     """reads the dom element package and sets internal state according to it"""
-    a = ['no','yes']
-    on_off = ['off','on']
     self.id = package.getAttribute( 'id')
     self.pos = package.getAttribute( 'pos')
     position = package.getElementsByTagName( 'point')[0]
@@ -234,8 +229,6 @@ class queryatom( drawable_chem_vertex, oasa.query_atom):
     """returns a DOM element describing the object in CDML,
     doc is the parent document which is used for element creation
     (the returned element is not inserted into the document)"""
-    y = ['no','yes']
-    on_off = ['off','on']
     a = doc.createElement('query')
     a.setAttribute( 'id', str( self.id))
     a.setAttribute( 'pos', self.pos)
@@ -278,4 +271,3 @@ class queryatom( drawable_chem_vertex, oasa.query_atom):
 
   def __str__( self):
     return self.id
-

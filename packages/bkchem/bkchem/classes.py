@@ -28,16 +28,15 @@ import sys
 import xml.dom.minidom as dom
 import tkinter.font
 
-from math import atan2, sin, cos, pi, sqrt
+from math import pi
 from warnings import warn
 
 import dom_extensions
 
 from ftext import ftext
-from parents import meta_enabled, container, with_line, text_like, line_colored
-from parents import area_colored, point_drawable, interactive, drawable, top_level
+from parents import meta_enabled, text_like
+from parents import area_colored, point_drawable, interactive, top_level
 from parents import child, with_font
-from reaction import reaction
 from singleton_store import Screen
 
 ### NOTE: now that all classes are children of meta_enabled, so the read_standard_values method
@@ -754,4 +753,3 @@ class text( meta_enabled, interactive, point_drawable, text_like, area_colored, 
       self.ftext.lift()
     if self.item:
       self.paper.lift( self.item)
-

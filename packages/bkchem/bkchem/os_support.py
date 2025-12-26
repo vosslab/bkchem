@@ -33,13 +33,13 @@ env_vars = {'template': 'BKCHEM_TEMPLATE_PATH',
 std_dirs = {'template': '../bkchem_data/templates',
             'pixmap':   '../bkchem_data/pixmaps',
             'image':    '../bkchem_data/images',
-            'plugin':   '../plugins',
+            'plugin':   '../addons',
            }
 
 data_subdirs = {'template': 'templates',
                 'pixmap':   'pixmaps',
                 'image':    'images',
-                'plugin':   'plugins',
+                'plugin':   'addons',
                }
 
 
@@ -73,7 +73,7 @@ def _get_prefix_share_dir():
 def _get_source_dir( file_category):
   repo_root = _get_repo_root()
   if file_category == 'plugin':
-    return os.path.join( repo_root, 'plugins')
+    return os.path.join( repo_root, 'addons')
   return os.path.join( repo_root, 'bkchem_data', data_subdirs[ file_category])
 
 

@@ -33,13 +33,6 @@ if import_checker.PIL_available:
 else:
   enabled = 0
 
-try:
-  from io import StringIO
-except ImportError:
-  import io
-
-
-
 def RGB_color(r, g, b):
   """Convert 3 RGB values to one for use in PIL.Image.
 
@@ -73,4 +66,3 @@ class Bitmap_writer(object):
     del self.draw
     self.image.save( name)
     del self.image
-

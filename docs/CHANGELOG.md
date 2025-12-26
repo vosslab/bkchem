@@ -20,6 +20,39 @@
 - Switch documentation and packaging metadata to the GitHub repository as the
   primary homepage and mark legacy sites as archived.
 - Update Windows installer metadata URLs to point at the GitHub project.
+- Migrate legacy HTML and DocBook docs into Markdown
+  (`docs/user_guide.md`, `docs/batch_mode.md`, `docs/custom_plugins.md`,
+  `docs/custom_templates.md`, `docs/external_import.md`).
+- Add [docs/release_distribution.md](docs/release_distribution.md) with planned
+  distribution paths for BKChem and OASA.
+- Add legacy notices to HTML and DocBook sources that now point to Markdown.
+- Fix initial pyflakes findings in batch scripts and gettext helpers in core
+  modules.
+- Define OASA as "Open Architecture for Sketching Atoms and Molecules" across
+  docs and metadata.
+- Add BKChem modernization follow-ups to [docs/TODO.md](docs/TODO.md).
+- Fix more pyflakes findings in BKChem core modules and plugin exporters.
+- Exclude the local website mirror from the pyflakes scan.
+- Fix additional pyflakes issues in logger, interactors, plugins, and tests.
+- Remove Piddle export plugins and Piddle-specific tuning hooks.
+- Remove Piddle strings from locale catalogs.
+- Rename filesystem plugin scripts to addons, update plugin discovery paths,
+  packaging data files, and documentation references.
+- Fix more pyflakes findings in core modules, addon scripts, and exporters, and
+  prune the website mirror from pyflakes scans.
+- Fix additional pyflakes issues in addons, import/export plugins, and core
+  helpers (unused imports, gettext fallbacks, and minor logic fixes).
+- Resolve remaining pyflakes findings across core modules and plugins, and
+  harden the pyflakes runner to skip local website mirrors.
+- Add `version.txt` as a shared version registry and wire BKChem and OASA
+  version reads to it.
+- Standardize BKChem and OASA to use the same version string from
+  `version.txt`.
+- Bump the shared BKChem/OASA version to `0.16beta1`.
+- Add [docs/RELEASE_HISTORY.md](docs/RELEASE_HISTORY.md) from the legacy
+  progress log.
+- Restore the pyflakes runner skip list for `bkchem_webpage` and
+  `bkchem_website`.
 
 ## 2025-12-24
 - Add [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) with system overview
@@ -52,5 +85,5 @@
   `imp` usage with `importlib` in `bkchem/main.py`.
 - Add gettext fallback in `bkchem/messages.py` for module-level strings.
 - Initialize gettext fallbacks in `tests/run_gui_smoke.py`.
-- Add [docs/TODO.md](docs/TODO.md) with a note to replace Piddle exporters with
+- Add [docs/TODO.md](docs/TODO.md) with a note to replace legacy exporters with
   Cairo equivalents.

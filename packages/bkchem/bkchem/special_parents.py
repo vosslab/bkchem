@@ -19,14 +19,11 @@
 
 import oasa
 import operator
-import xml.dom.minidom as dom
-try:
-  import tkinter.font as tkFont
-except ImportError:
-  import tkinter.font
+import tkinter.font
 
 from oasa import geometry
-from math import sin, cos, sqrt, pi
+from math import sin, cos, pi
+from warnings import warn
 
 import misc
 import marks

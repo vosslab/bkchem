@@ -28,8 +28,7 @@
 
 
 
-import math
-
+import builtins
 import xml.dom.minidom as dom
 import dom_extensions as dom_ext
 import dom_extensions
@@ -40,6 +39,12 @@ import os_support
 
 import plugin
 from singleton_store import Screen
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 
@@ -143,7 +148,6 @@ class ODF_exporter(plugin.exporter):
     s = graphics_style( stroke_color=self.paper.any_color_to_rgb_string( b.line_color),
                         stroke_width=Screen.px_to_cm( b.line_width))
     style_name = self.get_appropriate_style_name( s)
-    l_group = page
     # items to export
     line_items, items = b.get_exportable_items()
 
@@ -549,15 +553,15 @@ class ODF_exporter(plugin.exporter):
     for (x,y) in points:
       points_txt += "%d,%d " % ((x-minX)*1000, (y-minY)*1000)
 
-    line = dom_extensions.elementUnder( page, 'draw:polyline',
-                                        (( 'svg:x', '%fcm' % minX),
-                                         ( 'svg:y', '%fcm' % minY),
-                                         ( 'svg:width', '%fcm' % (maxX-minX)),
-                                         ( 'svg:height', '%fcm' % (maxY-minY)),
-                                         ( 'svg:viewBox', '0 0 %d %d' % ((maxX-minX)*1000,(maxY-minY)*1000)),
-                                         ( 'draw:points', points_txt),
-                                         ( 'draw:layer', 'layout'),
-                                         ( 'draw:style-name', gr_style_name)))
+    dom_extensions.elementUnder( page, 'draw:polyline',
+                                 (( 'svg:x', '%fcm' % minX),
+                                  ( 'svg:y', '%fcm' % minY),
+                                  ( 'svg:width', '%fcm' % (maxX-minX)),
+                                  ( 'svg:height', '%fcm' % (maxY-minY)),
+                                  ( 'svg:viewBox', '0 0 %d %d' % ((maxX-minX)*1000,(maxY-minY)*1000)),
+                                  ( 'draw:points', points_txt),
+                                  ( 'draw:layer', 'layout'),
+                                  ( 'draw:style-name', gr_style_name)))
 
 
   def create_oo_bezier( self, points, page, gr_style_name):
@@ -579,15 +583,15 @@ class ODF_exporter(plugin.exporter):
       if not points_txt:
         points_txt += "m %d %d c " % (1000*(sx-minX), 1000*(sy-minY))
       points_txt += "%d %d %d %d %d %d " % (1000*(cxa-sx),1000*(cya-sy),1000*(cxb-sx),1000*(cyb-sy),1000*(ex-sx),1000*(ey-sy))
-    line = dom_extensions.elementUnder( page, 'draw:path',
-                                        (( 'svg:x', '%fcm' % minX),
-                                         ( 'svg:y', '%fcm' % minY),
-                                         ( 'svg:width', '%fcm' % (maxX-minX)),
-                                         ( 'svg:height', '%fcm' % (maxY-minY)),
-                                         ( 'svg:viewBox', '0 0 %d %d' % ((maxX-minX)*1000,(maxY-minY)*1000)),
-                                         ( 'svg:d', points_txt),
-                                         ( 'draw:layer', 'layout'),
-                                         ( 'draw:style-name', gr_style_name)))
+    dom_extensions.elementUnder( page, 'draw:path',
+                                 (( 'svg:x', '%fcm' % minX),
+                                  ( 'svg:y', '%fcm' % minY),
+                                  ( 'svg:width', '%fcm' % (maxX-minX)),
+                                  ( 'svg:height', '%fcm' % (maxY-minY)),
+                                  ( 'svg:viewBox', '0 0 %d %d' % ((maxX-minX)*1000,(maxY-minY)*1000)),
+                                  ( 'svg:d', points_txt),
+                                  ( 'draw:layer', 'layout'),
+                                  ( 'draw:style-name', gr_style_name)))
 
 
   def create_oo_bezier2( self, points, page, gr_style_name):
@@ -604,15 +608,15 @@ class ODF_exporter(plugin.exporter):
     #hpx = Screen.cm_to_px( h)
     #print('svg:viewBox', '0 0 %d %d' % (wpx*1000,hpx*1000))
     print('svg:viewBox', '0 0 %d %d' % (w*1000,h*1000))
-    line = dom_extensions.elementUnder( page, 'draw:path',
-                                        (( 'svg:x', '0cm'),
-                                         ( 'svg:y', '0cm'),
-                                         ( 'svg:width', '%fcm' % w),
-                                         ( 'svg:height', '%fcm' % h),
-                                         ( 'svg:viewBox', '0 0 %d %d' % (w*1000,h*1000)),
-                                         ( 'svg:d', points_txt),
-                                         ( 'draw:layer', 'layout'),
-                                         ( 'draw:style-name', gr_style_name)))
+    dom_extensions.elementUnder( page, 'draw:path',
+                                 (( 'svg:x', '0cm'),
+                                  ( 'svg:y', '0cm'),
+                                  ( 'svg:width', '%fcm' % w),
+                                  ( 'svg:height', '%fcm' % h),
+                                  ( 'svg:viewBox', '0 0 %d %d' % (w*1000,h*1000)),
+                                  ( 'svg:d', points_txt),
+                                  ( 'draw:layer', 'layout'),
+                                  ( 'draw:style-name', gr_style_name)))
 
 
   def create_styles_document( self):
@@ -629,7 +633,6 @@ class ODF_exporter(plugin.exporter):
 
     w = self.paper.get_paper_property( 'size_x')/10.0
     h = self.paper.get_paper_property( 'size_y')/10.0
-    s = dom_ext.elementUnder( root, 'office:styles')
     astyles = dom_ext.elementUnder( root, 'office:automatic-styles')
     pm = dom_ext.elementUnder( astyles, 'style:page-layout', (('style:name','PM1'),))
     dom_ext.elementUnder( pm, 'style:page-layout-properties', (('fo:page-height','%fcm' % h),
@@ -645,9 +648,9 @@ class ODF_exporter(plugin.exporter):
                                                                 ('draw:fill', 'none')))
 
     oms = dom_ext.elementUnder( root, 'office:master-styles')
-    mp = dom_ext.elementUnder( oms, 'style:master-page', (('draw:style-name','dp1'),
-                                                          ('style:page-layout-name','PM1'),
-                                                          ('style:name', 'vychozi')))
+    dom_ext.elementUnder( oms, 'style:master-page', (('draw:style-name','dp1'),
+                                                     ('style:page-layout-name','PM1'),
+                                                     ('style:name', 'vychozi')))
     return style_doc
 
 
@@ -795,10 +798,10 @@ class text_style( style):
     style = doc.createElement( 'style:style')
     dom_extensions.setAttributes( style, (('style:family', self.family),
                                           ('style:name', self.name)))
-    prop = dom_extensions.elementUnder( style, 'style:text-properties', (( 'fo:font-size', self.font_size),
-                                                                         ( 'fo:font-family', self.font_family),
-                                                                         ( 'fo:font-style', self.font_style),
-                                                                         ( 'fo:font-weight', self.font_weight)))
+    dom_extensions.elementUnder( style, 'style:text-properties', (( 'fo:font-size', self.font_size),
+                                                                  ( 'fo:font-family', self.font_family),
+                                                                  ( 'fo:font-style', self.font_style),
+                                                                  ( 'fo:font-weight', self.font_weight)))
     return style
 
 
@@ -830,4 +833,3 @@ class span_style( style):
 
 font_family_remap = {'helvetica': 'Albany',
                      'times': 'Thorndale'}
-

@@ -22,8 +22,14 @@
 Mainly from paper and modules.
 """
 
-import interactors
+import builtins
 from singleton_store import Store
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 
@@ -43,4 +49,3 @@ def check_linear_fragments(paper):
     for f in to_del:
       Store.log( _('The linear form was no longer consistent - it has been removed'))
       mol.delete_fragment( f)
-

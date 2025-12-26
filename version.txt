@@ -1,0 +1,3 @@
+# Central version registry for the monorepo.
+# BKChem and OASA share the same version string.
+version = 0.16beta1

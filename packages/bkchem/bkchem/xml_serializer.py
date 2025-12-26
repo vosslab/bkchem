@@ -18,7 +18,6 @@
 #--------------------------------------------------------------------------
 
 import types
-import xml.dom.minidom as dom
 
 to_serialize = {'paper':    ('molecules',),
                 'molecule': ('atoms','bonds'),
@@ -44,4 +43,3 @@ def serialize(o, doc, parent_element):
         [serialize( j, doc, e) for j in v]
       else:
         e.setAttribute( i, str( v))
-

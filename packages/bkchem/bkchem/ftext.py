@@ -27,15 +27,10 @@ i - italic
 """
 
 import sys
-import copy
 import xml.sax
-try:
-  import tkinter.font as tkFont
-except ImportError:
-  import tkinter.font
+import tkinter.font
 
 import tuning
-import dom_extensions
 
 
 
@@ -317,4 +312,3 @@ def _unescape_one_html_entity_reference( m):
       return chr(name2codepoint[hit])
   else:
     return "&"+hit+";"
-

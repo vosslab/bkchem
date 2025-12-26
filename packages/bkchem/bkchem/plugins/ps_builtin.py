@@ -21,7 +21,15 @@
 
 """
 
+import builtins
+
 import plugin
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 

@@ -1,8 +1,8 @@
 include pyproject.toml
 include MANIFEST.in
 include bkchem/bkchem.js
-include plugins/*.py
-include plugins/*.xml
+include addons/*.py
+include addons/*.xml
 include bkchem_data/templates/*.cdml
 include bkchem_data/templates/*.xml
 include bkchem_data/pixmaps/*.gif

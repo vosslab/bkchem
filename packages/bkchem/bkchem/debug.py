@@ -19,7 +19,6 @@
 
 
 
-import sys
 import inspect
 
 import config
@@ -53,4 +52,3 @@ def log( *args, **kw):
     for arg in args:
       print(arg, end=' ', file=out)
     print(file=out)
-

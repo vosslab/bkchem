@@ -17,6 +17,7 @@
 
 #--------------------------------------------------------------------------
 
+import builtins
 import os
 import oasa
 import collections
@@ -32,6 +33,8 @@ import interactors
 from atom import atom
 from group import group
 from singleton_store import Store
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 
 
@@ -379,4 +382,3 @@ def set_template_bond( objs):
     b = objs[0]
     if isinstance( b, oasa.bond):
       b.molecule.mark_template_bond( b)
-

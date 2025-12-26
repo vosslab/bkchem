@@ -26,8 +26,8 @@
 
 """
 
+import builtins
 import re
-import math
 
 import xml.dom.minidom as dom
 
@@ -35,9 +35,15 @@ import dom_extensions as dom_ext
 
 import plugin
 from arrow import arrow
-from classes import plus, point, text as text_class
+from classes import plus, text as text_class
 from molecule import molecule
 from singleton_store import Screen
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 
@@ -426,15 +432,15 @@ class CDXML_exporter( plugin.exporter):
         elem001.setAttribute("color",ShowColor)
         elem7.setAttribute("color",ShowColor)
 
-    for plus in self.paper.pluses:
+    for plus_item in self.paper.pluses:
       elem9=out.createElement("graphic")
       elem1.appendChild(elem9)
       elem9.setAttribute("SymbolType","Plus")
-      elem9.setAttribute("BoundingBox","%f %f %f %f" % plus.bbox())
+      elem9.setAttribute("BoundingBox","%f %f %f %f" % plus_item.bbox())
       elem9.setAttribute("GraphicType","Symbol")
-      elem9.setAttribute("id",re.sub("plus","",plus.id))
+      elem9.setAttribute("id",re.sub("plus","",plus_item.id))
       #print plus.bbox()
-      NewColor=self.paper.any_color_to_rgb_string(plus.line_color)
+      NewColor=self.paper.any_color_to_rgb_string(plus_item.line_color)
       if NewColor not in colors:
         colors.append (NewColor)
       for color in colors:
@@ -442,16 +448,16 @@ class CDXML_exporter( plugin.exporter):
           ShowColor=str(colors.index(color)+2)
       elem9.setAttribute("color",ShowColor)
 
-    for arrow in self.paper.arrows:
-      arrowPoints=[p.get_xy() for p in arrow.points]
+    for arr in self.paper.arrows:
+      arrowPoints=[p.get_xy() for p in arr.points]
 
       elem10=out.createElement("graphic")
       elem1.appendChild(elem10)
       elem10.setAttribute("GraphicType","Line")
       for arrowB, arrowC in list(arrowType.items()):
-          if arrow.type==arrowB:
+          if arr.type==arrowB:
             elem10.setAttribute("ArrowType",arrowC[0])
-      NewColor=self.paper.any_color_to_rgb_string(arrow.line_color)
+      NewColor=self.paper.any_color_to_rgb_string(arr.line_color)
       if NewColor not in colors:
         colors.append (NewColor)
       for color in colors:
@@ -462,7 +468,7 @@ class CDXML_exporter( plugin.exporter):
       elem11=out.createElement("arrow")
       elem1.appendChild(elem11)
       for arrowB, arrowC in list(arrowType.items()):
-          if arrow.type==arrowB:
+          if arr.type==arrowB:
             elem11.setAttribute("ArrowheadHead",arrowC[1])
             elem11.setAttribute("ArrowheadTail",arrowC[2])
             elem11.setAttribute("ArrowheadType",arrowC[3])

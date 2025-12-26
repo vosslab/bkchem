@@ -2656,15 +2656,6 @@ msgstr "Заряды"
 msgid "Sup charges"
 msgstr "Заряды"
 
-#: ../../bkchem/plugins/cairo_lowlevel.py:69
-#: ../../bkchem/plugins/piddle_lowlevel.py:52
-msgid ""
-"There is nothing to export. If you want to export an empty paper disable "
-"cropping of the drawing in the File/Properties menu."
-msgstr ""
-"Нет ничего для экспорта. Если вы хотите экспортировать пустой лист, "
-"отключите обрезку рисунка в меню 'Файл/Свойства'."
-
 #: ../../bkchem/plugins/CDXML.py:47
 msgid "Imports a CDXML (ChemDraw XML format) document."
 msgstr "Импортировать документа CDXML (ChemDraw XML)"
@@ -2799,20 +2790,6 @@ msgstr ""
 msgid "PDF (Cairo)"
 msgstr "PDF( Cairo)"
 
-#: ../../bkchem/plugins/pdf_piddle.py:33
-msgid ""
-"Exports PDF files via the Piddle library. It does a pretty good job, however "
-"does not support unicode strings (ASCII only) and the position of the text "
-"may be slightly off, depending on the fonts used."
-msgstr ""
-"Экспортировать в PDF через библиотеку Piddle. Не поддерживает Unicode "
-"(только ASCII), положение текста может быть смещено, зависимо от "
-"используемого шрифта"
-
-#: ../../bkchem/plugins/pdf_piddle.py:49
-msgid "PDF (Piddle)"
-msgstr "PDF (Piddle)"
-
 #: ../../bkchem/plugins/png_cairo.py:39
 msgid ""
 "Exports PNG files via the Cairo (pycairo) library. The output is usually "
@@ -2886,20 +2863,6 @@ msgstr ""
 #: ../../bkchem/plugins/ps_cairo.py:71
 msgid "Postscript (Cairo)"
 msgstr "PostScript (Cairo)"
-
-#: ../../bkchem/plugins/ps_piddle.py:32
-msgid ""
-"Exports Encapsulated PostScript files via the Piddle library. Usually gives "
-"better results than the builtin method, but does not support unicode and the "
-"texts might be slightly misplaced."
-msgstr ""
-"Экспортировать в PostScript через библиотеку Piddle. Не поддерживает "
-"Unicode, тексты могут быть смещены относительно правильных положений. Вывод "
-"лучше встроенной библиотеки"
-
-#: ../../bkchem/plugins/ps_piddle.py:47
-msgid "PostScript (Piddle)"
-msgstr "PostScript (Piddle)"
 
 #: ../../bkchem/plugins/svg_cairo.py:40
 msgid ""

@@ -23,6 +23,7 @@
 
 
 
+import builtins
 import re
 import math
 import os.path
@@ -40,6 +41,12 @@ import config
 
 from keysymdef import keysyms
 from singleton_store import Store
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 
@@ -478,11 +485,11 @@ class HTMLLikeInput(tkinter.Frame, object):
 
 
   def _numbersToSubButtonPressed( self, *e):
-    self.text = re.sub( "\d+", '<sub>\g<0></sub>', self.text)
+    self.text = re.sub( r"\d+", r"<sub>\g<0></sub>", self.text)
 
 
   def _chargesToSupButtonPressed( self, *e):
-    self.text = re.sub( "(\+|\.|-)+", '<sup>\g<0></sup>', self.text)
+    self.text = re.sub( r"(\+|\.|-)+", r"<sup>\g<0></sup>", self.text)
 
 
   def _tag_it( self, tag):
@@ -517,11 +524,10 @@ def font_size_validator( input):
     return Pmw.OK
   if len( input) > 3:
     return Pmw.ERROR
-  if re.match( "^\d+$", input):
+  if re.match( r"^\d+$", input):
     i = int( input)
     if i >= 1 and i <= 64:
       return Pmw.OK
     else:
       return Pmw.PARTIAL
   return Pmw.ERROR
-

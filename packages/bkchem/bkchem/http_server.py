@@ -25,7 +25,6 @@
 
 import time
 import string
-import os.path
 import http.server
 import xml.dom.minidom as dom
 
@@ -134,4 +133,3 @@ class bkchem_http_server( http.server.HTTPServer):
 
   def __init__( self, *args):
     http.server.HTTPServer.__init__( self, *args)
-

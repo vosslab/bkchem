@@ -28,15 +28,12 @@ import oasa
 import xml.dom.minidom as dom
 
 from oasa import geometry
-from warnings import warn
 from oasa import periodic_table as PT
 from math import atan2, sin, cos, pi, sqrt
 
 import misc
 import dom_extensions
 import bkchem_exceptions
-import groups_table as GT
-import helper_graphics as hg
 
 from bond import bond
 from atom import atom
@@ -282,11 +279,11 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
     self.vertices.remove( item)
     item.delete()
     if item == self.t_atom:
-      t_atom = None
+      self.t_atom = None
     if item == self.t_bond_first:
-      t_bond_first = None
+      self.t_bond_first = None
     if item == self.t_bond_second:
-      t_bond_second = None
+      self.t_bond_second = None
     return item
 
 
@@ -442,7 +439,6 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
     [self.delete_atom( o) for o in deleted]
     # after all is done, find and delete orphan bonds and update the others
     to_redraw = []
-    bonds = set( self.bonds)
     for b in bonds_to_check:
       if not b in self.bonds:
         #print(b, "not in self.bonds")
@@ -510,7 +506,6 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
 
   def expand_groups( self, atoms=[]):
     """expands all group atoms; optional atoms selects atoms to expand - all used if not present"""
-    names = Store.gm.get_template_names()
     if not atoms:
       map = copy.copy( self.atoms) # need to do that because the self.atoms gets changed during the cycle
     else:
@@ -731,4 +726,3 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
       self.t_atom = v
     else:
       raise ValueError("Submitted atom does not belong to this molecule.")
-

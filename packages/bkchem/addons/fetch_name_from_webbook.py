@@ -5,6 +5,7 @@ Ideas:      Getting all alternative names from webbook and or other sources and
             creating a Dialog to choose the one desired
 """
 
+import builtins
 import re
 
 try:
@@ -18,6 +19,12 @@ import oasa_bridge
 
 from main import interactors
 from singleton_store import Store
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 # search strings for the name and the cas registry number

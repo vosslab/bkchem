@@ -172,8 +172,6 @@ class selection_square(selection_rect):
     if not self.coords:
       return
     x1, y1, x2, y2 = self.coords
-    xm = round( (x1 + x2)/2.0)
-    ym = round( (y1 + y2)/2.0)
     self._rect = self.paper.create_rectangle( self.coords, fill='', outline=self.color, tags=('helper_rect'))
     self._lt = self.paper.create_rectangle( (x1, y1, x1+2, y1+2), outline=self.color, fill=self.color, tags=('helper_rect'))
     self._rt = self.paper.create_rectangle( (x2-2, y1, x2, y1+2), outline=self.color, fill=self.color, tags=('helper_rect'))
@@ -186,8 +184,6 @@ class selection_square(selection_rect):
       self.draw()
       return
     x1, y1, x2, y2 = self.coords
-    xm = round( (x1 + x2)/2.0)
-    ym = round( (y1 + y2)/2.0)
     self.paper.coords( self._rect, tuple( self.coords))
     self.paper.coords( self._lt, (x1, y1, x1+2, y1+2))
     self.paper.coords( self._rt, (x2-2, y1, x2, y1+2))

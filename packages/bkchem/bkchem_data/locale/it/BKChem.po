@@ -2686,15 +2686,6 @@ msgstr "Cariche ad apice"
 msgid "Sup charges"
 msgstr "Cariche a pedice"
 
-#: ../../bkchem/plugins/cairo_lowlevel.py:69
-#: ../../bkchem/plugins/piddle_lowlevel.py:52
-msgid ""
-"There is nothing to export. If you want to export an empty paper disable "
-"cropping of the drawing in the File/Properties menu."
-msgstr ""
-"Non c'è niente da esportare. Se vuoi esportare un foglio vuoto disabilita il "
-"ritaglio del disegno nel menu File/Proprietà."
-
 #: ../../bkchem/plugins/CDXML.py:47
 msgid "Imports a CDXML (ChemDraw XML format) document."
 msgstr "Importa documento CDXML (formato ChemDraw XML)"
@@ -2841,21 +2832,6 @@ msgstr ""
 msgid "PDF (Cairo)"
 msgstr "PDF (Cairo)"
 
-#: ../../bkchem/plugins/pdf_piddle.py:33
-msgid ""
-"Exports PDF files via the Piddle library. It does a pretty good job, however "
-"does not support unicode strings (ASCII only) and the position of the text "
-"may be slightly off, depending on the fonts used."
-msgstr ""
-"Esporta i file PDF via libreria Piddle. E' comunque un'operazione ben "
-"eseguita anche se non supporta le stringhe unicode (solo ASCII) e la "
-"posizione del testo  può essere leggermente spostata, a seconda dei tipi di "
-"carattere usati"
-
-#: ../../bkchem/plugins/pdf_piddle.py:49
-msgid "PDF (Piddle)"
-msgstr "PDF (Piddle)"
-
 #: ../../bkchem/plugins/png_cairo.py:39
 msgid ""
 "Exports PNG files via the Cairo (pycairo) library. The output is usually "
@@ -2933,20 +2909,6 @@ msgstr ""
 #: ../../bkchem/plugins/ps_cairo.py:71
 msgid "Postscript (Cairo)"
 msgstr "Postscript (Cairo)"
-
-#: ../../bkchem/plugins/ps_piddle.py:32
-msgid ""
-"Exports Encapsulated PostScript files via the Piddle library. Usually gives "
-"better results than the builtin method, but does not support unicode and the "
-"texts might be slightly misplaced."
-msgstr ""
-"Esporta Postscript via libreria Piddle. Solitamente da migliori risultati "
-"del metodo builtin, ma non supporta unicode e i testi potrebbero essere "
-"leggermente malriposti."
-
-#: ../../bkchem/plugins/ps_piddle.py:47
-msgid "PostScript (Piddle)"
-msgstr "PostScript (Piddle)"
 
 #: ../../bkchem/plugins/svg_cairo.py:40
 msgid ""

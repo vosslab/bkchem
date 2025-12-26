@@ -8,6 +8,7 @@
 - `tools/` small maintenance scripts.
 - `pip_requirements.txt`, `Brewfile` dependency manifests.
 - `README.md`, `LICENSE`, `AGENTS.md` project references.
+- `version.txt` shared version registry for BKChem and OASA (same version string).
 
 ## BKChem package (`packages/bkchem/`)
 - `packages/bkchem/bkchem/` BKChem application package.
@@ -30,7 +31,7 @@
 - `packages/bkchem/bkchem/export.py` CDML and CD-SVG export helpers.
 - `packages/bkchem/bkchem/plugin_support.py` plugin discovery and execution.
 - `packages/bkchem/bkchem/plugins/` built-in export backends and format handlers.
-- `packages/bkchem/plugins/` user-facing plugin scripts and XML descriptors.
+- `packages/bkchem/addons/` user-facing addon scripts and XML descriptors.
 - `packages/bkchem/bkchem_data/` templates, images, pixmaps, locale, and DTDs.
 - `packages/bkchem/pyproject.toml`, `packages/bkchem/MANIFEST.in` packaging
   metadata.

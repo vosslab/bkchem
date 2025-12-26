@@ -21,12 +21,18 @@
 
 """
 
-import xml.dom.minidom as dom
+import builtins
 
 import dom_extensions as dom_ext
 
 import CML
 import plugin
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 
@@ -188,4 +194,3 @@ class cml_exception(Exception):
 
   def __str__(self):
     return self.value
-

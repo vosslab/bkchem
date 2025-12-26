@@ -23,11 +23,7 @@
 
 
 
-import re
 import sys
-import oasa
-
-from warnings import warn
 from oasa import periodic_table as PT
 
 import data
@@ -114,8 +110,6 @@ class textatom( drawable_chem_vertex):
 
   def read_package( self, package):
     """reads the dom element package and sets internal state according to it"""
-    a = ['no','yes']
-    on_off = ['off','on']
     self.id = package.getAttribute( 'id')
     # marks
     for m in package.getElementsByTagName( 'mark'):
@@ -161,8 +155,6 @@ class textatom( drawable_chem_vertex):
     """returns a DOM element describing the object in CDML,
     doc is the parent document which is used for element creation
     (the returned element is not inserted into the document)"""
-    y = ['no','yes']
-    on_off = ['off','on']
     a = doc.createElement('text')
     a.setAttribute( 'id', str( self.id))
     a.setAttribute( 'pos', self.pos)
@@ -204,4 +196,3 @@ class textatom( drawable_chem_vertex):
 
   def __str__( self):
     return self.id
-

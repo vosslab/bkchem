@@ -23,16 +23,13 @@
 
 
 
+import builtins
 import os
 import sys
 import math
 import oasa
 import operator
 import xml.dom.minidom as dom
-try:
-  import exceptions
-except ImportError:
-  pass
 import tkinter.font
 import tkinter.messagebox
 
@@ -40,7 +37,6 @@ from warnings import warn
 from oasa import geometry
 from oasa import periodic_table as PT
 from oasa.transform import transform
-from oasa.transform3d import transform3d
 try:
   from tkinter import Canvas, ALL
 except ImportError:
@@ -61,7 +57,6 @@ import graphics
 import messages
 import os_support
 import xml_writer
-import interactors
 import CDML_versions
 import dom_extensions
 
@@ -71,10 +66,21 @@ from textatom import textatom
 from molecule import molecule
 from reaction import reaction
 from id_manager import id_manager
-from temp_manager import template_manager
-from singleton_store import Store, Screen
+from singleton_store import Store
 from helper_graphics import selection_rect
 from external_data import external_data_manager
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
+
+ngettext = getattr( builtins, "ngettext", None)
+if not ngettext:
+	def ngettext( single, plural, count):
+		return single if count == 1 else plural
+	builtins.ngettext = ngettext
 
 
 
@@ -234,8 +240,8 @@ class chem_paper(Canvas, object):
     print(self.mode)
     for mol in self.molecules:
      print('Molecule:')
-     for atom in mol.atoms:
-       print('[ '+str(atom.x)+' , '+str(atom.y)+' ]')
+     for atm in mol.atoms:
+       print('[ '+str(atm.x)+' , '+str(atm.y)+' ]')
        
   def redraw_all(self):
     """Redraws all the content of the paper."""
@@ -245,11 +251,6 @@ class chem_paper(Canvas, object):
   def add_bindings( self, active_names=()):
     self.lower( self.background)
     [o.lift() for o in self.stack]
-    if not Store.app.in_batch_mode:
-      if not active_names:
-        names = self.all_names_to_bind
-      else:
-        names = active_names
     self._do_not_focus = [] # self._do_not_focus is temporary and is cleaned automatically here
     self.event_generate( "<<selection-changed>>")
     # we generate this event here because this method is often called after some change as a last thing
@@ -949,7 +950,6 @@ class chem_paper(Canvas, object):
     clipboard = Store.app.get_clipboard()
     clipboard_pos = Store.app.get_clipboard_pos()
     if clipboard:
-      new = []
       self.unselect_all()
       if xy:
         dx = xy[0] - clipboard_pos[0]
@@ -1312,7 +1312,6 @@ class chem_paper(Canvas, object):
     dialog = Pmw.TextDialog( self, title=_("Info on selected molecules"), defaultbutton=0)
     dialog.withdraw()
 
-    ws = 0
     comps = PT.formula_dict()
     for m in s_mols:
       comp = m.get_formula_dict()
@@ -1602,7 +1601,6 @@ class chem_paper(Canvas, object):
       self.create_background()
     objs = objects or self.top_levels
     to_redraw = []
-    st = self.standard
     for m in objs:
       if m.object_type == 'molecule':
         for b in m.bonds:
@@ -1856,4 +1854,3 @@ class chem_paper(Canvas, object):
     if ymax < y1:
       ymax = y1
     return xmin, ymin, xmax, ymax
-

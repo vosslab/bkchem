@@ -94,7 +94,6 @@ class SVG_writer(XML_writer):
     border_size = self.paper.get_paper_property( 'crop_margin')
 
     # converter
-    px_to_cm_txt = lambda x: Screen.px_to_text_with_unit( x, unit="cm", round_to=5)
     px_to_mm_txt = lambda x: Screen.px_to_text_with_unit( x, unit="mm", round_to=5)
 
     # the code
@@ -172,11 +171,11 @@ class SVG_writer(XML_writer):
     if b.type in 'nhd':
       for i in items:
         x1, y1, x2, y2 = self.paper.coords( i)
-        line = dom_extensions.elementUnder( l_group, 'line',
-                                            (( 'x1', self.convert( x1)),
-                                             ( 'y1', self.convert( y1)),
-                                             ( 'x2', self.convert( x2)),
-                                             ( 'y2', self.convert( y2))))
+        dom_extensions.elementUnder( l_group, 'line',
+                                     (( 'x1', self.convert( x1)),
+                                      ( 'y1', self.convert( y1)),
+                                      ( 'x2', self.convert( x2)),
+                                      ( 'y2', self.convert( y2))))
     elif b.type == 'o':
       for i in items:
         x1, y1, x2, y2 = self.paper.coords( i)
@@ -189,35 +188,35 @@ class SVG_writer(XML_writer):
     elif b.type in 'wb':
       for i in items:
         coords = self.paper.coords( b.item)
-        line = dom_extensions.elementUnder( l_group, 'polygon',
-                                            (( 'fill', self.cc( b.line_color)),
-                                             ( 'stroke', self.cc( b.line_color)),
-                                             ( 'points', list_to_svg_points( coords))))
+        dom_extensions.elementUnder( l_group, 'polygon',
+                                     (( 'fill', self.cc( b.line_color)),
+                                      ( 'stroke', self.cc( b.line_color)),
+                                      ( 'points', list_to_svg_points( coords))))
     elif b.type == 'h':
       for i in items:
         for p in i:
           x1, y1, x2, y2 = self.paper.coords( p)
-          line = dom_extensions.elementUnder( l_group, 'line',
-                                              (( 'x1', self.convert( x1)),
-                                               ( 'y1', self.convert( y1)),
-                                               ( 'x2', self.convert( x2)),
-                                               ( 'y2', self.convert( y2))))
+          dom_extensions.elementUnder( l_group, 'line',
+                                       (( 'x1', self.convert( x1)),
+                                        ( 'y1', self.convert( y1)),
+                                        ( 'x2', self.convert( x2)),
+                                        ( 'y2', self.convert( y2))))
     elif b.type == 'a':
       for i in items:
         coords = self.paper.coords( i)
         points = ' '.join( map( self.convert, coords))
-        line = dom_extensions.elementUnder( l_group, 'polyline',
-                                            (( 'points', points),
-                                             ( 'fill', 'none')))
+        dom_extensions.elementUnder( l_group, 'polyline',
+                                     (( 'points', points),
+                                      ( 'fill', 'none')))
     # the line items for simple_double
     for i in line_items:
       x1, y1, x2, y2 = self.paper.coords( i)
-      line = dom_extensions.elementUnder( l_group, 'line',
-                                          (( 'x1', self.convert( x1)),
-                                           ( 'y1', self.convert( y1)),
-                                           ( 'x2', self.convert( x2)),
-                                           ( 'y2', self.convert( y2)),
-                                           ( 'stroke-width', str( b.line_width))))
+      dom_extensions.elementUnder( l_group, 'line',
+                                   (( 'x1', self.convert( x1)),
+                                    ( 'y1', self.convert( y1)),
+                                    ( 'x2', self.convert( x2)),
+                                    ( 'y2', self.convert( y2)),
+                                    ( 'stroke-width', str( b.line_width))))
 
 
   def add_arrow(self, a):
@@ -230,14 +229,13 @@ class SVG_writer(XML_writer):
       if self.paper.type( item) == "polygon":
         points = geometry.coordinate_flat_list_to_xy_tuples( self.paper.coords( item))
         ps = " ".join( ["%.2f,%.2f" % (x,y) for (x,y) in points])
-        a_color = self.paper.itemcget( item, "fill")
         l_color = self.paper.itemcget( item, "outline")
-        poly = dom_extensions.elementUnder( self.group, 'polygon',
-                                            (( 'points', ps),
-                                             ( 'stroke-width', '1'),
-                                             ( 'fill-rule', 'evenodd'),
-                                             ( 'fill', self.cc( l_color)),
-                                             ( 'stroke', self.cc( l_color))))
+        dom_extensions.elementUnder( self.group, 'polygon',
+                                     (( 'points', ps),
+                                      ( 'stroke-width', '1'),
+                                      ( 'fill-rule', 'evenodd'),
+                                      ( 'fill', self.cc( l_color)),
+                                      ( 'stroke', self.cc( l_color))))
       # polylines - standard arrows
       elif self.paper.type( item) == "line":
         # the pins
@@ -338,12 +336,12 @@ class SVG_writer(XML_writer):
                                     ( 'fill', self.cc( p.area_color)),
                                     ( 'stroke', self.cc( p.area_color))))
     y1 += (y2-y)/4.0
-    text = dom_extensions.textOnlyElementUnder( self.group, 'text', '+',
-                                                (('font-size', "%d%s" % (p.font_size, pt_or_px)),
-                                                 ('font-family', p.font_family),
-                                                 ( "x", self.convert( x)),
-                                                 ( "y", self.convert( round( y1))),
-                                                 ( 'fill', self.cc( p.line_color))))
+    dom_extensions.textOnlyElementUnder( self.group, 'text', '+',
+                                         (('font-size', "%d%s" % (p.font_size, pt_or_px)),
+                                          ('font-family', p.font_family),
+                                          ( "x", self.convert( x)),
+                                          ( "y", self.convert( round( y1))),
+                                          ( 'fill', self.cc( p.line_color))))
 
 
   def add_atom(self, a):
@@ -432,21 +430,21 @@ class SVG_writer(XML_writer):
       ps = 'M%.2f,%.2f Q%.2f,%.2f %.2f,%.2f' % (beziers[0])
       for bez in beziers[1:]:
         ps += 'Q%.2f,%.2f %.2f,%.2f ' % (bez[2:])
-      line = dom_extensions.elementUnder( self.group, 'path',
-                                          (( 'd', ps),
-                                           ( 'stroke-width', str( o.line_width)),
-                                           ( 'fill', 'none'),
-                                           ( 'stroke', self.cc( o.line_color))))
+      dom_extensions.elementUnder( self.group, 'path',
+                                   (( 'd', ps),
+                                    ( 'stroke-width', str( o.line_width)),
+                                    ( 'fill', 'none'),
+                                    ( 'stroke', self.cc( o.line_color))))
     else:
       # normal line
       ps = ''
       for (x,y) in points:
         ps += '%.2f,%.2f ' % (x,y)
-      poly = dom_extensions.elementUnder( self.group, 'polyline',
-                                          (( 'points', ps),
-                                           ( 'stroke-width', str( o.line_width)),
-                                           ( 'fill', 'none'),
-                                           ( 'stroke', self.cc( o.line_color))))
+      dom_extensions.elementUnder( self.group, 'polyline',
+                                   (( 'points', ps),
+                                    ( 'stroke-width', str( o.line_width)),
+                                    ( 'fill', 'none'),
+                                    ( 'stroke', self.cc( o.line_color))))
 
 
 

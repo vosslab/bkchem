@@ -21,17 +21,27 @@
 
 """
 
+import builtins
 import sys
-try:
-  import tkinter.messagebox as tkMessageBox
-except ImportError:
-  import tkinter.messagebox
+import tkinter.messagebox
 
 from oasa import transform
 
 import oasa_bridge
 
 import plugin
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
+
+ngettext = getattr( builtins, "ngettext", None)
+if not ngettext:
+	def ngettext( single, plural, count):
+		return single if count == 1 else plural
+	builtins.ngettext = ngettext
 
 
 
@@ -102,7 +112,7 @@ class molfile_exporter(plugin.exporter):
         f = open(name, 'w')
       else:
         f = name
-    tr = invert_coords(self.molecule)
+    invert_coords(self.molecule)
     oasa_bridge.write_molfile(self.molecule, f)
     invert_coords(self.molecule)
     f.close()

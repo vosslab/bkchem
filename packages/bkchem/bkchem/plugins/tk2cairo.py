@@ -23,16 +23,10 @@ import math
 import string
 
 import cairo
-
-try:
-    import tkinter.font as tkFont
-except ImportError:
-    import tkinter.font
+import tkinter.font
 
 from oasa import transform
 from oasa import geometry
-
-import misc
 
 
 
@@ -341,4 +335,3 @@ class tk2cairo(object):
       cairo_size *= tk_length/width
       self.context.set_font_size( cairo_size)
     return cairo_size
-

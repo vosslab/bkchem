@@ -18,7 +18,6 @@
 #--------------------------------------------------------------------------
 
 from random import randint
-from warnings import warn
 
 
 
@@ -77,4 +76,3 @@ class id_manager(object):
 
   def unregister_object(self, obj):
     self.unregister_id(self.get_id_of_object(obj), obj)
-

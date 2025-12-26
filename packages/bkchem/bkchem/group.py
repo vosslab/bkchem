@@ -27,13 +27,10 @@
 import re
 import sys
 import oasa
-
-from warnings import warn
 from oasa import periodic_table as PT
 from oasa.known_groups import name_to_smiles
 
 import data
-import debug
 import marks
 import dom_extensions
 import groups_table as GT
@@ -129,8 +126,8 @@ class group( drawable_chem_vertex):
       else:
         return GT.groups_table[ self.symbol.lower()]['textb']
     elif self.group_type in ("implicit","chain"):
-      x = re.sub( "\d+", '<sub>\g<0></sub>', self.symbol)
-      x = re.sub( "[+-]", '<sup>\g<0></sup>', x)
+      x = re.sub( r"\d+", r"<sub>\g<0></sub>", self.symbol)
+      x = re.sub( r"[+-]", r"<sup>\g<0></sup>", x)
       if self.paper.get_paper_property('use_real_minus'):
         if sys.version_info[0] > 2:
           x = re.sub("-", chr(8722), x)
@@ -227,8 +224,6 @@ class group( drawable_chem_vertex):
 
   def read_package( self, package):
     """reads the dom element package and sets internal state according to it"""
-    a = ['no','yes']
-    on_off = ['off','on']
     self.id = package.getAttribute( 'id')
     self.pos = package.getAttribute( 'pos')
     position = package.getElementsByTagName( 'point')[0]
@@ -273,8 +268,6 @@ class group( drawable_chem_vertex):
     """returns a DOM element describing the object in CDML,
     doc is the parent document which is used for element creation
     (the returned element is not inserted into the document)"""
-    y = ['no','yes']
-    on_off = ['off','on']
     a = doc.createElement('group')
     a.setAttribute( 'id', str( self.id))
     a.setAttribute( 'pos', self.pos)
@@ -344,7 +337,7 @@ class group( drawable_chem_vertex):
         self.group_graph = Store.gm.get_transformed_template( names.index( self.symbol), (x1,y1,x2,y2), type='atom1')
         replacement = self.group_graph.next_to_t_atom
       else:
-        print("unknown group %s" % a.symbol)
+        print("unknown group %s" % self.symbol)
         return None
 
     elif self.group_type == "chain":
@@ -389,4 +382,3 @@ class group( drawable_chem_vertex):
       dy = y - replacement.y
       [a.move( dx, dy) for a in self.group_graph.vertices]
     return self.group_graph.vertices
-

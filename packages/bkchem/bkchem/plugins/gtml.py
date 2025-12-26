@@ -21,24 +21,17 @@
 
 """
 
-import math
-import xml.sax
 import xml.dom.minidom as dom
-try:
-  from io import StringIO
-except ImportError:
-  import io
+from io import StringIO
 
 from xml import xpath
 from oasa.transform import transform
 
 import dom_extensions as dom_ext
 
-import plugin
 from atom import atom
 from bond import bond
 from molecule import molecule
-from reaction import reaction
 from classes import plus, arrow
 
 
@@ -70,7 +63,7 @@ class gtml_importer(object):
     self.molecules = []
 
     # prepare the file to resolve entities
-    f = io.StringIO()
+    f = StringIO()
     f.write( "<!DOCTYPE item [")
     with open('mathmlentities.ent') as entities:
       f.write(entities.read())
@@ -107,7 +100,6 @@ class gtml_importer(object):
       a2 = self._read_atom( v, m)
       m.insert_atom( a2)
       # bonds
-      bond_lengths = []
     for b in xpath.Evaluate("edge", el):
       b2 = self._read_bond( b)
       b2.molecule = m
@@ -244,4 +236,3 @@ name = "GTML"
 extensions = [".gtml",".xml"]
 importer = gtml_importer
 exporter = gtml_exporter
-

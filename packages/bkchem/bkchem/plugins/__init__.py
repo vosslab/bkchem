@@ -27,16 +27,12 @@ _names = ["CML",
           "openoffice",
           "ps_builtin",
           "molfile",
-          "pdf_piddle",
-          "ps_piddle",
           "pdf_cairo",
           "png_cairo",
           "odf",
           "svg_cairo",
           "ps_cairo",
           "CDXML"]
-
-import sys
 
 for _name in _names:
   try:

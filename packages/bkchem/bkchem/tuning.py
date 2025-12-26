@@ -60,7 +60,3 @@ class Tuning(object):
         text_y_shift = 0
 
 
-    ## Piddle export
-    class Piddle(object):
-        # how to shift texts x coordinate when exporting via piddle
-        text_x_shift = 0.7

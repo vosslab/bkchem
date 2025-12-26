@@ -1,0 +1,1027 @@
+# Release history
+
+Legacy note: This history is migrated from `bkchem_webpage/bkchem.zirael.org/progress.html`.
+Legacy sources are archived and not maintained; entries are preserved verbatim with ASCII-normalized names.
+This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHANGELOG.md`.
+
+## Release 0.14.0-pre2
+
+### Bugfixes
+- redraw bonds when adding bond to -NH and it turns into -N
+- freeze in export window, bug #23665
+- use real minus in groups
+- convert commandline input to Unicode
+- import/export with Unicode filenames, bug #23686
+- opening BKChem together with a file on Windows, bug #17256
+- cleaner uninstallation on Windows
+- fix assertions in Piddle
+- fix string exceptions
+- documentation generation
+
+### Enhancements
+- plural forms in translations
+- update open documents on use_real_minus change
+- delete unused files
+
+### Changes
+- new maintainer - Reinis Danne <rei4dan@gmail.com>
+- sources are now managed using Git
+- main source archives are now hosted on gitorious.org
+- OASA library has separate project on Gitorious
+- drop PS postprocessing in Cairo output
+- increase required Python version to 2.5
+- drop PS version of documentation
+- open BKChem on Windows in "My Documents" by default
+
+### Translations
+- update strings from sources
+- lv updated (Reinis Danne)
+- es update (Angel Herraez)
+
+## Release 0.14.0-pre1
+
+### Bugfixes
+- an error in Molfile export with newer Python versions was fixed
+- export via cairo stroked even invisible paths - for example wedge bonds were slightly thicker
+- not all types of marks were allowed on atoms marked as "query atoms"
+- removal of charge marks from atoms now updates its charge
+- two successive cairo exports with different magnifications led to wrong font sizes
+- when font-size was set using context menu on both texts and atoms, only text was actually updated, not atoms
+- when a "focus circle" around atom is not properly removed, it will no longer become stuck after mode switch
+- cairo PostScript export created fallback bitmaps instead of proper curves most of the time because of translucency issues
+- BKChem should no longer crash when installed into a directory with non-ASCII characters in its name
+- plugins should not have problems finding additional modules residing in the plugin directory - this allows for multifile plugins
+- import of OASA fixed in case when it is installed separately rather than as part of the BKChem tree
+
+### Enhancements
+- logging dialog - it is now possible to set logging preference for different levels of message importance
+- round brackets - *work in progress*
+- one axis dragging - it is now possible to move an object only in one direction by holding either Shift or Ctrl when dragging
+- it is now possible to set the system default language in the Language menu
+- HTML entities are interpreted in text - you can now use &alpha; when entering text
+- an *experimental* support for the CDXML (Chem Draw XML) format was added (contributed by Simona Pourova)
+- a new and much nicer icon-set was contributed by Yassine Mrabet (many thanks)
+
+### Changes
+- cairo exports now export text as text instead of converting it to curves (where available)
+- internal changes were made in the CDML format for storing of rich-text. Files from this version might not be properly readable in older versions of BKChem. Backward compatibility is preserved.
+- alignment of multiline text has changed
+
+### Translations
+- lv translation added (thanks to Reinis Danne)
+- ja translation added (thanks to anonymous benefactor)
+- tw translation was updated (thanks to I-Yuan Chiang)
+- pl translation was updated (thanks to Piotr Wawrzyniak)
+
+## Release 0.13.0
+
+### Bugfixes
+- InChI generation is now compatibile with old InChI versions (1.0 and 1.0.1) (thanks to Michal Bozon for reporting this)
+
+### Enhancements
+- double bonds in 3D rotated molecules look much better now (z-coordinate is taken into account when the bond is drawn)
+
+### Info
+- this version is shipped with OASA 0.13.0
+
+## Release 0.12.6
+
+### Bugfixes
+- Spanish and Italian translations were not packaged with last release
+- import of Molfiles containing disconnected molecules no longer crashes
+- when a bond was drawn under precisely 45 degree angle, it disappeared
+
+### Enhancements
+- new 3D rotation options - it is possible to fix a bond an rotate around it; when Shift key is held, only one part of the molecule will rotate, allowing for conformation adjustments
+- InChI code updated to work with standard InChI
+- InChIKey is generated alongside InChI
+
+### Translations
+- German updated by Bernhard Radzio
+- traditional Chinese updated by I-Yuan Chiang
+
+### Info
+- this version is shipped with OASA 0.12.7
+
+## Release 0.12.5
+
+### Bugfixes
+- Segmentation fault on Ubuntu 8.10 caused by some glitch in the BLT library was fixed (sidestepped)
+- CML generation for charged atoms was fixed
+- some missed strings were made translatable (thanks to Angel Herraez and Alan Mangiaferro)
+- polylines were missing in ODF export
+
+### Changes
+- dashed stereo bonds are no longer by default "rectangular", but triangular instead
+- BKchem.pot file for translators is not part of the source-code distribution
+
+### Enhancements
+- monoisotopic mass is calculated as part of the Chemistry->Info output
+
+### Translations
+- Italian translation was added (thanks to Alan Mangiaferro)
+- Spanish translation was added (thanks to Angel Herraez)
+
+### Acknowledgments
+- Alan Mangiaferro and Angel Herraez for great work on Italian and Spanish translations
+
+## Release 0.12.4
+
+### Bugfixes
+- an error preventing new users (those without saved personal standard) from reopening saved files was fixed
+
+## Release 0.12.3
+
+### Bugfixes
+- a crash that resulted from changing standard values and applying them to selected arrows was fixed
+- scroll region updates automatically to always contain all of the drawing - no part of the drawing should be unreachable after resizing and similar operations
+
+### Enhancements
+- many more paper sizes were added
+- a simple minor mode (available under the last mode icon) for drawing of wavy lines was added
+- arrows are rotatable in 2D
+- trying to rotate an object that does not support it pops up an error message
+- it is now possible to set the default value for "show hydrogens" in the "standard dialog".
+
+## Release 0.12.2
+
+### Bugfixes
+- positioning of hydrogen on atoms should again respect orientation of the symbol. That is -OH and HO-, not -OH and OH-
+
+### Acknowledgments
+- Jakub Szypulka for a polished version of the icon
+
+## Release 0.12.1
+
+### Bugfixes
+- entering H2O symbol should not longer result in OH2 to appear
+- disconnected molecules are handled properly when importing CML
+- group expansion for single node molecules fixed
+- molfile import crash fixed
+
+### Enhancements
+- double bonds are shortened when the angle to the neighboring bonds is small (cyclopropene, etc.)
+- E/Z stereochemistry handled properly when reading SMILES
+- explicit hydrogens support and more added to SMILES reading
+
+## Release 0.12.0
+
+### Bugfixes
+- slow undo fixed (especially in case of larger drawings)
+- much better handling of font size in Cairo based exports (parts of the same text appeared sometimes in different sizes in export)
+- erroneous parsing of Sc as scandium in SMILES was fixed (thanks to Reinhold Stormann for reporting it)
+
+### Enhancements
+- more types of groups are supported (such as -(CH2)7COOH)
+- added wedge/hatch width to context menu
+
+### Changes
+- double bond is always centered if its between two visible atoms that are not part of a ring
+
+## Release 0.12.0_pre7
+
+### Bugfixes
+- endless loop in cairo-based export plugins fixed (reported on Windows)
+
+## Release 0.12.0_pre6
+
+### Enhancements
+- new SVG export via Cairo added
+- new PostScript export via Cairo added
+
+## Release 0.12.0_pre5
+
+### Bugfixes
+- setup.py did not install file necessary for ODF plugin
+
+## Release 0.12.0_pre4
+
+### Bugfixes
+- line width was not configurable for electron-pairs
+- objects are properly deselected when the middle button is used
+- OO Draw export of text does not include left and right padding anymore
+
+### Enhancements
+- different arrow styles support (retro, electron-transfer, equilibrium)
+- ODF (OpenOffice 2.0) export plugin added
+- proper export of spline arrows to OpenOffice 1.0
+- more variables were added into tuning.py
+
+### Changes
+- reaction mode was removed - it was obsolete and buggy
+- round ends for bond lines are not used when connecting atoms with visible symbols
+
+### Acknowledgments
+- Bernhard Radzio for help on the arrow types and splines
+- Rene Genz for many bugreports and help
+- I-Yuan Chiang for the translation into Taiwan Chinese (I forgot to mention him when the translation was first introduced)
+
+## Release 0.12.0_pre3
+
+### Bugfixes
+- quit properly even if text is currently edited
+- plugins are now included into the translation
+- cairo export now searches more precisely for proper font size of text
+- some parts of the GUI were not translated (thank to Rene for reporting it)
+- new users experienced a crash because they did not have any personal preferences set (fixes bug 20795)
+- fix error in Pmw that appeared under Python 2.5
+- fix dragging of selected circles and squares (fixes bug 20766)
+- fix InChI generation for drawings with stereochemistry (thanks to Bernhard for the patch)
+
+### Enhancements
+- splines export finally works (in SVG, Piddle and Cairo exports) (many thanks to Bernhard Radzio for that)
+
+### Changes
+- triple bond between two not-hidden symbols is drawn with all lines with the same length
+- warnings from the InChI software now propagate into BKChem
+
+### Translations
+- German translation updated by Rene Genz
+
+### Acknowledgments
+- Bernhard Radzio for the great splines patches and more
+- Rene Genz for German translation update and many bugreports
+
+## Release 0.12.0_pre2
+
+### Bugfixes
+- crash with Python 2.5 because of __future__ import was fixed
+- structures imported from molfiles should no longer appear outside the boundaries of the drawing area (fixes bug 19088)
+- tuning support added to SVG export (should 'fix' 19259)
+- changing symbol of atom reset the z-coordinate to 0 - fixed
+- error appeared when undoing a change to an atom that was part of a fragment
+- background color of plus was not read from standard
+
+### Acknowledgments
+- to all who sent me bug reports and suggestions
+
+## Release 0.12.0_pre1
+
+### Bugfixes
+- reading of preferences crashed on startup in some cases
+- reading files containing numbers crashed in some cases
+- positioning of atom numbers was tweaked
+- dragging large ring systems was awfully slow in some cases
+- standard_values_dialog crashed when values were added manually
+- trying to read non-bkchem SVGs sometimes stalled on a comment
+- forgotten pictures in documentation were added
+- typo in About text was fixed
+- selected rectangle did not properly respond to dragging
+- undo did not work for text (not atom) in many cases
+- middle mouse button caused crash in mark mode
+- in some cases changing standard bond_width in standard_values_dialog caused wrong positioning of second line in double bonds
+- openoffice export of transparent lines was fixed, again
+
+### Enhancements
+- preferences dialog lets you decide whether to use real minus for minuses of the hyphen. Hyphen is shorter, but is part of ASCII, minus is the right character for minus, but is not part of ASCII.
+- the same preferences are accessible on document level through the File properties dialog
+- backspace can be used to delete selected objects as well as delete.
+- the text-entry used to input text has a menu with a few special characters like minus or arrow (xml entities are used for them).
+- CML export now asks whether atomic coordinates should remain in pixels or should be rescaled to something smaller, so that bond- lengths resemble real ones in angstroems.
+- mark placement was polished
+- electron pair mark has line_width as well as size
+- file tuning.py was added, it enables experianced and/or brave users to tweak some of the rendering options. More will be added in future
+- running bkchem with "-v" option only prints version and exists
+- the file_properties_dialog was polished a little
+- fixes of typos in documentation and source-code (thanks to Rene Genz)
+- piddle exports was finetuned (using tuning.py)
+- bkchem remembers the last active directory it used. It uses it only when it seems it is run via an desktop icon and not from command line.
+- Cairo PNG export is capable of exporting pictures with transparent background (it can be set in a dialog that appears on export)
+
+### Acknowledgments
+- Rene Genz (bug- and typo- reports)
+- many others who reported bugs and made useful suggestions
+
+## Release 0.11.6
+
+### Bugfixes
+- checked and fixed German and Czech translation problems (fixes bug 17990)
+- language dialog did not properly find available languages when BKChem started from unusual location
+- cancel in the language dialog did not have the desired effect and the language was set anyway
+- OpenOffice Draw version >=2.0.2 created thick outlines around the exported text
+
+### Translations
+- German translation fixed by me with help of Peter Liebetraut
+- Czech translation fixed slightly by me
+
+### Acknowledgments
+- Michael Palmer (OpenOffice Draw fix)
+- Rene Genz (bugreports)
+- Peter Liebetraut (bugreports)
+
+## Release 0.11.5
+
+### Bugfixes
+- fixed bug in SVG export of graphics with transparent interiors (was exported as black)
+- problems dragging selections containing brackets fixed (fixes bug 15950)
+
+### Enhancements
+- template atoms and bonds can be now marked from the context menu
+- marks are now also scaled via the Scale dialog
+
+### Translations
+- German translation updated by Jan Falkenhagen
+
+### Acknowledgments
+- Jan Falkenhagen (German translation)
+- Peter Liebetraut (for interest that forced me to make this release :)
+
+## Release 0.11.4
+
+### Bugfixes
+- bonds were not redrawn after some changes made from the context menu
+- bkchem sometimes crashed on exit when undo was used before
+- "atoms" like H2 are now properly parsed and understood
+- direction of 3D rotation was fixed (thanks to Armando Navarro Vazquez for bugfix)
+- PNG export text positioning fixed
+- crash of file saving in the German localization was fixed (thanks to Stefan Duemke for bugreport)
+
+### Enhancements
+- Cairo PNG export plugin now allows users to set resolution for the exported picture
+- size of marks is now configurable from the context menu of the atom
+- atoms of molecules generated from InChI have their number set to their number in InChI, to show it use context menu - "Show number"
+- parsing of linear formula fragments was improved
+
+### Changes
+- bkchem now ignores subscripts and superscripts when calculating bounding boxes for text, this changes rendering of formulas.
+- automatic mark positioning was changes slightly for free electron pairs not to appear skewed when placed on horizontally aligned molecules
+
+### Acknowledgments
+- Armando Navarro Vazquez for 3D rotation bugfix
+- Stefan Duemke for bugreport
+
+## Release 0.11.3
+
+### Bugfixes
+- "Paste" menu entry is activated when something is copied
+- crashes of copying of molecules imported from CML were fixed
+- saving of user preferences on bkchem exit was made more error-proof
+- unicode names of directories are handled properly
+- corrupt preference files do not render bkchem unstartable
+- check of cairo PDF export availability is performed on start
+
+### Changes
+- due to changes in cairo, PDF support is not always available, even if cairo is installed (depends on cairo version)
+- README file was updated to include InChI information
+
+### Acknowledgments
+- all those who reported bugs to me
+
+## Release 0.11.2
+
+### Bugfixes
+- on windows bkchem saves its config file and user templates to the user directory (Documents and Settings/Username/bkchem or similar), so no errors should be issued when non-privilidged user tries to save a template
+
+### Translations
+- French - updated (thanks to Edouard Saintesprit)
+
+### Acknowledgments
+- Piotr Wawrzyniak (bugreport and testing)
+- Edouard Saintesprit (French translation)
+
+## Release 0.11.1
+
+### Bugfixes
+- openoffice export of text was not working properly and crashed on unicode
+- after expansion of groups some bonds were not drawn
+- group text is no longer displayed with tags when edited
+- groups are now really converted to text when second bond is added to them
+- lines moved twice as fast as other objects when moved via arrow keys
+- the plugin for finding files containig a fragment was somehow forgotten in the last release
+- warnings about maximum valency were not issued when an atom was the receiving side of molecule concatenation
+
+### Enhancements
+- several new groups are now recongnized by BKChem such as Fmoc, MOP, TMS etc. (thanks to Radek Liboska for providing them)
+- InChI reading was tuned slightly
+- BKchem now uses the standard InChI program in much cleaner way for InChI generation, without the use of temporary files
+
+### Acknowledgments
+- Radek Liboska (bugreports, new groups)
+- Piotr Wawrzyniak (tireless bug-hunting)
+
+## Release 0.11.0
+
+### Bugfixes
+- one stupid bug was fixed in the coordinate generation code that crippled InChI and SMILES reading
+
+## Release 0.11.0_pre2
+
+### Enhancements
+- InChI reading support was very thoroughly updated and fixed (see http://bkchem.zirael.org/inchi_en.html)
+
+### Bugfixes
+- OpenOffice export of colored texts was fixed
+- brackets undo was fixed
+- setting atom text in atom mode was buggy under special conditions
+
+### Acknowledgments
+- thanks to Piotr Wawrzyniak, Daniel Leidert and Jaroslav Sebestik
+
+## Release 0.11.0_pre1
+
+### Enhancements
+- plugin to search for files containing a given molecular fragment added (it supports free-sites, A,Q,X query groups etc., pretty much like Beilstein CrossFire)
+- simple bracket mode (draw rectangle and it will be converted to two polylines in shape of a bracket)
+- dotted bonds implemented
+- automatic oxidation number computation implemented
+- p-orbital mark implemented
+- plugins may say to which menu they should be added (the .xml file may contain <menu>XXX</menu> tag that says it should be placed to the XXX menu instead of Plugins. The plugin entries are placed at the end, separated by a separator from the rest)
+- atom symbol may be set from context menu
+- group may be set from context menu
+
+### Bugfixes
+- reading of line_color for vector graphics fixed, openoffice export update
+- several openoffice export fixes
+- several polyline related bugs were fixed
+- minor unicode problems hopefully fixed for good
+- fixed buggy reading of transparent colors from cdml in graphics
+- fix crashes of export of empty paper with cairo and piddle
+- fixed bug in deletion of molecule in some cases (after expand of C4H9)
+- fixed bug in coords generation for alkyl chain groups expansion
+- fixed bug that interpreted ch2ch2ch2ch3 as C4H9, now alkyl chains are interpreted only for CxHy
+- undo of numbering was fixed
+- fixed bug in bonds saving under some obscure conditions
+- crash on canceling export dialog was fixed
+- fixed bug with wrong sorting of recent files
+- molfile export fixed
+
+### Changes
+- new focusing and unfocusing code should avoid left-behind focus circles
+- entries in context menu are alphabetically sorted
+- setting atom symbol to something else then 'C' turns on show automatically
+- when dragging an atom to another its Z-coord is changed to match the other ones so that they can be concatenated
+
+### Acknowledgments
+- to all the numerous people that supplied me with bugreports and ideas
+
+## Release 0.10.2
+
+### Enhancements
+- high quality PDF and PNG export via Cairo (pycairo) added (it is currently available for linux only)
+- line cap styles in PDF and PS piddle export are supported so the bond-joins look much better.
+
+### Bugfixes
+- problem of reading files with non-standard font size of atoms was fixed
+- problems with dialogs when using localized interface were (hopefully) fixed
+- saved SVGs did sometimes conform to the standard (stroke was set to ""), fixed
+- molfile import od 3D molecules works again
+- small bug in 3D rotation was fixed
+
+### Changes
+- import/export plugins were renamed and some info texts were added to them
+- scrollregion of mail window expanded for B4 to fit easily in
+
+### Acknowledgments
+- Piotr Wawrzyniak (bugreports)
+
+## Release 0.10.1
+
+### Bugfixes
+- context menu does not show "Properties" entry for marks (there is no properties dialog for marks)
+- undo of numbering via the "Misc small modes/Numbering" was fixed
+- fixed crash after "maximum valency exceeded" was reported on bond order change
+- atoms with visible text were inactive during dragging in draw mode
+- several openoffice export fixes (marks, dash bonds and texts)
+
+### Acknowledgments
+- Piotr Wawrzyniak (bugreports)
+
+## Release 0.10.0
+
+### Enhancements
+- line color is settable from context menu
+- it is possible to delete fragments from the fragment dialog
+- linear form support (it is possible to select a linear fragment of a molecule and convert it to a "linear form", that is for instance -CH2CH2CH3 from /\/, while maintaining the independence of atoms (in contrast to groups))
+- better handling of very short bonds (they are not drawn at all :)
+- "recent files" functionality implemented
+
+### Bugfixes
+- bonds between overlapping atoms are not drawn anymore
+- bug in freestyle drawing was fixed
+- molfiles export swapped y-coordinate (the coordinate system is different in bkchem and in molfiles)
+- SMILES generation for nested rings was fixed
+- SMILES reading for aromatics given in form C1=CC=CC=C1 instead of c1ccccc1 was fixed
+- adding template to the bond of ethane crashes no more
+- select_all in mark mode crashes no more
+- pl language was missing from the Language dialog
+- redraw was not properly triggered on undo of group expansion
+
+### Changes
+- wheel-scrolling removed on windows - it crashes besause a Tk bug
+
+### Translations
+- Polish (updated)
+
+### Acknowledgments
+- Piotr Wawrzyniak for bugreports
+- Staszek for bugreports
+- Nikodem Kuznik for Polish translation
+
+## Release 0.10.0_pre2
+
+### Enhancements
+- when editing text or atom it is possible to use keyboard shortcuts to insert formating tags
+
+### Ctrl
+- s = sub, Ctrl-S = sup, Ctrl-i = i, Ctrl-b = b
+
+### Bugfixes
+- adding marks to atom triggered an error
+- system locale overrode internal language setting when it was set to "en"
+- clicking on empty canvas in reaction mode triggered an error
+
+### Acknowledgments
+- Piotr Wawrzyniak for bugreport
+
+## Release 0.10.0_pre1
+
+### Enhancements
+- marks can be moved by mouse in mark_mode
+- position of cursor is shown in the status bar
+- wheel scrolling added
+- the active paper tab is highlighted
+- scaling dialog was improved
+- support for fragments (continuous blocks of bond in a molecule) - right now has no builtin usage
+- context menu was improved and polished
+- PS (both old and new), PDF and SVG support cropping (set it in file properties or standard) (thanks to Maciek Fialkowski for the original patch for old PS export)
+- it is possible to set margins for cropping of exported drawings
+- bonds are drawn only from and to the borders of visible text
+- atom text selector is invisible
+- support for more marks of the same type on one atom
+- numbering support for atoms (use context menu or numbering mode)
+
+### Number Is Represented By A Mark
+- it can be positioned in mark mode
+- dragging threshold of 1px was added experimentaly to the edit_mode
+- menu rewritten again to support context sensitive activation of menu items
+- arrow heads are properly exported via piddle (pdf,ps)
+- it is possible to choose menu language from inside of BKchem
+- support for line vector graphics object
+- support for user written plugins (more in doc/custom_plugins_en.html)
+- transparency support in color selection, other additions
+- Ctrl-click in edit mode can be used for deletion of individual atoms/bonds (thanks to Piotr Wawrzyniak for the idea and patch)
+- parsing of linear formulas (e.g. -CH2CH2COCl) used in atoms added
+- group is capable of working as a single vertex of the molecule (PhCH2CCl3 is interpreted correctly)
+- circle around some marks can be switched off
+- marks are supported by context_menu under mark_mode - size, draw_circle
+- textatom has marks again
+- dotted_electronpair mark added * it is the same as biradical but does not affect the multiplicity of the atom
+- some common grups were added, such as Ac (acetyl, not actinium), Ts, Ms, Pr, Bz, Bn (thanks to Piotr Wawrzyniak for the idea)
+
+### Changes
+- if both atoms of a bond are visible, the 'stroke-linecap' is set to 'butt' instead of 'round'
+- drawing of hatches was tuned a little
+- the size of the SVG picture is given in 'mm', fixing some rendering problems
+- the CDML format was slightly changed - old files should be read properly in new BKchem but new files will likely crash in old BKchem (when groups of text-atoms are used)
+- Pmw is distributed together with BKchem as I had to fix an unicode problem there and it seems the Pmw itself is dead
+- BKchem now relies on Python 2.3 and higher (because of the new Set class)
+
+### Bugfixes
+- fix of occupied valency and free valency computation * fixed the problem with marks and number of hydrogens)
+- memory leak that prevented molecules and papers to be collected was fixed
+- SVG export - stroke was removed from the text attributes thus rendering of text is much nicer
+- fix of setting atoms valency from a context_menu
+- context menu has no longer redundant separators
+- there was a bug in the linux install scripts that caused api documentation to be installed under /usr/doc/api/.., please remove it if you find it there (sorry)
+- double bonds in groups as SO3H and similar are now properly centered
+- SVG export of single dashed bond was fixed
+- text export to svg was fixed - no redundant tspan is created * this fixes batik rendering problems of italics subscripts
+
+### Acknowledgments
+- Piotr Wawrzyniak (patches and ideas)
+- Maciek Fialkowski (patches and ideas)
+- Martin Ballaschk (German translation)
+- Tomas Novotny (bugreports and patience)
+
+### Translations
+- added - German
+
+## Release 0.9.0
+
+### Bugfixes
+- the startup script used on Unix systems was updated to handle whitespace in filenames properly
+- computation of free valency of an atom was fixed (hopefully) so the "Check chemistry" should work again
+- export of text to openoffice does not fail anymore
+- the "C-t" keybinding for marking a template atom/bond works also in user template mode
+- reading of INChIs for tetravalent atoms was fixed
+
+### Changes
+- the UI was updated
+- the entry field for text input was moved back to its original position under the mode buttons and it font size was changed
+
+### Acknowledgments
+- thanks to everybody who sent me a bugreport
+- thanks to Piotr Wawrzyniak for the BKchem icon
+
+## Release 0.9.0-pre2
+
+### Bugfixes
+- user template mode does not crash when clicking on paper without any template available
+
+### Changes
+- PDF and PostScript (new) export do not output the squares that mark selected bonds and atoms
+- mark template atom (bond) accelerate key changed to C-t (was C-t C-1)
+
+## Release 0.9.0-pre1
+
+### Bugfixes
+- colors of vector graphics were not read from CDML (SVG)
+- reaction mode crashed when part of the reaction was removed
+- a bug in undo of atoms with attached hydrogens was fixed
+- vector graphics did not respond to mouse event once dragged (until the mouse left it and reentered)
+- chages are now handled correctly by molfile and other exports
+- molfile export of atom charges was fixed (influences also inchi generation)
+- export of wedges to openoffice was fixed (thanks to Alex Thurgood for bugreport)
+- Expand groups failed on "Me"
+- Expand groups had problems with positioning of double bonds (for COOH and similar)
+- the paper properties setting did not have any effect in most cases
+
+### Enhancements
+- user template mode added - it is now possible for the user to create her own templates (more in doc/custom_templates_en.html or on the homepage)
+- File/Save As Template menu entry added
+- rotation around bond added to the "transformation mode" (it enables rapid changes of conformation of molecules)
+- dash bond added
+- when entering atom text with charge (such as Al3+) it gets parsed correctly (does not work with atoms bearing a hydrogen such as ch2+ - it is ambiguous)
+- bond order can be set from the context menu
+- bond order can be explicitly set to 0 to allow describing of hydrogen bonds etc.
+- PDF and Postscript export plugins added based on Piddle (arrows export is not complete)
+- PDF and Postscript export plugins can export cropped files (depending on the File/ File properties/ Crop SVG? setting)
+- bkchem can now be started and scripted from outside (see doc/external_import_en.html or homepage)
+- Chemistry/Set display form enables you to set a string representation of a molecule (usefull only for external tools for now)
+
+### Changes
+- marks are now positioned above atoms, so it is no more possible for a mark to be hidden under an atom
+- standard bond length is now 0.7 cm instead of 1 cm
+- svg export of text was hacked to compensate for wrong calculation of text size in Tkinter
+- on source code install on linux systems the path to the various parts of the program is no longer set via env variables but put into a file XXX/lib/pythonX.Y/site-packages/bkchem/site-config.py
+
+## Release 0.8.1
+
+### Bugfixes
+- usage of context menu under windows no longer causes hanging
+- crash under windows on bkchem exit fixed
+- not finished "free rotation around single bond" in transformation mode was removed
+
+## Release 0.8.0
+
+### Bugfixes
+- unneeded import causing dependency on the XMLplus package was removed
+
+## Release 0.8.0-pre2
+
+### Bugfixes
+- when multiple filenames were given from the command line, only the existence of the first was properly checked
+- some triple bonds were not exported correctly into SVG
+- "As-is" text interpretation did not work proprly for atoms
+- bond and mark positioning was reduntandly recalculated after 2D rotation
+- error was triggered by closing a tab with an item focused
+- after moving items via arrow keys some atoms were inactive for some time
+- it is not possible to save a file under a name of already opened file anymore
+- repositioning of marks is not called on all marks after deletion of something (it was really annoying)
+- when a standard value for font size was != 12 and some text had font size == 12 it was rescaled to the standard value on rereading of the file (the font size was not saved)
+- undo of marks was fixed (they were sometimes not deleted on undo)
+
+### Enhancements
+- some wrapper methods enable now non-ascii characters input on much wider set of systems
+- chemical meaning of all marks (except the lone electron pair) is now taken into account
+- context menu bound to the right mouse key was added (thus the previous functionality of the right key was moved to the middle key)
+- INChI can be generated via an external INChI program (the capabilities are limited to the capabilities of the Molfile export plugin)
+- window geometry is saved and restored on next start (with a slight, strange shift in case of some window managers)
+- svg export of wedges was fixed for bonds with line-width != 1.0
+- atom mode added to enable creation of sigle-atom molecules
+- marks on selected atoms can be moved via arrow keys in mark mode (select the atom, go to the mark mode and use the arrow keys to move the marks), it is a quick addition that will be hopefully enhanced in the next release
+- reaction mode was added (you can define the reactants, products etc. for each arrow)
+- equithick hatch bonds were introduced and made default (you can change it by clicking on the bond more than once), this is because it is recommended as sharp hatch bonds are usually wrongly interpreted. Thanks to Michal Bozon for the patch
+- CH2OH group was added
+- INChI reading was updated to version 1.12Beta (older version is also supported)
+- INChI reading of molecules with movable H atoms was fixed
+
+### Changes
+- Name mode was removed, Menu/Object/Set molecule name (ID) was introduced instead
+- the keybindings were changes so that using a-zA-Z characters have the same effect as the Space character, thus you can start to type directly without pressing Space first
+- because of the previous point, all keybindings now contain a Ctrl or Alt in every part (C-o b => C-o C-b)
+- atom text could be no longer edited in the text mode, use atom mode instead
+- the organization of buttons in menu was slightly changed
+
+### Acknowledgments
+- to Michal Bozon for the equithick patch
+
+## Release 0.8.0-pre1
+
+### Bugfixes
+- text created by copying disappeared from the saved file (and corrupted it) (the corrupted files are now read and the lost text is marked with ? mark)
+- some double bond did not respond to shift-clicking to reposition the second line
+- size of arrow-heads in SVG export was fixed for arrows thicker than 1px
+- when using the "As-is" button for atom text change, the text is now always diplayed
+- when focused atom was removed by undo a bug was triggered
+- oasa - reading of smiles such as C1CccCC1 was corrupted
+
+### Enhancements
+- support for multiple files was added
+- it is possible to copy objects from one file to another
+- oasa - support for new format of INChI (was IChI) was added
+
+## Release 0.7.1
+
+### Bugfixes
+- file permissions were fixed so that the "python setup.py install" works
+
+### Acknowledgments
+- Eugenia Loli-Queru (bugreport)
+
+## Release 0.7.0
+
+### Bugfixes
+- double bonds were wrongly positioned on stack, thus disappearing when a molecule was placed over some other object with full backgroung
+
+### Enhancements
+- \n in text entry is translated to new-line
+- undo of molecule division was optimized (leading to 10-100x shorter times for large molecules)
+- reading of CDML files was optimized
+- some redundant informations are saved into CDML files to speed the reading up
+- template addition was optimized (speedup of 10-100x for large molecules)
+- deletion of parts of molecules was optimized (up to 10x speedup for larger molecules)
+- new bonds are always added transoid
+- addition of/to triple bonds is always in 180 deg. angle
+
+### Changes
+- None
+
+### Translations
+- updated - Czech
+
+## Release 0.7.0-pre1
+
+### Bugfixes
+- the in the config dialog "Show hydrogens" had a wrong default value
+- the ColorButton crashed (python 2.3 only?) when the config dialog was run on objects with different colors
+- the program sometimes did not quit after saying 'yes' to 'really quit?' (a bug in Tkinter askyesno dialog?)
+
+### Enhancements
+- this is the first release featuring OASA - a free chemical library I have started to work on this year. It brings support for several chemical formats. At this time SMILES, Molfiles and IChI (only reading). To be able to use these features you have to have at least Python 2.3.
+- Molfiles - export, import
+- IChI - direct input (see the menu Chemistry)
+- SMILES - direct input, ouput (see the menu Chemistry)
+
+### Changes
+- some of the commands were moved from 'Object' menu to 'Chemistry' menu
+
+### Translations
+- added - French
+
+### Acknowledgments
+- Alex Thurgood (French translation)
+
+## Release 0.6.0
+
+### Bugfixes
+- hitting escape during text creation no longer produces "None" text
+- addition of a molecule no longer resets the paper properties to standard values
+- crash on save for files with colored texts was fixed
+- backgroud color of plus in exported correctry to openoffice
+- font size of a plus is saved properly
+- one of the cyclopentadiene templates appeared always on the wrong side of a molecule it was added to (by means of bond)
+- permissions fixed so that templates.cdml is readable for everybody
+
+### Enhancements
+- bond order is cycled only within limits of free valency of neighbor atoms
+- OH and similar groups ("protonated atoms") change the number of Hs on bond addition, deletion and undo
+
+### Changes
+- hitting 'Space' when only single text (atom) is selected sets the default text for edit to this particular text, the last entered text (the old way) is used only when more items are selected
+
+## Release 0.6.0-pre1
+
+### Bugfixes
+- non-ascii text support fixed (for some reason works only on some platforms :(
+- any suggestions welcome
+- menu 'Object/Swap on stack' called "sent to front" instead (typo)
+- bkchem window resized sometimes itself on mode change, should be fixed
+- template addition now takes atoms valency into account
+
+### Enhancements
+- bond order and type were separaded
+- it is possible to draw wedge/hatch double bonds
+- adder (unspecified stereo) and bold bond was added
+- double stereo bond may be drawn in two different ways (second bond is also stereo or line-only)
+- transform mode was introduced
+- aling selected bond to horizontal or vertical position
+- perform inversion or mirror transformation
+- horizontal and vertical mirror transforms were added
+- hints on usage appear now in status bar when you change a mode
+- double click in edit_mode selects the whole molecule
+- cyclopentadiene template was updated to be really symmetric
+- OpenOffice.org export - the output of atoms was tuned to minimize the size of the background of the text
+
+### Changes
+- unmaintained PNG and Povray exports were removed
+- in menu Object/Configure command was added as alternative to right click
+- empty space between submodes for easier orientation
+- icons are now loaded on demand - slightly faster start-up
+
+### Translations
+- updated - Czech
+- added - Polish
+
+### Acknowledgments
+- Michal Bozon (the original transform mode)
+- Nikodem Kuznik (Polish translation)
+
+## Release 0.5.2
+
+### Bugfixes
+- the bugfixes that was announced for 0.5.1 was not present there. Sorry for that, but it is for sure included in 0.5.2
+- fix was added to be able to read the corrupted files from 0.5.1 and earlier
+
+### Enhancements
+- None
+
+### Changes
+- None
+
+## Release 0.5.1
+
+### Bugfixes
+- invalid files are no longer created under Python 2.3 when marks are used (bug was due to the introduction of boolean type in this version of python)
+
+### Enhancements
+- None
+
+### Changes
+- the progress.log format was changed and will contain only summary for each release
+- - release of 0.5.1-pre1 2004-02-10  Beda Kosata  <beda@zirael.org> (sav4)
+
+### Bugfix
+- an ugly bug that caused focus circles to hang around when a delete operation was performed with an atom (or other item) in focus.
+
+### Bugfix
+- annoying warnings about "leaving NONE" were fixed in arrow mode * the points of spline arrow are no more visible. You can click the arrow to get the points selected to see them (let me know if this does not suit you) * in the arrow mode you can now choose if you want do create a spline arrow or a normal one. The selected type of arrow is also applied if you modify the arrow or simply click on it. 2004-02-09  Beda Kosata  <beda@zirael.org> (sav3)
+
+### Bugfix
+- a config dialog bug caused by Python 2.3 introduction of boolean type was fixed
+
+### Bugfix
+- an error when configuring an arrow ("config dialog has no attribute spline_changed") was fixed
+
+### Bugfix
+- several redundant and baseless roundings of coordinates were removed (thanks to Michal Bozon for the patch)
+
+### Bugfix
+- the cyclopentane template was updated which makes it (together with the previous bugfix) 100% symmetric (thanks to Michal Bozon for the patch)
+
+### The [1]Benzothieno[3,2
+- b][1]benzothiophene :) template was removed * in the standard dialog it is now possible to specify if all the standard values should be applied or only the changed ones. 2004-02-08  Beda Kosata  <beda@zirael.org>
+
+### Bugfix
+- rotation mode no longer creates empty undo records when no rotation was performed 2004-02-06  Beda Kosata  <beda@zirael.org> (sav2)
+
+### Bugfix
+- a typo that made the superscript button create subscript was fixed
+
+### Bugfix
+- wedge arrow with non-black color goes no more black after focus
+
+### Bugfix
+- the marks are now repositioned during rotation (after rotation for 3D rotation) 2004-02-04  Beda Kosata  <beda@zirael.org> (sav1)
+
+### Bugfix
+- "Unable to parse text..." error was found and fixed. May this be caused by the unicode usage under RedHat? (I have not seen this under Gentoo)
+
+### Code Cleanup
+- the undo was switched to meta-info driven code which should make the code more easily extendable
+
+### Code Cleanup
+- the bond draw method was switched to "plugable methods" code, this should also save much work when new bond types are added 2003-10-01  Beda Kosata  <beda@zirael.org>
+
+### Bugfix
+- problem with bond width change was fixed
+- - release of 0.5.0 2003-09-30  Beda Kosata  <beda@zirael.org> * PostScript export updated to support paper sizes and moved to a plugin (File/Export/Encapsulated PostScript) * paper properties were added to standard so that they can be saved in personal profile
+- - release of 0.5.0-pre5 2003-09-26  Beda Kosata  <beda@zirael.org> * it is now possible to save your personal standard (from the Options/Standard dialog) which will be used everytime you start BKchem * templates for common five membered heterocycles added (thanks to Petr Vodicka for them) * templates for purine and chair conformation of cyclohexane were added
+
+### Bugfix
+- OpenOffice Draw export supports text color
+
+### Bugfix
+- in SVG export sometimes overlay of items did not correspond to their order in bkchem
+
+### Bugfix
+- it seems that Tkinter treats font sizes as if they were in 'px' not 'pt' as it states. The SVG generation code was fixed to output 'px' so that the SVG export is more WYSIWYG (please let me know if you find the SVG text significantly smaller than what you see in BKchem) 2003-09-25  Beda Kosata  <beda@zirael.org> * use of standard values significantly improved * dialog for standard values added * second bond of double and triple bonds may be drawn shorter than the main part of the bond (the ratio is customizable via Options/Standard or in config dialog for every bond) Thanks to Michal Bozon for the original patch. * all button images were converted to gifs in order to preserve their transparency 2003-09-21  Beda Kosata  <beda@zirael.org> * if file name given to bkchem on startup does not exist create a new file with this name 2003-08-07  Beda Kosata  <beda@zirael.org> * support for paper sizes and marks was added to the OpenOffice export plugin 2003-08-05  Beda Kosata  <beda@zirael.org>
+
+### Bugfix
+- creating text that contains only tags (e.g. '<i></i>') no longer crashes
+- - release of 0.5.0-pre4 2003-07-22  Beda Kosata  <beda@zirael.org>
+
+### The Same Fix As In 0.5.0
+- pre3 for all the plugins (the statement about full compatibility of 0.5.0-pre3 with PyXML should be now more valid :)
+- - release of 0.5.0-pre3 2003-07-21  Beda Kosata  <beda@zirael.org> * a nasty bug (in fact bad coding habit) that caused saving files to crash on machines with PyXML installed was fixed. BKchem should be now fully compatible with the PyXML library.
+- - release of 0.5.0-pre2 2003-07-17  Beda Kosata  <beda@zirael.org> * templates are scaled according to the standard bond length 2003-07-06  Beda Kosata  <beda@zirael.org> * bkchem now deals with abbreviated alkyl chains (CnH2n+1) as with other groups (expansion, molecular formula etc.)
+
+### Support For B
+- spline arrows was added, unfortunately SVG can deal only with Bezier curves and don't know how to transform b-spline -> Bezier; this means the export to SVG is far from perfect
+
+### Bugfix
+- appending a template to an atom with non-zero Z coordinate did not work properly; code was added to detect such cases and inform the user that it is not possible 2003-07-02  Beda Kosata  <beda@zirael.org> * standard bond length was changed from pixels to cm, so that it is machine independent
+
+### 'C
+- d n' where 'n' is number in range 2-9 appends an aliphatic chain to the focused atom 2003-06-30  Beda Kosata  <beda@zirael.org>
+
+### Bugfix
+- reading negative coordinates no longer crashes (was typical for 3D rotated molecules) 2003-06-01  Beda Kosata  <beda@zirael.org>
+
+### Bugfix
+- expand_group on focused group no longer causes error
+- - release of 0.5.0-pre1 2003-05-25  Beda Kosata  <beda@zirael.org> * it is now possible to pass a file name to bkchem as a command line argument * all positions are now stored in 'cm'
+- files should now look exactly the same on different machines 2003-05-24  Beda Kosata  <beda@zirael.org> * sizes in SVG export were normalized; files should look exactly the same on machines with different dpi resolution 2003-05-21  Beda Kosata  <beda@zirael.org>
+
+### Marks (Radical, Electron Pair Etc.) Were Introduced
+- no export except SVG yet 2003-05-14  Beda Kosata  <beda@zirael.org> * support for paper sizes and orientation
+- - release of 0.4.3 2003-03-31  Beda Kosata  <kosatab@vscht.cz>
+
+### Bugfix
+- a nasty bug that caused exports to fail on new (untitled) files was fixed
+- - release of 0.4.2 2003-03-26  Beda Kosata  <kosatab@vscht.cz>
+
+### Bugfix
+- right-clicking on a selection rectangle no longer causes error
+
+### Openoffice Export
+- vector graphics is exported
+- proper stacking included
+- bonds and atoms are grouped into molecules for easier manipulation * export plugins now offer the right extension for the exported file
+- - prerelease 0.4.2-pre2 2003-03-25  Beda Kosata  <kosatab@vscht.cz>
+
+### Openoffice Export
+- stereo bonds, text and pluses are now also exported
+- - prerelease 0.4.2-pre1 2003-03-21  Beda Kosata  <kosatab@vscht.cz>
+
+### Openoffice Export Works Once Again
+- bonds (not stereo), atoms and arrows are exported * Import/Export menu created under File menu 2003-02-02  Beda Kosata  <kosatab@vscht.cz>
+
+### Bugfix
+- opening a file that contained atoms with text that seemed interpretable (Ph etc.) failed because valency information for that atom are not available at read. 2002-12-23  Beda Kosata  <kosatab@vscht.cz>
+
+### Buttons For Text Tagging Added
+- selected text can be tagged (b, i, sub, sup) during editing using buttons. When no text is selected an empty tag is created.
+- - release of version 0.4.1 2002-12-18  Beda Kosata  <kosatab@vscht.cz>
+
+### Bugfix
+- removed the openoffice plugin as it is too unfinished and buggy and causes confusion 2002-12-16  Beda Kosata  <kosatab@vscht.cz>
+
+### Bugfix
+- removed obsolete Povray export from 'Experimental exports'. It is available as a plugin. * distribution of bkchem was automatized by means of distutils * classic unix installation is now possible (for Unix only, of course) which makes it possible to run bkchem from anywhere. See INSTALL for more info.
+- - release of version 0.4.0 2002-10-23  Beda Kosata  <kosatab@vscht.cz>
+
+### Bug That Made Alt Key "Hang" After Alt
+- Tabing out of the window and back was fixed 2002-10-22  Beda Kosata  <kosatab@vscht.cz>
+
+### Fixed Bug That Caused Crash After The User Tried To Insert A Template To Arrow Or Other Non
+- molecular object 2002-10-20  Beda Kosata  <kosatab@vscht.cz> * individual points of polygon can be deleted (but new cannot be added) 2002-10-19  Beda Kosata  <kosatab@vscht.cz> * added polygon (left click to create individual points, right to finish the shape) * added ability to adjust object visibility by changing its position on the stack 2002-10-18  Beda Kosata  <kosatab@vscht.cz> * bug that caused error when trying to rotate arrow was fixed (but arrow still cannot be rotated) 2002-10-17  Beda Kosata  <kosatab@vscht.cz>
+
+### Fixed Bug
+- save file dialog was not properly canceled (filename was set to 'untitled')
+
+### Fixed Bug
+- 'really quit' dialog was not open when exiting the app via 'C-x C-c'
+
+### Fixed Stupid Bug In Align
+- 'l' is left and 'r' is right now :) * added circle 2002-10-15  Beda Kosata  <kosatab@vscht.cz> * fixed bug that caused error when focused atom was deleted and then some drawing action was performed * added square 2002-10-14  Beda Kosata  <kosatab@vscht.cz> * color support added * the title of the main window now shows the name of currently edited file * 'common page' added to config dialog with line width and color selection 2002-10-13  Beda Kosata  <kosatab@vscht.cz> * cyklopropane and cyklobutane templates added * another small bugfix (current file name was set even if the file was not read correctly) 2002-10-09  Beda Kosata  <kosatab@vscht.cz>
+
+### Bug That Caused Crash After A Template Was Put Over A Non
+- C atom was fixed
+
+### Bug That Made Ctrl Key "Hang" After 'C
+- x C-f' was fixed 2002-10-06  Beda Kosata  <kosatab@vscht.cz> * selected items can be moved using arrows * vector graphics (rectangle and oval) introduced
+- - release of version 0.3.0 2002-09-15  Beda Kosata  <kosatab@vscht.cz>
+
+### Group Expansion
+- e.g. -COOH can be now expanded to complete structure (important for CML export) * small bugfixes * number of undo steps limited to 20 to reduce memory consumption * rewritten and improved checking of chemical validity * CML plugin now performs chemistry check on export and refuses to export chemically invalid data * CML plugin now expands groups on export
+
+### 'C
+- S-a' can be now used for select_all 2002-08-26  Beda Kosata  <kosatab@vscht.cz> * work on export plugin for OpenOffice Draw format 2002-08-20  Beda Kosata  <kosatab@vscht.cz>
+
+### Fixed Hard
+- to-find-easy-to-fix bug in undo
+
+### On
+- fly warnings on exceeded valency 2002-08-05  Beda Kosata  <kosatab@vscht.cz>
+
+### 3D Support
+- import, export, 3D rotation * checking of chemical validity of drawn molecules * accelerator keys are now displayed in menus 2002-08-03  Beda Kosata  <kosatab@vscht.cz> * minor modifications in SVG export
+- - release of version 0.2.0 2002-07-20  Beda Kosata  <kosatab@vscht.cz> * second line of double bond is now always automatically positioned inside a ring 2002-06-23  Beda Kosata  <kosatab@vscht.cz> * code that allows convenient reading of older versions of CDML * interactive positioning of second line in double bonds (user can still override auto positioning by shift-click in draw mode) * preliminary CML2 support as plugin 2002-06-15  Beda Kosata  <kosatab@vscht.cz>
+
+### Reduced Size Of Cdml
+- only necessary data are saved * default values are used for data absent in CDML (when possible) * viewport transformation possible on file read * CML import sets viewport for imported data to be always visible on screen (dimensions are usually in angstroms) 2002-06-08  Beda Kosata  <kosatab@vscht.cz> * plugin framework * CML import/export plugin started
+
+### Moved Atoms Are Automaticaly Updated (Ch3
+- > H3C) 2002-04-22  Beda Kosata  <kosatab@vscht.cz> * "intelligent" judging of position of second line in double bond * molecules can be named (use new mode called "name")
+- - release of version 0.1.2 2002-04-16  Beda Kosata  <kosatab@vscht.cz> * reduced dependency on PIL. PIL is no longer needed to display icon buttons * binary release now possible using "Install" 2002-04-13  Beda Kosata  <kosatab@vscht.cz> * bkchem now understands atoms in the chemical sense * almost complete periodic table available (without lanthanoids and actinoids) * information based on molecular formula available (formula, weight, composition)
+- - release of version 0.1.1 2002-04-10  Beda Kosata  <kosatab@vscht.cz> * freestyle submode for draw mode * submodes (including freestyle) for arrow mode 2002-04-08  Beda Kosata  <kosatab@vscht.cz> * "really quit" question 2002-04-06  Beda Kosata  <kosatab@vscht.cz>
+
+### Loading Of Cd
+- SVG
+
+### Full Support For Gzipped Cdml And Cd
+- SVG * file reading independent of file extension * some optimization of SVG file size 2002-04-05  Beda Kosata  <kosatab@vscht.cz>
+
+### Saving To Svg With Embedded Cdml (Cd
+- SVG) 2002-04-04  Beda Kosata  <kosatab@vscht.cz> * font family selection

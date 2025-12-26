@@ -21,8 +21,8 @@
 
 """
 
+import builtins
 import os
-import re
 import tkinter
 import tkinter.font
 import tkinter.messagebox
@@ -35,6 +35,8 @@ import widgets
 import os_support
 
 from singleton_store import Store, Screen
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 
 
@@ -602,9 +604,9 @@ class file_properties_dialog(object):
 
     # replace hyphens with minuses in export?
     self.replace_minus = tkinter.IntVar()
-    replace_minus_button = tkinter.Checkbutton( minus_frame,
-                                                text=_('Replace hyphens with minus in SVG export?'),
-                                                variable = self.replace_minus)
+    self.replace_minus_button = tkinter.Checkbutton( minus_frame,
+                                                     text=_('Replace hyphens with minus in SVG export?'),
+                                                     variable = self.replace_minus)
     self.replace_minus.set( self.paper.get_paper_property( 'replace_minus'))
     # ***HACK***
     #replace_minus_button.pack( anchor='w', padx=5, pady=5)
@@ -1160,4 +1162,3 @@ class progress_dialog( tkinter.Toplevel):
   def close( self):
     self.parent.focus_set()
     self.destroy()
-

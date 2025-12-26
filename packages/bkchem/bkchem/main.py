@@ -27,7 +27,6 @@ import builtins
 import os
 import sys
 import oasa
-import string
 import collections
 import importlib.util
 import xml.dom.minidom as dom
@@ -370,12 +369,6 @@ class BKChem( Tk):
       for name in plugins.__all__:
         plugin = plugins.__dict__[ name]
         self.plugins[ plugin.name] = plugin
-
-        # support for tuning of piddle
-        if plugin.name.endswith( "(Piddle)"):
-          from .plugins import tk2piddle
-          from . import tuning
-          tk2piddle.tk2piddle.text_x_shift = tuning.Tuning.Piddle.text_x_shift
 
     self.paper = None
 
@@ -1064,12 +1057,12 @@ class BKChem( Tk):
     if a:
       if not config.debug:
         try:
-          _doc = exporter.write_to_file( a)
-        except:
-          tkinter.messagebox.showerror(_("Export error"), _("Plugin failed to export with following error:\n %s") % sys.exc_info()[1])
+          exporter.write_to_file( a)
+        except Exception as error:
+          tkinter.messagebox.showerror(_("Export error"), _("Plugin failed to export with following error:\n %s") % error)
           return False
       else:
-        _doc = exporter.write_to_file( a)
+        exporter.write_to_file( a)
       Store.log( _("exported file: ")+a)
       return True
     return False
@@ -1167,20 +1160,20 @@ Enter InChI:""")
       else:
         try:
           mol = oasa_bridge.read_inchi( text, self.paper)
-        except oasa.oasa_exceptions.oasa_not_implemented_error as _e:
+        except oasa.oasa_exceptions.oasa_not_implemented_error as error:
           if not inchi:
             tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
                                    _("Some feature of the submitted InChI is not supported.\n\nYou have most probaly submitted a multicomponent structure (having a . in the sumary layer"))
             return
           else:
-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
-        except oasa.oasa_exceptions.oasa_inchi_error as _e:
+            raise ValueError("the processing of inchi failed with following error %s" % error)
+        except oasa.oasa_exceptions.oasa_inchi_error as error:
           if not inchi:
             tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',
                                    _("There was an error reading the submitted InChI.\n\nIf you are sure it is a valid InChI, please send me a bug report."))
             return
           else:
-            raise ValueError("the processing of inchi failed with following error %s" % sys.exc_info()[1])
+            raise ValueError("the processing of inchi failed with following error %s" % error)
         except oasa.oasa_exceptions.oasa_unsupported_inchi_version_error as e:
           if not inchi:
             tkinter.messagebox.showerror(_("Error processing %s") % 'InChI',

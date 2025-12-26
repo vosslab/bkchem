@@ -21,12 +21,10 @@
 
 """
 
+import builtins
 import os
 import xml
-try:
-  import tkinter.messagebox as tkMessageBox
-except ImportError:
-  import tkinter.messagebox
+import tkinter.messagebox as tkMessageBox
 
 import Pmw
 import dialogs
@@ -34,6 +32,9 @@ import widgets
 import validator
 import os_support
 import bkchem_exceptions as excs
+
+_ = builtins.__dict__.get( '_', lambda m: m)
+ngettext = builtins.__dict__.get( 'ngettext', lambda s, p, n: s if n == 1 else p)
 
 from atom import atom
 from molecule import molecule
@@ -47,7 +48,7 @@ def ask_name_for_selected( paper):
   ms = [o for o in top_levels if isinstance( o, molecule)]
 
   if not ms:
-    tkinter.messagebox.showerror( _("No molecule selected."),
+    tkMessageBox.showerror( _("No molecule selected."),
                             _("At least one molecule must be selected. Please select it."))
     return
 
@@ -77,12 +78,12 @@ def ask_id_for_selected( paper):
   ms = [o for o in top_levels if isinstance( o, molecule)]
 
   if not ms:
-    tkinter.messagebox.showerror( _("No molecule selected."),
+    tkMessageBox.showerror( _("No molecule selected."),
                             _("At least one molecule must be selected. Please select it."))
     return
 
   if len( ms) > 1:
-    tkinter.messagebox.showerror( _("Only one molecule should be selected."),
+    tkMessageBox.showerror( _("Only one molecule should be selected."),
                             _("ID must be unique value, therefore it is obviously possible to set it to one molecule only. Please select only one molecule"))
     return
 
@@ -107,7 +108,7 @@ def ask_id_for_selected( paper):
     collision = 0
     for mol in paper.molecules:
       if mol != m and mol.id == id:
-        tkinter.messagebox.showerror( _("ID collision"),
+        tkMessageBox.showerror( _("ID collision"),
                                 _("This ID is already used, use a different one"))
         collision = 1
         break
@@ -123,17 +124,17 @@ def check_validity( mols):
   val = validator.validator()
   val.validate( mols)
   if val.report.text_atoms:
-    tkinter.messagebox.showerror( _("Validity error"),
+    tkMessageBox.showerror( _("Validity error"),
                             _("Sorry but your drawing includes 'text atoms'\n - atoms with no chemical sense.") + "\n\n" +
                             _("It is not possible to export them.") + "\n\n" +
                             _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
     return 0
   if val.report.exceeded_valency:
-    tkinter.messagebox.showwarning( _("Validity warning"),
+    tkMessageBox.showwarning( _("Validity warning"),
                               _("Your drawing includes some atoms with exceeded valency.") + "\n\n" +
                               _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
   if val.report.group_atoms:
-    yes = tkinter.messagebox.askokcancel( _("Expand groups?"),
+    yes = tkMessageBox.askokcancel( _("Expand groups?"),
                                     _("Your drawing includes some groups.") + "\n\n" +
                                     _("These must be expanded in order to get chemicaly valid drawing. The expansion could be undone afterwards.") + "\n\n"+
                                     _("Proceed with expansion?"))
@@ -166,7 +167,7 @@ def ask_display_form_for_selected( paper):
   ms = [o for o in top_levels if isinstance( o, molecule)]
 
   if not ms:
-    tkinter.messagebox.showerror( _("No molecule selected."),
+    tkMessageBox.showerror( _("No molecule selected."),
                             _("At least one molecule must be selected. Please select it."))
     return
 
@@ -195,7 +196,7 @@ def ask_display_form_for_selected( paper):
       try:
         xml.sax.parseString( "<a>%s</a>" % df, xml.sax.ContentHandler())
       except xml.sax.SAXParseException:
-        tkinter.messagebox.showerror( _("Parse Error"), _("Unable to parse the text-\nprobably problem with input encoding!"))
+        tkMessageBox.showerror( _("Parse Error"), _("Unable to parse the text-\nprobably problem with input encoding!"))
         Store.app.paper.bell()
         return
   else:
@@ -266,7 +267,7 @@ def save_as_template( paper):
       if path:
         path = os_support.create_personal_config_directory( "templates")
       if not path:
-        tkinter.messagebox.showerror( _("Directory creation failed."),
+        tkMessageBox.showerror( _("Directory creation failed."),
                                 _("It was not possible to create the personal directory %s.") % os_support.get_personal_config_directory())
         return
 
@@ -287,7 +288,7 @@ def save_as_template( paper):
       name = os.path.join( path ,name) + '.svg'
 
       if os.path.exists( name):
-        q = tkinter.messagebox.askokcancel( _("The file already exists."),
+        q = tkMessageBox.askokcancel( _("The file already exists."),
                                       _("Template with this name already exists (path %s).\nShould I rewrite it?") % name)
         if q:
           return name
@@ -361,7 +362,7 @@ def select_language( paper):
         Store.pm.remove_preference( "lang")
       else:
         Store.pm.add_preference( "lang", a.languages[lang[0]])
-      tkinter.messagebox.showinfo( _("Info"),
+      tkMessageBox.showinfo( _("Info"),
                              _("The selected language will be used the next time you start BKChem."))
 
 
@@ -417,7 +418,6 @@ def atoms_to_linear_fragment( mol, vs, bond_length=10):
       end = start == ends[0] and ends[1] or ends[0]
     current = start
     x = current.x
-    y = current.y
     processed = set()
     current_e = None
     while True:
@@ -481,4 +481,3 @@ def compute_oxidation_number( paper):
 def set_logging( paper, logger):
   d = dialogs.logging_dialog( paper, logger)
   d.activate()
-

@@ -25,11 +25,7 @@
 
 import math
 import warnings
-import xml.dom.minidom as dom
-try:
-  import tkinter.font as tkFont
-except ImportError:
-  import tkinter.font
+import tkinter.font
 
 from oasa import geometry
 from oasa import transform
@@ -549,12 +545,12 @@ class text_mark( mark):
     dx = font.measure( self.text) / 2
     y += font.metrics('descent')
 
-    text = dom_extensions.textOnlyElementUnder( e, 'text', self.text,
-                                                (('font-size', "%dpt" % self.size),
-                                                 ('font-family', self.atom.font_family),
-                                                 ( "x", str( x - dx)),
-                                                 ( "y", str( y)),
-                                                 ( 'fill', self.line_color)))
+    dom_extensions.textOnlyElementUnder( e, 'text', self.text,
+                                         (('font-size', "%dpt" % self.size),
+                                          ('font-family', self.atom.font_family),
+                                          ( "x", str( x - dx)),
+                                          ( "y", str( y)),
+                                          ( 'fill', self.line_color)))
     return e
 
 
@@ -616,7 +612,7 @@ class pz_orbital( mark):
     mark.__init__( self, atom, x, y, size=size, auto=auto)
 
 
-  def move( self, dx, dy):
+  def move( self, dx, dy, use_paper_coords=False):
     if use_paper_coords:
       self.x += self.paper.canvas_to_real(dx)
       self.y += self.paper.canvas_to_real(dx)
@@ -689,4 +685,3 @@ def points_of_curve_eight_y( x0, y0, dx, dy, part, num_points=20):
     ps.append( y)
 
   return ps
-

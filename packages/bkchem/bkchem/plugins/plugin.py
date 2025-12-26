@@ -24,10 +24,6 @@
 import sys
 sys.path.append('../')
 
-import xml.dom.minidom as dom
-
-
-
 class importer(object):
 
   gives_cdml = 1
@@ -88,4 +84,3 @@ class export_exception(Exception):
 
   def __str__(self):
     return self.value
-

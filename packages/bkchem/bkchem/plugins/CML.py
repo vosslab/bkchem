@@ -21,17 +21,17 @@
 
 """
 
+import builtins
 import math
 import xml.dom.minidom as dom
-try:
-  import tkinter.messagebox as tkMessageBox
-except ImportError:
-  import tkinter.messagebox
+import tkinter.messagebox as tkMessageBox
 
 import validator
 import dom_extensions as dom_ext
 
 import plugin
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 
 
@@ -119,7 +119,6 @@ class CML_importer(plugin.importer):
 
 
   def transform_bond( self, b, doc):
-    out = doc.createElement( 'bond')
     try:
       bond = self.CML_bond( cml=b)
     except cml_exception as detail:
@@ -201,7 +200,7 @@ class CML_exporter(plugin.exporter):
 
   def on_begin( self):
     if self.check_chemistry():
-      yes = tkinter.messagebox.askyesno( _("Normalize bond length?"),
+      yes = tkMessageBox.askyesno( _("Normalize bond length?"),
                                    _("If you are exporting to some kind of computational software it might be important to rescale the molecule, so that the bond lengths are in range of normal chemical bonds. Do you want to do this? It will influence only the exported CML file, not the drawing."))
       if yes:
         self.scale = self.compute_scaling()
@@ -215,17 +214,17 @@ class CML_exporter(plugin.exporter):
     val = validator.validator()
     val.validate( self.paper.molecules)
     if val.report.text_atoms:
-      tkinter.messagebox.showerror( _("CML export error"),
+      tkMessageBox.showerror( _("CML export error"),
                               _("Sorry but your drawing includes 'text atoms'\n - atoms with no chemical sense.") + "\n\n" +
                               _("It is not possible to export it to valid CML.") + "\n\n" +
                               _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
       return 0
     if val.report.exceeded_valency:
-      tkinter.messagebox.showwarning( _("CML export warning"),
+      tkMessageBox.showwarning( _("CML export warning"),
                                 _("Your drawing includes some atoms with exceeded valency.") + "\n\n" +
                                 _("For details check the chemistry with '%s/%s'.") % (_("Chemistry"), _("Check chemistry")))
     if val.report.group_atoms:
-      yes = tkinter.messagebox.askyesno( _("Expand groups?"),
+      yes = tkMessageBox.askyesno( _("Expand groups?"),
                                 _("Your drawing includes some groups.") + "\n\n" +
                                 _("These must be expanded in order to export to valid CML. The expansion could be undone with undo after the export") + "\n\n"+
                                 _("Proceed with expansion?"))
@@ -451,4 +450,3 @@ class cml_exception(Exception):
 
   def __str__(self):
     return self.value
-

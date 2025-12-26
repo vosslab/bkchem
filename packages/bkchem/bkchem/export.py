@@ -21,8 +21,6 @@
 
 """
 
-import sys
-
 import xml_writer
 import dom_extensions
 
@@ -39,7 +37,7 @@ def export_CD_SVG(paper, filename, gzipped=0):
       f = gzip.open(filename, "wb")
     else:
       f = open(filename, "wb")
-  except IOError as x:
+  except IOError:
     return 0
 
   exporter = xml_writer.SVG_writer(paper)
@@ -68,7 +66,7 @@ def export_CDML(paper, filename, gzipped=0):
       f = gzip.open(filename, "wb")
     else:
       f = open(filename, "wb")
-  except IOError as x:
+  except IOError:
     return 0
 
   doc = paper.get_package()
@@ -80,4 +78,3 @@ def export_CDML(paper, filename, gzipped=0):
   f.close()
 
   return 1
-

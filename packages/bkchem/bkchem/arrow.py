@@ -24,7 +24,6 @@
 
 
 import builtins
-import xml.dom.minidom as dom
 
 from oasa import geometry
 from warnings import warn
@@ -36,7 +35,7 @@ from classes import point
 from reaction import reaction
 from singleton_store import Screen
 from parents import meta_enabled, container, with_line, line_colored
-from parents import point_drawable, interactive, drawable, top_level
+from parents import interactive, drawable, top_level
 
 
 _ = builtins.__dict__.get( '_', lambda m: m)

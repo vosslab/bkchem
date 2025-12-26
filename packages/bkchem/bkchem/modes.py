@@ -21,14 +21,15 @@
 
 """
 
+import builtins
 import oasa
 import math
 import time
 import string
-import xml.sax
-import xml.sax.saxutils
 import tkinter
 import tkinter.messagebox
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 from warnings import warn
 from oasa import geometry
@@ -36,12 +37,9 @@ from oasa import periodic_table as PT
 from oasa.transform import transform
 from oasa.transform3d import transform3d
 
-import Pmw
 import data
 import misc
 import marks
-import types
-import config
 import dialogs
 import parents
 import messages
@@ -54,10 +52,8 @@ import helper_graphics as hg
 from bond import bond
 from atom import atom
 from arrow import arrow
-from ftext import ftext
 from group import group
 from textatom import textatom
-from reaction import reaction
 from context_menu import context_menu
 from singleton_store import Store, Screen
 
@@ -434,7 +430,6 @@ class edit_mode(basic_mode):
 
 
   def mouse_down3( self, event, modifiers=None):
-    mods = modifiers or []
     if self.focused:
       if self.focused not in Store.app.paper.selected:
         Store.app.paper.unselect_all()
@@ -1370,8 +1365,6 @@ class rotate_mode( edit_mode):
     if not self._dragging:
       self._dragging = 1
     if self._rotated_mol:
-      dx0 = event.x - self._centerx
-      dy0 = event.y - self._centery
       dx1 = event.x - self._startx
       dy1 = event.y - self._starty
       sig = -geometry.on_which_side_is_point( (self._centerx, self._centery, self._startx, self._starty), (event.x, event.y))
@@ -1479,7 +1472,6 @@ class bond_align_mode( edit_mode):
       x1, y1 = self.focused.atom1.get_xy()
       x2, y2 = self.focused.atom2.get_xy()
       coords = (x1,y1,x2,y2)
-      objects = [self.focused]
     elif isinstance( self.focused, oasa.graph.vertex):
       if not self.first_atom_selected: # first atom picked
         if self._needs_two_atoms[ self.submode[0]] > 0:
@@ -1491,7 +1483,6 @@ class bond_align_mode( edit_mode):
         else:
           self._rotated_mol = self.focused.molecule
           coords = self.focused.get_xy()
-          objects = [self.focused]
       else: # second atom picked
         if self.focused.molecule != self.first_atom_selected.molecule:
           Store.log( _("atoms must be in the same molecule!"), message_type="hint")
@@ -1502,7 +1493,6 @@ class bond_align_mode( edit_mode):
         x1, y1 = self.first_atom_selected.get_xy()
         x2, y2 = self.focused.get_xy()
         coords = (x1,y1,x2,y2)
-        objects = [self.focused, self.first_atom_selected]
         self.first_atom_selected.unselect()
         self.first_atom_selected = None
     tr = self.__class__.__dict__['_transform_'+self.get_submode(0)]( self, coords)
@@ -2596,4 +2586,3 @@ def event_to_key( event):
   else:
     warn( 'how did we get here?!?', UserWarning, 2)
     return ''
-

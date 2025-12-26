@@ -3,7 +3,8 @@
 ## Overview
 - BKChem is a Tkinter desktop application for drawing chemical structures.
 - The UI is a Tk window with a canvas-based drawing surface and tool modes.
-- The core chemistry model wraps the OASA library for atoms, bonds, and graphs.
+- The core chemistry model wraps the OASA (Open Architecture for Sketching
+  Atoms and Molecules) library for atoms, bonds, and graphs.
 - Native persistence is CDML, with SVG and other formats supported via exporters.
 - Plugins extend import, export, and workflow features.
 
@@ -51,8 +52,7 @@
 - `packages/bkchem/bkchem/non_xml_writer.py` provides bitmap export when PIL is
   available.
 - `packages/bkchem/bkchem/plugins/` contains built-in exporters for formats
-  such as PDF, PS, and SVG, plus integration helpers for Cairo and Piddle
-  backends.
+  such as PDF, PS, and SVG, plus integration helpers for Cairo.
 
 ## Configuration and shared state
 - `packages/bkchem/bkchem/pref_manager.py`, `packages/bkchem/bkchem/config.py`,
@@ -65,8 +65,10 @@
 
 ## Plugin system
 - `packages/bkchem/bkchem/plugin_support.py` loads XML descriptors from
-  `packages/bkchem/plugins/` and user plugin directories and executes script
-  plugins.
+  `packages/bkchem/addons/` and user addon directories and executes script
+  addons.
+- Internal exporter plugins live in `packages/bkchem/bkchem/plugins/` and are
+  imported as code; they are separate from filesystem addons.
 - Plugin scripts run with access to the live application instance.
 
 ## Data flow

@@ -19,13 +19,12 @@
 
 
 
-import sys
-try:
-  import tkinter.messagebox as tkMessageBox
-except ImportError:
-  import tkinter.messagebox
+import builtins
+import tkinter.messagebox as tkMessageBox
 
 from singleton_store import Store
+
+_ = builtins.__dict__.get( '_', lambda m: m)
 
 
 
@@ -79,15 +78,15 @@ class logger(object):
   def log_to_dialog( self, message, message_type="info", delay=4):
     heading = self.type_to_text[ message_type]
     if message_type == "error":
-      tkinter.messagebox.showerror( heading, message)
+      tkMessageBox.showerror( heading, message)
     elif message_type == "warning":
-      tkinter.messagebox.showwarning( heading, message)
+      tkMessageBox.showwarning( heading, message)
     elif message_type == "info":
-      tkinter.messagebox.showinfo( heading, message)
+      tkMessageBox.showinfo( heading, message)
     elif message_type == "debug":
-      tkinter.messagebox.showinfo( heading, message)
+      tkMessageBox.showinfo( heading, message)
     elif message_type == "hint":
-      tkinter.messagebox.showinfo( heading, message)
+      tkMessageBox.showinfo( heading, message)
 
 
   def set_handling( self, what, how):

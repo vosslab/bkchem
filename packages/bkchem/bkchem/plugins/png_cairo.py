@@ -17,18 +17,22 @@
 
 #--------------------------------------------------------------------------
 
+import builtins
 import sys
 import cairo
-try:
-    import tkinter as Tkinter
-except ImportError:
-    import tkinter
+import tkinter
 
 import Pmw
 
 from tk2cairo import tk2cairo
 from cairo_lowlevel import cairo_exporter
 from singleton_store import Screen
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 
 
@@ -246,4 +250,3 @@ class scale_dialog(object):
     res_x = self.orig_x * scale * 0.01
     res_y = self.orig_y * scale * 0.01
     self._set_values( scale, scale, res_x, res_y, False)
-

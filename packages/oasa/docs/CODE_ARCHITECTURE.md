@@ -1,7 +1,8 @@
 # Code architecture
 
 ## Overview
-- OASA is a Python library for chemical structure representation, parsing, and export.
+- OASA (Open Architecture for Sketching Atoms and Molecules) is a Python
+  library for chemical structure representation, parsing, and export.
 - The core model is a graph of atoms and bonds with chemistry-aware attributes.
 - Parsers and writers translate between external formats and the internal graph model.
 - Geometry and coordinate modules add 2D/3D layout and transform support.

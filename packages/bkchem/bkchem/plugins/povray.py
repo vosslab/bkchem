@@ -23,9 +23,16 @@
 
 """provides export plugin to povray"""
 
-import plugin
-import operator
+import builtins
 import io
+
+import plugin
+
+_ = getattr( builtins, "_", None)
+if not _:
+	def _( text):
+		return text
+	builtins._ = _
 
 class POV_exporter( plugin.exporter):
   """export to POVRAY formate"""
