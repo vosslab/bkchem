@@ -60,10 +60,17 @@
 - Update OASA docs and file structure notes to reference the new test paths.
 - Rename Markdown docs to ALL CAPS filenames and refresh references across
   README, legacy HTML stubs, and doc links.
+- Update REPO_STYLE naming rules (root and OASA) for ALL CAPS documentation
+  filenames.
 - Expand [README.md](../README.md) with highlights, legacy screenshots, and
   updated wording for OASA and repository positioning.
 - Add dedicated BKChem and OASA sections to [README.md](../README.md) with
   differences, use cases, and the backend relationship.
+- Fix BKChem test runners to add the legacy module path so `import data` resolves.
+- Move legacy HTML/DocBook sources into `docs/legacy/` and update references to
+  Markdown replacements.
+- Add `docs/assets/` screenshots and update the root README to use them.
+- Add a draft BKChem package README and link it from the root README.
 
 ## 2025-12-24
 - Add [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) with system overview

@@ -1,6 +1,6 @@
 # BKChem manual (legacy)
 
-Legacy note: This manual is migrated from `docs/doc.xml`. The
+Legacy note: This manual is migrated from `docs/legacy/doc.xml`. The
 [GitHub repository](https://github.com/vosslab/bkchem) is the primary homepage
 and documentation source. Legacy email addresses in this manual are kept for
 attribution only and are not support contacts.

@@ -1,6 +1,6 @@
 # Custom templates
 
-Legacy note: This document is migrated from `docs/custom_templates_en.html`. The
+Legacy note: This document is migrated from `docs/legacy/custom_templates_en.html`. The
 [GitHub repository](https://github.com/vosslab/bkchem) is the primary homepage
 and documentation source. Legacy websites are archived and not maintained. Any
 legacy email addresses are kept for attribution only and are not support

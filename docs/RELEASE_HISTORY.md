@@ -557,7 +557,7 @@ This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHAN
 - arrow heads are properly exported via piddle (pdf,ps)
 - it is possible to choose menu language from inside of BKchem
 - support for line vector graphics object
-- support for user written plugins (more in doc/custom_plugins_en.html)
+- support for user written plugins (more in docs/CUSTOM_PLUGINS.md)
 - transparency support in color selection, other additions
 - Ctrl-click in edit mode can be used for deletion of individual atoms/bonds (thanks to Piotr Wawrzyniak for the idea and patch)
 - parsing of linear formulas (e.g. -CH2CH2COCl) used in atoms added
@@ -637,7 +637,7 @@ This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHAN
 - the paper properties setting did not have any effect in most cases
 
 ### Enhancements
-- user template mode added - it is now possible for the user to create her own templates (more in doc/custom_templates_en.html or on the homepage)
+- user template mode added - it is now possible for the user to create her own templates (more in docs/CUSTOM_TEMPLATES.md or on the homepage)
 - File/Save As Template menu entry added
 - rotation around bond added to the "transformation mode" (it enables rapid changes of conformation of molecules)
 - dash bond added
@@ -646,7 +646,7 @@ This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHAN
 - bond order can be explicitly set to 0 to allow describing of hydrogen bonds etc.
 - PDF and Postscript export plugins added based on Piddle (arrows export is not complete)
 - PDF and Postscript export plugins can export cropped files (depending on the File/ File properties/ Crop SVG? setting)
-- bkchem can now be started and scripted from outside (see doc/external_import_en.html or homepage)
+- bkchem can now be started and scripted from outside (see docs/EXTERNAL_IMPORT.md or homepage)
 - Chemistry/Set display form enables you to set a string representation of a molecule (usefull only for external tools for now)
 
 ### Changes

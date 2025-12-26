@@ -38,6 +38,9 @@ def ensure_sys_path(root_dir):
 	bkchem_pkg_dir = os.path.join(root_dir, 'packages', 'bkchem')
 	if bkchem_pkg_dir not in sys.path:
 		sys.path.insert(0, bkchem_pkg_dir)
+	bkchem_module_dir = os.path.join(bkchem_pkg_dir, 'bkchem')
+	if bkchem_module_dir not in sys.path:
+		sys.path.insert(0, bkchem_module_dir)
 
 
 #============================================

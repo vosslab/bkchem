@@ -37,6 +37,9 @@ def main():
 	bkchem_dir = os.path.join(root_dir, 'packages', 'bkchem')
 	if bkchem_dir not in sys.path:
 		sys.path.insert(0, bkchem_dir)
+	bkchem_pkg_dir = os.path.join(bkchem_dir, 'bkchem')
+	if bkchem_pkg_dir not in sys.path:
+		sys.path.insert(0, bkchem_pkg_dir)
 	if '_' not in builtins.__dict__:
 		builtins.__dict__['_'] = lambda m: m
 	if 'ngettext' not in builtins.__dict__:

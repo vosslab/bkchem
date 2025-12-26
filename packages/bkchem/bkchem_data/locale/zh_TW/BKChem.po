@@ -832,8 +832,8 @@ msgstr "請先修正上方的錯誤"
 #: ../../bkchem/interactors.py:255
 msgid ""
 "A tutorial on how to prepare a template can be found in the file doc/"
-"custom_templates_en.html"
-msgstr "在 doc/custom_templates_en.html 中有如何製作範本的教學指引"
+"CUSTOM_TEMPLATES.md"
+msgstr "在 docs/CUSTOM_TEMPLATES.md 中有如何製作範本的教學指引"
 
 #: ../../bkchem/interactors.py:269
 msgid "Directory creation failed."

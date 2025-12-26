@@ -41,9 +41,9 @@ OASA
 The screenshots below are from the archived site (Python 2 era) but still show
 core workflows that BKChem supports today.
 
-![BKChem drawing example](bkchem_webpage/bkchem.zirael.org/img/newsnap1.png)
-![BKChem PDF export example](bkchem_webpage/bkchem.zirael.org/img/newsnap3-pdf.png)
-![BKChem templates example](bkchem_webpage/bkchem.zirael.org/img/custom_templates-2.png)
+![BKChem drawing example](docs/assets/bkchem_drawing.png)
+![BKChem PDF export example](docs/assets/bkchem_pdf_export.png)
+![BKChem templates example](docs/assets/bkchem_templates.png)
 
 ## Docs
 - [docs/INSTALL.md](docs/INSTALL.md) for running from source and optional installs.
@@ -57,6 +57,7 @@ core workflows that BKChem supports today.
   [docs/CUSTOM_TEMPLATES.md](docs/CUSTOM_TEMPLATES.md) for extension workflows.
 - [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md) for release plans.
 - [packages/oasa/README.md](packages/oasa/README.md) for OASA-specific usage.
+- [packages/bkchem/README.md](packages/bkchem/README.md) for BKChem-specific usage.
 
 ## Distribution
 - Planned: publish OASA to PyPI from this repository.

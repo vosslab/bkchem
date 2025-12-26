@@ -844,7 +844,7 @@ msgstr "Lūdzu vispirms izlabojiet augstāk minētās kļūdas"
 #: ../../bkchem/interactors.py:255
 msgid ""
 "A tutorial on how to prepare a template can be found in the file doc/"
-"custom_templates_en.html"
+"CUSTOM_TEMPLATES.md"
 msgstr ""
 "Pamācība veidņu sagatavošanai ir atrodama failā \"doc/custom_templates_en."
 "html\""

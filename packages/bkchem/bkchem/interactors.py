@@ -253,7 +253,7 @@ def save_as_template( paper):
       dialog.insert( 'end', "\n")
       dialog.insert( 'end', _("Please correct the above errors first"), 'headline')
       dialog.insert( 'end', "\n")
-      dialog.insert( 'end', _("A tutorial on how to prepare a template can be found in the file doc/custom_templates_en.html"))
+      dialog.insert( 'end', _("A tutorial on how to prepare a template can be found in the file docs/CUSTOM_TEMPLATES.md"))
       dialog.insert( 'end', "\n")
 
     dialog.tag_config( 'headline', underline=1)

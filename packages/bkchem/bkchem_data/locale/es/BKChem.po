@@ -841,10 +841,10 @@ msgstr "Corrija primero esos errores."
 #: ../../bkchem/interactors.py:255
 msgid ""
 "A tutorial on how to prepare a template can be found in the file doc/"
-"custom_templates_en.html"
+"CUSTOM_TEMPLATES.md"
 msgstr ""
 "Hay instrucciones para preparar plantillas en el archivo  doc/"
-"custom_templates_en.html"
+"CUSTOM_TEMPLATES.md"
 
 #: ../../bkchem/interactors.py:269
 msgid "Directory creation failed."

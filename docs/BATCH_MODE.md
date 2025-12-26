@@ -1,6 +1,6 @@
 # Batch mode
 
-Legacy note: This document is migrated from `docs/batch_mode_en.html`. The
+Legacy note: This document is migrated from `docs/legacy/batch_mode_en.html`. The
 [GitHub repository](https://github.com/vosslab/bkchem) is the primary homepage
 and documentation source. Legacy websites are archived and not maintained.
 

@@ -3,6 +3,8 @@
 ## Top level
 - `packages/` monorepo packages for BKChem and OASA.
 - `docs/` project documentation and style guides.
+- `docs/assets/` screenshots used in `README.md`.
+- `docs/legacy/` archived HTML/DocBook sources and conversion logs.
 - `bkchem_webpage/` local mirror of the BKChem website for documentation.
 - `tests/` repo-level test runners and smoke tests.
 - `tools/` small maintenance scripts.
