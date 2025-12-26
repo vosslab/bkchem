@@ -25,7 +25,7 @@
   </bookinfo>
   <!-- Legacy DocBook source. The GitHub repository is the primary homepage and
        documentation source. Legacy email addresses are for attribution only.
-       See docs/user_guide.md for the Markdown version. -->
+       See docs/USER_GUIDE.md for the Markdown version. -->
 
   <preface>
     <title>Foreword and Warning</title>

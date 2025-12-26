@@ -34,9 +34,9 @@ import oasa
 
 ## Testing
 
-Run static checks from `packages/oasa/tests/`:
-- `packages/oasa/tests/run_pyflakes.sh`
-- `packages/oasa/tests/run_mypy.sh`
+Run static checks from the repo root `tests/` folder:
+- `tests/run_pyflakes.sh` (shared)
+- `tests/run_oasa_mypy.sh` (OASA only)
 
 ## Status
 

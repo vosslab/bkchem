@@ -1,29 +1,65 @@
-# BKChem and OASA monorepo
+# BKChem and OASA
 
-This repo is an unofficial fork of BKChem that now bundles the BKChem GUI and
-the OASA (Open Architecture for Sketching Atoms and Molecules) chemistry
-library in one workspace.
+BKChem is a GUI for drawing chemical structures. OASA (Open Architecture for
+Sketching Atoms and Molecules) is the chemistry library that powers structure
+conversion and analysis. This repository is the primary home for both projects.
 
 ## Packages
 - `packages/bkchem/` BKChem Tk GUI for drawing chemical structures.
 - `packages/oasa/` OASA (Open Architecture for Sketching Atoms and Molecules)
   library and CLI converters used by BKChem.
 
+## BKChem
+BKChem is the user-facing drawing application. It uses OASA as the backend for
+structure parsing, conversion, and analysis.
+
+Use BKChem when you need:
+- A GUI for drawing and editing structures by hand.
+- Template-based sketching, fragment reuse, and layout helpers.
+- Visual export workflows backed by OASA conversions.
+
+## OASA
+OASA is the chemistry library and conversion engine. It can be used on its own
+in scripts or services, and it powers BKChem under the hood.
+
+Use OASA when you need:
+- Programmatic access to structure graphs and conversions.
+- Batch processing and automation outside the GUI.
+- A reusable backend for other chemistry tools.
+
+## Highlights
+BKChem
+- Interactive chemical drawing with templates and reusable fragments.
+- Batch mode scripting for automation and scripted edits.
+- Export and import workflows powered by OASA.
+
+OASA
+- Python library for chemical structure graphs and conversions.
+- Used by BKChem but available as a standalone library.
+
+## Screenshots (legacy)
+The screenshots below are from the archived site (Python 2 era) but still show
+core workflows that BKChem supports today.
+
+![BKChem drawing example](bkchem_webpage/bkchem.zirael.org/img/newsnap1.png)
+![BKChem PDF export example](bkchem_webpage/bkchem.zirael.org/img/newsnap3-pdf.png)
+![BKChem templates example](bkchem_webpage/bkchem.zirael.org/img/custom_templates-2.png)
+
 ## Docs
 - [docs/INSTALL.md](docs/INSTALL.md) for running from source and optional installs.
 - [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and
   [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) for repo layout details.
 - [docs/MIGRATION.md](docs/MIGRATION.md) for the repository merge summary.
-- [docs/user_guide.md](docs/user_guide.md) for the migrated BKChem manual.
-- [docs/batch_mode.md](docs/batch_mode.md) and
-  [docs/external_import.md](docs/external_import.md) for scripting and batch use.
-- [docs/custom_plugins.md](docs/custom_plugins.md) and
-  [docs/custom_templates.md](docs/custom_templates.md) for extension workflows.
-- [docs/release_distribution.md](docs/release_distribution.md) for release plans.
+- [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for the migrated BKChem manual.
+- [docs/BATCH_MODE.md](docs/BATCH_MODE.md) and
+  [docs/EXTERNAL_IMPORT.md](docs/EXTERNAL_IMPORT.md) for scripting and batch use.
+- [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md) and
+  [docs/CUSTOM_TEMPLATES.md](docs/CUSTOM_TEMPLATES.md) for extension workflows.
+- [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md) for release plans.
 - [packages/oasa/README.md](packages/oasa/README.md) for OASA-specific usage.
 
 ## Distribution
-- Planned: publish OASA to PyPI from this monorepo.
+- Planned: publish OASA to PyPI from this repository.
 - Planned: ship BKChem binary installers (macOS dmg, Linux Flatpak, Windows).
 
 ## Local website mirror

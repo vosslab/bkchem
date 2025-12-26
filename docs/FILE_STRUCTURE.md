@@ -41,7 +41,7 @@
 - `packages/oasa/oasa/` OASA package source code.
 - `packages/oasa/docs/` dependency documentation, including
   [OASA file structure](../packages/oasa/docs/FILE_STRUCTURE.md).
-- `packages/oasa/tests/` static checks and legacy tests.
+- `tests/oasa_*` OASA static checks, smoke scripts, and legacy test helpers.
 - `packages/oasa/chemical_convert.py` conversion helper script.
 - `packages/oasa/README.md` dependency overview and status notes.
 - `packages/oasa/pyproject.toml` packaging metadata.

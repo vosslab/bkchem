@@ -15,11 +15,11 @@ Examples:
 ## Smoke rendering test
 - Requires `pycairo` in the active environment.
 - Renders alpha-d-glucopyranose by default:
-  - `python3 tests/smoke_png.py -o output/glucose.png`
+- `python3 tests/oasa_smoke_png.py -o output/glucose.png`
 
 ## Static checks
 - Pyflakes: `tests/run_pyflakes.sh`
-- Mypy: `tests/run_mypy.sh`
+- Mypy: `tests/run_oasa_mypy.sh`
 
 ## Virtual install test
 - Creates a temporary venv and installs the repo:

@@ -21,9 +21,9 @@
   primary homepage and mark legacy sites as archived.
 - Update Windows installer metadata URLs to point at the GitHub project.
 - Migrate legacy HTML and DocBook docs into Markdown
-  (`docs/user_guide.md`, `docs/batch_mode.md`, `docs/custom_plugins.md`,
-  `docs/custom_templates.md`, `docs/external_import.md`).
-- Add [docs/release_distribution.md](docs/release_distribution.md) with planned
+  (`docs/USER_GUIDE.md`, `docs/BATCH_MODE.md`, `docs/CUSTOM_PLUGINS.md`,
+  `docs/CUSTOM_TEMPLATES.md`, `docs/EXTERNAL_IMPORT.md`).
+- Add [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md) with planned
   distribution paths for BKChem and OASA.
 - Add legacy notices to HTML and DocBook sources that now point to Markdown.
 - Fix initial pyflakes findings in batch scripts and gettext helpers in core
@@ -53,6 +53,15 @@
   progress log.
 - Restore the pyflakes runner skip list for `bkchem_webpage` and
   `bkchem_website`.
+- Add [tests/run_bkchem_batch_examples.py](../tests/run_bkchem_batch_examples.py) to exercise
+  the batch script examples against a temporary CDML file.
+- Consolidate test scripts under `tests/`, add OASA-specific runners with
+  `oasa_` prefixes, and remove duplicate pyflakes scripts.
+- Update OASA docs and file structure notes to reference the new test paths.
+- Expand [README.md](../README.md) with highlights, legacy screenshots, and
+  updated wording for OASA and repository positioning.
+- Add dedicated BKChem and OASA sections to [README.md](../README.md) with
+  differences, use cases, and the backend relationship.
 
 ## 2025-12-24
 - Add [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) with system overview
@@ -74,16 +83,16 @@
 - Remove `from tkinter import *` from `bkchem/main.py`.
 - Fix `_` usage in `bkchem/edit_pool.py` and clean up unused variables and
   imports in `bkchem/main.py`.
-- Add `tests/run_gui_smoke.py` to open the GUI briefly for a smoke test.
+- Add `tests/run_bkchem_gui_smoke.py` to open the GUI briefly for a smoke test.
 - Improve GUI smoke test error handling when Tk is unavailable.
 - Add `Brewfile` with Homebrew dependencies for Tk support.
 - Add `python-tk@3.12` to `Brewfile` and macOS Tk notes to
   `docs/INSTALL.md`.
-- Update `tests/run_gui_smoke.py` to add the `bkchem/` package directory to
+- Update `tests/run_bkchem_gui_smoke.py` to add the BKChem package directory to
   `sys.path` for legacy relative imports.
-- Update GUI smoke test to import `main` directly and replace deprecated
+- Update GUI smoke test to import `bkchem.main` directly and replace deprecated
   `imp` usage with `importlib` in `bkchem/main.py`.
 - Add gettext fallback in `bkchem/messages.py` for module-level strings.
-- Initialize gettext fallbacks in `tests/run_gui_smoke.py`.
+- Initialize gettext fallbacks in `tests/run_bkchem_gui_smoke.py`.
 - Add [docs/TODO.md](docs/TODO.md) with a note to replace legacy exporters with
   Cairo equivalents.

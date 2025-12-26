@@ -41,9 +41,12 @@
 - `pyflakes.txt` created by the `run_pyflakes.sh` workflow from the style guide.
 
 ## Tests (`tests/`)
-- `tests/mypy.ini` static typing configuration.
-- `tests/legacy_test.py` legacy test runner.
-- `tests/unittests.py` legacy unittest runner.
+- `tests/oasa_mypy.ini` static typing configuration.
+- `tests/run_oasa_mypy.sh` OASA mypy runner.
+- `tests/oasa_legacy_test.py` legacy rendering script.
+- `tests/oasa_unittests.py` legacy unittest runner.
+- `tests/oasa_smoke_png.py` smoke rendering script.
+- `tests/oasa_test_common.py` small common helper test.
 
 ## Legacy logs
 - `docs/legacy/2to3-all.log` and `docs/legacy/2to3-import.log` 2to3 conversion logs.

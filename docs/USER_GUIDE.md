@@ -1,0 +1,538 @@
+# BKChem manual (legacy)
+
+Legacy note: This manual is migrated from `docs/doc.xml`. The
+[GitHub repository](https://github.com/vosslab/bkchem) is the primary homepage
+and documentation source. Legacy email addresses in this manual are kept for
+attribution only and are not support contacts.
+
+## Foreword and warning
+
+I am not a programmer by training. Programming is just my hobby and I am doing it for fun. Therefor
+you should not expect BKChem to be perfect or even usable. The coding style is probably horrible and
+trying to read the code may seriously affect your mental health :)
+
+You are however welcome to read the code, modify it and send me suggestions or patches. I'm still
+learning. On the other hand don't flame me about the style - you have been warned.
+
+Any reports on bugs are also welcome (especially those with suggestions on their sources or
+solutions).
+
+Before you start to use BKChem, you should read the license. BKChem is distributed under GNU GPL
+(see the file gpl.txt in the main distribution directory). This license gives you freedom to study
+and modify BKChem as you wish. On the other hand you should be warned that *"This program is
+distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE"*
+
+## Users guide
+
+### Introduction
+
+BKChem is a chemical drawing program written in Python. The documentation as well as the program
+itself are in constant development. Therefor this manual is not meant to be complete, but rather
+tries to cover the very basics and the things that are not easy to find out without help. On the
+other hand many things are so self-evident that it would be useless to describe them. If you find
+that something you would like to know is not described in this manual, open an issue in the
+GitHub repository. The legacy email `beda@zirael.org` is retained for attribution only.
+
+### Drawing
+
+#### Introduction to the terms
+
+Before we begin I should explain some terms that are used in the documentation and in the program
+itself.
+
+| Term | Definition |
+|----|----|
+| item | Any single undividable piece of the drawing - atom, bond, arrow point, plus. Not a molecule or arrow (see container). |
+| container | Containers serve as a storage place for items (e.g. molecule stores atoms and bonds). Further I will use the term container also for texts and pluses even if they are also items (If it does not make sense to you don't just ignore it). As a synonym for container I will also use object or top-level object. |
+| focus(ed) | Focused items are those that have a mouse pointer over them. The focus is usually visualized by some change of the item (e.g. circle drawn around atom, grey background of text etc.) |
+| select(ed) | In contrast to focus, to select an item the user must take some action (usually click the mouse while the pointer is over an item (it is focused). The focus follows the mouse pointer, the selection is permanent until some action that unselects the item is performed. In contrast with focus it is possible to have more selected items. |
+| mode | BKChem has several modes for different operations (e.g. for drawing molecules, drawing arrow, text, rotating existing objects). You select the mode by selecting one of the buttons on the top of the application window. You can find more on individual modes in the following chapters. |
+
+Used terms
+
+#### Simple drawing
+
+##### Bond-by-bond drawing
+
+The bond-by-bond drawing in BKChem is performed in the "draw mode".
+
+The drawing is realized in a very intuitive way. You can just click on the drawing canvas and two
+atoms with a single bond between them will appear. By default the atoms are carbons and their symbol
+is not drawn. When you change the atom symbol to something else the symbol will appear. To attach
+more atoms to the currently drawn two, just focus one of them and click a mouse. By default the new
+atoms are added so that the new bond has angle of 120 deg. If you want to change that you can
+instead of a click on focused atom use dragging. Press down a mouse button on a focused atom and
+without releasing it move the mouse. You will find out that the new bond is drawn in a direction of
+your mouse move and keeps moving while you keep dragging. To help you with precision of the drawing,
+there are several possible resolutions of the angle produced by dragging. The default is 30deg and
+is suitable for usual drawing (perfect for 6 membered rings). The resolution of 18deg is great for
+five membered rings and the others (6 and 1) are for finer work. For completely freestyle drawing
+use the "freestyle" submode.
+
+To create double or triple bonds, just click on a bond in a "draw mode" and the bond order will
+increase by 1. After triple bond it will fall back to simple bond. This way you can also change the
+centering of the double bond (whether the two lines that form double bond will be centered and when
+not on which side the second line will appear). If you only want to change the centering of double
+bond you can just click it while holding "Shift" key.
+
+By changing the bond type of drawn bonds you can create stereo-bonds.
+
+##### Templates
+
+BKChem comes with set of ready-to-use templates of common rings. To use them just select the
+"template mode" and then select a template.
+
+The behavior of template depends on where you place it. Clicking on the canvas just creates the
+molecule from the template. Clicking on atoms or bonds attaches the template to the existing
+molecule in different ways (depending on whether you clicked bond or atom and whether the atom had
+one or more other bonds) - just try it to see.
+
+##### Arrows
+
+For drawing of arrows use "arrow mode". The way to draw arrow resembles bond-by-bond drawing of
+molecules. The arrow can be extended from both sides points can be even inserted inside the arrow.
+To draw arrows in different than horizontal position used the dragging while drawing.
+
+You can select on which side the arrow-head will be drawn by clicking the arrow (the line, not the
+point) in the arrow mode. The arrow-head position will cycle in the start-end-both-none cycle (so
+you can use the arrow also for drawing lines).
+
+To change the appearance of existing arrow you can move individual points (after you select them -
+see the following parts of this chapter.
+
+##### Text
+
+Most of this section applies not only to texts but also to atoms that have visible text. To create
+or modify the text use the "text mode". The text can be set in any mode (there is a difference
+between setting and modifying text - when modifying text you can just change it, when setting it you
+have to retype the whole sequence).
+
+###### Text formatting
+
+To give the user a simple way to alter the font properties of text (italic, bold, subscript and
+superscript) the text is entered as an XML fragment. You do not specify the enclosing tag (this is
+done automatically by the program), just the formating. For instance the text "hi, \<i\>are you
+ready to \<b\>rock\</b\>\</i\>?" will display "are you ready to" as italic and "rock" as
+bold-italic. For subscript and superscript use \<sub\> and \<sup\> respectively.
+
+When using XML formating there is a problem with using characters as \< and & because they are
+treated as special in XML. When you enter some text such as "a\<b" that cannot be parsed as XML, the
+program will automatically "escape" all the special characters, thus giving you the right result.
+When you need only some of the special characters to be escaped (e.g. for \<i\>a\<b\</i\>" you want
+to escape the \< only in the "a\<b") you must do it manually. This means entering an "escape
+sequence" instead of the special character. For "\<" use "&lt;" and for "&" use "&amp;" (and
+"&amp;amp;" for "&amp;" :). Easy, isn't it?
+
+###### Setting and modifying text
+
+When you hit a "Space" button with some atoms or texts selected or when you click an atom or text in
+"text mode" or click the canvas in "text mode", the "edit pool" will be activated letting you enter
+your text. To apply the entered text hit "Enter" or press one of the buttons on side of "edit pool".
+To cancel the action hit "Escape". The three buttons are used for setting text in different modes.
+The "Set" button serves for applying the text just as it was entered, "Set & Interpret" will search
+the inner database of BKChem to find if the entered text has some known interpretation. The
+"Sub-numbers" is used to turn all numbers in subscript and is useful for molecular formulas that are
+not known to BKChem.
+
+#### Modifying the drawing
+
+To manipulate the items use the "edit mode". This mode is used for moving items or containers,
+selecting items etc.
+
+##### Selection
+
+To select an item just click it in the "edit mode". By default selecting an item unselects all
+previously selected items. To change this, hold the "Shift" key while clicking the items.
+
+By dragging a mouse with button-1 down and nothing focused you can select all items in a rectangle.
+The "Shift" key works in the same way as in individual selections.
+
+##### Moving objects or items
+
+There are two different ways of moving objects or items. The first is used for moving of arbitrary
+number of items. Just select them and then catch one of them with mouse and drag them.
+
+For moving of one object (container - molecule) (which is very usual situation) you don't need to
+select it. Just catch some *unselected* item from this object and drag it. (Note: You can see that
+behavior of dragging items with mouse depends on whether the item was or wasn't selected.) (Tip: The
+moving of a molecule in this way performs much better, so use it. When moving a huge number of
+individually selected items the dragging can be horribly slow.)
+
+##### Deleting items
+
+You can delete selected items in any mode by simply pressing "Delete" key. Atoms are deleted with
+their bonds and all orphan atoms (atoms with no bonds) are also deleted. When necessary the molecule
+is after deletion of some atoms split to two or more separate molecules.
+
+> [!TIP]
+> Newly created atoms or other items are automatically selected. Thus if you want to delete atom
+> just drawn, simply press the "Delete" key.
+
+##### Aligning
+
+To align containers, select them and then use either the "align menu" or key-binding (C-a 'x'; where
+'x' is one of 'tblrhv' - 't' stands for 'top', 'b' for 'bottom', 'l' for 'left', 'r' for 'right',
+'v' for 'vertical center' and 'h' for 'horizontal center'). E.g. - "C-a b" moves all selected
+container (containers with at least one item selected) down so that their bottoms are in line.
+
+##### Modifying item properties
+
+You can change various properties of selected items by right-clicking any of them. A dialog window
+will appear that will let you do that.
+
+#### Key bindings
+
+In the menu there are accelerator keys displayed on the right side of some of the commands. You can
+use these key sequences as shorcuts to trigger the respective actions without having to go to the
+menu.
+
+The style of key bindings is very similar to that of Emacs. So if you are familiar with this concept
+(you know what "C-x C-f" means and how does it differ from "C-x f") you can skip this chapter. If
+you know nothing about "C-x C-f" then here is a short intro.
+
+Each key-sequence can be composed from any number of individual keystrokes. Each keystroke than
+consists of optional modifier(s) and a key. The modifiers are "C" for "Control", "M" for "Meta", "A"
+for "Alt" and "S" for "Shift". For example "C-x C-f" is composed of two keystrokes. The first part
+tells you that you should press "x" while holding "Control" ("C"). Then, to finish the sequence, you
+have press "f" together with "Control" again. On contrary the sequence "C-x f" has the same first
+keystroke but before you press the "f" you must release the "Control" (otherwise you will end up
+with "C-x C-f"). It is also possible to have more modifiers in one keystroke - e.g. "C-M-S-k" means
+that you have to press "k" while holding simultaneously "Control", "Meta" and "Shift" keys. The best
+way to get used to this concept is by practice. So try it inside of BKChem or get Emacs.
+
+### Saving files
+
+#### Native formats
+
+Native format of BKChem is based on XML and is called CDML (chemical drawing markup language). This
+format is, on contrary to CML (chemical markup language) which is designed to describe the chemistry
+from the semantic point of view, designed to describe the chemical drawing from the perspective of
+representation.
+
+CDML is however just internal format of BKChem and does not have any broad acceptance. To use the
+graphical output of BKChem it was necessary to export the data into some standard graphical format,
+preferentially SVG. This approach has however disadvantage that it forces users to maintain two
+versions of each document, one with data for BKChem and one with their graphical representation.
+Fortunately it is possible to embed foreign data into SVG and because SVG is ideal format for vector
+graphics I have embedded CDML into it. This way we have format (available from version 0.1.1) that
+can be immediately viewed in SVG enabled programs and still has the data necessary for right
+interpretation by BKChem. To distinguish this new format from normal SVG I use the term CD-SVG.
+
+This means that you can store the drawings you create in BKChem in two formats - CDML and CD-SVG.
+Both these formats are also available in their gzipped form (compression by gzip is almost standard
+way to make XML files smaller) which needs usually only 10-25% of the space needed by the unzipped
+form. Preferred file format is CD-SVG or if you need smaller file size its gzipped form. If you
+don't need the SVG representation you can also use the pure CDML. (Export to pure SVG is also
+available).
+
+#### Export formats
+
+In time of writing of this paragraph BKChem supports export only to SVG (see the section above for
+more information on BKChem and SVG). There are other exports available which are only experimental
+and incomplete. These are PNG (cannot export text), PostScript (problems with right postscript font
+selection) and PovRay (just a funny export not intended for something serious (the rendered scenes
+can however be very nice)) - see http://www.povray.org for more information about PovRay.
+
+### Modes
+
+Central part of the functionality of BKChem is provided by the so called modes. There is always one
+active mode, which determines how the objects respond to user actions. You can choose the mode on
+the [Mode selection panel](#pict.modes-all).
+
+<figure id="pict.modes-all">
+
+<figcaption>Mode selection panel</figcaption>
+</figure>
+
+## Programmers guide
+
+### Intro
+
+Well, sure there will be some info on BKChem structure somewhere in the future. But for now I am too
+busy with other more interesting and important things.
+
+### GNU Free Documentation License
+
+Version 1.1, March 2000
+
+> Copyright (C) 2000 Free Software Foundation, Inc. 59 Temple Place, Suite 330, Boston, MA
+> 02111-1307 USA Everyone is permitted to copy and distribute verbatim copies of this license
+> document, but changing it is not allowed.
+
+#### Preamble
+
+The purpose of this License is to make a manual, textbook, or other written document "free" in the
+sense of freedom: to assure everyone the effective freedom to copy and redistribute it, with or
+without modifying it, either commercially or noncommercially. Secondarily, this License preserves
+for the author and publisher a way to get credit for their work, while not being considered
+responsible for modifications made by others.
+
+This License is a kind of "copyleft", which means that derivative works of the document must
+themselves be free in the same sense. It complements the GNU General Public License, which is a
+copyleft license designed for free software.
+
+We have designed this License in order to use it for manuals for free software, because free
+software needs free documentation: a free program should come with manuals providing the same
+freedoms that the software does. But this License is not limited to software manuals; it can be used
+for any textual work, regardless of subject matter or whether it is published as a printed book. We
+recommend this License principally for works whose purpose is instruction or reference.
+
+#### Applicability and definitions
+
+This License applies to any manual or other work that contains a notice placed by the copyright
+holder saying it can be distributed under the terms of this License. The "Document", below, refers
+to any such manual or work. Any member of the public is a licensee, and is addressed as "you".
+
+A "Modified Version" of the Document means any work containing the Document or a portion of it,
+either copied verbatim, or with modifications and/or translated into another language.
+
+A "Secondary Section" is a named appendix or a front-matter section of the Document that deals
+exclusively with the relationship of the publishers or authors of the Document to the Document's
+overall subject (or to related matters) and contains nothing that could fall directly within that
+overall subject. (For example, if the Document is in part a textbook of mathematics, a Secondary
+Section may not explain any mathematics.) The relationship could be a matter of historical
+connection with the subject or with related matters, or of legal, commercial, philosophical, ethical
+or political position regarding them.
+
+The "Invariant Sections" are certain Secondary Sections whose titles are designated, as being those
+of Invariant Sections, in the notice that says that the Document is released under this License.
+
+The "Cover Texts" are certain short passages of text that are listed, as Front-Cover Texts or
+Back-Cover Texts, in the notice that says that the Document is released under this License.
+
+A "Transparent" copy of the Document means a machine-readable copy, represented in a format whose
+specification is available to the general public, whose contents can be viewed and edited directly
+and straightforwardly with generic text editors or (for images composed of pixels) generic paint
+programs or (for drawings) some widely available drawing editor, and that is suitable for input to
+text formatters or for automatic translation to a variety of formats suitable for input to text
+formatters. A copy made in an otherwise Transparent file format whose markup has been designed to
+thwart or discourage subsequent modification by readers is not Transparent. A copy that is not
+"Transparent" is called "Opaque".
+
+Examples of suitable formats for Transparent copies include plain ASCII without markup, Texinfo
+input format, LaTeX input format, SGML or XML using a publicly available DTD, and
+standard-conforming simple HTML designed for human modification. Opaque formats include PostScript,
+PDF, proprietary formats that can be read and edited only by proprietary word processors, SGML or
+XML for which the DTD and/or processing tools are not generally available, and the machine-generated
+HTML produced by some word processors for output purposes only.
+
+The "Title Page" means, for a printed book, the title page itself, plus such following pages as are
+needed to hold, legibly, the material this License requires to appear in the title page. For works
+in formats which do not have any title page as such, "Title Page" means the text near the most
+prominent appearance of the work's title, preceding the beginning of the body of the text.
+
+#### Verbatim copying
+
+You may copy and distribute the Document in any medium, either commercially or noncommercially,
+provided that this License, the copyright notices, and the license notice saying this License
+applies to the Document are reproduced in all copies, and that you add no other conditions
+whatsoever to those of this License. You may not use technical measures to obstruct or control the
+reading or further copying of the copies you make or distribute. However, you may accept
+compensation in exchange for copies. If you distribute a large enough number of copies you must also
+follow the conditions in section 3.
+
+You may also lend copies, under the same conditions stated above, and you may publicly display
+copies.
+
+#### Copying in quantity
+
+If you publish printed copies of the Document numbering more than 100, and the Document's license
+notice requires Cover Texts, you must enclose the copies in covers that carry, clearly and legibly,
+all these Cover Texts: Front-Cover Texts on the front cover, and Back-Cover Texts on the back cover.
+Both covers must also clearly and legibly identify you as the publisher of these copies. The front
+cover must present the full title with all words of the title equally prominent and visible. You may
+add other material on the covers in addition. Copying with changes limited to the covers, as long as
+they preserve the title of the Document and satisfy these conditions, can be treated as verbatim
+copying in other respects.
+
+If the required texts for either cover are too voluminous to fit legibly, you should put the first
+ones listed (as many as fit reasonably) on the actual cover, and continue the rest onto adjacent
+pages.
+
+If you publish or distribute Opaque copies of the Document numbering more than 100, you must either
+include a machine-readable Transparent copy along with each Opaque copy, or state in or with each
+Opaque copy a publicly-accessible computer-network location containing a complete Transparent copy
+of the Document, free of added material, which the general network-using public has access to
+download anonymously at no charge using public-standard network protocols. If you use the latter
+option, you must take reasonably prudent steps, when you begin distribution of Opaque copies in
+quantity, to ensure that this Transparent copy will remain thus accessible at the stated location
+until at least one year after the last time you distribute an Opaque copy (directly or through your
+agents or retailers) of that edition to the public.
+
+It is requested, but not required, that you contact the authors of the Document well before
+redistributing any large number of copies, to give them a chance to provide you with an updated
+version of the Document.
+
+#### Modifications
+
+You may copy and distribute a Modified Version of the Document under the conditions of sections 2
+and 3 above, provided that you release the Modified Version under precisely this License, with the
+Modified Version filling the role of the Document, thus licensing distribution and modification of
+the Modified Version to whoever possesses a copy of it. In addition, you must do these things in the
+Modified Version:
+
+1.  Use in the Title Page (and on the covers, if any) a title distinct from that of the Document,
+    and from those of previous versions (which should, if there were any, be listed in the History
+    section of the Document). You may use the same title as a previous version if the original
+    publisher of that version gives permission.
+
+2.  List on the Title Page, as authors, one or more persons or entities responsible for authorship
+    of the modifications in the Modified Version, together with at least five of the principal
+    authors of the Document (all of its principal authors, if it has less than five).
+
+3.  State on the Title page the name of the publisher of the Modified Version, as the publisher.
+
+4.  Preserve all the copyright notices of the Document.
+
+5.  Add an appropriate copyright notice for your modifications adjacent to the other copyright
+    notices.
+
+6.  Include, immediately after the copyright notices, a license notice giving the public permission
+    to use the Modified Version under the terms of this License, in the form shown in the Addendum
+    below.
+
+7.  Preserve in that license notice the full lists of Invariant Sections and required Cover Texts
+    given in the Document's license notice.
+
+8.  Include an unaltered copy of this License.
+
+9.  Preserve the section entitled "History", and its title, and add to it an item stating at least
+    the title, year, new authors, and publisher of the Modified Version as given on the Title Page.
+    If there is no section entitled "History" in the Document, create one stating the title, year,
+    authors, and publisher of the Document as given on its Title Page, then add an item describing
+    the Modified Version as stated in the previous sentence.
+
+10. Preserve the network location, if any, given in the Document for public access to a Transparent
+    copy of the Document, and likewise the network locations given in the Document for previous
+    versions it was based on. These may be placed in the "History" section. You may omit a network
+    location for a work that was published at least four years before the Document itself, or if the
+    original publisher of the version it refers to gives permission.
+
+11. In any section entitled "Acknowledgements" or "Dedications", preserve the section's title, and
+    preserve in the section all the substance and tone of each of the contributor acknowledgements
+    and/or dedications given therein.
+
+12. Preserve all the Invariant Sections of the Document, unaltered in their text and in their
+    titles. Section numbers or the equivalent are not considered part of the section titles.
+
+13. Delete any section entitled "Endorsements". Such a section may not be included in the Modified
+    Version.
+
+14. Do not retitle any existing section as "Endorsements" or to conflict in title with any Invariant
+    Section.
+
+If the Modified Version includes new front-matter sections or appendices that qualify as Secondary
+Sections and contain no material copied from the Document, you may at your option designate some or
+all of these sections as invariant. To do this, add their titles to the list of Invariant Sections
+in the Modified Version's license notice. These titles must be distinct from any other section
+titles.
+
+You may add a section entitled "Endorsements", provided it contains nothing but endorsements of your
+Modified Version by various parties--for example, statements of peer review or that the text has
+been approved by an organization as the authoritative definition of a standard.
+
+You may add a passage of up to five words as a Front-Cover Text, and a passage of up to 25 words as
+a Back-Cover Text, to the end of the list of Cover Texts in the Modified Version. Only one passage
+of Front-Cover Text and one of Back-Cover Text may be added by (or through arrangements made by) any
+one entity. If the Document already includes a cover text for the same cover, previously added by
+you or by arrangement made by the same entity you are acting on behalf of, you may not add another;
+but you may replace the old one, on explicit permission from the previous publisher that added the
+old one.
+
+The author(s) and publisher(s) of the Document do not by this License give permission to use their
+names for publicity for or to assert or imply endorsement of any Modified Version.
+
+#### Combining documents
+
+You may combine the Document with other documents released under this License, under the terms
+defined in section 4 above for modified versions, provided that you include in the combination all
+of the Invariant Sections of all of the original documents, unmodified, and list them all as
+Invariant Sections of your combined work in its license notice.
+
+The combined work need only contain one copy of this License, and multiple identical Invariant
+Sections may be replaced with a single copy. If there are multiple Invariant Sections with the same
+name but different contents, make the title of each such section unique by adding at the end of it,
+in parentheses, the name of the original author or publisher of that section if known, or else a
+unique number. Make the same adjustment to the section titles in the list of Invariant Sections in
+the license notice of the combined work.
+
+In the combination, you must combine any sections entitled "History" in the various original
+documents, forming one section entitled "History"; likewise combine any sections entitled
+"Acknowledgements", and any sections entitled "Dedications". You must delete all sections entitled
+"Endorsements."
+
+#### Collections of documents
+
+You may make a collection consisting of the Document and other documents released under this
+License, and replace the individual copies of this License in the various documents with a single
+copy that is included in the collection, provided that you follow the rules of this License for
+verbatim copying of each of the documents in all other respects.
+
+You may extract a single document from such a collection, and distribute it individually under this
+License, provided you insert a copy of this License into the extracted document, and follow this
+License in all other respects regarding verbatim copying of that document.
+
+#### Aggregation with independent works
+
+A compilation of the Document or its derivatives with other separate and independent documents or
+works, in or on a volume of a storage or distribution medium, does not as a whole count as a
+Modified Version of the Document, provided no compilation copyright is claimed for the compilation.
+Such a compilation is called an "aggregate", and this License does not apply to the other
+self-contained works thus compiled with the Document, on account of their being thus compiled, if
+they are not themselves derivative works of the Document.
+
+If the Cover Text requirement of section 3 is applicable to these copies of the Document, then if
+the Document is less than one quarter of the entire aggregate, the Document's Cover Texts may be
+placed on covers that surround only the Document within the aggregate. Otherwise they must appear on
+covers around the whole aggregate.
+
+#### Translation
+
+Translation is considered a kind of modification, so you may distribute translations of the Document
+under the terms of section 4. Replacing Invariant Sections with translations requires special
+permission from their copyright holders, but you may include translations of some or all Invariant
+Sections in addition to the original versions of these Invariant Sections. You may include a
+translation of this License provided that you also include the original English version of this
+License. In case of a disagreement between the translation and the original English version of this
+License, the original English version will prevail.
+
+#### Termination
+
+You may not copy, modify, sublicense, or distribute the Document except as expressly provided for
+under this License. Any other attempt to copy, modify, sublicense or distribute the Document is
+void, and will automatically terminate your rights under this License. However, parties who have
+received copies, or rights, from you under this License will not have their licenses terminated so
+long as such parties remain in full compliance.
+
+#### Future revisions of this license
+
+The Free Software Foundation may publish new, revised versions of the GNU Free Documentation License
+from time to time. Such new versions will be similar in spirit to the present version, but may
+differ in detail to address new problems or concerns. See <http://www.gnu.org/copyleft/>.
+
+Each version of the License is given a distinguishing version number. If the Document specifies that
+a particular numbered version of this License "or any later version" applies to it, you have the
+option of following the terms and conditions either of that specified version or of any later
+version that has been published (not as a draft) by the Free Software Foundation. If the Document
+does not specify a version number of this License, you may choose any version ever published (not as
+a draft) by the Free Software Foundation.
+
+#### How to use this License for your documents
+
+To use this License in a document you have written, include a copy of the License in the document
+and put the following copyright and license notices just after the title page:
+
+> Copyright (c) YEAR YOUR NAME. Permission is granted to copy, distribute and/or modify this
+> document under the terms of the GNU Free Documentation License, Version 1.1 or any later version
+> published by the Free Software Foundation; with the Invariant Sections being LIST THEIR TITLES,
+> with the Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST. A copy of the
+> license is included in the section entitled "GNU Free Documentation License".
+
+If you have no Invariant Sections, write "with no Invariant Sections" instead of saying which ones
+are invariant. If you have no Front-Cover Texts, write "no Front-Cover Texts" instead of
+"Front-Cover Texts being LIST"; likewise for Back-Cover Texts.
+
+If your document contains nontrivial examples of program code, we recommend releasing these examples
+in parallel under your choice of free software license, such as the GNU General Public License, to
+permit their use in free software.
