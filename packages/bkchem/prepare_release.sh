@@ -1,10 +1,15 @@
 #!/bin/bash
 
-cd doc
-mkdir html
-docbook2html doc.xml -o html 2>/dev/null
-docbook2pdf doc.xml 2>/dev/null
-cd ..
+DOCBOOK_SOURCE="docs/legacy/doc.xml"
+
+if [ -f "${DOCBOOK_SOURCE}" ]; then
+	DOCBOOK_DIR="$(dirname "${DOCBOOK_SOURCE}")"
+	mkdir -p "${DOCBOOK_DIR}/html"
+	docbook2html "${DOCBOOK_SOURCE}" -o "${DOCBOOK_DIR}/html" 2>/dev/null
+	docbook2pdf "${DOCBOOK_SOURCE}" 2>/dev/null
+else
+	echo "DocBook sources removed; use Markdown docs in docs/."
+fi
 
 cp -v locale/pot/BKChem.pot locale/
 

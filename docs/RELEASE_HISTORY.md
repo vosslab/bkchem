@@ -4,6 +4,33 @@ Legacy note: This history is migrated from `bkchem_webpage/bkchem.zirael.org/pro
 Legacy sources are archived and not maintained; entries are preserved verbatim with ASCII-normalized names.
 This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHANGELOG.md`.
 
+Post-2010 work continues outside the legacy log. This repo treats the 2017
+simone16 forks as the 0.15 line and the current vosslab work as 0.16.
+
+## Release 0.16beta1
+
+### Changes
+- Current development line hosted in this repository.
+- BKChem and OASA share a single version string and release cadence.
+- See [CHANGELOG.md](CHANGELOG.md) for detailed work logs.
+
+## Release 0.15 (simone16 fork, 2017)
+
+### Acknowledgments
+Simone Pilon (GitHub: @simone16) maintained the BKChem and OASA forks in 2017.
+Date range: Jan–May 2017.
+Reference forks:
+- https://github.com/simone16/bkchem
+- https://github.com/simone16/oasa
+
+### Highlights (@simone16)
+- Reworked bond drawing (bold, wedge, hatch) and enabled bold-bond saving.
+- Improved zoom behavior, scaling, and selector handling.
+- Fixed arrow rendering, selection, and movement (including retro-arrows).
+- Corrected bond appearance ratios and polygon bond thickness.
+- Added geometry improvements in OASA.
+- Fixed focus issues, extra bond bugs, number formatting, and vertex_item errors.
+
 ## Release 0.14.0-pre2
 
 ### Bugfixes
@@ -557,7 +584,7 @@ This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHAN
 - arrow heads are properly exported via piddle (pdf,ps)
 - it is possible to choose menu language from inside of BKchem
 - support for line vector graphics object
-- support for user written plugins (more in docs/CUSTOM_PLUGINS.md)
+- support for user written plugins (more in CUSTOM_PLUGINS.md)
 - transparency support in color selection, other additions
 - Ctrl-click in edit mode can be used for deletion of individual atoms/bonds (thanks to Piotr Wawrzyniak for the idea and patch)
 - parsing of linear formulas (e.g. -CH2CH2COCl) used in atoms added
@@ -637,7 +664,7 @@ This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHAN
 - the paper properties setting did not have any effect in most cases
 
 ### Enhancements
-- user template mode added - it is now possible for the user to create her own templates (more in docs/CUSTOM_TEMPLATES.md or on the homepage)
+- user template mode added - it is now possible for the user to create her own templates (more in CUSTOM_TEMPLATES.md or on the homepage)
 - File/Save As Template menu entry added
 - rotation around bond added to the "transformation mode" (it enables rapid changes of conformation of molecules)
 - dash bond added
@@ -646,7 +673,7 @@ This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHAN
 - bond order can be explicitly set to 0 to allow describing of hydrogen bonds etc.
 - PDF and Postscript export plugins added based on Piddle (arrows export is not complete)
 - PDF and Postscript export plugins can export cropped files (depending on the File/ File properties/ Crop SVG? setting)
-- bkchem can now be started and scripted from outside (see docs/EXTERNAL_IMPORT.md or homepage)
+- bkchem can now be started and scripted from outside (see EXTERNAL_IMPORT.md or homepage)
 - Chemistry/Set display form enables you to set a string representation of a molecule (usefull only for external tools for now)
 
 ### Changes

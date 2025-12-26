@@ -5,7 +5,7 @@
 - `docs/` documentation set for repo-wide conventions and guides.
 - `tests/` lightweight test scripts and static check runners.
 - `README.md` project overview and usage notes.
-- `LICENSE` license text.
+- `LICENSE` license text (stored at the repo root).
 - `pyproject.toml` packaging metadata and build entry point.
 - `pyproject.toml` build system configuration.
 - `MANIFEST.in` packaging include rules.
@@ -47,10 +47,6 @@
 - `tests/oasa_unittests.py` legacy unittest runner.
 - `tests/oasa_smoke_png.py` smoke rendering script.
 - `tests/oasa_test_common.py` small common helper test.
-
-## Legacy logs
-- `docs/legacy/2to3-all.log` and `docs/legacy/2to3-import.log` 2to3 conversion logs.
-- `docs/legacy/progress.log` conversion progress notes and history.
 
 ## References
 - [BKChem GitHub repository](https://github.com/vosslab/bkchem).

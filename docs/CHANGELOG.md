@@ -67,8 +67,22 @@
 - Add dedicated BKChem and OASA sections to [README.md](../README.md) with
   differences, use cases, and the backend relationship.
 - Fix BKChem test runners to add the legacy module path so `import data` resolves.
-- Move legacy HTML/DocBook sources into `docs/legacy/` and update references to
-  Markdown replacements.
+- Keep `packages/bkchem/` ahead of the legacy module path so `bkchem.main` imports
+  correctly in the BKChem test runners.
+- Remove legacy HTML/DocBook sources now that Markdown docs are canonical.
+- Update `packages/bkchem/prepare_release.sh` to skip DocBook generation when
+  sources are no longer present.
+- Remove legacy log references from OASA file-structure docs after deleting
+  `docs/legacy/`.
+- Remove `packages/oasa/LICENSE` and standardize on the root `LICENSE` file.
+- Update repo style licensing rules to reflect GPLv2 for the whole repository.
+- Update BKChem and OASA packaging metadata to GPL-2.0-only and clean up the
+  OASA MANIFEST license references.
+- Expand the root README docs list to include every Markdown document under
+  `docs/`.
+- Update [docs/RELEASE_HISTORY.md](docs/RELEASE_HISTORY.md) with the simone16
+  0.15 fork acknowledgment and a 0.16beta1 entry.
+- Refine the 0.15 simone16 release entry with a date range and concise highlights.
 - Add `docs/assets/` screenshots and update the root README to use them.
 - Add a draft BKChem package README and link it from the root README.
 

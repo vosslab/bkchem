@@ -3,7 +3,8 @@
 OASA (Open Architecture for Sketching Atoms and Molecules) is a free Python
 library for manipulating and analyzing chemical structures. This package lives
 under `packages/oasa/` in the BKChem monorepo
-and is distributed under the GNU GPL. For details see `packages/oasa/LICENSE`.
+and is distributed under the GNU GPL. For details see
+[LICENSE](../../LICENSE).
 
 More info can be found in the [BKChem GitHub repository](https://github.com/vosslab/bkchem).
 BKChem, the primary consumer of this library, is documented in the same repo.

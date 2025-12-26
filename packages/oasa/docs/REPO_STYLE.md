@@ -91,8 +91,6 @@ Possible examples:
 ## Licensing
 Check the license file to match these criteria.
 
-- Source code is licensed under **GPLv3**, unless stated otherwise.
-- Libraries intended for use by proprietary or mixed-source software are licensed under **LGPLv3**.
-- Non-code creative works, including text and figures, are licensed under **CC BY-SA 4.0**. Commercial use is permitted.
-
-- Code and non-code materials are licensed separately to reflect different legal and practical requirements.
+- The repository is licensed under **GPLv2**, unless stated otherwise.
+- Code and documentation follow the same GPLv2 license unless a specific file
+  says otherwise.

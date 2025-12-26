@@ -46,16 +46,23 @@ core workflows that BKChem supports today.
 ![BKChem templates example](docs/assets/bkchem_templates.png)
 
 ## Docs
-- [docs/INSTALL.md](docs/INSTALL.md) for running from source and optional installs.
-- [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and
-  [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) for repo layout details.
-- [docs/MIGRATION.md](docs/MIGRATION.md) for the repository merge summary.
-- [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for the migrated BKChem manual.
-- [docs/BATCH_MODE.md](docs/BATCH_MODE.md) and
-  [docs/EXTERNAL_IMPORT.md](docs/EXTERNAL_IMPORT.md) for scripting and batch use.
-- [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md) and
-  [docs/CUSTOM_TEMPLATES.md](docs/CUSTOM_TEMPLATES.md) for extension workflows.
-- [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md) for release plans.
+- [docs/AUTHORS.md](docs/AUTHORS.md) primary maintainers and contributors.
+- [docs/BATCH_MODE.md](docs/BATCH_MODE.md) batch scripting workflow.
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) chronological change log.
+- [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) system overview and data flow.
+- [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md) plugin and addon guidance.
+- [docs/CUSTOM_TEMPLATES.md](docs/CUSTOM_TEMPLATES.md) template workflow.
+- [docs/EXTERNAL_IMPORT.md](docs/EXTERNAL_IMPORT.md) scripting from Python.
+- [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) directory map and assets.
+- [docs/INSTALL.md](docs/INSTALL.md) setup, dependencies, and environment.
+- [docs/MARKDOWN_STYLE.md](docs/MARKDOWN_STYLE.md) Markdown conventions.
+- [docs/MIGRATION.md](docs/MIGRATION.md) BKChem + OASA merge summary.
+- [docs/PYTHON_STYLE.md](docs/PYTHON_STYLE.md) Python coding conventions.
+- [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md) release plans.
+- [docs/RELEASE_HISTORY.md](docs/RELEASE_HISTORY.md) historical release notes.
+- [docs/REPO_STYLE.md](docs/REPO_STYLE.md) repo structure and naming.
+- [docs/TODO.md](docs/TODO.md) open tasks and follow-ups.
+- [docs/USER_GUIDE.md](docs/USER_GUIDE.md) BKChem manual.
 - [packages/oasa/README.md](packages/oasa/README.md) for OASA-specific usage.
 - [packages/bkchem/README.md](packages/bkchem/README.md) for BKChem-specific usage.
 
@@ -74,4 +81,4 @@ core workflows that BKChem supports today.
 - [Legacy OASA site](https://bkchem.zirael.org/oasa_en.html) (Python 2 era, not maintained).
 
 ## License
-- See `LICENSE` and `packages/oasa/LICENSE`.
+- See `LICENSE`.

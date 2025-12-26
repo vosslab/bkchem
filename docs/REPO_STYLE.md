@@ -9,10 +9,7 @@ Repo-wide conventions for this project and related repos.
 - Keep `README.md` and `AGENTS.md` at the repo root.
 
 ## Naming
-- Use lowercase ASCII filenames with underscores for code and scripts; avoid spaces.
-- Use ALL CAPS for Markdown documentation filenames (`*.md`) with underscores.
-- Keep well-known root-level docs in their conventional forms (for example
-  `README.md`, `AGENTS.md`, `LICENSE`).
+- Use lowercase ascii filenames with underscores for most files; avoid spaces; 
 - Match script names to their primary purpose.
 - Use `.md` for docs, `.sh` for shell, `.py` for Python.
 
@@ -38,8 +35,7 @@ Repo-wide conventions for this project and related repos.
 - Keep repo docs in `docs/` unless a file is explicitly root-level.
 - Keep docs concise and current; remove stale docs when replacing them.
 
-Use ALL CAPS for Markdown docs under `docs/` (for example `docs/INSTALL.md`,
-`docs/USAGE.md`) so they stand out from code and scripts.
+Use ALL CAPS for all Markdown documentation filenames (*.md) so docs visually stand out from code and scripts at a glance. Use underscores between words, avoid spaces, and choose clear, descriptive names. Keep well-known root-level docs in their conventional forms (for example README.md, AGENTS.md), and apply the same ALL CAPS rule to files under docs/ (for example docs/INSTALL.md, docs/USAGE.md).
 
 ### Recommended common docs
 - `AGENTS.md`: agent instructions, tool constraints, and repo-specific workflow guardrails.

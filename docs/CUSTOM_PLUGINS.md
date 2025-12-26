@@ -1,6 +1,7 @@
 # Custom plugins
 
-Legacy note: This document is migrated from `docs/legacy/custom_plugins_en.html`. The
+Legacy note: This document is migrated from the legacy HTML docs that are no longer
+tracked in the repo. The
 [GitHub repository](https://github.com/vosslab/bkchem) is the primary homepage
 and documentation source. Legacy websites are archived and not maintained. Any
 legacy email addresses are kept for attribution only and are not support
