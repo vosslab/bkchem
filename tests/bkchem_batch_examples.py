@@ -102,18 +102,21 @@ def run_batch_demo(input_path):
 #============================================
 def run_script1(input_path):
 	"""Run a batch-style update similar to the legacy script1."""
-	import bkchem
+	import bkchem.main
 
-	app = bkchem.myapp
-	app.in_batch_mode = 1
-	app.load_CDML(input_path, replace=1)
-	for mol in app.paper.molecules:
-		for bond in mol.bonds:
-			if bond.order == 2:
-				bond.line_color = "#aa0000"
-				bond.redraw()
-	app.update_idletasks()
-	app.save_CDML()
+	app = bkchem.main.BKChem()
+	app.withdraw()
+	app.initialize_batch()
+	if not getattr(app, 'paper', None):
+		raise RuntimeError("BKChem script1 example failed to create a paper.")
+	if app.load_CDML(input_path, replace=1):
+		for mol in app.paper.molecules:
+			for bond in mol.bonds:
+				if bond.order == 2:
+					bond.line_color = "#aa0000"
+					bond.redraw()
+		app.update_idletasks()
+		app.save_CDML()
 	app.destroy()
 
 

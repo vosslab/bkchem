@@ -30,7 +30,7 @@ modules.
 
 ## Sample batch script
 
-The example logic lives in `tests/run_bkchem_batch_examples.py`. It loads every
+The example logic lives in `tests/bkchem_batch_examples.py`. It loads every
 BKChem file under the given paths, sets the atom font size to 12, and re-saves
 the files.
 

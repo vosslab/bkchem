@@ -25,8 +25,8 @@ bkchem
 
 ## Tests
 - `tests/run_pyflakes.sh` shared linting check.
-- `tests/run_bkchem_gui_smoke.py` basic GUI smoke test (requires Tk).
-- `tests/run_bkchem_batch_examples.py` runs the batch script examples (requires Tk).
+- `tests/bkchem_gui_smoke.py` basic GUI smoke test (requires Tk).
+- `tests/bkchem_batch_examples.py` runs the batch script examples (requires Tk).
 
 ## Docs
 - [docs/USER_GUIDE.md](../../docs/USER_GUIDE.md) BKChem manual.

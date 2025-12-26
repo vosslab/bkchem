@@ -53,8 +53,9 @@
   progress log.
 - Restore the pyflakes runner skip list for `bkchem_webpage` and
   `bkchem_website`.
-- Add [tests/run_bkchem_batch_examples.py](../tests/run_bkchem_batch_examples.py) to exercise
+- Add [tests/bkchem_batch_examples.py](../tests/bkchem_batch_examples.py) to exercise
   the batch script examples against a temporary CDML file.
+- Rename BKChem test runners to drop the `run_` prefix.
 - Consolidate test scripts under `tests/`, add OASA-specific runners with
   `oasa_` prefixes, and remove duplicate pyflakes scripts.
 - Update OASA docs and file structure notes to reference the new test paths.
@@ -88,13 +89,23 @@
 - Align BKChem test runner preference initialization with legacy imports to
   avoid duplicate singleton modules.
 - Add `tests/run_smoke.sh` to run BKChem smoke tests together.
-- Remove the background Tk thread from `tests/bkchem_script1.py` to avoid Tcl
+- Remove the background Tk thread from the batch example logic to avoid Tcl
   threading errors on macOS.
 - Move BKChem example scripts out of `docs/scripts/` into `tests/`.
+- Inline legacy batch script behavior into `tests/bkchem_batch_examples.py`
+  and remove the standalone example scripts.
 - Add success checks to BKChem smoke and batch example tests.
-- Add `tests/run_bkchem_manual.py` for interactive manual testing.
+- Add `tests/bkchem_manual.py` for interactive manual testing.
 - Extend `tests/run_smoke.sh` to include the OASA smoke render and verify output.
 - Filter optional plugin-load warnings from the smoke test output.
+- Number the smoke test output steps in `tests/run_smoke.sh`.
+- Keep `tests/run_smoke.sh` running all tests and report failures at the end.
+- Fix BKChem batch examples to use `bkchem.main.BKChem()` instead of legacy
+  `bkchem.myapp`.
+- Add `tests/oasa_smoke_formats.py` to render SVG, PDF, and PNG variants in
+  smoke tests.
+- Normalize standard comparison to avoid false "Replace standard values" prompts
+  when files match current defaults.
 - Add `docs/assets/` screenshots and update the root README to use them.
 - Add a draft BKChem package README and link it from the root README.
 
@@ -118,16 +129,16 @@
 - Remove `from tkinter import *` from `bkchem/main.py`.
 - Fix `_` usage in `bkchem/edit_pool.py` and clean up unused variables and
   imports in `bkchem/main.py`.
-- Add `tests/run_bkchem_gui_smoke.py` to open the GUI briefly for a smoke test.
+- Add `tests/bkchem_gui_smoke.py` to open the GUI briefly for a smoke test.
 - Improve GUI smoke test error handling when Tk is unavailable.
 - Add `Brewfile` with Homebrew dependencies for Tk support.
 - Add `python-tk@3.12` to `Brewfile` and macOS Tk notes to
   `docs/INSTALL.md`.
-- Update `tests/run_bkchem_gui_smoke.py` to add the BKChem package directory to
+- Update `tests/bkchem_gui_smoke.py` to add the BKChem package directory to
   `sys.path` for legacy relative imports.
 - Update GUI smoke test to import `bkchem.main` directly and replace deprecated
   `imp` usage with `importlib` in `bkchem/main.py`.
 - Add gettext fallback in `bkchem/messages.py` for module-level strings.
-- Initialize gettext fallbacks in `tests/run_bkchem_gui_smoke.py`.
+- Initialize gettext fallbacks in `tests/bkchem_gui_smoke.py`.
 - Add [docs/TODO.md](docs/TODO.md) with a note to replace legacy exporters with
   Cairo equivalents.

@@ -32,6 +32,7 @@ from math import pi
 from warnings import warn
 
 import dom_extensions
+import misc
 
 from ftext import ftext
 from parents import meta_enabled, text_like
@@ -74,10 +75,26 @@ class standard(object):
 
 
   def __eq__( self, other):
+    if other is None:
+      return 0
     for k, v in list(self.__dict__.items()):
-      if str( v) != str( other.__dict__[ k]):
+      if k not in other.__dict__:
+        return 0
+      if not self._compare_standard_value( v, other.__dict__[ k]):
         return 0
     return 1
+
+
+  def _compare_standard_value( self, left, right):
+    left_num, left_unit = misc.split_number_and_unit( left)
+    right_num, right_unit = misc.split_number_and_unit( right)
+    if left_unit is not None and right_unit is not None:
+      if left_unit != right_unit:
+        return 0
+      if left_num is None or right_num is None:
+        return 0
+      return abs( left_num - right_num) <= 1e-6
+    return str( left) == str( right)
 
 
   def __ne__( self, other):
