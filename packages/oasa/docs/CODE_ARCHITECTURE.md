@@ -8,9 +8,8 @@
 - Optional integrations enable extra formats or database-backed features.
 
 ## Project references
-- [OASA project page](https://bkchem.zirael.org/oasa_en.html) for upstream context.
-- [BKChem homepage](https://bkchem.zirael.org/) for the application that
-  consumes this library.
+- [BKChem GitHub repository](https://github.com/vosslab/bkchem) for the primary
+  project homepage and documentation.
 
 ## Core data model
 - `oasa/graph/` contains the generic graph, vertex, and edge primitives.

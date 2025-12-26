@@ -1,5 +1,9 @@
 # Changelog
 
+## 2025-12-26
+- Move packaging metadata into `pyproject.toml` and drop `setup.py`.
+- Update documentation references to the GitHub repository homepage.
+
 ## 2025-12-24
 - Modernized Python 3 support and packaging (`setup.py`, `README.md`, `oasa/__init__.py`).
 - Added repo documentation for architecture and file layout

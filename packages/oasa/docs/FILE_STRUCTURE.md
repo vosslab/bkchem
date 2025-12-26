@@ -6,7 +6,7 @@
 - `tests/` lightweight test scripts and static check runners.
 - `README.md` project overview and usage notes.
 - `LICENSE` license text.
-- `setup.py` packaging metadata and install entry point.
+- `pyproject.toml` packaging metadata and build entry point.
 - `pyproject.toml` build system configuration.
 - `MANIFEST.in` packaging include rules.
 - `chemical_convert.py` conversion helper script.
@@ -50,5 +50,4 @@
 - `docs/legacy/progress.log` conversion progress notes and history.
 
 ## References
-- [OASA project page](https://bkchem.zirael.org/oasa_en.html).
-- [BKChem homepage](https://bkchem.zirael.org/).
+- [BKChem GitHub repository](https://github.com/vosslab/bkchem).

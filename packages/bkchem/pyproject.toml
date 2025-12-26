@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bkchem"
+description = "BKChem is a chemical drawing program written in Python"
+readme = {text = "BKChem is a chemical drawing program written in Python.",
+  content-type = "text/markdown"}
+requires-python = ">=3.10"
+license = {text = "GPL-2.0-or-later"}
+authors = [{name = "Beda Kosata", email = "beda@zirael.org"}]
+maintainers = [{name = "Reinis Danne", email = "rei4dan@gmail.com"}]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/vosslab/bkchem"
+Issues = "https://github.com/vosslab/bkchem/issues"
+
+[project.scripts]
+bkchem = "bkchem.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bkchem*", "bkchem_data*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "bkchem.config.current_BKChem_version"}
+
+[tool.setuptools.package-data]
+bkchem = ["bkchem.js"]
+bkchem_data = [
+  "templates/*.cdml",
+  "templates/*.xml",
+  "pixmaps/*.gif",
+  "images/*.ppm",
+  "images/*.ico",
+  "images/*.svg",
+  "images/*.png",
+  "dtd/*.dtd",
+  "dtd/*.xsd",
+  "locale/*/*.po",
+  "locale/pot/*.pot",
+  "locale/pot/*.sh",
+]
+
+[tool.setuptools.data-files]
+"share/bkchem/plugins" = [
+  "plugins/angle_between_bonds.py",
+  "plugins/angle_between_bonds.xml",
+  "plugins/animate_undo.py",
+  "plugins/animate_undo.xml",
+  "plugins/fetch_from_webbook.py",
+  "plugins/fetch_from_webbook.xml",
+  "plugins/fetch_name_from_webbook.py",
+  "plugins/fetch_name_from_webbook.xml",
+  "plugins/fragment_search.py",
+  "plugins/fragment_search.xml",
+  "plugins/mass_scissors.py",
+  "plugins/mass_scissors.xml",
+  "plugins/red_aromates.py",
+  "plugins/red_aromates.xml",
+  "plugins/text_to_group.py",
+  "plugins/text_to_group.xml",
+]

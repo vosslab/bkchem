@@ -1,46 +1,32 @@
-This piece of software is an unofficial fork of BKChem, 
-which is a free molecular drawing program.
+# BKChem and OASA monorepo
 
-For the official version, more info on program capabilities, install instructions etc.
-see documentation in directory "doc" in the main BKChem directory or the BKChem
-website on http://zirael.org/bkchem/
+This repo is an unofficial fork of BKChem that now bundles the BKChem GUI and
+the OASA chemistry library in one workspace.
 
-Bug reports and suggestions please contact:
-Simone Pilon <wertyseek@gmail.com>
+## Packages
+- `packages/bkchem/` BKChem Tk GUI for drawing chemical structures.
+- `packages/oasa/` OASA library and CLI converters used by BKChem.
 
----
-BKChem is free software and is distributed under GNU GPL. The program is
-provided as is without warranty of any kind. For details see the
-file "gpl.txt" in main bkchem directory.
+## Docs
+- [docs/INSTALL.md](docs/INSTALL.md) for running from source and optional installs.
+- [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and
+  [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) for repo layout details.
+- [docs/MIGRATION.md](docs/MIGRATION.md) for the repository merge summary.
+- [packages/oasa/README.md](packages/oasa/README.md) for OASA-specific usage.
 
----
-For installation instructions see the file INSTALL in main BKChem directory.
+## Distribution
+- Planned: publish OASA to PyPI from this monorepo.
+- Planned: ship BKChem binary installers (macOS dmg, Linux Flatpak, Windows).
 
----
-NOTE: Starting with the version 0.9.0-pre1 Piddle sources are shipped together with
-BKChem. Piddle is a library provided under the GPL license and seems to be dead
-at least 2 years. Therefore it was decided to put it inside BKChem sources and
-distribute any eventual additions this way. In case any major changes will be made
-Piddle will be released as a standalone library.
+## Local website mirror
+- `bkchem_webpage/` contains a local copy of the legacy BKChem website.
 
-NOTE: Starting with the version 0.10.0-pre1 Pmw (http://pmw.sourceforge.net/)
-sources (version 1.2) are shipped together with BKChem.
-There were needed some minor fixes in Pwm and as it is a library provided under the
-GPL license and seems to be dead it was decided to put it inside bkchem sources and
-distribute the fixed version this way.
+## Project home
+- [GitHub repository](https://github.com/vosslab/bkchem) is the primary homepage.
 
-NOTE: The official InChI software from IUPAC is bundled in a binary form together
-with BKChem in Windows binary builds. All the credit for this nice piece of
-software goes to its creators.
-This information comes with the software:
+## Legacy references
+- [Legacy BKChem site](https://bkchem.zirael.org/) (Python 2 era, not maintained).
+- [Legacy OASA site](https://bkchem.zirael.org/oasa_en.html) (Python 2 era, not maintained).
 
-Copyright © 2011 IUPAC and InChI Trust Limited
-International Chemical Identifier (InChI)
-International Union of Pure and Applied Chemistry (IUPAC)
-This library is free software; you can redistribute it and/or modify it under
-the terms of the IUPAC/InChI Trust InChI Licence No. 1.0, or (at your option)
-any later version.
-Contact        ulrich@inchi-trust.org
-IUPAC          http://www.iupac.org/inchi
-InChI Trust    http://www.inchi-trust.org
-
+## License
+- See `LICENSE` and `packages/oasa/LICENSE`.

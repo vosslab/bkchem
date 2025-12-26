@@ -17,8 +17,10 @@
 
 #--------------------------------------------------------------------------
 
+# Standard Library
 import os
 import sys
+import importlib.util
 
 
 
@@ -28,11 +30,17 @@ env_vars = {'template': 'BKCHEM_TEMPLATE_PATH',
             'plugin':   'BKCHEM_PLUGIN_PATH',
            }
 
-std_dirs = {'template': '../templates',
-            'pixmap':   '../pixmaps',
-            'image':    '../images',
+std_dirs = {'template': '../bkchem_data/templates',
+            'pixmap':   '../bkchem_data/pixmaps',
+            'image':    '../bkchem_data/images',
             'plugin':   '../plugins',
            }
+
+data_subdirs = {'template': 'templates',
+                'pixmap':   'pixmaps',
+                'image':    'images',
+                'plugin':   'plugins',
+               }
 
 
 
@@ -45,6 +53,39 @@ try:
   import site_config
 except:
   site_config = None
+
+
+def _get_bkchem_data_dir():
+  spec = importlib.util.find_spec('bkchem_data')
+  if not spec or not spec.origin:
+    return None
+  return os.path.dirname( spec.origin)
+
+
+def _get_repo_root():
+  return os.path.abspath( os.path.join( os.path.dirname( __file__), '..'))
+
+
+def _get_prefix_share_dir():
+  return os.path.join( sys.prefix, 'share', 'bkchem')
+
+
+def _get_source_dir( file_category):
+  repo_root = _get_repo_root()
+  if file_category == 'plugin':
+    return os.path.join( repo_root, 'plugins')
+  return os.path.join( repo_root, 'bkchem_data', data_subdirs[ file_category])
+
+
+def _get_data_dir( file_category):
+  data_root = _get_bkchem_data_dir()
+  if not data_root:
+    return None
+  return os.path.join( data_root, data_subdirs[ file_category])
+
+
+def _get_share_dir( file_category):
+  return os.path.join( _get_prefix_share_dir(), data_subdirs[ file_category])
 
 
 def get_path( filename, file_category):
@@ -96,13 +137,21 @@ def get_config_filename( name, level="global", mode="r"):
 
 def get_dirs( file_category):
   if os.name in ('posix', 'nt'):
+    dirs = []
     if os.getenv( env_vars[ file_category]):
-      dirs = [os.getenv( env_vars[ file_category])]
+      dirs.append( os.getenv( env_vars[ file_category]))
     elif site_config:
-      dirs = [site_config.__dict__[ env_vars[ file_category]]]
-    else:
-      dirs = []
-    dirs.extend( (os.path.join( get_bkchem_run_dir(), std_dirs[ file_category]),))
+      dirs.append( site_config.__dict__[ env_vars[ file_category]])
+    data_dir = _get_data_dir( file_category)
+    if data_dir:
+      dirs.append( data_dir)
+    source_dir = _get_source_dir( file_category)
+    if source_dir:
+      dirs.append( source_dir)
+    share_dir = _get_share_dir( file_category)
+    if share_dir:
+      dirs.append( share_dir)
+    dirs.append( os.path.join( get_bkchem_run_dir(), std_dirs[ file_category]))
   else:
     dirs = std_dirs[ file_category]
 
@@ -191,4 +240,3 @@ def get_bkchem_run_dir():
     if isinstance(path, str):
       path = path.decode(sys.getfilesystemencoding())
   return path
-

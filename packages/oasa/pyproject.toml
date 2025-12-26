@@ -2,3 +2,26 @@
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "oasa"
+description = "OASA is a free cheminformatics library written in Python"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-2.0-or-later"}
+authors = [{name = "Beda Kosata", email = "beda@zirael.org"}]
+maintainers = [{name = "Reinis Danne", email = "rei4dan@gmail.com"}]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/vosslab/bkchem"
+Issues = "https://github.com/vosslab/bkchem/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["oasa*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "oasa.__version__"}
+
+[tool.setuptools.package-data]
+oasa = ["*.txt", "*.txt.gz", "*.db"]

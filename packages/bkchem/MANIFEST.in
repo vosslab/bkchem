@@ -1,15 +1,17 @@
-include INSTALL README.md progress.log
-include gpl.txt
-include templates/*.cdml
-include templates/*.xml
-include plugins/*.xml
+include pyproject.toml
+include MANIFEST.in
+include bkchem/bkchem.js
 include plugins/*.py
-include pixmaps/*.gif
-include images/logo.ppm
-include images/icon.ico
-include images/bkchem.svg
-include images/bkchem*.png
-recursive-include doc *.html *.py *.png *.pdf
-recursive-include dtd *.dtd *.xsd
-recursive-include locale LC_MESSAGES/BKChem.mo
-include locale/BKChem.pot
+include plugins/*.xml
+include bkchem_data/templates/*.cdml
+include bkchem_data/templates/*.xml
+include bkchem_data/pixmaps/*.gif
+include bkchem_data/images/*.ppm
+include bkchem_data/images/*.ico
+include bkchem_data/images/*.svg
+include bkchem_data/images/*.png
+include bkchem_data/dtd/*.dtd
+include bkchem_data/dtd/*.xsd
+include bkchem_data/locale/*/*.po
+include bkchem_data/locale/pot/*.pot
+include bkchem_data/locale/pot/*.sh

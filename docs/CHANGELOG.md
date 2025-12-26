@@ -1,5 +1,26 @@
 # Changelog
 
+## 2025-12-26
+- Update [README.md](../README.md) with monorepo overview, doc links, and
+  package locations.
+- Refresh [docs/INSTALL.md](docs/INSTALL.md) with merged repo run instructions
+  and updated Python requirements.
+- Revise [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) for the
+  `packages/bkchem/` and `packages/oasa/` layout plus the local website mirror.
+- Update [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) to use the new
+  monorepo paths and OASA doc references.
+- Update [packages/oasa/README.md](../packages/oasa/README.md) for monorepo
+  install and test locations.
+- Add `pyproject.toml` packaging for BKChem and OASA, remove legacy
+  `setup.py`, and add a `bkchem` console entry point.
+- Teach BKChem path resolution to look in `bkchem_data` and shared install
+  directories before legacy relative paths.
+- Add [docs/MIGRATION.md](docs/MIGRATION.md) with the BKChem and OASA merge
+  summary.
+- Switch documentation and packaging metadata to the GitHub repository as the
+  primary homepage and mark legacy sites as archived.
+- Update Windows installer metadata URLs to point at the GitHub project.
+
 ## 2025-12-24
 - Add [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) with system overview
   and data flow.

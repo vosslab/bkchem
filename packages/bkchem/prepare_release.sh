@@ -17,7 +17,7 @@ echo "convert the logo to ppm"
 echo "release number in:"
 echo "images/logo.xcf"
 echo "bkchem/config.py"
-echo "setup.py"
+echo "pyproject.toml"
 echo "RELEASE"
 echo
 echo "set config.debug to 0"

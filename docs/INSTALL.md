@@ -1,71 +1,46 @@
 # Installation
 
-Note: This file describes the installation of the source release of BKChem. If you
-have downloaded the binary release, please read `INSTALL.binary` instead.
+This repo combines the BKChem GUI and the OASA chemistry library. The steps
+below focus on running BKChem from the merged source tree. For OASA-specific
+setup, see [packages/oasa/README.md](../packages/oasa/README.md).
+The project homepage and documentation live in the GitHub repository; legacy
+websites from the Python 2 era are archived.
 
 ## Before you start
 
-Installation of BKChem is simple, but you must install the following first:
+- Python 3.10 or newer. Tested with Python 3.12.
+- Tkinter (required for the GUI).
+- Optional: pycairo for higher-quality PDF and PNG exports.
 
-- Python. Get a distribution from [python.org](https://www.python.org/).
-  Note that BKChem runs only on Python 2.6 or newer.
-- pycairo (optional). This library is available only for Linux. It enables high
-  quality export to PDF and PNG formats with support for antialiased unicode
-  texts. It requires the cairo library. Both can be found at
-  [cairographics snapshots](http://cairographics.org/snapshots/). The current
-  tested version is 0.5.1.
+## Run BKChem from source
 
-## Single directory deployment
-
-No installation is needed to run BKChem. You can run the program directly after
-unpacking the downloaded sources.
-
-Run `bkchem.py` located in the `bkchem-X.Y.Z/bkchem` directory, where `X.Y.Z` are
-version numbers of the BKChem release.
-
-Example on Unix:
+1. Change into the BKChem package:
 
 ```sh
-cd "the dir where you have downloaded the BKChem package"
-tar -xzf bkchem-X.X.X.tgz -C "the dir where you want to unpack BKChem"
-cd "the dir where you have unpacked BKChem"/bkchem-X.Y.Z/bkchem
-python bkchem.py
+cd packages/bkchem
 ```
 
-## System-wide install
-
-On Linux and other Unix systems you can use a classic system install. The main
-advantage is a `bkchem` program in your path, so you can run it from anywhere.
-
-BKChem uses `distutils` for installation. Run `setup.py` from the `bkchem`
-directory with the `install` argument:
+2. Run the GUI:
 
 ```sh
-python setup.py install
+python3 bkchem/bkchem.py
 ```
 
-Note: You usually must be root to perform the install.
+BKChem reads templates, pixmaps, and localization files from
+`packages/bkchem/bkchem_data/` and loads plugin descriptors from
+`packages/bkchem/plugins/`.
 
-This installs:
+## System-wide install (pip)
 
-- Python sources into a standard directory for third-party modules, usually
-  something like `/usr/lib/python/site-packages`.
-- Templates, pixmaps, and other assets into `prefix/share/bkchem`, where `prefix`
-  is usually `usr` or `usr/local`.
-- Documentation into `prefix/share/doc/bkchem`.
-- A shell script at `prefix/bin/bkchem` so you can run BKChem from anywhere.
-
-To influence the paths used during install (especially `prefix`), run:
+BKChem uses `pyproject.toml` and setuptools for builds.
 
 ```sh
-python setup.py install --help
+cd packages/bkchem
+pip3 install .
 ```
 
-To see other install options, run:
-
-```sh
-python setup.py --help
-```
+This installs the BKChem package, data files, and a `bkchem` launcher script.
+Run `bkchem` to start the GUI after install.
 
 ## macOS notes
 
@@ -76,8 +51,3 @@ Tk support package and verify that Tk loads:
 brew install python-tk@3.12
 python3 -c "import _tkinter, tkinter; print('tk', tkinter.TkVersion, 'tcl', tkinter.TclVersion)"
 ```
-
-## Feedback
-
-Comments or reports on the installation process are especially welcome. This is
-hard to test thoroughly on a single machine.
