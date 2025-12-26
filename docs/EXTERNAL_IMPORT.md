@@ -14,7 +14,7 @@ now may need updates as the codebase evolves.
 
 ## Example script
 
-The example script lives at `docs/scripts/script1.py`. It opens a CDML file,
+The example logic lives in `tests/run_bkchem_batch_examples.py`. It opens a CDML file,
 recolors all double bonds to red, saves the result, and exits.
 
 Key pieces of the script:

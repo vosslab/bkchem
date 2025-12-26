@@ -28,6 +28,20 @@ def parse_args():
 
 
 #============================================
+def ensure_preferences():
+	"""Initialize preference manager for tests."""
+	import os_support
+	import pref_manager
+	import singleton_store
+
+	if singleton_store.Store.pm is None:
+		singleton_store.Store.pm = pref_manager.pref_manager([
+			os_support.get_config_filename("prefs.xml", level="global", mode='r'),
+			os_support.get_config_filename("prefs.xml", level="personal", mode='r'),
+		])
+
+
+#============================================
 def main():
 	"""Run the GUI smoke test."""
 	args = parse_args()
@@ -55,14 +69,18 @@ def main():
 			sys.exit(1)
 		raise
 	tkinter.TkVersion
+	ensure_preferences()
 	import bkchem.main as bkchem_main
 	BKChem = bkchem_main.BKChem
 	app = BKChem()
 	app.withdraw()
 	app.initialize()
+	if not getattr(app, 'paper', None):
+		raise RuntimeError("BKChem GUI smoke test failed to create a paper.")
 	app.deiconify()
 	app.after(int(args.seconds * 1000), app.destroy)
 	app.mainloop()
+	print("BKChem GUI smoke test OK.")
 
 
 if __name__ == '__main__':

@@ -30,32 +30,18 @@ modules.
 
 ## Sample batch script
 
-The example script lives at `docs/scripts/batch_demo1.py`. It loads every BKChem
-file under the given paths, sets the atom font size to 12, and re-saves the
-files.
+The example logic lives in `tests/run_bkchem_batch_examples.py`. It loads every
+BKChem file under the given paths, sets the atom font size to 12, and re-saves
+the files.
 
 Key snippet:
 
 ```python
-if Args:
-	for arg in Args:
-		update_svgs_in_path(arg)
-else:
-	print("You must supply a path as first argument to the batch script.")
-```
-
-And the core processing loop:
-
-```python
-if App.load_CDML(f, replace=1):
-	print("OK")
-	for mol in App.paper.molecules:
+if app.load_CDML(path, replace=1):
+	for mol in app.paper.molecules:
 		for atom in mol.atoms:
 			atom.font_size = 12
-	App.save_CDML()
-	return 1
-print("ignoring")
-return 0
+	app.save_CDML()
 ```
 
 `App.load_CDML` returns true when the file is loaded successfully. The

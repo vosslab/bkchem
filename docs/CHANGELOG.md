@@ -83,6 +83,18 @@
 - Update [docs/RELEASE_HISTORY.md](docs/RELEASE_HISTORY.md) with the simone16
   0.15 fork acknowledgment and a 0.16beta1 entry.
 - Refine the 0.15 simone16 release entry with a date range and concise highlights.
+- Initialize BKChem preferences in GUI and batch test runners to avoid
+  Store.pm errors.
+- Align BKChem test runner preference initialization with legacy imports to
+  avoid duplicate singleton modules.
+- Add `tests/run_smoke.sh` to run BKChem smoke tests together.
+- Remove the background Tk thread from `tests/bkchem_script1.py` to avoid Tcl
+  threading errors on macOS.
+- Move BKChem example scripts out of `docs/scripts/` into `tests/`.
+- Add success checks to BKChem smoke and batch example tests.
+- Add `tests/run_bkchem_manual.py` for interactive manual testing.
+- Extend `tests/run_smoke.sh` to include the OASA smoke render and verify output.
+- Filter optional plugin-load warnings from the smoke test output.
 - Add `docs/assets/` screenshots and update the root README to use them.
 - Add a draft BKChem package README and link it from the root README.
 
