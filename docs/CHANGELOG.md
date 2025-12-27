@@ -127,6 +127,9 @@
 - Add [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) with import/export
   formats and default save behavior.
 - Update [docs/TODO.md](docs/TODO.md) with new follow-up items.
+- Note optional RDKit/Open Babel integration as a potential format expansion path.
+- Expand RDKit/Open Babel TODO with candidate files and docs.
+- Add format coverage notes to the RDKit/Open Babel TODO entry.
 - Add `inchi` to the Homebrew dependencies.
 - Clarify required and optional dependencies in [docs/INSTALL.md](docs/INSTALL.md).
 - Mark `pycairo` as a required dependency.
