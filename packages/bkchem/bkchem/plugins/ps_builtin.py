@@ -23,7 +23,7 @@
 
 import builtins
 
-import plugin
+from . import plugin
 
 _ = getattr( builtins, "_", None)
 if not _:

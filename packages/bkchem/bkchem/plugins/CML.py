@@ -29,7 +29,7 @@ import tkinter.messagebox as tkMessageBox
 import validator
 import dom_extensions as dom_ext
 
-import plugin
+from . import plugin
 
 _ = builtins.__dict__.get( '_', lambda m: m)
 

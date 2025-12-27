@@ -24,8 +24,8 @@ import tkinter
 
 import Pmw
 
-from tk2cairo import tk2cairo
-from cairo_lowlevel import cairo_exporter
+from .tk2cairo import tk2cairo
+from .cairo_lowlevel import cairo_exporter
 from singleton_store import Screen
 
 _ = getattr( builtins, "_", None)

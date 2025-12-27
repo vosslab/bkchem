@@ -586,7 +586,9 @@ class chem_paper(Canvas, object):
             o.draw()
     # now check if the old standard differs
     if new_standard and old_standard != self.standard and not Store.app.in_batch_mode:
-      if not tkinter.messagebox.askokcancel(_('Replace standard values'),
+      if self._is_template_file():
+        pass
+      elif not tkinter.messagebox.askokcancel(_('Replace standard values'),
                                       messages.standards_differ_text,
                                       default = 'ok',
                                       parent=self):
@@ -607,6 +609,25 @@ class chem_paper(Canvas, object):
     if draw:
       self.add_bindings()
     self.um.start_new_record()
+
+
+  #============================================
+  def _is_template_file( self):
+    """Return True when the current file lives in a template directory."""
+    full_path = self.full_path
+    if not full_path:
+      return False
+    full_path = os.path.abspath( full_path)
+    for template_dir in os_support.get_dirs( 'template'):
+      if not template_dir:
+        continue
+      template_dir = os.path.abspath( template_dir)
+      try:
+        if os.path.commonpath( [full_path, template_dir]) == template_dir:
+          return True
+      except ValueError:
+        continue
+    return False
 
 
   def onread_id_sandbox_activate( self):

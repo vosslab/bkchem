@@ -25,8 +25,8 @@ import builtins
 
 import dom_extensions as dom_ext
 
-import CML
-import plugin
+from . import CML
+from . import plugin
 
 _ = getattr( builtins, "_", None)
 if not _:

@@ -21,7 +21,7 @@
 
 """
 
-# there is a problem with font sizes. It seems that OpenOffice does not distinguish
+# there is a problem with font sizes. It seems that OpenOffice/LibreOffice does not distinguish
 # between pt and px. Unfortunately it seems that the font sizes handling is also different
 # in the Tcl/Tk 8.3.4 than in the version I have used before. Maybe I would have to switch
 # to px sizes instead of pt sizes.
@@ -37,7 +37,7 @@ from oasa import geometry
 
 import os_support
 
-import plugin
+from . import plugin
 from singleton_store import Screen
 
 _ = getattr( builtins, "_", None)
@@ -50,11 +50,8 @@ if not _:
 
 ## DEFINITIONS
 class ODF_exporter(plugin.exporter):
-  """Export drawing into OpenOffice Draw format (native for OO prior to 2.0).
-
-  Note that this is not an ODF (Open Document Format) export.
-  """
-  doc_string = _("Exports the drawing into OpenOffice Draw format (native for OO prior to 2.0), note that this is not an ODF (Open Document Format) export.")
+  """Export drawing into OpenDocument Format (ODF) for LibreOffice/OpenOffice."""
+  doc_string = _("Exports the drawing into OpenDocument Format (ODF) for LibreOffice/OpenOffice.")
 
   def __init__( self, paper):
     self.paper = paper
@@ -659,7 +656,7 @@ class ODF_exporter(plugin.exporter):
 name = "ODF"
 extensions = [".odg",".zip"]
 exporter = ODF_exporter
-local_name = _("ODF (OpenOffice 2.0)")
+local_name = _("ODF (OpenDocument)")
 
 
 

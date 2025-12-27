@@ -104,6 +104,28 @@
   `bkchem.myapp`.
 - Add `tests/oasa_smoke_formats.py` to render SVG, PDF, and PNG variants in
   smoke tests.
+- Switch BKChem plugin imports to explicit relative paths so optional plugins
+  load reliably under Python 3 packaging.
+- Surface plugin import errors with module names and exception details, with
+  optional tracebacks when debug mode is enabled.
+- Add `tests/bkchem_plugin_smoke.py` and `tests/run_plugin_smoke.sh` to report
+  loaded plugins and fail fast on missing plugin imports.
+- Drop the legacy OpenOffice Draw export plugin and remove its unused manifest.
+- Refresh the ODF exporter description to reference OpenDocument and LibreOffice.
+- Allow BKChem plugin loader to import config when plugins are loaded as a
+  top-level package.
+- Skip the standard-value replacement prompt when opening built-in templates.
+- Add SMILES and InChI export plugins powered by OASA for BKChem exports.
+- Expand the BKChem plugin smoke test to report plugin modes, extensions, and
+  doc strings (optional summary output).
+- Add an optional export check to the BKChem plugin smoke test, writing sample
+  files and reporting output sizes.
+- Use the macOS system menu bar when running on Darwin, keeping in-window menus
+  for other platforms.
+- Add [docs/BKCHEM_FORMAT_SPEC.md](docs/BKCHEM_FORMAT_SPEC.md) to document the
+  CDML file format.
+- Add [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) with import/export
+  formats and default save behavior.
 - Normalize standard comparison to avoid false "Replace standard values" prompts
   when files match current defaults.
 - Add `docs/assets/` screenshots and update the root README to use them.

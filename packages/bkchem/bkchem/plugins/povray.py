@@ -26,7 +26,7 @@
 import builtins
 import io
 
-import plugin
+from . import plugin
 
 _ = getattr( builtins, "_", None)
 if not _:

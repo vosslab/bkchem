@@ -163,11 +163,16 @@ class BKChem( Tk):
 
   def init_menu( self):
     # defining menu
-    menuf = Frame( self.main_frame, relief=RAISED, bd=config.border_width)
-    menuf.grid( row=0, sticky="we")
+    self._use_system_menubar = sys.platform == "darwin"
+    if self._use_system_menubar:
+      self.menu = Pmw.MainMenuBar( self, balloon=self.menu_balloon)
+      self.configure( menu=self.menu)
+    else:
+      menuf = Frame( self.main_frame, relief=RAISED, bd=config.border_width)
+      menuf.grid( row=0, sticky="we")
 
-    self.menu = Pmw.MenuBar( menuf, balloon=self.menu_balloon)
-    self.menu.pack( side="left", expand=1, fill="both")
+      self.menu = Pmw.MenuBar( menuf, balloon=self.menu_balloon)
+      self.menu.pack( side="left", expand=1, fill="both")
 
     self.menu_template = [
       # file menu
@@ -1359,6 +1364,14 @@ Enter InChI:""")
     self.cursor_position.set( "(%d, %d)" % (x,y))
 
 
+  #============================================
+  def _get_menu_component( self, name):
+    """Return the tkinter.Menu component for the given menu name."""
+    if getattr( self, '_use_system_menubar', False):
+      return self.menu.component( name)
+    return self.menu.component( name + "-menu")
+
+
   def update_menu_after_selection_change( self, e):
     for temp in self.menu_template:
       if temp[1] == "command" and temp[6] is not None:
@@ -1369,7 +1382,7 @@ Enter InChI:""")
           state = state() and 'normal' or 'disabled'
         elif state not in  ('normal', 'disabled'):
           state = getattr( self.paper, temp[6]) and 'normal' or 'disabled'
-        self.menu.component( temp[0] + "-menu").entryconfigure( temp[2], state=state)
+        self._get_menu_component( temp[0]).entryconfigure( temp[2], state=state)
 
 
   def _record_recent_file( self, name):

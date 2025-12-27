@@ -48,6 +48,7 @@ core workflows that BKChem supports today.
 ## Docs
 - [docs/AUTHORS.md](docs/AUTHORS.md) primary maintainers and contributors.
 - [docs/BATCH_MODE.md](docs/BATCH_MODE.md) batch scripting workflow.
+- [docs/BKCHEM_FORMAT_SPEC.md](docs/BKCHEM_FORMAT_SPEC.md) CDML format specification.
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) chronological change log.
 - [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) system overview and data flow.
 - [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md) plugin and addon guidance.
@@ -61,6 +62,7 @@ core workflows that BKChem supports today.
 - [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md) release plans.
 - [docs/RELEASE_HISTORY.md](docs/RELEASE_HISTORY.md) historical release notes.
 - [docs/REPO_STYLE.md](docs/REPO_STYLE.md) repo structure and naming.
+- [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) supported file formats.
 - [docs/TODO.md](docs/TODO.md) open tasks and follow-ups.
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) BKChem manual.
 - [packages/oasa/README.md](packages/oasa/README.md) for OASA-specific usage.

@@ -33,7 +33,7 @@ import xml.dom.minidom as dom
 
 import dom_extensions as dom_ext
 
-import plugin
+from . import plugin
 from arrow import arrow
 from classes import plus, text as text_class
 from molecule import molecule

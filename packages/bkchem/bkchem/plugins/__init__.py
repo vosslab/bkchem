@@ -19,12 +19,23 @@
 
 
 
+import importlib
+import sys
+import traceback
+
+try:
+  from .. import config
+except ImportError:
+  import config
+
+
 __all__ = []
 
 # 'bitmap' and 'gtml' were removed for the release
 _names = ["CML",
           "CML2",
-          "openoffice",
+          "smiles",
+          "inchi",
           "ps_builtin",
           "molfile",
           "pdf_cairo",
@@ -36,10 +47,14 @@ _names = ["CML",
 
 for _name in _names:
   try:
-    exec('from . import %s' % _name)
+    importlib.import_module(".%s" % _name, __name__)
     __all__.append(_name)
-  except (IOError, ImportError):
-    print("Could not load module %s" % _name)
+  except Exception as exc:
+    sys.stderr.write(
+      "Could not load module %s: %s: %s\n" % (_name, exc.__class__.__name__, exc)
+    )
+    if config.debug:
+      traceback.print_exc()
 
 del _name
 del _names
