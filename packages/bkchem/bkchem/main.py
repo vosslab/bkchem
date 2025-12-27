@@ -300,7 +300,10 @@ class BKChem( Tk):
 
     for temp in self.menu_template:
       if temp[1] == "menu":
-        self.menu.addmenu( temp[0], temp[2], side=temp[3])
+        if self._use_system_menubar:
+          self.menu.addmenu( temp[0], temp[2])
+        else:
+          self.menu.addmenu( temp[0], temp[2], side=temp[3])
         menus.add( temp[0])
       elif temp[1] == "command":
         menu, _ignore, label, accelerator, help, command, state_var = temp

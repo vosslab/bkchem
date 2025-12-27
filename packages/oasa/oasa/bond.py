@@ -29,11 +29,11 @@ import sys
 sys.path.append( '../')
 import math
 
-from . import graph
+from .graph.edge import edge
 
 
 
-class bond(graph.edge, object):
+class bond(edge, object):
   """Based on edge, however the vertices are not a Set anymore.
 
   We need to preserve the order (for instance for wedge bonds).
@@ -45,10 +45,10 @@ class bond(graph.edge, object):
   'b' - bold
   'd' - dash
   """
-  attrs_to_copy = graph.edge.attrs_to_copy + ("order","aromatic","type")
+  attrs_to_copy = edge.attrs_to_copy + ("order","aromatic","type")
 
   def __init__( self, vs=[], order=1, type='n'):
-    graph.edge.__init__( self, vs=vs)
+    edge.__init__( self, vs=vs)
     self.set_vertices( vs)
     self.aromatic = None  # None means it was not set
     self.order = order

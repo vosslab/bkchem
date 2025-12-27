@@ -17,7 +17,7 @@
 
 #--------------------------------------------------------------------------
 
-from . import molecule
+from .molecule import molecule as molecule_class
 
 
 
@@ -27,9 +27,8 @@ class Config (object):
   """
   inchi_binary_path = "/usr/bin/inchi-1"
 
-  molecule_class = molecule.molecule
+  molecule_class = molecule_class
 
   @classmethod
   def create_molecule(self):
     return self.molecule_class()
-

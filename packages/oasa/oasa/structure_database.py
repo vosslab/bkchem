@@ -331,4 +331,4 @@ if __name__ == "__main__":
             print("Added %d synonyms" % i)
     else:
         if options.command not in ("test","rebuild","update"):
-            print("Invalid action '%s'" % options.command, file=sys.argv)
+            print("Invalid action '%s'" % options.command, file=sys.stderr)

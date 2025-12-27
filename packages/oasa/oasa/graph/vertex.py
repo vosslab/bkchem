@@ -32,7 +32,7 @@ class vertex(object):
   connectivity matrix.
   Vertex has a value attribute used to store arbitrary objects.
   """
-  attrs_to_copy = ("value",)
+  attrs_to_copy: tuple[str, ...] = ("value",)
 
   def __init__(self):
     self.properties_ = {} # used to store intermediate properties such as distances etc.
@@ -132,4 +132,3 @@ class vertex(object):
     """
     return [e for e in list(self._neighbors.keys())
                 if not e.disconnected]
-

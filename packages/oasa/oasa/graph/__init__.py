@@ -17,13 +17,14 @@
 
 #--------------------------------------------------------------------------
 
-from . import graph
-from . import vertex
-from . import edge
-from . import digraph
+from .graph import graph
+from .vertex import vertex
+from .edge import edge
+from .digraph import digraph
 
-graph = graph.graph
-vertex = vertex.vertex
-edge = edge.edge
-digraph = digraph.digraph
-
+__all__ = [
+  "graph",
+  "vertex",
+  "edge",
+  "digraph",
+]

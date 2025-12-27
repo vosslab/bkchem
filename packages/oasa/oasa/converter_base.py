@@ -34,7 +34,7 @@ class converter_base(object):
   reads_files = False
   writes_files = False
 
-  default_configuration = {}
+  default_configuration: dict = {}
 
   def __init__( self):
     self.configuration = {}
@@ -74,4 +74,3 @@ class converter_base(object):
     self.clean_logs()
     self.result = []
     self.last_status = None
-

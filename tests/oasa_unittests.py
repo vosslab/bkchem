@@ -437,7 +437,6 @@ if __name__ == '__main__':
   import sys
   if len( sys.argv) > 1 and sys.argv[1] == "-v":
     tests = [globals()[k] for k in dir() if type(globals()[k])==type and issubclass( globals()[k], unittest.TestCase)]
-    ss = []
     for test in tests:
       s1 = unittest.makeSuite( test)
       unittest.TextTestRunner(verbosity=2).run(s1)

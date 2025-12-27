@@ -23,7 +23,7 @@ import copy
 
 class edge(object):
 
-  attrs_to_copy = ("disconnected",)
+  attrs_to_copy: tuple[str, ...] = ("disconnected",)
 
   def __init__(self, vs=[]):
     self._vertices = []

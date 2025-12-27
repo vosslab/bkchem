@@ -17,21 +17,21 @@
 
 #--------------------------------------------------------------------------
 
-from . import graph
+from .graph.vertex import vertex
 from . import periodic_table as PT
 
 
 
-class chem_vertex(graph.vertex):
+class chem_vertex(vertex):
   """Parent class of atoms, groups etc.
 
   It defines common properties for vertices used in chemical context.
   It should not be instantiated directly, but rather inherited from.
   """
-  attrs_to_copy = graph.vertex.attrs_to_copy + ("charge","x","y","z","multiplicity","valency","charge","free_sites")
+  attrs_to_copy = vertex.attrs_to_copy + ("charge","x","y","z","multiplicity","valency","charge","free_sites")
 
   def __init__( self, coords=None):
-    graph.vertex.__init__( self)
+    vertex.__init__( self)
     self.charge = 0
     self.free_sites = 0
     # None means not set (used)

@@ -48,9 +48,9 @@ __version__ = _read_repo_version( "oasa", "0.16beta")
 
 
 # local repo modules
-from . import atom
-from . import bond
-from . import molecule
+from .atom import atom
+from .bond import bond
+from .molecule import molecule
 from . import smiles
 from . import coords_generator
 from . import coords_optimizer
@@ -61,8 +61,8 @@ from . import graph
 from . import linear_formula
 from . import periodic_table
 from . import config
-from . import query_atom
-from . import chem_vertex
+from .query_atom import query_atom
+from .chem_vertex import chem_vertex
 from . import oasa_exceptions
 from . import subsearch
 from . import svg_out
@@ -71,12 +71,6 @@ from . import geometry
 from . import transform3d
 from . import transform
 from . import known_groups
-
-atom = atom.atom
-bond = bond.bond
-molecule = molecule.molecule
-query_atom = query_atom.query_atom
-chem_vertex = chem_vertex.chem_vertex
 
 _EXPORTED_MODULES = [
 	atom,

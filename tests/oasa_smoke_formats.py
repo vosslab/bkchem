@@ -5,7 +5,6 @@
 # Standard Library
 import argparse
 import os
-import sys
 import tempfile
 
 import oasa

@@ -23,7 +23,7 @@ import copy
 import math
 
 from . import misc
-from . import graph
+from .graph.graph import graph as base_graph
 from . import common
 from . import transform3d
 from . import periodic_table as PT
@@ -33,10 +33,10 @@ from .query_atom import query_atom
 
 
 
-class molecule(graph.graph):
+class molecule(base_graph):
 
   def __init__( self, vertices =[]):
-    graph.graph.__init__( self, vertices=vertices)
+    base_graph.__init__( self, vertices=vertices)
     # aliases
     self.atoms = self.vertices
     self.bonds = self.edges
@@ -83,7 +83,7 @@ class molecule(graph.graph):
 
   # override of graphs method to add stereochemistry support
   def get_disconnected_subgraphs( self):
-    out = graph.graph.get_disconnected_subgraphs( self)
+    out = base_graph.get_disconnected_subgraphs( self)
     for part in out:
       for st in self.stereochemistry:
         if set( [ref for ref in st.references if isinstance(ref,atom)]) <= set( part.vertices):

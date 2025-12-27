@@ -281,8 +281,7 @@ class molfile_converter( converter_base):
   reads_files = True
   writes_files = True
 
-  default_configuration = {
-                           }
+  default_configuration: dict = {}
 
   def __init__( self):
     converter_base.__init__( self)

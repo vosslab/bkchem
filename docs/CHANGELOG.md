@@ -126,9 +126,17 @@
   CDML file format.
 - Add [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) with import/export
   formats and default save behavior.
+- Update [docs/TODO.md](docs/TODO.md) with new follow-up items.
 - Add `inchi` to the Homebrew dependencies.
 - Clarify required and optional dependencies in [docs/INSTALL.md](docs/INSTALL.md).
 - Mark `pycairo` as a required dependency.
+- Resolve OASA mypy errors by tightening class imports, annotations, and a
+  stderr print fix.
+- Adjust OASA graph base classes to allow extended `attrs_to_copy` tuples.
+- Fix macOS system menubar initialization with Pmw MainMenuBar.
+- Update OASA digraph base import for the refactored graph module exports.
+- Update OASA config to reference the molecule class directly after import
+  refactors.
 - Normalize standard comparison to avoid false "Replace standard values" prompts
   when files match current defaults.
 - Add `docs/assets/` screenshots and update the root README to use them.

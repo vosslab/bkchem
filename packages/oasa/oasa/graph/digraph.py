@@ -26,13 +26,13 @@ Suitable for analysis of chemical problems.
 
 import warnings
 
-from . import graph
+from .graph import graph as base_graph
 from .diedge import diedge
 from .vertex import vertex
 
 
 
-class digraph(graph.graph):
+class digraph(base_graph):
   """Provide a minimalistic graph implementation.
 
   Suitable for analysis of chemical problems,
