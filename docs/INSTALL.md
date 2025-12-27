@@ -10,7 +10,9 @@ websites from the Python 2 era are archived.
 
 - Python 3.10 or newer. Tested with Python 3.12.
 - Tkinter (required for the GUI).
-- Optional: pycairo for higher-quality PDF and PNG exports.
+- Required Python packages: `Pmw`, `Pillow`, `oasa`, `pycairo`.
+- Optional external tools:
+  - `inchi` (InChI generation, via OASA). Required only for InChI export.
 
 ## Run BKChem from source
 
