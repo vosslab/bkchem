@@ -23,12 +23,13 @@ Takes care of reading external data specification,
 stores the references between objects and data and saves the data to CDML.
 """
 
+import ast
 import types
 import os.path
-import xml.dom.minidom as dom
 
 import os_support
 import dom_extensions as dom_ext
+import safe_xml
 
 from atom import atom
 from bond import bond
@@ -71,7 +72,7 @@ class external_data_manager( object):
 
 
   def read_data_definition( self, filename):
-    doc = dom.parse( filename)
+    doc = safe_xml.parse_dom_from_file( filename)
     root = doc.childNodes[0]
     for ecls in dom_ext.simpleXPathSearch( root, "class"):
       cls = ecls.getAttribute( 'name')
@@ -85,8 +86,8 @@ class external_data_manager( object):
           # try to decode list style types
           if vtype.startswith( "[") and vtype.endswith( "]"):
             try:
-              vtype = eval( vtype)
-            except ValueError:
+              vtype = ast.literal_eval( vtype)
+            except (ValueError, SyntaxError):
               pass
           text = dom_ext.getAllTextFromElement( dom_ext.getFirstChildNamed( evalue, "text"))
           self.definitions[ cls][ obj][ vname] = {'type': vtype,

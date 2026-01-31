@@ -39,33 +39,33 @@ _x = cairo.PDFSurface
 
 
 class pdf_cairo_exporter(cairo_exporter):
-  """Exports PDF via the Cairo (pycairo) library.
+	"""Exports PDF via the Cairo (pycairo) library.
 
-  This is the preferred PDF output plugin as it supports unicode strings and
-  the output is of very good quality.
-  """
-  doc_string = _("Exports PDF via the Cairo (pycairo) library. This is the preferred PDF output plugin as it supports unicode strings and the output is of very good quality.")
+	This is the preferred PDF output plugin as it supports unicode strings and
+	the output is of very good quality.
+	"""
+	doc_string = _("Exports PDF via the Cairo (pycairo) library. This is the preferred PDF output plugin as it supports unicode strings and the output is of very good quality.")
 
-  def __init__( self, paper, attrs=None):
-    cairo_exporter.__init__( self, paper, converter_class=tk2cairo, attrs=attrs)
-
-
-  def init_surface( self):
-    w, h = list(map( int, list(map( round, self.pagesize))))
-    return cairo.PDFSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
+	def __init__( self, paper, attrs=None):
+		cairo_exporter.__init__( self, paper, converter_class=tk2cairo, attrs=attrs)
 
 
-  def get_scaling( self, x, y):
-    sc = self._get_scaling_ratio()
-    return sc, sc
+	def init_surface( self):
+		w, h = list(map( int, list(map( round, self.pagesize))))
+		return cairo.PDFSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
 
 
-  def _get_scaling_ratio( self):
-    return 72.0/Screen.dpi
+	def get_scaling( self, x, y):
+		sc = self._get_scaling_ratio()
+		return sc, sc
 
 
-  def save( self):
-    self.surface.finish()
+	def _get_scaling_ratio( self):
+		return 72.0/Screen.dpi
+
+
+	def save( self):
+		self.surface.finish()
 
 
 

@@ -25,6 +25,8 @@ import re
 import sys
 import xml.dom.minidom as dom
 
+import safe_xml
+
 
 
 def safe_indent( element, level=0, step=2, dont_indent=("ftext","text")):
@@ -137,10 +139,10 @@ def isOnlyTags( text):
     else:
       if isinstance(text, str):
         text = text.encode('utf-8')
-    doc = dom.parseString('<a>%s</a>' % text)
-  except IOError:
+    doc = safe_xml.parse_xml_string('<a>%s</a>' % text)
+  except Exception:
     return not len( text)
-  if getAllTextFromElement( doc):
+  if "".join(doc.itertext()):
     return 0
   return 1
 

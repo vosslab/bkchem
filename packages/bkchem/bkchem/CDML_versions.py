@@ -223,6 +223,19 @@ class CDML_transformer_15_16(object):
       a.appendChild( dom.ownerDocument.createTextNode( text))
 
 
+class CDML_transformer_16_26_02(object):
+  """CDML version 26.02.
+
+  Placeholder for future CDML extensions such as new bond types and colors.
+  """
+
+  output_version = '26.02'
+  input_version = '0.16'
+
+  def tranform_dom( self, dom):
+    pass
+
+
 
 # LIST OF AVAILABLE TRANSFORMERS
 transformers = { '0.6': CDML_transformer_06_07,
@@ -235,6 +248,7 @@ transformers = { '0.6': CDML_transformer_06_07,
                  '0.13': CDML_transformer_13_14,
                  '0.14': CDML_transformer_14_15,
                  '0.15': CDML_transformer_15_16,
+                 '0.16': CDML_transformer_16_26_02,
                  }
 
 

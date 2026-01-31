@@ -19,10 +19,10 @@
 
 import os
 import sys
-import xml.dom.minidom as dom
 
 import os_support
 import dom_extensions as dom_ext
+import safe_xml
 
 from singleton_store import Store
 
@@ -55,7 +55,7 @@ class plugin_manager(object):
 
 
   def read_plugin_file( self, dir, name):
-    doc = dom.parse( os.path.join( dir, name))
+    doc = safe_xml.parse_dom_from_file( os.path.join( dir, name))
     root = doc.childNodes[0]
     plugin_type = root.getAttribute( 'type') or 'script'
     sources = dom_ext.simpleXPathSearch( doc, "/plugin/source")
@@ -87,12 +87,19 @@ class plugin_manager(object):
     if handler.type == "script":
       filename = handler.filename
       dirname = handler.get_directory_name()
+      allowed_dirs = [os.path.realpath( d) for d in os_support.get_dirs( 'plugin')]
+      personal_dir = os_support.get_bkchem_private_dir()
+      if personal_dir:
+        allowed_dirs.append( os.path.realpath( os.path.join( personal_dir, 'addons')))
+      filename_real = os.path.realpath( filename)
+      if not any( filename_real == d or filename_real.startswith( d + os.sep) for d in allowed_dirs):
+        raise ValueError("Refusing to load plugin outside plugin directories: %s" % filename)
       sys.path.append( dirname)
       the_globals = {'App': Store.app}
       try:
         with open(filename) as f:
           code = compile(f.read(), filename, 'exec')
-          exec(code, the_globals)
+          exec(code, the_globals)  # nosec B102 - trusted plugin scripts
           plugin_main = the_globals.get( 'main')
           if callable( plugin_main):
             if hasattr( plugin_main, '__code__') and plugin_main.__code__.co_argcount == 0:

@@ -27,7 +27,7 @@ from . import misc
 
 
 
-triplets = [ 
+triplets = [
 "AAA","AAB","AAC","AAD","AAE","AAF","AAG","AAH","AAI","AAJ","AAK","AAL","AAM","AAN","AAO","AAP",
 "AAQ","AAR","AAS","AAT","AAU","AAV","AAW","AAX","AAY","AAZ","ABA","ABB","ABC","ABD","ABE","ABF",
 "ABG","ABH","ABI","ABJ","ABK","ABL","ABM","ABN","ABO","ABP","ABQ","ABR","ABS","ABT","ABU","ABV",
@@ -199,7 +199,7 @@ triplets = [
 "DZK","DZL","DZM","DZN","DZO","DZP","DZQ","DZR","DZS","DZT","DZU","DZV","DZW","DZX","DZY","DZZ",
 
 #/*^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-# E-starteds are intentionally omitted 
+# E-starteds are intentionally omitted
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^*/
 "FAA","FAB","FAC","FAD","FAE","FAF","FAG","FAH","FAI","FAJ","FAK","FAL",
 "FAM","FAN","FAO","FAP","FAQ","FAR","FAS","FAT","FAU","FAV","FAW","FAX","FAY","FAZ","FBA","FBB",
@@ -794,7 +794,7 @@ triplets = [
 "SYY","SYZ","SZA","SZB","SZC","SZD","SZE","SZF","SZG","SZH","SZI","SZJ","SZK","SZL","SZM","SZN",
 "SZO","SZP","SZQ","SZR","SZS","SZT","SZU","SZV","SZW","SZX","SZY","SZZ",
 #/*^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-# TAA to TTV - 516 triplets - intentionally omitted 
+# TAA to TTV - 516 triplets - intentionally omitted
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^*/
 "TTW","TTX","TTY","TTZ","TUA","TUB","TUC","TUD","TUE","TUF","TUG","TUH","TUI","TUJ","TUK","TUL",
 "TUM","TUN","TUO","TUP","TUQ","TUR","TUS","TUT","TUU","TUV","TUW","TUX","TUY","TUZ","TVA","TVB",
@@ -1065,7 +1065,7 @@ triplets = [
 "ZZK","ZZL","ZZM","ZZN","ZZO","ZZP","ZZQ","ZZR","ZZS","ZZT","ZZU","ZZV","ZZW","ZZX","ZZY","ZZZ"
 ]
 
-doublets = [ 
+doublets = [
 "AA","AB","AC","AD","AE","AF","AG","AH","AI","AJ","AK","AL","AM","AN","AO","AP",
 "AQ","AR","AS","AT","AU","AV","AW","AX","AY","AZ","BA","BB","BC","BD","BE","BF",
 "BG","BH","BI","BJ","BK","BL","BM","BN","BO","BP","BQ","BR","BS","BT","BU","BV",
@@ -1144,20 +1144,20 @@ def triplet3( a):
   return triplets[h];
 
 def triplet4( a):
-  b0 = ord(a[5]) & 0xfc    # 1111 1100 
-  b1 = ord(a[6])           # 1111 1111 
+  b0 = ord(a[5]) & 0xfc    # 1111 1100
+  b1 = ord(a[6])           # 1111 1111
   h =  (b0 | b1 << 8 ) >> 2
   return triplets[h];
 
 def dublet_28_to_36( a):
-  b0 = ord(a[3]) & 0xf0    # 1111 0000 
-  b1 = ord(a[4]) & 0x1f    # 0001 1111 
+  b0 = ord(a[3]) & 0xf0    # 1111 0000
+  b1 = ord(a[4]) & 0x1f    # 0001 1111
   h =  ( b0 | b1 << 8 ) >> 4
   return doublets[h];
 
 def dublet_56_to_64( a):
-  b0 = ord(a[7])           # 1111 1111 
-  b1 = ord(a[8]) & 0x01    # 0000 0001 
+  b0 = ord(a[7])           # 1111 1111
+  b1 = ord(a[8]) & 0x01    # 0000 0001
   h =  ( b0 | b1 << 8);
   return doublets[h];
 

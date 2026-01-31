@@ -24,13 +24,13 @@
 import math
 import os.path
 import xml.sax
-import xml.dom.minidom as dom
 
 from warnings import warn
 from oasa.transform import transform
 
 import config
 import os_support
+import safe_xml
 
 from molecule import molecule
 from singleton_store import Store, Screen
@@ -52,7 +52,7 @@ class template_manager(object):
         warn( "template file %s does not exist - ignoring" % file)
         return
     try:
-      doc = dom.parse( file).getElementsByTagName( 'cdml')[0]
+      doc = safe_xml.parse_dom_from_file( file).getElementsByTagName( 'cdml')[0]
     except xml.sax.SAXException:
       warn( "template file %s cannot be parsed - ignoring" % file)
       return

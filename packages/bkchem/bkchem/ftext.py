@@ -31,6 +31,7 @@ import xml.sax
 import tkinter.font
 
 import tuning
+import safe_xml
 
 
 
@@ -139,18 +140,16 @@ class ftext(object):
 
   def get_chunks( self):
     text = self.sanitized_text()
-    # BytesIO expects byte string (called by xml.sax.parseString)
-    if sys.version_info[0] > 2:
-      if isinstance(text, str):
-        text = text.encode('utf-8')
-    else:
-      if isinstance(text, str):
-        text = text.encode('utf-8')
-    handler = FtextHandler()
-    xml.sax.parseString( text, handler)
-    # Chunks will decode and store unicode text
+    try:
+      root = safe_xml.parse_xml_string( text)
+    except Exception:
+      root = None
     chunks = []
-    for ch in handler.chunks:
+    if root is not None:
+      _collect_chunks_from_element( root, chunks, [])
+    else:
+      chunks.append( text_chunk( text))
+    for ch in chunks[:]:
       parts = ch.text.split("\n")
       if len( parts) > 1:
         for i,part in enumerate( parts):
@@ -216,11 +215,10 @@ class ftext(object):
     else:
       if isinstance(text, str):
         text = text.decode('utf-8')
-    # BytesIO expects byte string (called by xml.sax.parseString)
-    x = ("<ftext>%s</ftext>" % text).encode('utf-8')
+    x = "<ftext>%s</ftext>" % text
     try:
-      xml.sax.parseString( x, xml.sax.ContentHandler())
-    except xml.sax.SAXParseException:
+      safe_xml.parse_xml_string( x)
+    except Exception:
       text = xml.sax.saxutils.escape( text)
       x = "<ftext>%s</ftext>" % text
     # Handle only unicode strings in the rest of the program
@@ -280,6 +278,18 @@ class FtextHandler ( xml.sax.ContentHandler):
 
   def characters( self, data):
     self._text += data
+
+
+#============================================
+def _collect_chunks_from_element( element, chunks, above):
+  above.append( element.tag)
+  if element.text:
+    chunks.append( text_chunk( element.text, attrs=set( above)))
+  for child in list(element):
+    _collect_chunks_from_element( child, chunks, above)
+    if child.tail:
+      chunks.append( text_chunk( child.tail, attrs=set( above)))
+  above.pop()
 
 
 

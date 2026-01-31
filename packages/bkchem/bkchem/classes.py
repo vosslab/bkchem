@@ -171,7 +171,7 @@ class point( point_drawable, interactive, child):
 
   def __init__( self, paper, xy=(), arrow=None, package=None, type='invisible'):
     point_drawable.__init__( self)
-    
+
     self.paper = paper
     self.vertex_item = None
     if xy:
@@ -280,7 +280,7 @@ class point( point_drawable, interactive, child):
 
   def get_xy( self):
     return self.x, self.y
-  
+
   def get_xy_on_paper(self):
     if self.vertex_item:
       return self.paper.coords( self.vertex_item)[0:2]
@@ -648,7 +648,7 @@ class text( meta_enabled, interactive, point_drawable, text_like, area_colored, 
 
   def get_xy( self):
     return self.x, self.y
-  
+
   def get_xy_on_paper( self):
     """Returns the coordinates of the vertex on the paper reference system.
         These change based on zooming."""
@@ -756,7 +756,7 @@ class text( meta_enabled, interactive, point_drawable, text_like, area_colored, 
     """scales font of text. does not redraw !!"""
     self.font_size = int( round( self.font_size * ratio))
     self.update_font()
-  
+
   def on_screen_font(self):
     """Returns a font adequate for on-screen display, using appropriate scaling."""
     screen_font_size = int( round( self.paper.real_to_canvas(self.font_size) ))

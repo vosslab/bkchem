@@ -39,33 +39,33 @@ _x = cairo.SVGSurface
 
 
 class svg_cairo_exporter(cairo_exporter):
-  """Exports SVG via the Cairo (pycairo) library.
+	"""Exports SVG via the Cairo (pycairo) library.
 
-  This SVG does not embed BKChem data and is simpler
-  than the default one used by BKChem.
-  """
-  doc_string = _("Exports SVG via the Cairo (pycairo) library. This SVG does not embed BKChem data and is simpler than the default one used by BKChem.")
+	This SVG does not embed BKChem data and is simpler
+	than the default one used by BKChem.
+	"""
+	doc_string = _("Exports SVG via the Cairo (pycairo) library. This SVG does not embed BKChem data and is simpler than the default one used by BKChem.")
 
-  def __init__( self, paper):
-    cairo_exporter.__init__( self, paper, converter_class=tk2cairo)
-
-
-  def init_surface( self):
-    w, h = list(map( int, list(map( round, self.pagesize))))
-    return cairo.SVGSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
+	def __init__( self, paper):
+		cairo_exporter.__init__( self, paper, converter_class=tk2cairo)
 
 
-  def get_scaling( self, x, y):
-    sc = self._get_scaling_ratio()
-    return sc, sc
+	def init_surface( self):
+		w, h = list(map( int, list(map( round, self.pagesize))))
+		return cairo.SVGSurface(self.filename.encode(sys.getfilesystemencoding()), w, h)
 
 
-  def _get_scaling_ratio( self):
-    return 72.0/Screen.dpi
+	def get_scaling( self, x, y):
+		sc = self._get_scaling_ratio()
+		return sc, sc
 
 
-  def save( self):
-    self.surface.finish()
+	def _get_scaling_ratio( self):
+		return 72.0/Screen.dpi
+
+
+	def save( self):
+		self.surface.finish()
 
 
 

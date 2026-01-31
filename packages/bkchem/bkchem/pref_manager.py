@@ -19,12 +19,14 @@
 
 
 
+import ast
 import os
 import sys
 import types
 import xml.dom.minidom as dom
 
 import dom_extensions
+import safe_xml
 
 
 
@@ -64,7 +66,7 @@ class pref_manager( object):
   def read_pref_file( self, name):
     if name and os.path.exists( name):
       try:
-        doc = dom.parse( name)
+        doc = safe_xml.parse_dom_from_file( name)
       except:
         #print("corrupt preference file %s" % name)
         return
@@ -78,7 +80,7 @@ class pref_manager( object):
       itype = child.getAttribute('type') or str
 
       if itype in ("ListType", "TupleType", "DictType"):
-        value = eval(dom_extensions.getAllTextFromElement(child))
+        value = ast.literal_eval(dom_extensions.getAllTextFromElement(child))
       else:
         if itype in ("UnicodeType"):
           itype = str

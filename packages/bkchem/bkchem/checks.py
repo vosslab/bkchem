@@ -34,18 +34,18 @@ if not _:
 
 
 def check_linear_fragments(paper):
-  """Check the state of linear fragments present on the paper.
+	"""Check the state of linear fragments present on the paper.
 
-  Also reset their appearance."""
-  #mols = paper.um.get_changed_molecules()
-  last_record = paper.um.get_last_record()
-  for mol in paper.molecules:
-    to_del = set()
-    fs = [f for f in mol.fragments if f.type == "linear_form"]
-    if fs and (last_record is None or last_record.object_changed(mol)):
-      for f in fs:
-        if mol.check_linear_form_fragment( f) == False:
-          to_del.add( f)
-    for f in to_del:
-      Store.log( _('The linear form was no longer consistent - it has been removed'))
-      mol.delete_fragment( f)
+	Also reset their appearance."""
+	#mols = paper.um.get_changed_molecules()
+	last_record = paper.um.get_last_record()
+	for mol in paper.molecules:
+		to_del = set()
+		fs = [f for f in mol.fragments if f.type == "linear_form"]
+		if fs and (last_record is None or last_record.object_changed(mol)):
+			for f in fs:
+				if mol.check_linear_form_fragment( f) == False:
+					to_del.add( f)
+		for f in to_del:
+			Store.log( _('The linear form was no longer consistent - it has been removed'))
+			mol.delete_fragment( f)

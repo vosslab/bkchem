@@ -68,7 +68,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     line_colored.__init__( self)
     drawable.__init__( self)
     with_line.__init__( self)
-    
+
     # bond data
     self.type = type
       #Bond types:
@@ -82,7 +82,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     self.order = order
     if atoms:
       self.atom1, self.atom2 = atoms
-    
+
     # canvas data
     self.item = None  #Used for selection, sometimes not displayed (eg. is a straight line for hatch bonds).
     self.second = []  #see below --v
@@ -340,25 +340,25 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       return None
     else:
       return (x1, y1, x2, y2)
-  
+
   def _polygon_bond_mask( self, thickness1=-1, thickness2=-1):
     """Returns a polygon as x,y coords list which represents a filled bond from atom1 to 2.
       Thickness at start and end can be used to obtain wedge and bold bonds."""
-    
+
     # Define start and end points
     atom_coords = self._where_to_draw_from_and_to()
     if not atom_coords:
       return None
-    
+
     # Define some arrays to access the data in a for cycle
     thickness = (thickness1, thickness2)
     atoms = (self.atom1, self.atom2)
     atom_coords2 = ((atom_coords[0],atom_coords[1]),(atom_coords[2],atom_coords[3]))
     caps = []
-    
+
     # Preference defined parameters
     threshold_angle = self.paper.standard.min_wedge_angle
-    
+
     for ctr in (0,1):
       if atoms[ctr].show:
         # Atom has a visible label, use a simple cap
@@ -366,7 +366,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       else:
         neighbors = atoms[ctr].neighbors
         neighbors.remove( atoms[1-ctr] )
-        
+
         if neighbors:
           if len(neighbors) == 1:
             # Atom has a single additional neighbor
@@ -380,7 +380,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
               caps.append( self._polygon_cap( atom_coords2[ctr], atom_coords2[1-ctr], thickness[ctr], [direction]))
           else:
             # Atom has multiple neighbors
-            
+
             # Take the two closest neighbors above and below bond_line (by angle)
             bond_line = (atom_coords2[ctr][0], atom_coords2[ctr][1], atom_coords2[1-ctr][0], atom_coords2[1-ctr][1])
             neighbor_bond_line_below = None
@@ -402,13 +402,13 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
             if neighbor_bond_line_above:
               directions.append( (neighbor_bond_line_above[2]-neighbor_bond_line_above[0], neighbor_bond_line_above[3]-neighbor_bond_line_above[1]) )
             if neighbor_bond_line_below:
-              directions.append( (neighbor_bond_line_below[2]-neighbor_bond_line_below[0], neighbor_bond_line_below[3]-neighbor_bond_line_below[1]) )  
+              directions.append( (neighbor_bond_line_below[2]-neighbor_bond_line_below[0], neighbor_bond_line_below[3]-neighbor_bond_line_below[1]) )
             # Get the cap
             caps.append( self._polygon_cap( atom_coords2[ctr], atom_coords2[1-ctr], thickness[ctr], directions))
         else:
           # Atom has no other neighbor, simple cap
           caps.append( self._polygon_cap( atom_coords2[ctr], atom_coords2[1-ctr], thickness[ctr]))
-    
+
     # Check that caps are not twisted
     if geometry.on_which_side_is_point(atom_coords, (caps[0][0],caps[0][1])) == geometry.on_which_side_is_point(atom_coords, (caps[1][0],caps[1][1])):
       return caps[0] + caps[1][::-1]
@@ -424,7 +424,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     #  S                E
     #   \      ____----E2
     #    S2----
-    
+
     if thickness == 0:
       # Just one point
       return start
@@ -432,21 +432,21 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       thickness = self.paper.real_to_canvas(self.line_width)
     # Internally the function uses 1/2 the thickness
     thickness *= 0.5
-    
+
     x_S, y_S = start
     x_E, y_E = end
     x_P1, y_P1, x_P2, y_P2 = geometry.find_parallel( x_S, y_S, x_E, y_E, thickness)
-    
+
     if not directions:
       # Simple 2-points cap perp. to start-end
       return (2*x_S-x_P1, 2*y_S-y_P1, x_P1, y_P1)
-    
+
     elif len(directions) == 1:
       # 2-points cap parallel to given direction
       x_S1, y_S1 = geometry.intersection_of_two_lines(x_P1, y_P1, x_P2, y_P2, x_S, y_S, x_S+directions[0][0], y_S+directions[0][1])[0:2]
       #x_S1, y_S1 = geometry.point_on_circle( x_S, y_S, thickness, direction=directions[0], resolution = None)
       return (2*x_S-x_S1, 2*y_S-y_S1, x_S1, y_S1)
-    
+
     elif len(directions) == 2:
       # 3-points cap
       # Note this does not check that directions are on opposite sides of bonds, you need to check that before calling.
@@ -838,7 +838,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       self._decide_distance_and_center()
     #Scale width
     d = self.paper.real_to_canvas(self.bond_width)
-    
+
     if self.center:
       self._draw_n1()
       self.paper.itemconfig( self.item, fill='')
@@ -1182,7 +1182,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     elif self.order == 2:
       if not self.type == 'h' and not self.center:
         items = [self.item]
-    
+
     # other items are always visible when defined
     if self.second:
       items += self.second
@@ -1190,12 +1190,12 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       items += self.third
     if self.items:
       items += self.items
-    
+
     return items
 
   def focus( self):
     items = self.visible_items()
-    
+
     if self.type in 'nahd':
       [self.paper.itemconfig( item, fill=self.paper.highlight_color, width = self.line_width+1) for item in items]
     elif self.type == 'o':
@@ -1205,7 +1205,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
   def unfocus( self):
     items = self.visible_items()
-    
+
     if self.type in 'nahd':
       [self.paper.itemconfig( item, fill=self.line_color, width = self.line_width) for item in items]
     elif self.type == 'o':

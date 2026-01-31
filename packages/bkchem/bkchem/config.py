@@ -23,7 +23,7 @@ import os
 debug = 0
 devel = 0
 
-current_CDML_version = '0.16'
+current_CDML_version = '26.02'
 
 def _read_repo_version( key, fallback):
 	version_path = os.path.abspath( os.path.join( os.path.dirname( __file__), "..", "..", "..", "version.txt"))
@@ -43,7 +43,7 @@ def _read_repo_version( key, fallback):
 				return value
 	return fallback
 
-current_BKChem_version = _read_repo_version( "bkchem", "0.15rc1")
+current_BKChem_version = _read_repo_version( "bkchem", "26.02")
 
 
 

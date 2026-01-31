@@ -1,5 +1,6 @@
 # Required runtime dependencies
 Pmw
 Pillow
+defusedxml
 oasa
 pycairo

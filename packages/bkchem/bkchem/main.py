@@ -29,7 +29,6 @@ import sys
 import oasa
 import collections
 import importlib.util
-import xml.dom.minidom as dom
 
 from tkinter import Frame, Label, Scrollbar, StringVar, Tk
 from tkinter import HORIZONTAL, LEFT, RAISED, SUNKEN, VERTICAL
@@ -52,6 +51,7 @@ import os_support
 import interactors
 import oasa_bridge
 import dom_extensions
+import safe_xml
 
 from paper import chem_paper
 from edit_pool import editPool
@@ -842,7 +842,7 @@ class BKChem( Tk):
       # if it's gzip file parse it
       if it_is_gzip:
         try:
-          doc = dom.parseString(s)
+          doc = safe_xml.parse_dom_from_string( s)
         except:
           Store.log( _("error reading file"))
           inp.close()
@@ -854,7 +854,7 @@ class BKChem( Tk):
       ## otherwise it should be normal xml file
         ## try to parse it
         try:
-          doc = dom.parse( a)
+          doc = safe_xml.parse_dom_from_file( a)
         except IndexError:
           Store.log( _("error reading file"))
           return None
@@ -1415,4 +1415,4 @@ Enter InChI:""")
 
       with open(plugin_path) as f:
         code = compile(f.read(), plugin_path, 'exec')
-        exec(code, the_globals)
+        exec(code, the_globals)  # nosec B102 - explicit batch script execution

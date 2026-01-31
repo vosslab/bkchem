@@ -27,6 +27,44 @@
 - Note template distribution in the macOS app bundle and the Insert-menu
   entry point in
   [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
+- Implement Stage 1 renderer updates: SVG wedge/hatch/bold support and
+  per-bond line widths in SVG/Cairo (`packages/oasa/oasa/svg_out.py`,
+  `packages/oasa/oasa/cairo_out.py`).
+- Add a smoke test for SVG/PNG bond style rendering (normal, bold, wedge,
+  hatch) in `tests/test_oasa_bond_styles.py`.
+- Update the Stage 2 plan in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md)
+  to cover full new bond type support and add a post-Stage 2 printer-style
+  smoke test plan with colored bonds.
+- Rename the bond style smoke test outputs to
+  `oasa_bond_styles_smoke.svg` and `oasa_bond_styles_smoke.png`.
+- Add `defusedxml` as a required dependency and use it for safe XML parsing via
+  new `safe_xml` helpers in BKChem and OASA.
+- Set the shared BKChem/OASA version registry to `26.02`.
+- Update version references and fallbacks to `26.02` in release history,
+  format docs, and the OASA README.
+- Bump the CDML format version to `26.02` with a compatibility transformer and
+  add `tests/test_cdml_versioning.py` for legacy CDML smoke coverage.
+- Add [docs/VERSIONING_DOCS.md](docs/VERSIONING_DOCS.md) to track release and
+  CDML version update locations.
+- Add a Haworth CLI phase to
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md),
+  including a draft `oasa_cli.py --haworth` command and smoke testing notes.
+- Update `tests/oasa_legacy_test.py` to write named outputs into a temporary
+  directory so test files are cleaned up after the run.
+- Replace legacy XML parsing in BKChem and OASA with `safe_xml` wrappers,
+  including ftext markup parsing and CDML/CDATA imports.
+- Replace `eval()` with `ast.literal_eval()` in preference and external data
+  parsing.
+- Harden NIST WebBook fetchers with scheme/host validation and randomized
+  request delays.
+- Replace `tempfile.mktemp()` with a temporary directory in the ODF exporter.
+- Parameterize structure database SQL lookups in OASA.
+- Add a plugin path allowlist and explicit exec annotations for plugin and
+  batch script execution.
+- Normalize indentation to tabs in the files flagged by
+  `tests/test_indentation.py`.
+- Annotate validated WebBook urlopen calls to silence Bandit B310.
 - Expand the Haworth plan scope to cover pyranose and furanose rings, and add
   local SVG references.
 - Update [docs/TODO_CODE.md](docs/TODO_CODE.md) to match the Haworth scope.

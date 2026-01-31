@@ -105,7 +105,7 @@ class mark( simple_parent):
       dx = x - self.x
       dy = y - self.y
     self.move( dx, dy, use_paper_coords=use_paper_coords)
-  
+
   def get_xy_on_paper( self):
     """Returns the coordinates of the vertex on the paper reference system.
         These change based on zooming."""

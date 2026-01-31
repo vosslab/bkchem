@@ -82,7 +82,7 @@ class transform3d(object):
     self.set_rotation_x( xa)
     self.set_rotation_y( ya)
     self.set_rotation_z( za)
-    
+
   def set_rotation_x( self, xa):
     mat = [[1,0,0,0],
            [0, cos(xa), sin(xa), 0],
@@ -151,7 +151,7 @@ class matrix(object):
             j2 = j
           _ret[i2][j2] = m[i][j]
       return _ret
-      
+
     m = self.mat
     inv = matrix([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]])
     det = self.get_determinant()

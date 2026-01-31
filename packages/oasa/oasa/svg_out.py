@@ -33,6 +33,8 @@ class svg_out(object):
   margin = 15
   line_width = 2
   bond_width = 6
+  wedge_width = 6
+  bold_line_width_multiplier = 1.2
   # should individual parts of an edge be grouped together
   group_items = True
 
@@ -51,7 +53,7 @@ class svg_out(object):
                                                    ("version", "1.0")))
     self.top = dom_extensions.elementUnder( top, "g",
                                             attributes=(("stroke", "#000"),
-                                                        ("stroke-width", "1.0")))
+                                                        ("stroke-width", str( self.line_width))))
 
     x1, y1, x2, y2 = None, None, None, None
     for v in mol.vertices:
@@ -114,8 +116,15 @@ class svg_out(object):
     end = self.transformer.transform_xy( v2.x, v2.y)
     parent = self._create_parent( e, self.top)
 
+    line_width = self._bond_line_width( e)
+
     if e.order == 1:
-      self._draw_line( parent, start, end, line_width=self.line_width)
+      if e.type == 'w':
+        self._draw_wedge( parent, start, end)
+      elif e.type == 'h':
+        self._draw_hatch( parent, start, end)
+      else:
+        self._draw_line( parent, start, end, line_width=line_width, capstyle="round")
 
     if e.order == 2:
       side = 0
@@ -132,20 +141,20 @@ class svg_out(object):
           if v != v1 and v!= v2:
             side += geometry.on_which_side_is_point( start+end, (self.transformer.transform_xy( v.x, v.y)))
       if side:
-        self._draw_line( parent, start, end, line_width=self.line_width)
+        self._draw_line( parent, start, end, line_width=line_width, capstyle="round")
         x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], self.bond_width*misc.signum( side))
-        self._draw_line( parent, (x1, y1), (x2, y2), line_width=self.line_width)
+        self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round")
       else:
         for i in (1,-1):
           x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], i*self.bond_width*0.5)
-          self._draw_line( parent, (x1, y1), (x2, y2), line_width=self.line_width)
+          self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round")
 
 
     elif e.order == 3:
-      self._draw_line( parent, start, end, line_width=self.line_width)
+      self._draw_line( parent, start, end, line_width=line_width, capstyle="round")
       for i in (1,-1):
         x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], i*self.bond_width*0.7)
-        self._draw_line( parent, (x1, y1), (x2, y2), line_width=self.line_width)
+        self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round")
 
 
   def _draw_vertex( self, v):
@@ -185,11 +194,14 @@ class svg_out(object):
   def _draw_line( self, parent, start, end, line_width=1, capstyle=""):
     x1, y1 = start
     x2, y2 = end
-    dom_extensions.elementUnder( parent, 'line',
-                                 (( 'x1', str( x1)),
-                                  ( 'y1', str( y1)),
-                                  ( 'x2', str( x2)),
-                                  ( 'y2', str( y2))))
+    attrs = (( 'x1', str( x1)),
+             ( 'y1', str( y1)),
+             ( 'x2', str( x2)),
+             ( 'y2', str( y2)),
+             ( 'stroke-width', str( line_width)))
+    if capstyle:
+      attrs += (( 'stroke-linecap', capstyle),)
+    dom_extensions.elementUnder( parent, 'line', attrs)
 
 
   def _draw_text( self, parent, xy, text, font_name="Arial", font_size=16):
@@ -211,6 +223,52 @@ class svg_out(object):
                                   ( 'height', str( y2-y)),
                                   ( 'fill', fill_color),
                                   ( 'stroke', stroke_color)))
+
+  def _draw_polygon( self, parent, points, fill_color="#000", stroke_color="none"):
+    points_text = " ".join( "%s,%s" % (x, y) for x, y in points)
+    dom_extensions.elementUnder( parent, 'polygon',
+                                 (( 'points', points_text),
+                                  ( 'fill', fill_color),
+                                  ( 'stroke', stroke_color)))
+
+  def _draw_wedge( self, parent, start, end):
+    x1, y1 = start
+    x2, y2 = end
+    # Draw a filled wedge polygon for stereochemistry.
+    x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, self.wedge_width/2.0)
+    xa, ya, xb, yb = geometry.find_parallel( x1, y1, x2, y2, self.line_width/2.0)
+    points = [(xa, ya), (x0, y0), (2*x2-x0, 2*y2-y0), (2*x1-xa, 2*y1-ya)]
+    self._draw_polygon( parent, points, fill_color="#000", stroke_color="none")
+
+  def _draw_hatch( self, parent, start, end):
+    x1, y1 = start
+    x2, y2 = end
+    # Build hatch lines across a wedge footprint.
+    x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, self.wedge_width/2.0)
+    xa, ya, xb, yb = geometry.find_parallel( x1, y1, x2, y2, self.line_width/2.0)
+    d = geometry.point_distance( x1, y1, x2, y2)
+    if d == 0:
+      return
+    dx1 = (x0 - xa) / d
+    dy1 = (y0 - ya) / d
+    dx2 = (2*x2 - x0 - 2*x1 + xa) / d
+    dy2 = (2*y2 - y0 - 2*y1 + ya) / d
+    step_size = 2 * self.line_width
+    ns = round( d / step_size) or 1
+    step_size = d / ns
+    for i in range( 1, int( round( d / step_size)) + 1):
+      coords = [xa+dx1*i*step_size, ya+dy1*i*step_size, 2*x1-xa+dx2*i*step_size, 2*y1-ya+dy2*i*step_size]
+      if coords[0] == coords[2] and coords[1] == coords[3]:
+        if (dx1+dx2) > (dy1+dy2):
+          coords[0] += 1
+        else:
+          coords[1] += 1
+      self._draw_line( parent, coords[:2], coords[2:], line_width=self.line_width, capstyle="butt")
+
+  def _bond_line_width( self, e):
+    if e.type == 'b':
+      return self.line_width * self.bold_line_width_multiplier
+    return self.line_width
 
   def _draw_circle( self, parent, xy, radius=5, fill_color="#fff", stroke_color="#fff", id="", opacity=0):
     x, y = xy

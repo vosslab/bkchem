@@ -62,5 +62,5 @@ name_to_smiles = {'Me': 'C',
                   'TMS':   'Si(C)(C)C',
                   'TBDMS': 'Si(C)(C)C(C)(C)C',
                   'TBDPS': 'Si(C(C)(C)C)(c1ccccc1)c2ccccc2',
-                  
+
                   }

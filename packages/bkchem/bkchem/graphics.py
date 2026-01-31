@@ -533,7 +533,7 @@ class polyline( vector_graphics_item, container, line_colored):
 
   def focus(self):
     self.paper.itemconfig( self.item, width=self.line_width+2)
-    
+
   def unfocus(self):
     self.paper.itemconfig( self.item, width=self.line_width)
 

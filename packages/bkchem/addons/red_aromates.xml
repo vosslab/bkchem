@@ -9,18 +9,18 @@
       by setting their color to red.
     </description>
     <description lang="de">
-      Sucht aromatische Bindungen und färbt sie Rot.
+      Sucht aromatische Bindungen und farbt sie Rot.
     </description>
     <description lang="lv">
-      Atrod visas aromātiskās saites pašreizējā lapā un iekrāso tās sarkanas.
+      Atrod visas aromatiskas saites pasreizeja lapa un iekraso tas sarkanas.
     </description>
   </meta>
 
   <source>
     <file>red_aromates.py</file>
     <menu-text lang="en">Mark aromatic bonds</menu-text>
-    <menu-text lang="cs">Označ aromatické vazby</menu-text>
+    <menu-text lang="cs">Oznac aromaticke vazby</menu-text>
     <menu-text lang="de">Markiere aromatische Bindungen</menu-text>
-    <menu-text lang="lv">Iezīmē aromātiskās saites</menu-text>
+    <menu-text lang="lv">Iezime aromatiskas saites</menu-text>
   </source>
 </plugin>

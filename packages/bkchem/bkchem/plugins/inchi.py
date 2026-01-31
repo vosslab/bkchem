@@ -43,63 +43,63 @@ if not ngettext:
 
 
 class inchi_exporter(plugin.exporter):
-  """Exports to InChI format via the InChI program."""
-  doc_string = _("Exports to InChI format via the InChI program.")
+	"""Exports to InChI format via the InChI program."""
+	doc_string = _("Exports to InChI format via the InChI program.")
 
-  def __init__( self, paper):
-    plugin.exporter.__init__( self, paper)
-    self.inchi_program = None
-
-
-  def on_begin( self):
-    program = Store.pm.get_preference( "inchi_program_path")
-    if not program:
-      tkinter.messagebox.showerror(
-        _("InChI program path"),
-        _("To use InChI in BKChem you must first give it a path to the InChI program here"))
-      return 0
-    conts, u = self.paper.selected_to_unique_top_levels()
-    mols = [o for o in conts if o.object_type == 'molecule']
-    if not mols:
-      tkinter.messagebox.showerror(
-        _("No molecule selected."),
-        _('You have to select exactly one molecule (any atom or bond will do).'))
-      return 0
-    elif len( mols) > 1:
-      tkinter.messagebox.showerror(
-        ngettext("%d molecules selected.",
-                 "%d molecules selected.",
-                 len(mols)) % len(mols),
-        _('You have to select exactly one molecule (any atom or bond will do).'))
-      return 0
-    else:
-      self.molecule = mols[0]
-      self.inchi_program = program
-      return 1
+	def __init__( self, paper):
+		plugin.exporter.__init__( self, paper)
+		self.inchi_program = None
 
 
-  def write_to_file(self, name):
-    if sys.version_info[0] > 2:
-      if isinstance(name, (bytes, str)):
-        f = open(name, 'w')
-      else:
-        f = name
-    else:
-      if isinstance(name, str):
-        f = open(name, 'w')
-      else:
-        f = name
-    inchi, key, warnings = oasa_bridge.mol_to_inchi( self.molecule, self.inchi_program)
-    lines = []
-    if inchi:
-      lines.append( inchi)
-    if key:
-      lines.append( "InChIKey=" + key)
-    if warnings:
-      lines.extend( ["# " + w for w in warnings])
-    if lines:
-      f.write( "\n".join( lines) + "\n")
-    f.close()
+	def on_begin( self):
+		program = Store.pm.get_preference( "inchi_program_path")
+		if not program:
+			tkinter.messagebox.showerror(
+				_("InChI program path"),
+				_("To use InChI in BKChem you must first give it a path to the InChI program here"))
+			return 0
+		conts, u = self.paper.selected_to_unique_top_levels()
+		mols = [o for o in conts if o.object_type == 'molecule']
+		if not mols:
+			tkinter.messagebox.showerror(
+				_("No molecule selected."),
+				_('You have to select exactly one molecule (any atom or bond will do).'))
+			return 0
+		elif len( mols) > 1:
+			tkinter.messagebox.showerror(
+				ngettext("%d molecules selected.",
+									"%d molecules selected.",
+									len(mols)) % len(mols),
+				_('You have to select exactly one molecule (any atom or bond will do).'))
+			return 0
+		else:
+			self.molecule = mols[0]
+			self.inchi_program = program
+			return 1
+
+
+	def write_to_file(self, name):
+		if sys.version_info[0] > 2:
+			if isinstance(name, (bytes, str)):
+				f = open(name, 'w')
+			else:
+				f = name
+		else:
+			if isinstance(name, str):
+				f = open(name, 'w')
+			else:
+				f = name
+		inchi, key, warnings = oasa_bridge.mol_to_inchi( self.molecule, self.inchi_program)
+		lines = []
+		if inchi:
+			lines.append( inchi)
+		if key:
+			lines.append( "InChIKey=" + key)
+		if warnings:
+			lines.extend( ["# " + w for w in warnings])
+		if lines:
+			f.write( "\n".join( lines) + "\n")
+		f.close()
 
 
 

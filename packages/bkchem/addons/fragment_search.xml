@@ -9,17 +9,17 @@
       a molecule containing this fragment.
     </description>
     <description lang="de">
-      Sucht die Dateien in einem Order, die das ausgewählte Molekül als Fragment enthalten.
+      Sucht die Dateien in einem Order, die das ausgewahlte Molekul als Fragment enthalten.
     </description>
     <description lang="lv">
-      Meklē visus failus izvēlētajā mapē, kuros ir molekula, kas satur izvēlēto fragmentu.
+      Mekle visus failus izveletaja mape, kuros ir molekula, kas satur izveleto fragmentu.
     </description>
   </meta>
 
   <source>
     <file>fragment_search.py</file>
     <menu-text lang="en">Find files containing fragment</menu-text>
-    <menu-text lang="cs">Najdi soubory obsahující fragment</menu-text>
+    <menu-text lang="cs">Najdi soubory obsahujici fragment</menu-text>
     <menu-text lang="de">Durchsuche Dateien nach Fragmenten</menu-text>
     <menu-text lang="lv">Atrast failus, kas satur fragmentu</menu-text>
     <menu>File</menu>

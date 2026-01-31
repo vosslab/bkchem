@@ -306,7 +306,7 @@ def point_at_distance_from_line( x1, y1, x2, y2, d):
 
 def intersection_of_two_lines (x1,y1,x2,y2,x3,y3,x4,y4,parallel_detection_threshold=3):
   """lines 1-2 and 3-4
-  returns x-coord, y-coord , paralell(0 or 1), on line (0=no line, 1=on line 1-2, 2=on line 3-4, 3=on both) 
+  returns x-coord, y-coord , paralell(0 or 1), on line (0=no line, 1=on line 1-2, 2=on line 3-4, 3=on both)
   y=mx+c is used
   parallel_detection_threshold is a negative decadic logarithm of minimal displacement of m
   that is considered parallel"""
@@ -348,7 +348,7 @@ def intersection_of_line_and_polygon (line, polygon):
   """Calculates intersection points between an infinite line (list of four coords) and a closed
       polygon (list of 2N coords).
       Returns a list of unique (x,y) tuples representing intersections."""
-  
+
   intersections = []
   for pnt in range(0, len(polygon),2):
     # Intersection for each polygon segment.
@@ -360,14 +360,14 @@ def intersection_of_line_and_polygon (line, polygon):
     else:
       x_E = polygon[pnt+2]
       y_E = polygon[pnt+3]
-    
+
     x, y, parallel, segmnt = intersection_of_two_lines(line[0], line[1], line[2], line[3],
                                                        x_S , y_S, x_E, y_E )
     # If intersection is inside polygon and unique, append.
     if (segmnt in (2,3) and not (x,y) in intersections):
       intersections.append( (x, y) )
-  
-  return intersections  
+
+  return intersections
 
 def mirror_point_on_line (xa,ya,x1,y1,x2,y2):
   """mirroring point a on line 1-2"""

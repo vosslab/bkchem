@@ -6,7 +6,7 @@ embedded inside CD-SVG. CDML files use the `.cdml` extension, while compressed
 CDML uses `.cdgz`. CD-SVG uses `.svg` or `.svgz` and includes a `<cdml>` node
 inside the SVG.
 
-This document describes the current CDML structure as used by BKChem 0.16.
+This document describes the current CDML structure as used by BKChem 26.02.
 The legacy DTD in `packages/bkchem/bkchem_data/dtd/cdml.dtd` is incomplete and
 does not reflect all modern elements or attributes.
 
@@ -18,13 +18,13 @@ does not reflect all modern elements or attributes.
 
 ## Root element
 ```xml
-<cdml version="0.16" xmlns="http://www.freesoftware.fsf.org/bkchem/cdml">
+<cdml version="26.02" xmlns="http://www.freesoftware.fsf.org/bkchem/cdml">
   ...
 </cdml>
 ```
 
 Attributes:
-- `version` (required): CDML schema version, currently `0.16`.
+- `version` (required): CDML schema version, currently `26.02`.
 - `type` (optional): `normal`, `template`, or `standard`. Defaults to `normal`.
 
 ## Core sections
@@ -45,7 +45,7 @@ embedded CDML in SVG files with missing or incorrect namespaces.
 ## Info block
 ```xml
 <info>
-  <author_program version="0.16beta1">BKChem</author_program>
+  <author_program version="26.02">BKChem</author_program>
   <author>...</author>
   <note>...</note>
 </info>
@@ -153,6 +153,5 @@ node when present, and will prompt if the namespace is missing or incorrect.
 ## Compatibility notes
 - The legacy DTD does not reflect all modern fields.
 - Some attributes are optional but used by the current UI.
-- If you produce CDML externally, include `version="0.16"` and the CDML
+- If you produce CDML externally, include `version="26.02"` and the CDML
   namespace, and prefer the current `standard` and `paper` attributes.
-

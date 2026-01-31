@@ -303,7 +303,7 @@ face_recognition  # Simple face detection and recognition built on dlib
 google-api-python-client  # Official Google API client for many Google services
 gtts  # Google Text-to-Speech client for generating speech audio
 imagehash  # Perceptual image hashing for similarity and duplicate detection
-lxml  # Fast XML and HTML parsing with XPath support
+defusedxml  # Hardened XML parsers for untrusted input
 matplotlib  # Plotting and figure generation
 mkdocs-include-markdown-plugin  # MkDocs plugin to include markdown files
 mkdocs-material  # Material theme for MkDocs documentation sites

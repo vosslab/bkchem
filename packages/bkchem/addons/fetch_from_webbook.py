@@ -1,5 +1,8 @@
 import builtins
+import random
 import re
+import time
+from urllib.parse import urlparse
 
 try:
 	from urllib.request import urlopen
@@ -22,6 +25,16 @@ cas_re = re.compile('(<strong>CAS Registry Number:</strong>)(.*)(</li>)')
 #link_re = re.compile('(<a href=")(/cgi/cbook.cgi?ID=.*">)(.*)(</a>)')
 
 
+def _safe_urlopen(url):
+	parsed = urlparse(url)
+	if parsed.scheme not in ('http', 'https'):
+		raise ValueError("Unsupported URL scheme: %s" % parsed.scheme)
+	if parsed.netloc and parsed.netloc.lower() != "webbook.nist.gov":
+		raise ValueError("Unsupported URL host: %s" % parsed.netloc)
+	time.sleep(random.random())
+	return urlopen(url)  # nosec B310 - scheme/host validated
+
+
 def get_mol_from_web_molfile(app, name):
 	dialog = dialogs.progress_dialog(app, title=_("Fetching progress"))
 	url = "http://webbook.nist.gov/cgi/cbook.cgi?Name=%s&Units=SI" % (
@@ -29,7 +42,7 @@ def get_mol_from_web_molfile(app, name):
 	)
 	dialog.update(0, top_text=_("Connecting to WebBook..."), bottom_text=url)
 	try:
-		stream = urlopen(url)
+		stream = _safe_urlopen(url)
 	except IOError:
 		dialog.close()
 		return None
@@ -52,7 +65,7 @@ def get_mol_from_web_molfile(app, name):
 				top_text=_("Reading the molfile..."),
 				bottom_text=s,
 			)
-			molfile = urlopen("http://webbook.nist.gov" + s)
+			molfile = _safe_urlopen("http://webbook.nist.gov" + s)
 			stream.close()
 			ret = molfile.read().decode('utf-8')
 			molfile.close()

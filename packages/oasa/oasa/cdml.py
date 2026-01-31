@@ -19,10 +19,10 @@
 
 
 
-import xml.dom.minidom as dom
 
 from . import smiles
 from . import dom_extensions as dom_ext
+from . import safe_xml
 from .atom import atom
 from .bond import bond
 from .molecule import molecule
@@ -34,7 +34,7 @@ from .coords_generator import calculate_coords
 
 def read_cdml( text):
   """returns the last molecule for now"""
-  doc = dom.parseString( text)
+  doc = safe_xml.parse_dom_from_string( text)
   #if doc.childNodes()[0].nodeName == 'svg':
   #  path = "/svg/cdml/molecule"
   #else:

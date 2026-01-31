@@ -24,6 +24,8 @@
 import re
 import xml.dom.minidom as dom
 
+from . import safe_xml
+
 
 
 def safe_indent( element, level=0, step=2):
@@ -125,10 +127,10 @@ def getFirstChildNamed( element, name):
 def isOnlyTags( text):
   """this function takes a !string! as an argument and returns true if text is only tags"""
   try:
-    doc = dom.parseString( '<a>%s</a>' % text)
-  except:
+    doc = safe_xml.parse_xml_string( '<a>%s</a>' % text)
+  except Exception:
     return 0
-  if getAllTextFromElement( doc):
+  if "".join(doc.itertext()):
     return 0
   return 1
 

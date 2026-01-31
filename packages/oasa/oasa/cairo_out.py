@@ -24,6 +24,7 @@ import cairo
 from . import misc
 from . import geometry
 from . import transform3d
+from . import safe_xml
 
 
 
@@ -112,6 +113,7 @@ class cairo_out(object):
     'show_carbon_symbol': False,
     'margin': 15,
     'line_width': 1.0,
+    'bold_line_width_multiplier': 1.2,
     # how far second bond is drawn
     'bond_width': 6.0,
     'wedge_width': 6.0,
@@ -272,11 +274,11 @@ class cairo_out(object):
       """second means if this is not the main line, drawing might be different"""
       if not has_shown_vertex or not self.color_bonds:
         if not second:
-          self._draw_line( _start, _end, line_width=self.line_width, capstyle=cairo.LINE_CAP_ROUND)
+          self._draw_line( _start, _end, line_width=edge_line_width, capstyle=cairo.LINE_CAP_ROUND)
         else:
-          self._draw_line( _start, _end, line_width=self.line_width, capstyle=cairo.LINE_CAP_BUTT)
+          self._draw_line( _start, _end, line_width=edge_line_width, capstyle=cairo.LINE_CAP_BUTT)
       else:
-        self._draw_colored_line( _start, _end, line_width=self.line_width, start_color=color1, end_color=color2)
+        self._draw_colored_line( _start, _end, line_width=edge_line_width, start_color=color1, end_color=color2)
 
 
     def draw_plain_or_colored_wedge( _start, _end):
@@ -378,6 +380,9 @@ class cairo_out(object):
       else:
         color1 = color2 = (0,0,0)
       has_shown_vertex = bool( [1 for _v in e.vertices if _v in self._vertex_to_bbox])
+      edge_line_width = self.line_width
+      if e.type == 'b':
+        edge_line_width = self.line_width * self.bold_line_width_multiplier
 
       if e.order == 1:
         if e.type == 'w':
@@ -641,39 +646,29 @@ class cairo_out(object):
 
   def _draw_text( self, xy, text, font_name=None, font_size=None, center_letter=None,
                   color=(0,0,0)):
-    import xml.sax
     class text_chunk(object):
       def __init__( self, text, attrs=None):
         self.text = text
         self.attrs = attrs or set()
 
-    class FtextHandler ( xml.sax.ContentHandler):
-      def __init__( self):
-        xml.sax.ContentHandler.__init__( self)
-        self._above = []
-        self.chunks = []
-        self._text = ""
-      def startElement( self, name, attrs):
-        self._closeCurrentText()
-        self._above.append( name)
-      def endElement( self, name):
-        self._closeCurrentText()
-        self._above.pop( -1)
-      def _closeCurrentText( self):
-        if self._text:
-          self.chunks.append( text_chunk( self._text, attrs = set( self._above)))
-          self._text = ""
-      def characters( self, data):
-        self._text += data
+    def collect_chunks( element, chunks, above):
+      above.append( element.tag)
+      if element.text:
+        chunks.append( text_chunk( element.text, attrs=set( above)))
+      for child in list(element):
+        collect_chunks( child, chunks, above)
+        if child.tail:
+          chunks.append( text_chunk( child.tail, attrs=set( above)))
+      above.pop()
 
     # parse the text for markup
-    handler = FtextHandler()
     try:
-      xml.sax.parseString( "<x>%s</x>" % text, handler)
-    except:
+      root = safe_xml.parse_xml_string( "<x>%s</x>" % text)
+    except Exception:
       chunks = [text_chunk( text)]
     else:
-      chunks = handler.chunks
+      chunks = []
+      collect_chunks( root, chunks, [])
 
     if not font_name:
       font_name = self.font_name

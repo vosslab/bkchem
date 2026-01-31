@@ -2,11 +2,14 @@
 Copied of......hmmm... Inspired by the "fetch from webbook" plugin :-)
 
 Ideas:      Getting all alternative names from webbook and or other sources and
-            creating a Dialog to choose the one desired
+						creating a Dialog to choose the one desired
 """
 
 import builtins
+import random
 import re
+import time
+from urllib.parse import urlparse
 
 try:
 	from urllib.request import urlopen
@@ -48,7 +51,7 @@ def get_inchi_for_one(u):
 		sms = [
 			"Unknown error occured during INChI generation, sorry",
 			("Please, try to make sure the path to the InChI program is correct in "
-			 "'Options/INChI program path'"),
+				"'Options/INChI program path'"),
 		]
 		warning = []
 	sms = sms + warning
@@ -114,7 +117,7 @@ def download_nist(app, url):
 	dialog.update(0, top_text="Connecting to WebBook...", bottom_text=url)
 	sms = []
 	try:
-		stream = urlopen(url)
+		stream = _safe_urlopen(url)
 	except IOError:
 		dialog.close()
 		sms.append('Nist could not be reached.')
@@ -194,6 +197,16 @@ def turn_name_around(mol_name):
 		front = front[1:]
 	mol_name = citra + front + back
 	return mol_name
+
+
+def _safe_urlopen(url):
+	parsed = urlparse(url)
+	if parsed.scheme not in ('http', 'https'):
+		raise ValueError("Unsupported URL scheme: %s" % parsed.scheme)
+	if parsed.netloc and parsed.netloc.lower() != "webbook.nist.gov":
+		raise ValueError("Unsupported URL host: %s" % parsed.netloc)
+	time.sleep(random.random())
+	return urlopen(url)  # nosec B310 - scheme/host validated
 
 
 def main(app):

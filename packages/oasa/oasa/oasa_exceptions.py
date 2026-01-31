@@ -22,7 +22,7 @@
 class oasa_error( Exception):
 
   def __init__( self, *args, **kw):
-    Exception.__init__( self, *args, **kw)    
+    Exception.__init__( self, *args, **kw)
 
 
 
@@ -90,7 +90,7 @@ class oasa_inchi_error( oasa_error):
 
 
 class oasa_unsupported_inchi_version_error( oasa_error):
-  
+
   def __init__( self, version):
     oasa_error.__init__(self)
     self.version = version
@@ -101,7 +101,7 @@ class oasa_unsupported_inchi_version_error( oasa_error):
 
 
 class oasa_smiles_error( oasa_error):
-  
+
   def __init__( self, value):
     oasa_error.__init__(self)
     self.value = value
@@ -111,7 +111,7 @@ class oasa_smiles_error( oasa_error):
 
 
 class oasa_stereochemistry_error( oasa_error):
-  
+
   def __init__( self, value):
     oasa_error.__init__(self)
     self.value = value

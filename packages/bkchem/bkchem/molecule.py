@@ -25,7 +25,6 @@
 
 import copy
 import oasa
-import xml.dom.minidom as dom
 
 from oasa import geometry
 from oasa import periodic_table as PT
@@ -34,6 +33,7 @@ from math import atan2, sin, cos, pi, sqrt
 import misc
 import dom_extensions
 import bkchem_exceptions
+import safe_xml
 
 from bond import bond
 from atom import atom
@@ -377,7 +377,7 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
     mol.setAttribute( 'name', self.name)
     mol.setAttribute( 'id', self.id)
     if self.display_form:
-      mol.appendChild( dom.parseString( '<display-form>%s</display-form>' % self.display_form).childNodes[0])
+      mol.appendChild( safe_xml.parse_dom_from_string( '<display-form>%s</display-form>' % self.display_form).childNodes[0])
     if self.t_atom:
       if self.t_bond_second and self.t_bond_first:
         dom_extensions.elementUnder( mol, 'template', ( ('atom', str( self.t_atom.id)),

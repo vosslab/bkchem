@@ -79,7 +79,7 @@ def filter_unique( items):
 
 def reverse_molecule_formula( formula):
   pass
-  
+
 
 def normalize_coords( coords):
   x1, y1, x2, y2 = coords
@@ -145,8 +145,8 @@ def smallest_common_bbox( bboxes):
       _y1 = maxy
   return _x1, _y1, _x0, _y0
 
-      
-    
+
+
 
 
 
@@ -194,7 +194,7 @@ some_apply = lambda func, vals: something_true( list(map( func, vals)))
 isinstance_of_one = lambda obj, parents: some_apply( lambda x: isinstance( obj, x), parents)
 
 
-  
+
 
 def gen_variations(items, n):
   if n==0:

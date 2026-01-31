@@ -95,10 +95,12 @@
    skew and bond thickness tagging.
 3) Substituents: position OH/CH2OH groups using up/down rules for D/L and
    alpha/beta.
-4) Bond styles: add wavy bond rendering in Cairo and SVG, then wire molfile
-   stereo mapping.
+4) Bond styles: add full new bond type support in Cairo and SVG, including
+   wavy variants, left/right hatch, wide rectangle, and per-bond colors.
 5) API + tests: add a small smoke test and a reference PNG/SVG output.
 6) Docs: document the new API and add usage examples.
+7) CLI: add a small CLI entry point for Haworth output so batch and test
+   rendering can be scripted.
 
 ## Testing plan
 ### Unit tests
@@ -120,6 +122,9 @@
   wavy bond path exists in SVG output.
 - Insert each template (furanose, pyranose, alanine, palmitate, pyrimidine,
   purine) into a blank drawing and confirm a non-empty molecule is created.
+- Post-Stage 2: render a "printer self-test" sheet that includes every bond
+  type and wavy variant in multiple colors (hex RGB), and confirm the SVG/PNG
+  outputs are non-empty and contain the expected bond markers.
 
 ## Staged rollout with testable outcomes
 ### Stage 1: SVG/Cairo bond width + existing styles
@@ -128,11 +133,11 @@
 - Tests: render a molecule with normal, bold, wedge, and hatch bonds; assert
   SVG contains the expected stroke widths and wedge/hatch shapes.
 
-### Stage 2: Wavy bond rendering
-- Outcome: `bond.type == "s"` renders a wavy bond in SVG and Cairo with stable
-  geometry.
-- Tests: render a molecule with a wavy bond; assert SVG includes a wavy path
-  and PNG output is non-empty.
+### Stage 2: Full new bond types support
+- Outcome: new bond types render in SVG and Cairo, including wavy variants,
+  left/right hatch, wide rectangle, and per-bond colors (hex RGB).
+- Tests: render a "printer self-test" sheet with every bond type and color;
+  assert SVG includes bond-style markers and PNG output is non-empty.
 
 ### Stage 3: Haworth layout (ring geometry + bond tagging)
 - Outcome: `build_haworth()` produces pyranose/furanose layouts and tags
@@ -155,6 +160,14 @@
 - Outcome: updated docs plus reference SVG/PNG for Haworth and wavy-bond
   glucose samples.
 - Tests: smoke test ensures reference outputs exist and are non-empty.
+
+### Stage 7: CLI + batch output
+- Outcome: provide a CLI for Haworth rendering that accepts SMILES input and
+  produces SVG/PNG outputs for batch testing and automation.
+- Example target command (final syntax TBD):
+  - `oasa_cli.py --haworth --smiles 'OC[C@@H]1O[C@@H](O)[C@@H](O)[C@H](O)[C@H]1O' --output alpha-D-glucopyranose.png`
+- Tests: smoke run the CLI with known SMILES inputs and confirm output files
+  exist and are non-empty.
 
 ## Open questions
 - Where to host the Haworth entry point in BKChem (GUI tool, exporter option,

@@ -338,7 +338,7 @@ class basic_mode( simple_mode):
     # mode switching
     self.register_key_sequence_ending_with_number_range( 'C-', self.switch_mode, numbers=list(range(1,10)))
     self.register_key_sequence_ending_with_number_range( 'C-A-', self.switch_mode, numbers=list(range(1,10)), attrs={"add":9})
-    
+
     # debug, simo
     self.register_key_sequence( 'C-p', lambda : Store.app.paper.print_all_coords())
     self.register_key_sequence( 'C-r', lambda : Store.app.paper.redraw_all())
@@ -929,7 +929,7 @@ class draw_mode( edit_mode):
         dx = event.x - self._startx
         dy = event.y - self._starty
         x0, y0 = self._start_atom.get_xy_on_paper()
-        x,y = geometry.point_on_circle( x0, y0, 
+        x,y = geometry.point_on_circle( x0, y0,
                                         Store.app.paper.real_to_canvas(Screen.any_to_px( Store.app.paper.standard.bond_length)),
                                         direction = (dx, dy),
                                         resolution = int( self.submodes[0][ self.submode[ 0]]))
@@ -1161,8 +1161,8 @@ class template_mode( edit_mode):
     Store.app.paper.unselect_all()
     if not self.focused:
       xy = Store.app.paper.canvas_to_real((event.x, event.y))
-      t = self._get_transformed_template( self.submode[0], 
-                                          xy, 
+      t = self._get_transformed_template( self.submode[0],
+                                          xy,
                                           type='empty', paper=Store.app.paper)
     else:
       if isinstance( self.focused, oasa.graph.vertex):

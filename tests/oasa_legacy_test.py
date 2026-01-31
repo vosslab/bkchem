@@ -2,6 +2,7 @@
 
 import os
 import sys
+import tempfile
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "packages", "oasa"))
 if ROOT_DIR not in sys.path:
@@ -19,9 +20,13 @@ def cairo_out_test2():
     c.show_hydrogens_on_hetero = True
     c.font_size = 20
     mols = list( mol.get_disconnected_subgraphs())
-    c.mols_to_cairo( mols, "test.pdf", format="pdf")
-    c.mols_to_cairo( mols, "test.png")
-    c.mols_to_cairo( mols, "test.svg", format="svg")
+    with tempfile.TemporaryDirectory( prefix="oasa_legacy_test_") as output_dir:
+        pdf_path = os.path.join( output_dir, "oasa_legacy_test.pdf")
+        png_path = os.path.join( output_dir, "oasa_legacy_test.png")
+        svg_path = os.path.join( output_dir, "oasa_legacy_test.svg")
+        c.mols_to_cairo( mols, pdf_path, format="pdf")
+        c.mols_to_cairo( mols, png_path)
+        c.mols_to_cairo( mols, svg_path, format="svg")
 
 def inchi_test():
     mol = oasa.smiles.text_to_mol( r"c1ccccc1\C=C/CC")

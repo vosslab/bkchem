@@ -44,7 +44,7 @@ def _read_repo_version( key, fallback):
 				return value
 	return fallback
 
-__version__ = _read_repo_version( "oasa", "0.16beta")
+__version__ = _read_repo_version( "oasa", "26.02")
 
 
 # local repo modules

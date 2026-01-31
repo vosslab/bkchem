@@ -142,7 +142,7 @@ def get_compounds_from_database( database_file=None, **kw):
         raise oasa_exceptions.oasa_error( "Error reading from structure database: '%s'" % e)
     ret = []
     for row in c:
-        c2.execute( "SELECT synonym FROM synonyms WHERE id=%d" % row[0])
+        c2.execute( "SELECT synonym FROM synonyms WHERE id=?", (row[0],))
         synonyms = list( c2)
         ret.append( row+([x[0] for x in synonyms],))
     c.close()
@@ -202,7 +202,7 @@ def filter_src_file( infilename, name_cutoff=26, atom_count_cutoff=1000):
     return added, ignored
 
 def _is_cid_in_db( cid, cursor):
-    cursor.execute( "SELECT id FROM structures WHERE id=%s" % cid)
+    cursor.execute( "SELECT id FROM structures WHERE id=?", (cid,))
     if list( cursor):
         return True
     else:

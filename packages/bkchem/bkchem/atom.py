@@ -305,7 +305,7 @@ class atom(drawable_chem_vertex, oasa.atom):
 
   def draw( self, redraw=False):
     "draws atom with respect to its properties"
-    
+
     if self.show:
       # Draws the atom with a label
       drawable_chem_vertex.draw( self, redraw=redraw)
@@ -324,7 +324,7 @@ class atom(drawable_chem_vertex, oasa.atom):
     if self.show:
       drawable_chem_vertex.focus( self)
     else:
-      x, y = self.get_xy_on_paper() 
+      x, y = self.get_xy_on_paper()
       self.focus_item = self.paper.create_oval( x-4, y-4, x+4, y+4, tags=('helper_f','no_export'), outline=self.paper.highlight_color)
       self.paper.lift( self.item)
 

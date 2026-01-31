@@ -28,6 +28,7 @@ import tkinter.messagebox as tkMessageBox
 
 import validator
 import dom_extensions as dom_ext
+import safe_xml
 
 from . import plugin
 
@@ -60,7 +61,7 @@ class CML_importer(plugin.importer):
 
 
   def get_cdml_dom( self, file_name):
-    tree = dom.parse( file_name)
+    tree = safe_xml.parse_dom_from_file( file_name)
     out = dom.Document()
     root = dom_ext.elementUnder( out, 'cdml', (('version','0.11'),))
     for m in tree.getElementsByTagName( 'molecule'):

@@ -22,11 +22,11 @@
 import re
 import os
 import string
-import xml.dom.minidom as dom
 
 from . import misc
 from . import molfile
 from . import dom_extensions
+from . import safe_xml
 from . import coords_generator
 from . import periodic_table as pt
 from .plugin import plugin
@@ -76,7 +76,7 @@ class inchi( plugin):
   def split_layers( self, text):
     # try if we have a xml document in hand
     try:
-      doc = dom.parseString( text)
+      doc = safe_xml.parse_dom_from_string( text)
     except:
       # it seems not to be the case
       if text.startswith( "InChI="):

@@ -32,6 +32,7 @@ import widgets
 import validator
 import os_support
 import bkchem_exceptions as excs
+import safe_xml
 
 _ = builtins.__dict__.get( '_', lambda m: m)
 ngettext = builtins.__dict__.get( 'ngettext', lambda s, p, n: s if n == 1 else p)
@@ -188,14 +189,14 @@ def ask_display_form_for_selected( paper):
     df = df.encode('utf-8')
     ## catch not well-formed text
     try:
-      xml.sax.parseString( "<a>%s</a>" % df, xml.sax.ContentHandler())
-    except xml.sax.SAXParseException:
+      safe_xml.parse_xml_string( "<a>%s</a>" % df)
+    except Exception:
       df = xml.sax.saxutils.escape( df)
       # the second round of try: except: should catch problems not
       # related to XML wellfomedness but rather to encoding
       try:
-        xml.sax.parseString( "<a>%s</a>" % df, xml.sax.ContentHandler())
-      except xml.sax.SAXParseException:
+        safe_xml.parse_xml_string( "<a>%s</a>" % df)
+      except Exception:
         tkMessageBox.showerror( _("Parse Error"), _("Unable to parse the text-\nprobably problem with input encoding!"))
         Store.app.paper.bell()
         return

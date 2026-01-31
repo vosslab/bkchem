@@ -5,7 +5,7 @@ Legacy sources are archived and not maintained; entries are preserved verbatim w
 This file covers BKChem releases; OASA history lives in `packages/oasa/docs/CHANGELOG.md`.
 
 Post-2010 work continues outside the legacy log. This repo treats the 2017
-simone16 forks as the 0.15 line and the current vosslab work as 0.16.
+simone16 forks as the 0.15 line and the current vosslab work as 26.02.
 
 ## Release 0.16beta1
 
@@ -18,7 +18,7 @@ simone16 forks as the 0.15 line and the current vosslab work as 0.16.
 
 ### Acknowledgments
 Simone Pilon (GitHub: @simone16) maintained the BKChem and OASA forks in 2017.
-Date range: Jan–May 2017.
+Date range: Jan-May 2017.
 Reference forks:
 - https://github.com/simone16/bkchem
 - https://github.com/simone16/oasa

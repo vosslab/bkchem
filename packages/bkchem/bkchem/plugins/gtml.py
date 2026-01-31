@@ -21,13 +21,13 @@
 
 """
 
-import xml.dom.minidom as dom
 from io import StringIO
 
 from xml import xpath
 from oasa.transform import transform
 
 import dom_extensions as dom_ext
+import safe_xml
 
 from atom import atom
 from bond import bond
@@ -73,7 +73,7 @@ class gtml_importer(object):
       f.write(the_file.read())
     f.seek(0)
 
-    doc = dom.parse( f)
+    doc = safe_xml.parse_dom_from_file( f)
     f.close()
 
     for ch in xpath.Evaluate( "//graph[@type='molecule']", doc):
