@@ -51,7 +51,8 @@ Use ALL CAPS for Markdown docs under `docs/` (for example `docs/INSTALL.md`,
 - `docs/NEWS.md`: curated release highlights and announcements, not a full changelog.
 - `docs/RELATED_PROJECTS.md`: sibling repos, shared libraries, and integration touchpoints.
 - `docs/ROADMAP.md`: planned work, priorities, and what is intentionally not started.
-- `docs/TODO.md`: backlog scratchpad for small tasks without timelines.
+- `docs/TODO_REPO.md`: backlog for publishing, planning, and policy tasks.
+- `docs/TODO_CODE.md`: backlog for coding tasks and feature work.
 - `docs/TROUBLESHOOTING.md`: known issues, fixes, and debugging steps with symptoms.
 - `docs/USAGE.md`: how to run the tool, CLI flags, and practical examples.
 

@@ -86,7 +86,8 @@ Repo-wide conventions for this project and related repos.
 - `docs/RELATED_PROJECTS.md`: sibling repos, shared libraries, and integration touchpoints.
 - `docs/RELEASE_HISTORY.md`: organized log of released versions and their release dates. Summarizes notable shipped qualities, including notes, major fixes, and compatibility notes.
 - `docs/ROADMAP.md`: planned work, priorities, and what is intentionally not started.
-- `docs/TODO.md`: backlog scratchpad for small tasks without timelines.
+- `docs/TODO_REPO.md`: backlog for publishing, planning, and policy tasks.
+- `docs/TODO_CODE.md`: backlog for coding tasks and feature work.
 - `docs/TROUBLESHOOTING.md`: known issues, fixes, and debugging steps with symptoms.
 - `docs/USAGE.md`: how to run the tool, CLI flags, and practical examples.
 

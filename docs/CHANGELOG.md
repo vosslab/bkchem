@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-01-31
+- Add [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md)
+  to outline Haworth projection goals, scope, and implementation phases.
+- Expand the Haworth plan scope to cover pyranose and furanose rings, and add
+  local SVG references.
+- Update [docs/TODO_CODE.md](docs/TODO_CODE.md) to match the Haworth scope.
+- Align Haworth style notes with existing renderer defaults and add external
+  NEUROtiker archive references.
+- Replace the TODO list with [docs/TODO_REPO.md](docs/TODO_REPO.md) and
+  [docs/TODO_CODE.md](docs/TODO_CODE.md).
+- Refresh todo references in [README.md](../README.md),
+  [docs/REPO_STYLE.md](docs/REPO_STYLE.md), and
+  [packages/oasa/docs/REPO_STYLE.md](../packages/oasa/docs/REPO_STYLE.md).
+
 ## 2025-12-26
 - Update [README.md](../README.md) with monorepo overview, doc links, and
   package locations.

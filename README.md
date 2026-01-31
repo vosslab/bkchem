@@ -63,7 +63,8 @@ core workflows that BKChem supports today.
 - [docs/RELEASE_HISTORY.md](docs/RELEASE_HISTORY.md) historical release notes.
 - [docs/REPO_STYLE.md](docs/REPO_STYLE.md) repo structure and naming.
 - [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) supported file formats.
-- [docs/TODO.md](docs/TODO.md) open tasks and follow-ups.
+- [docs/TODO_REPO.md](docs/TODO_REPO.md) publishing, planning, and policy tasks.
+- [docs/TODO_CODE.md](docs/TODO_CODE.md) coding tasks and feature work.
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) BKChem manual.
 - [packages/oasa/README.md](packages/oasa/README.md) for OASA-specific usage.
 - [packages/bkchem/README.md](packages/bkchem/README.md) for BKChem-specific usage.
