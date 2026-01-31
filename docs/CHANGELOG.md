@@ -19,6 +19,14 @@
   wavy_bond.png reference.
 - Add a testing plan (unit and smoke tests) to
   [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
+- Add staged rollout notes with testable outcomes to
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
+- Expand [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md)
+  with bond style specs, including the NEUROtiker-derived bold multiplier and
+  the sine-wave wavy bond decision.
+- Note template distribution in the macOS app bundle and the Insert-menu
+  entry point in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
 - Expand the Haworth plan scope to cover pyranose and furanose rings, and add
   local SVG references.
 - Update [docs/TODO_CODE.md](docs/TODO_CODE.md) to match the Haworth scope.

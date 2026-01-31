@@ -73,6 +73,17 @@
   standard molfile stereo code 4 ("either") once rendering exists.
 - Keep defaults unchanged for non-Haworth drawings.
 
+## Bond style specs (draft)
+- Bold multiplier: derived from NEUROtiker sample
+  `docs/sample_haworth/GDP-D-Mannose.svg`, where line stroke width is
+  `1.35` and rectangle bond thickness is about `1.615`, yielding ~`1.2x`.
+  Use ~1.2x as the initial bold multiplier and adjust if additional samples
+  show a different ratio.
+- Left/right hatch: same geometry mirrored horizontally across the bond
+  centerline (no directional flag).
+- Wavy bond: use a smooth sine wave (see `wavy_bond.png`) for "either"
+  stereochemistry.
+
 ## Data model and detection
 - Start with explicit user input (mode, series, alpha/beta, ring atom order).
 - Avoid full SMILES stereochemistry inference in phase 1.
@@ -110,13 +121,47 @@
 - Insert each template (furanose, pyranose, alanine, palmitate, pyrimidine,
   purine) into a blank drawing and confirm a non-empty molecule is created.
 
+## Staged rollout with testable outcomes
+### Stage 1: SVG/Cairo bond width + existing styles
+- Outcome: `bond.type == "b"` renders thicker in SVG and Cairo; wedge/hatch
+  render in SVG.
+- Tests: render a molecule with normal, bold, wedge, and hatch bonds; assert
+  SVG contains the expected stroke widths and wedge/hatch shapes.
+
+### Stage 2: Wavy bond rendering
+- Outcome: `bond.type == "s"` renders a wavy bond in SVG and Cairo with stable
+  geometry.
+- Tests: render a molecule with a wavy bond; assert SVG includes a wavy path
+  and PNG output is non-empty.
+
+### Stage 3: Haworth layout (ring geometry + bond tagging)
+- Outcome: `build_haworth()` produces pyranose/furanose layouts and tags
+  front edges with the correct Haworth bond styles.
+- Tests: unit tests for ring coordinates and bond tags; smoke render to SVG/PNG
+  and confirm bold/wide bonds are present.
+
+### Stage 4: Substituent placement (D/L, alpha/beta)
+- Outcome: substituent up/down rules apply correctly for both ring types.
+- Tests: unit tests comparing substituent vectors against expected up/down
+  orientation.
+
+### Stage 5: Templates (insert-only flow + folder scan)
+- Outcome: templates are discovered by folder/subfolder names and inserted
+  into an existing drawing.
+- Tests: scan returns correct category/subcategory mapping; smoke test inserts
+  all six templates into a blank document and confirms a non-empty molecule.
+
+### Stage 6: Docs + reference outputs
+- Outcome: updated docs plus reference SVG/PNG for Haworth and wavy-bond
+  glucose samples.
+- Tests: smoke test ensures reference outputs exist and are non-empty.
+
 ## Open questions
 - Where to host the Haworth entry point in BKChem (GUI tool, exporter option,
   or a separate script)?
 - What minimal input format should be used to avoid ambiguous stereochemistry?
 - Should bolding be a fixed multiplier or derived from the base line width?
-- Should wavy bonds use a pure sine wave or chained half-circles for the
-  "either" stereochemistry look?
+  - Initial draft: ~1.2x derived from NEUROtiker sample rectangles.
 
 ## CDML format ownership
 - CDML is a BKChem-native format (no external governing body). New bond types
@@ -137,6 +182,11 @@
   can add or customize templates by dropping in new CDML files.
 - Use an insert workflow (add templates into existing drawings) instead of
   replacing the current molecule file.
+- Ship templates inside the macOS DMG app bundle so they are available under
+  `/Applications/BKChem.app/` installs; pick a stable resource path within the
+  app bundle and scan it at startup.
+- Menu placement: add an Insert menu item (for example "Insert > Biomolecule
+  Template...") that opens the template picker.
 
 ## Side feature: wavy bond smoke molecule
 - Use a glucose "smoke" molecule that shows unknown anomeric carbon with a
