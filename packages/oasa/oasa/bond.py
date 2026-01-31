@@ -44,6 +44,7 @@ class bond(edge, object):
   'a' - adder
   'b' - bold
   'd' - dash
+  's' - wavy
   """
   attrs_to_copy = edge.attrs_to_copy + ("order","aromatic","type")
 

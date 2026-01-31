@@ -45,7 +45,7 @@ Repo-wide conventions for this project and related repos.
 - Keep scripts self-contained and single-purpose.
 - Add a shebang for executable scripts and keep them runnable directly.
 - Document shared helpers and modules in `docs/USAGE.md` when used across scripts.
-- Use `tests/test_pyflakes.py` and `tests/test_ascii_compliance.py` for repo-wide lint checks, with `tests/check_ascii_compliance.py` for single-file ASCII/ISO-8859-1 checks and `tests/fix_ascii_compliance.py` for single-file fixes.
+- Use `tests/test_pyflakes_code_lint.py` and `tests/test_ascii_compliance.py` for repo-wide lint checks, with `tests/check_ascii_compliance.py` for single-file ASCII/ISO-8859-1 checks and `tests/fix_ascii_compliance.py` for single-file fixes.
 - For smoke tests, reuse stable output folder names (for example `output_smoke/`) instead of creating one-off output directory names; reusing/overwriting avoids repeated delete-approval prompts.
 
 ## Dependency manifests
@@ -86,8 +86,7 @@ Repo-wide conventions for this project and related repos.
 - `docs/RELATED_PROJECTS.md`: sibling repos, shared libraries, and integration touchpoints.
 - `docs/RELEASE_HISTORY.md`: organized log of released versions and their release dates. Summarizes notable shipped qualities, including notes, major fixes, and compatibility notes.
 - `docs/ROADMAP.md`: planned work, priorities, and what is intentionally not started.
-- `docs/TODO_REPO.md`: backlog for publishing, planning, and policy tasks.
-- `docs/TODO_CODE.md`: backlog for coding tasks and feature work.
+- `docs/TODO.md`: backlog scratchpad for small tasks without timelines.
 - `docs/TROUBLESHOOTING.md`: known issues, fixes, and debugging steps with symptoms.
 - `docs/USAGE.md`: how to run the tool, CLI flags, and practical examples.
 
