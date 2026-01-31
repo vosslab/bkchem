@@ -274,9 +274,9 @@ class cairo_out(object):
       """second means if this is not the main line, drawing might be different"""
       if not has_shown_vertex or not self.color_bonds:
         if not second:
-          self._draw_line( _start, _end, line_width=edge_line_width, capstyle=cairo.LINE_CAP_ROUND)
+          self._draw_line( _start, _end, line_width=edge_line_width, capstyle=cairo.LINE_CAP_ROUND, color=color1)
         else:
-          self._draw_line( _start, _end, line_width=edge_line_width, capstyle=cairo.LINE_CAP_BUTT)
+          self._draw_line( _start, _end, line_width=edge_line_width, capstyle=cairo.LINE_CAP_BUTT, color=color1)
       else:
         self._draw_colored_line( _start, _end, line_width=edge_line_width, start_color=color1, end_color=color2)
 
@@ -289,7 +289,7 @@ class cairo_out(object):
       # no coloring now
       if not has_shown_vertex or not self.color_bonds:
         self._create_cairo_path( [(xa, ya), (x0, y0), (2*x2-x0, 2*y2-y0), (2*x1-xa, 2*y1-ya)], closed=True)
-        self.context.set_source_rgb( 0,0,0)
+        self._set_source_color( color1)
         self.context.fill()
       else:
         # ratio 0.4 looks better than 0.5 because the area difference
@@ -299,10 +299,10 @@ class cairo_out(object):
         ym1 = ratio*ya + (1-ratio)*y0
         xm2 = (1-ratio)*(2*x2-x0) + ratio*(2*x1-xa)
         ym2 = (1-ratio)*(2*y2-y0) + ratio*(2*y1-ya)
-        self.context.set_source_rgb( *color1)
+        self._set_source_color( color1)
         self._create_cairo_path( [(xa,ya), (xm1,ym1), (xm2,ym2), (2*x1-xa, 2*y1-ya)], closed=True)
         self.context.fill()
-        self.context.set_source_rgb( *color2)
+        self._set_source_color( color2)
         self._create_cairo_path( [(xm1,ym1), (x0, y0), (2*x2-x0, 2*y2-y0), (xm2,ym2)], closed=True)
         self.context.fill()
 
@@ -333,7 +333,7 @@ class cairo_out(object):
       step_size = d / ns
       # now we finally draw
       self.context.set_line_cap( cairo.LINE_CAP_BUTT)
-      self.context.set_source_rgb( *color1)
+      self._set_source_color( color1)
       middle = 0.5 * (draw_start + int( round( d/ step_size)) + draw_end - 2)
       for i in range( draw_start, int( round( d/ step_size)) +draw_end):
         coords = [xa+dx1*i*step_size, ya+dy1*i*step_size, 2*x1-xa+dx2*i*step_size, 2*y1-ya+dy2*i*step_size]
@@ -345,7 +345,7 @@ class cairo_out(object):
         self._create_cairo_path( [coords[:2],coords[2:]])
         if i >= middle:
           self.context.stroke()
-          self.context.set_source_rgb( *color2)
+          self._set_source_color( color2)
       self.context.stroke()
 
     # code itself
@@ -374,7 +374,10 @@ class cairo_out(object):
       start = coords[:2]
       end = coords[2:]
       v1, v2 = e.vertices
-      if self.color_bonds:
+      bond_color = self._edge_color( e)
+      if bond_color:
+        color1 = color2 = bond_color
+      elif self.color_bonds:
         color1 = self.atom_colors.get( v1.symbol, (0,0,0))
         color2 = self.atom_colors.get( v2.symbol, (0,0,0))
       else:
@@ -389,6 +392,14 @@ class cairo_out(object):
           draw_plain_or_colored_wedge( start, end)
         elif e.type == 'h':
           draw_plain_or_colored_hatch( start, end)
+        elif e.type == 'l':
+          self._draw_side_hatch( start, end, side=1, line_width=edge_line_width, color=color1)
+        elif e.type == 'r':
+          self._draw_side_hatch( start, end, side=-1, line_width=edge_line_width, color=color1)
+        elif e.type == 'q':
+          self._draw_wide_rectangle( start, end, line_width=edge_line_width, color=color1)
+        elif e.type == 's':
+          self._draw_wavy( start, end, style=self._wavy_style( e), line_width=edge_line_width, color=color1)
         else:
           draw_plain_or_colored_line( start, end)
 
@@ -452,6 +463,135 @@ class cairo_out(object):
       for n in atom1.neighbors + atom2.neighbors:
         n.coords = self._invtransform.transform_xyz( *n.coords)
 
+
+  def _draw_side_hatch( self, start, end, side=1, line_width=1.0, color=(0,0,0)):
+    x1, y1 = start
+    x2, y2 = end
+    d = geometry.point_distance( x1, y1, x2, y2)
+    if d == 0:
+      return
+    dx = (x2 - x1) / d
+    dy = (y2 - y1) / d
+    px = -dy
+    py = dx
+    step_size = 2 * line_width
+    ns = round( d / step_size) or 1
+    step_size = d / ns
+    offset = side * self.wedge_width
+    self.context.set_line_cap( cairo.LINE_CAP_BUTT)
+    self._set_source_color( color)
+    for i in range( 0, int( round( d / step_size)) + 1):
+      bx = x1 + dx * i * step_size
+      by = y1 + dy * i * step_size
+      ex = bx + px * offset
+      ey = by + py * offset
+      self._create_cairo_path( [(bx, by), (ex, ey)])
+    self.context.set_line_width( line_width)
+    self.context.stroke()
+
+
+  def _draw_wavy( self, start, end, style="sine", line_width=1.0, color=(0,0,0)):
+    points = self._wave_points( start, end, style=style)
+    if not points:
+      return
+    self._create_cairo_path( points)
+    self.context.set_line_cap( cairo.LINE_CAP_ROUND)
+    self.context.set_line_width( line_width)
+    self._set_source_color( color)
+    self.context.stroke()
+
+
+  def _draw_wide_rectangle( self, start, end, line_width=1.0, color=(0,0,0)):
+    x1, y1 = start
+    x2, y2 = end
+    d = geometry.point_distance( x1, y1, x2, y2)
+    if d == 0:
+      return
+    dx = (x2 - x1) / d
+    dy = (y2 - y1) / d
+    px = -dy
+    py = dx
+    half = (line_width * self.bold_line_width_multiplier) / 2.0
+    points = [(x1 + px * half, y1 + py * half),
+              (x1 - px * half, y1 - py * half),
+              (x2 - px * half, y2 - py * half),
+              (x2 + px * half, y2 + py * half)]
+    self._create_cairo_path( points, closed=True)
+    self._set_source_color( color)
+    self.context.fill()
+
+
+  def _wave_points( self, start, end, style="sine"):
+    x1, y1 = start
+    x2, y2 = end
+    d = geometry.point_distance( x1, y1, x2, y2)
+    if d == 0:
+      return []
+    dx = (x2 - x1) / d
+    dy = (y2 - y1) / d
+    px = -dy
+    py = dx
+    amplitude = max( self.line_width * 1.5, 1.0)
+    wavelength = max( self.line_width * 6.0, 6.0)
+    steps = int( max( d / (wavelength / 8.0), 8))
+    step_size = d / steps
+    points = []
+    for i in range( steps + 1):
+      t = i * step_size
+      phase = (t / wavelength)
+      if style == "triangle":
+        value = 2 * abs( 2 * (phase - math.floor( phase + 0.5))) - 1
+      elif style == "box":
+        value = 1.0 if math.sin( 2 * math.pi * phase) >= 0 else -1.0
+      elif style == "half-circle":
+        half = wavelength / 2.0
+        local = (t % half) / half
+        value = math.sqrt( max( 0.0, 1 - (2 * local - 1) ** 2))
+        if int( t / half) % 2:
+          value *= -1
+      else:
+        value = math.sin( 2 * math.pi * phase)
+      ox = px * amplitude * value
+      oy = py * amplitude * value
+      points.append( (x1 + dx * t + ox, y1 + dy * t + oy))
+    return points
+
+
+  def _edge_color( self, e):
+    color = getattr( e, "line_color", None)
+    if not color:
+      color = e.properties_.get( "line_color") or e.properties_.get( "color")
+    return self._parse_hex_color( color)
+
+
+  def _wavy_style( self, e):
+    return (getattr( e, "wavy_style", None)
+            or e.properties_.get( "wavy_style")
+            or "sine")
+
+
+  def _parse_hex_color( self, color):
+    if not color:
+      return None
+    if isinstance( color, tuple) and len( color) in (3, 4):
+      return color
+    if not isinstance( color, str):
+      return None
+    text = color.strip()
+    if not text.startswith( "#"):
+      return None
+    value = text[1:]
+    if len( value) == 3:
+      value = "".join( ch * 2 for ch in value)
+    if len( value) != 6:
+      return None
+    try:
+      r = int( value[0:2], 16) / 255.0
+      g = int( value[2:4], 16) / 255.0
+      b = int( value[4:6], 16) / 255.0
+    except ValueError:
+      return None
+    return (r, g, b)
 
   def _where_to_draw_from_and_to( self, b):
     def fix_bbox( a):

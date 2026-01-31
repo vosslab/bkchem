@@ -45,8 +45,12 @@ class bond(edge, object):
   'b' - bold
   'd' - dash
   's' - wavy
+  'l' - left hatch (Haworth)
+  'r' - right hatch (Haworth)
+  'q' - wide rectangle (Haworth)
   """
-  attrs_to_copy = edge.attrs_to_copy + ("order","aromatic","type")
+  attrs_to_copy = edge.attrs_to_copy + ("order","aromatic","type",
+                                        "line_color","wavy_style","hatch_side")
 
   def __init__( self, vs=[], order=1, type='n'):
     edge.__init__( self, vs=vs)
@@ -56,6 +60,9 @@ class bond(edge, object):
     self.type = type
     self.properties_ = {}
     self.stereochemistry = None
+    self.line_color = None
+    self.wavy_style = None
+    self.hatch_side = None
 
 
   def __str__( self):

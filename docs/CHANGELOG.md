@@ -54,6 +54,12 @@
   directory so test files are cleaned up after the run.
 - Use `defusedxml.minidom` in `tests/test_cdml_versioning.py` to satisfy
   Bandit B318.
+- Start Stage 2 Haworth work: add new bond type rendering (wavy variants,
+  left/right hatch, wide rectangle) plus per-bond colors in OASA SVG/Cairo,
+  update BKChem bond/SVG handling for the new types, and add a printer
+  self-test smoke in `tests/test_oasa_bond_styles.py`.
+- Add a `--save` flag to `tests/test_oasa_bond_styles.py` so bond-style smoke
+  outputs can be written to the current working directory.
 - Replace legacy XML parsing in BKChem and OASA with `safe_xml` wrappers,
   including ftext markup parsing and CDML/CDATA imports.
 - Replace `eval()` with `ast.literal_eval()` in preference and external data

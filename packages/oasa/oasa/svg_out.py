@@ -18,6 +18,7 @@
 #--------------------------------------------------------------------------
 
 import copy
+import math
 import xml.dom.minidom as dom
 
 from . import misc
@@ -117,14 +118,26 @@ class svg_out(object):
     parent = self._create_parent( e, self.top)
 
     line_width = self._bond_line_width( e)
+    edge_color = self._edge_color( e)
 
     if e.order == 1:
       if e.type == 'w':
-        self._draw_wedge( parent, start, end)
+        self._draw_wedge( parent, start, end, fill_color=edge_color)
       elif e.type == 'h':
-        self._draw_hatch( parent, start, end)
+        self._draw_hatch( parent, start, end, stroke_color=edge_color)
+      elif e.type == 'l':
+        self._draw_side_hatch( parent, start, end, side=1, stroke_color=edge_color)
+      elif e.type == 'r':
+        self._draw_side_hatch( parent, start, end, side=-1, stroke_color=edge_color)
+      elif e.type == 'q':
+        self._draw_wide_rectangle( parent, start, end, fill_color=edge_color)
+      elif e.type == 's':
+        self._draw_wavy( parent, start, end,
+                         style=self._wavy_style( e),
+                         line_width=line_width,
+                         stroke_color=edge_color)
       else:
-        self._draw_line( parent, start, end, line_width=line_width, capstyle="round")
+        self._draw_line( parent, start, end, line_width=line_width, capstyle="round", stroke_color=edge_color)
 
     if e.order == 2:
       side = 0
@@ -141,20 +154,20 @@ class svg_out(object):
           if v != v1 and v!= v2:
             side += geometry.on_which_side_is_point( start+end, (self.transformer.transform_xy( v.x, v.y)))
       if side:
-        self._draw_line( parent, start, end, line_width=line_width, capstyle="round")
+        self._draw_line( parent, start, end, line_width=line_width, capstyle="round", stroke_color=edge_color)
         x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], self.bond_width*misc.signum( side))
-        self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round")
+        self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round", stroke_color=edge_color)
       else:
         for i in (1,-1):
           x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], i*self.bond_width*0.5)
-          self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round")
+          self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round", stroke_color=edge_color)
 
 
     elif e.order == 3:
-      self._draw_line( parent, start, end, line_width=line_width, capstyle="round")
+      self._draw_line( parent, start, end, line_width=line_width, capstyle="round", stroke_color=edge_color)
       for i in (1,-1):
         x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], i*self.bond_width*0.7)
-        self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round")
+        self._draw_line( parent, (x1, y1), (x2, y2), line_width=line_width, capstyle="round", stroke_color=edge_color)
 
 
   def _draw_vertex( self, v):
@@ -191,7 +204,7 @@ class svg_out(object):
       self._draw_text( parent, self.transformer.transform_xy(x,y), text)
 
 
-  def _draw_line( self, parent, start, end, line_width=1, capstyle=""):
+  def _draw_line( self, parent, start, end, line_width=1, capstyle="", stroke_color=None):
     x1, y1 = start
     x2, y2 = end
     attrs = (( 'x1', str( x1)),
@@ -201,6 +214,8 @@ class svg_out(object):
              ( 'stroke-width', str( line_width)))
     if capstyle:
       attrs += (( 'stroke-linecap', capstyle),)
+    if stroke_color:
+      attrs += (( 'stroke', stroke_color),)
     dom_extensions.elementUnder( parent, 'line', attrs)
 
 
@@ -231,16 +246,16 @@ class svg_out(object):
                                   ( 'fill', fill_color),
                                   ( 'stroke', stroke_color)))
 
-  def _draw_wedge( self, parent, start, end):
+  def _draw_wedge( self, parent, start, end, fill_color=None):
     x1, y1 = start
     x2, y2 = end
     # Draw a filled wedge polygon for stereochemistry.
     x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, self.wedge_width/2.0)
     xa, ya, xb, yb = geometry.find_parallel( x1, y1, x2, y2, self.line_width/2.0)
     points = [(xa, ya), (x0, y0), (2*x2-x0, 2*y2-y0), (2*x1-xa, 2*y1-ya)]
-    self._draw_polygon( parent, points, fill_color="#000", stroke_color="none")
+    self._draw_polygon( parent, points, fill_color=fill_color or "#000", stroke_color="none")
 
-  def _draw_hatch( self, parent, start, end):
+  def _draw_hatch( self, parent, start, end, stroke_color=None):
     x1, y1 = start
     x2, y2 = end
     # Build hatch lines across a wedge footprint.
@@ -263,7 +278,102 @@ class svg_out(object):
           coords[0] += 1
         else:
           coords[1] += 1
-      self._draw_line( parent, coords[:2], coords[2:], line_width=self.line_width, capstyle="butt")
+      self._draw_line( parent, coords[:2], coords[2:], line_width=self.line_width, capstyle="butt", stroke_color=stroke_color)
+
+  def _draw_side_hatch( self, parent, start, end, side=1, stroke_color=None):
+    x1, y1 = start
+    x2, y2 = end
+    d = geometry.point_distance( x1, y1, x2, y2)
+    if d == 0:
+      return
+    dx = (x2 - x1) / d
+    dy = (y2 - y1) / d
+    px = -dy
+    py = dx
+    step_size = 2 * self.line_width
+    ns = round( d / step_size) or 1
+    step_size = d / ns
+    offset = side * self.wedge_width
+    for i in range( 0, int( round( d / step_size)) + 1):
+      bx = x1 + dx * i * step_size
+      by = y1 + dy * i * step_size
+      ex = bx + px * offset
+      ey = by + py * offset
+      self._draw_line( parent, (bx, by), (ex, ey), line_width=self.line_width, capstyle="butt", stroke_color=stroke_color)
+
+  def _draw_wavy( self, parent, start, end, style="sine", line_width=1, stroke_color=None):
+    points = self._wave_points( start, end, style=style)
+    if not points:
+      return
+    attrs = (( 'points', " ".join( "%s,%s" % (x, y) for x, y in points)),
+             ( 'fill', 'none'),
+             ( 'stroke-width', str( line_width)))
+    if stroke_color:
+      attrs += (( 'stroke', stroke_color),)
+    dom_extensions.elementUnder( parent, 'polyline', attrs)
+
+  def _draw_wide_rectangle( self, parent, start, end, fill_color=None):
+    x1, y1 = start
+    x2, y2 = end
+    d = geometry.point_distance( x1, y1, x2, y2)
+    if d == 0:
+      return
+    dx = (x2 - x1) / d
+    dy = (y2 - y1) / d
+    px = -dy
+    py = dx
+    half = (self.line_width * self.bold_line_width_multiplier) / 2.0
+    points = [(x1 + px * half, y1 + py * half),
+              (x1 - px * half, y1 - py * half),
+              (x2 - px * half, y2 - py * half),
+              (x2 + px * half, y2 + py * half)]
+    self._draw_polygon( parent, points, fill_color=fill_color or "#000", stroke_color="none")
+
+  def _wave_points( self, start, end, style="sine"):
+    x1, y1 = start
+    x2, y2 = end
+    d = geometry.point_distance( x1, y1, x2, y2)
+    if d == 0:
+      return []
+    dx = (x2 - x1) / d
+    dy = (y2 - y1) / d
+    px = -dy
+    py = dx
+    amplitude = max( self.line_width * 1.5, 1.0)
+    wavelength = max( self.line_width * 6.0, 6.0)
+    steps = int( max( d / (wavelength / 8.0), 8))
+    step_size = d / steps
+    points = []
+    for i in range( steps + 1):
+      t = i * step_size
+      phase = (t / wavelength)
+      if style == "triangle":
+        value = 2 * abs( 2 * (phase - math.floor( phase + 0.5))) - 1
+      elif style == "box":
+        value = 1.0 if math.sin( 2 * math.pi * phase) >= 0 else -1.0
+      elif style == "half-circle":
+        half = wavelength / 2.0
+        local = (t % half) / half
+        value = math.sqrt( max( 0.0, 1 - (2 * local - 1) ** 2))
+        if int( t / half) % 2:
+          value *= -1
+      else:
+        value = math.sin( 2 * math.pi * phase)
+      ox = px * amplitude * value
+      oy = py * amplitude * value
+      points.append( (x1 + dx * t + ox, y1 + dy * t + oy))
+    return points
+
+  def _edge_color( self, e):
+    color = getattr( e, "line_color", None)
+    if not color:
+      color = e.properties_.get( "line_color") or e.properties_.get( "color")
+    return color or None
+
+  def _wavy_style( self, e):
+    return (getattr( e, "wavy_style", None)
+            or e.properties_.get( "wavy_style")
+            or "sine")
 
   def _bond_line_width( self, e):
     if e.type == 'b':

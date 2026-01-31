@@ -123,8 +123,12 @@ Common atom attributes:
 Common bond attributes:
 - `id` (optional)
 - `start`, `end` (atom id refs)
-- `type` (string, for example `n1`, `n2`, `w`, `h`, etc.)
-- `line_width`, `bond_width`, `double_ratio`
+- `type` (string, for example `n1`, `n2`, `w1`, `h1`, `b1`, `s1`, `l1`, `r1`,
+  `q1`)
+- `line_width`, `bond_width`, `double_ratio`, `wedge_width`
+- `color` (optional hex RGB, for example `#239e2d`)
+- `wavy_style` (optional, for `s*` bonds: `sine`, `half-circle`, `box`,
+  `triangle`)
 
 ### Arrow
 ```xml

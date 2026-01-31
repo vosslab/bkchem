@@ -80,6 +80,18 @@ def read_cdml( text):
       v1 = atom_id_remap[ bond_el.getAttribute( 'start')]
       v2 = atom_id_remap[ bond_el.getAttribute( 'end')]
       e = bond( order=int( type[1]), type=type[0])
+      color = bond_el.getAttribute( 'color')
+      if color:
+        e.line_color = color
+        e.properties_['line_color'] = color
+      wavy_style = bond_el.getAttribute( 'wavy_style')
+      if wavy_style:
+        e.wavy_style = wavy_style
+        e.properties_['wavy_style'] = wavy_style
+      hatch_side = bond_el.getAttribute( 'hatch_side')
+      if hatch_side:
+        e.hatch_side = hatch_side
+        e.properties_['hatch_side'] = hatch_side
       mol.add_edge( v1, v2, e=e)
 
     if mol.is_connected():

@@ -79,6 +79,10 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       # b = bold
       # d = dotted - - - -
       # o = dotted . . . .
+      # s = wavy
+      # l = left hatch (Haworth)
+      # r = right hatch (Haworth)
+      # q = wide rectangle (Haworth)
     self.order = order
     if atoms:
       self.atom1, self.atom2 = atoms
@@ -96,6 +100,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     self.auto_bond_sign = 1
     self.simple_double = simple_double  #TODO this is an option for non-normal bonds with order > 1. Currently does not affect appearence (BUG).
     self.equithick = 0
+    self.wavy_style = None
 
     if package:
       self.read_package( package)
@@ -538,6 +543,26 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     return x1,y1,x2,y2
 
 
+  def _draw_l1( self):
+    where = self._draw_n1()
+    if not where:
+      return None
+    x1, y1, x2, y2 = where
+    self.paper.itemconfig( self.item, fill='')
+    self.items = self._draw_side_hatch( (x1, y1, x2, y2), side=1)
+    return x1, y1, x2, y2
+
+
+  def _draw_r1( self):
+    where = self._draw_n1()
+    if not where:
+      return None
+    x1, y1, x2, y2 = where
+    self.paper.itemconfig( self.item, fill='')
+    self.items = self._draw_side_hatch( (x1, y1, x2, y2), side=-1)
+    return x1, y1, x2, y2
+
+
   def _draw_h2( self):
     if self.center == None or self.bond_width == None:
       self._decide_distance_and_center()
@@ -581,6 +606,22 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     _second_draw_method = (self.simple_double and not self.center) and self._draw_second_line or self._draw_hatch
     self.second = _second_draw_method( (x,y,x0,y0))
     self.third = _second_draw_method( (2*x1-x, 2*y1-y, 2*x2-x0, 2*y2-y0))
+
+
+  def _draw_l2( self):
+    self._draw_n2()
+
+
+  def _draw_l3( self):
+    self._draw_n3()
+
+
+  def _draw_r2( self):
+    self._draw_n2()
+
+
+  def _draw_r3( self):
+    self._draw_n3()
 
 
   def _draw_hatch( self, coords):
@@ -636,6 +677,29 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
             coords[1] += 1
       items.append( self._create_line_with_transform( coords, width=self.line_width, fill=self.line_color))
 
+    return items
+
+
+  def _draw_side_hatch( self, coords, side=1):
+    x1, y1, x2, y2 = coords
+    d = math.sqrt( (x1-x2)**2 + (y1-y2)**2)
+    if d == 0:
+      return []
+    dx = (x2 - x1) / d
+    dy = (y2 - y1) / d
+    px = -dy
+    py = dx
+    step_size = 2 * self.line_width
+    ns = round( d / step_size) or 1
+    step_size = d / ns
+    offset = side * self.wedge_width
+    items = []
+    for i in range( 0, int( round( d / step_size)) + 1):
+      bx = x1 + dx * i * step_size
+      by = y1 + dy * i * step_size
+      ex = bx + px * offset
+      ey = by + py * offset
+      items.append( self._create_line_with_transform( (bx, by, ex, ey), width=self.line_width, fill=self.line_color))
     return items
 
 
@@ -988,6 +1052,52 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       return [self._create_line_with_transform( coords2, width=self.line_width, fill=self.line_color)]
 
 
+  def _draw_s1( self):
+    where = self._where_to_draw_from_and_to()
+    if not where:
+      return None
+    x1, y1, x2, y2 = where
+    items = self._draw_wavy( (x1, y1, x2, y2))
+    if items:
+      self.item = items[0]
+      self.paper.addtag_withtag( "bond", self.item)
+      self.paper.register_id( self.item, self)
+
+
+  def _draw_s2( self):
+    self._draw_n2()
+
+
+  def _draw_s3( self):
+    self._draw_n3()
+
+
+  def _draw_wavy( self, coords):
+    x1, y1, x2, y2 = coords
+    x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, self.wedge_width/2.0)
+    d = math.sqrt( (x1-x2)**2 + (y1-y2)**2)
+    if d == 0:
+      return []
+    step_size = max( self.line_width * 2.0, 2.0)
+    dx = (x2 - x1) / d
+    dy = (y2 - y1) / d
+    ddx = x - x1
+    ddy = y - y1
+    coords2 = []
+    coords2.extend((x1, y1))
+    for i in range( 0, int( round( d / step_size)) + 1):
+      wave_coords = [x1 + dx * i * step_size + ddx,
+                     y1 + dy * i * step_size + ddy,
+                     x1 + dx * i * step_size - ddx,
+                     y1 + dy * i * step_size - ddy]
+      if i % 2:
+        coords2.extend((wave_coords[0], wave_coords[1]))
+      else:
+        coords2.extend((wave_coords[2], wave_coords[3]))
+    coords2.extend((x2, y2))
+    return [self._create_line_with_transform( coords2, width=self.line_width, fill=self.line_color, smooth=1)]
+
+
   def _draw_b1( self):
     self.item = self._draw_bold_central()[0]
     self.paper.addtag_withtag( "bond", self.item)
@@ -1017,6 +1127,23 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
   def _draw_bold_central(self):
     polygon = self._polygon_bond_mask(thickness1 = self.paper.real_to_canvas(self.wedge_width), thickness2 = self.paper.real_to_canvas(self.wedge_width))
     return [self._create_polygon_with_transform( polygon, width=0, fill=self.line_color, joinstyle="miter")]
+
+
+  def _draw_q1( self):
+    thickness = self.line_width * 1.2
+    polygon = self._polygon_bond_mask( thickness1=thickness, thickness2=thickness)
+    if polygon:
+      self.item = self._create_polygon_with_transform( polygon, width=0, fill=self.line_color, joinstyle="miter")
+      self.paper.addtag_withtag( "bond", self.item)
+      self.paper.register_id( self.item, self)
+
+
+  def _draw_q2( self):
+    self._draw_n2()
+
+
+  def _draw_q3( self):
+    self._draw_n3()
 
   # dotted bonds
   def _draw_o1( self):
@@ -1295,6 +1422,8 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       self.equithick = int( package.getAttribute( 'equithick'))
     else:
       self.equithick = 0
+    if package.getAttribute( 'wavy_style'):
+      self.wavy_style = package.getAttribute( 'wavy_style')
     # end of implied
     self.atom1 = Store.id_manager.get_object_with_id( package.getAttribute( 'start'))
     self.atom2 = Store.id_manager.get_object_with_id( package.getAttribute( 'end'))
@@ -1336,6 +1465,8 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       bnd.setAttribute( 'color', self.line_color)
     if self.type != 'n' and self.order != 1:
       bnd.setAttribute( 'simple_double', str( int( self.simple_double)))
+    if self.wavy_style:
+      bnd.setAttribute( 'wavy_style', self.wavy_style)
     return bnd
 
 
@@ -1579,7 +1710,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
         line_items = []
         items = self.items + self.second + self.third
     else:
-      if self.type == 'h':
+      if self.type in ('h', 'l', 'r'):
         items = self.items
       else:
         if self.center:

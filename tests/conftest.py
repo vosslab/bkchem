@@ -27,6 +27,11 @@ def pytest_addoption(parser) -> None:
 		action="store_true",
 		help="Disable auto-fix for ASCII compliance tests.",
 	)
+	group.addoption(
+		"--save",
+		action="store_true",
+		help="Save OASA bond style outputs to the current working directory.",
+	)
 
 
 #============================================

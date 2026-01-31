@@ -186,14 +186,14 @@ class SVG_writer(XML_writer):
                                       ( 'rx', self.convert( 0.5*(x2-x1))),
                                       ( 'ry', self.convert( 0.5*(y2-y1))),
                                       ( 'stroke-width', '1.0')))
-    elif b.type in 'wb':
+    elif b.type in 'wbq':
       for i in items:
         coords = self.paper.coords( b.item)
         dom_extensions.elementUnder( l_group, 'polygon',
                                      (( 'fill', self.cc( b.line_color)),
                                       ( 'stroke', self.cc( b.line_color)),
                                       ( 'points', list_to_svg_points( coords))))
-    elif b.type == 'h':
+    elif b.type in ('h', 'l', 'r'):
       for i in items:
         for p in i:
           x1, y1, x2, y2 = self.paper.coords( p)
@@ -202,7 +202,7 @@ class SVG_writer(XML_writer):
                                         ( 'y1', self.convert( y1)),
                                         ( 'x2', self.convert( x2)),
                                         ( 'y2', self.convert( y2))))
-    elif b.type == 'a':
+    elif b.type in ('a', 's'):
       for i in items:
         coords = self.paper.coords( i)
         points = ' '.join( map( self.convert, coords))
