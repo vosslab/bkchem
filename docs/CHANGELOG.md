@@ -3,6 +3,22 @@
 ## 2026-01-31
 - Add [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md)
   to outline Haworth projection goals, scope, and implementation phases.
+- Document the biomolecule template side feature in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md),
+  covering CDML templates and the initial macro categories.
+- Add the wavy-bond smoke glucose note to
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
+- Note that biomolecule template categories are inferred from folder names by
+  scanning CDML files on load in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
+- Note that template subcategories are inferred from subfolder names in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
+- Expand [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md)
+  with Haworth bond style notes (left/right hatch, wide rectangle),
+  CDML ownership guidance, insert-only template workflow, and the
+  wavy_bond.png reference.
+- Add a testing plan (unit and smoke tests) to
+  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
 - Expand the Haworth plan scope to cover pyranose and furanose rings, and add
   local SVG references.
 - Update [docs/TODO_CODE.md](docs/TODO_CODE.md) to match the Haworth scope.

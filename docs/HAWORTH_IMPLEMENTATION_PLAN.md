@@ -23,11 +23,13 @@
 
 ## Assets for reference
 - Local samples:
-  - [Alpha-D-Glucopyranose.svg](../Alpha-D-Glucopyranose.svg)
-  - [Alpha-D-Arabinofuranose.svg](../Alpha-D-Arabinofuranose.svg)
-  - [D-Ribose_Haworth.svg](../D-Ribose_Haworth.svg)
-  - [D-Xylulose_Haworth.svg](../D-Xylulose_Haworth.svg)
-  - [Haworth_projection_of_a-L-Glucopyranose.svg](../Haworth_projection_of_a-L-Glucopyranose.svg)
+  - [docs/sample_haworth/Alpha-D-Glucopyranose.svg](docs/sample_haworth/Alpha-D-Glucopyranose.svg)
+  - [docs/sample_haworth/Alpha-D-Arabinofuranose.svg](docs/sample_haworth/Alpha-D-Arabinofuranose.svg)
+  - [docs/sample_haworth/D-Ribose_Haworth.svg](docs/sample_haworth/D-Ribose_Haworth.svg)
+  - [docs/sample_haworth/D-Xylulose_Haworth.svg](docs/sample_haworth/D-Xylulose_Haworth.svg)
+  - [docs/sample_haworth/Haworth_projection_of_a-L-Glucopyranose.svg](docs/sample_haworth/Haworth_projection_of_a-L-Glucopyranose.svg)
+  - [docs/sample_haworth/GDP-D-Mannose.svg](docs/sample_haworth/GDP-D-Mannose.svg)
+  - [docs/sample_haworth/Sucralose.svg](docs/sample_haworth/Sucralose.svg)
 - Additional sample files from the NEUROtiker galleries (external references,
   not stored in this repo).
   - [NEUROtiker archive 1](https://commons.wikimedia.org/wiki/User:NEUROtiker/gallery/archive1)
@@ -37,7 +39,12 @@
 ## Current rendering constraints
 - OASA has a global `line_width` and `bond_width`, but no per-bond thickness.
 - OASA bond type includes `'b'` (bold) but is not rendered specially yet.
-- `svg_out.py` ignores `line_width` for edges and hard-codes stroke width.
+- OASA has wedge (`'w'`) and hatch (`'h'`) rendering in Cairo, but no wavy
+  bond type yet.
+- `svg_out.py` ignores `line_width` for edges, hard-codes stroke width, and
+  does not render wedge/hatch/bold bond types.
+- SVG output currently lacks support for wedge/hatch/bold, so new bond styles
+  must land there before Haworth output can be correct.
 
 ## Proposed architecture
 - Add an OASA module `oasa/haworth.py` that generates coordinates plus style
@@ -45,7 +52,10 @@
 - Add a `haworth_layout` helper that:
   - Builds ring templates (pyranose and furanose).
   - Assigns atom order and ring orientation.
-  - Tags front bonds as bold and back bonds as normal.
+  - Tags front bonds as bold and back bonds as normal, using existing bond
+    styles instead of custom typography.
+  - Uses a vertical squash to match the "smushed" ring appearance in the
+    reference SVGs.
   - Positions substituents up/down based on D/L and alpha/beta choices.
 - Add a minimal public API to request Haworth layout, for example:
   - `oasa.haworth.build_haworth(mol, mode="pyranose", stereo="alpha", series="D")`
@@ -55,6 +65,12 @@
   - In `cairo_out.py`, honor `bond.type == "b"` by increasing line width.
   - In `svg_out.py`, pass the `line_width` argument to the SVG elements and
     apply the bold override when `bond.type == "b"`.
+- Add explicit Haworth bond styles:
+  - Left hatch bond for Haworth front edges.
+  - Right hatch bond for Haworth front edges.
+  - Wide rectangle bond for front-facing ring edges (NEUROtiker-style strip).
+- Add a wavy bond type (`'s'`) for non-canonical stereochemistry and map it to
+  standard molfile stereo code 4 ("either") once rendering exists.
 - Keep defaults unchanged for non-Haworth drawings.
 
 ## Data model and detection
@@ -68,11 +84,61 @@
    skew and bond thickness tagging.
 3) Substituents: position OH/CH2OH groups using up/down rules for D/L and
    alpha/beta.
-4) API + tests: add a small smoke test and a reference PNG/SVG output.
-5) Docs: document the new API and add usage examples.
+4) Bond styles: add wavy bond rendering in Cairo and SVG, then wire molfile
+   stereo mapping.
+5) API + tests: add a small smoke test and a reference PNG/SVG output.
+6) Docs: document the new API and add usage examples.
+
+## Testing plan
+### Unit tests
+- Haworth layout geometry: verify ring templates yield expected atom order,
+  bond directions, and vertical squash proportions for pyranose and furanose.
+- Bond tagging: confirm front edges are tagged with the correct bond style
+  (left hatch, right hatch, wide rectangle) and back edges remain normal.
+- Stereochemistry flags: confirm D/L and alpha/beta input toggles the expected
+  up/down substituent placement without needing full stereochemical inference.
+- CDML encoding: ensure new bond types round-trip through CDML load/save.
+- Template discovery: scan the templates folder tree and verify categories and
+  subcategories are inferred from folder names.
+
+### Smoke tests
+- Render a Haworth reference molecule to SVG and PNG, then compare key
+  properties (non-empty output, expected dimensions, and presence of bold/wavy
+  bond markers).
+- Render a glucose "smoke" molecule with a wavy anomeric bond and confirm the
+  wavy bond path exists in SVG output.
+- Insert each template (furanose, pyranose, alanine, palmitate, pyrimidine,
+  purine) into a blank drawing and confirm a non-empty molecule is created.
 
 ## Open questions
 - Where to host the Haworth entry point in BKChem (GUI tool, exporter option,
   or a separate script)?
 - What minimal input format should be used to avoid ambiguous stereochemistry?
 - Should bolding be a fixed multiplier or derived from the base line width?
+- Should wavy bonds use a pure sine wave or chained half-circles for the
+  "either" stereochemistry look?
+
+## CDML format ownership
+- CDML is a BKChem-native format (no external governing body). New bond types
+  should be documented in BKChem format docs and kept backward compatible
+  within BKChem tooling.
+
+## Side feature: biomolecule templates
+- Add a simple template picker in the BKChem GUI for common biomolecule
+  starting points, without new rendering logic.
+- Use four macro categories with six templates:
+  - Carbs: furanose, pyranose (generic rings to edit into glucose/fructose).
+  - Protein: alanine.
+  - Lipids: palmitate.
+  - Nucleic acids: pyrimidine, purine.
+- Store templates as plain CDML files (native BKChem format) to keep them small.
+- Keep templates in a simple folder tree and infer categories and
+  subcategories from folder names by scanning `.cdml` files on load, so users
+  can add or customize templates by dropping in new CDML files.
+- Use an insert workflow (add templates into existing drawings) instead of
+  replacing the current molecule file.
+
+## Side feature: wavy bond smoke molecule
+- Use a glucose "smoke" molecule that shows unknown anomeric carbon with a
+  wavy bond from the anomeric carbon to the OH group.
+- Reference sample image: `wavy_bond.png` (wide-kurtosis sine wave style).
