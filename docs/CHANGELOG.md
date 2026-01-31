@@ -52,6 +52,8 @@
   including a draft `oasa_cli.py --haworth` command and smoke testing notes.
 - Update `tests/oasa_legacy_test.py` to write named outputs into a temporary
   directory so test files are cleaned up after the run.
+- Use `defusedxml.minidom` in `tests/test_cdml_versioning.py` to satisfy
+  Bandit B318.
 - Replace legacy XML parsing in BKChem and OASA with `safe_xml` wrappers,
   including ftext markup parsing and CDML/CDATA imports.
 - Replace `eval()` with `ast.literal_eval()` in preference and external data
