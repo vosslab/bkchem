@@ -20,16 +20,9 @@
 
 
 
-from . import smiles
+from . import cdml_writer
 from . import dom_extensions as dom_ext
 from . import safe_xml
-from .atom import atom
-from .bond import bond
-from . import bond_semantics
-from . import cdml_bond_io
-from .molecule import molecule
-from .known_groups import cdml_to_smiles
-from .periodic_table import periodic_table as PT
 from .coords_generator import calculate_coords
 
 
@@ -42,68 +35,10 @@ def read_cdml( text):
   #else:
   #  path = "/cdml/molecule"
   path = "//molecule"
-  do_not_continue_this_mol = 0
   for mol_el in dom_ext.simpleXPathSearch( doc, path):
-    atom_id_remap = {}
-    mol = molecule()
-    for atom_el in dom_ext.simpleXPathSearch( mol_el, "atom"):
-      name = atom_el.getAttribute( 'name')
-      if not name:
-        #print("this molecule has an invalid symbol")
-        do_not_continue_this_mol = 1
-        break
-      pos = dom_ext.simpleXPathSearch( atom_el, 'point')[0]
-      x = cm_to_float_coord( pos.getAttribute('x'))
-      y = cm_to_float_coord( pos.getAttribute('y'))
-      z = cm_to_float_coord( pos.getAttribute('z'))
-      if name in PT:
-        # its really an atom
-        a = atom( symbol=name,
-                  charge=atom_el.getAttribute( 'charge') and int( atom_el.getAttribute( 'charge')) or 0,
-                  coords=( x, y, z))
-        mol.add_vertex( v=a)
-      elif name in cdml_to_smiles:
-        # its a known group
-        group = smiles.text_to_mol( cdml_to_smiles[ name], calc_coords=0)
-        a = group.vertices[0]
-        a.x = x
-        a.y = y
-        a.z = z
-        mol.insert_a_graph( group)
-      atom_id_remap[ atom_el.getAttribute( 'id')] = a
-    if do_not_continue_this_mol:
-      break
-
-    for bond_el in dom_ext.simpleXPathSearch( mol_el, "bond"):
-      type_value = bond_el.getAttribute( 'type')
-      bond_type, order, legacy = bond_semantics.parse_cdml_bond_type( type_value)
-      if order == 0:
-        # we ignore bonds with order 0
-        continue
-      if not bond_type:
-        bond_type = 'n'
-      v1 = atom_id_remap[ bond_el.getAttribute( 'start')]
-      v2 = atom_id_remap[ bond_el.getAttribute( 'end')]
-      e = bond( order=order, type=bond_type)
-      if legacy:
-        e.properties_[ 'legacy_bond_type'] = legacy
-      cdml_bond_io.read_cdml_bond_attributes(
-        bond_el,
-        e,
-        preserve_attrs={
-          'line_width',
-          'bond_width',
-          'wedge_width',
-          'double_ratio',
-          'center',
-          'auto_sign',
-          'equithick',
-          'simple_double',
-        },
-      )
-      mol.add_edge( v1, v2, e=e)
-      bond_semantics.canonicalize_bond_vertices( e)
-
+    mol = cdml_writer.read_cdml_molecule_element( mol_el)
+    if mol is None:
+      continue
     if mol.is_connected():
       # this is here to handle diborane and similar weird things
       yield mol

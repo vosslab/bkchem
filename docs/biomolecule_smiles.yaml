@@ -1,0 +1,44 @@
+carbs:
+  rings:
+    furanose_scaffold:
+      smiles: C1CCOC1  # tetrahydrofuran (oxolane)
+    pyranose_scaffold:
+      smiles: O1CCCCC1  # tetrahydropyran (oxane)
+  monosaccharides:
+    alpha-D-glucopyranose:
+      smiles: "OC[C@H]1O[C@H](O)[C@H](O)[C@@H](O)[C@@H]1O"
+
+nucleic_acids:
+  bases:
+    purine:
+      smiles: "C1=C2C(=NC=N1)N=CN2"
+    pyrimidine:
+      smiles: "n1cnccc1"
+  nucleotides_monophosphate:
+    AMP_5prime:
+      smiles: "c1nc(c2c(n1)n(cn2)[C@H]3[C@@H]([C@@H]([C@H](O3)COP(=O)(O)O)O)O)N"
+    UMP_5prime:
+      smiles: "c1cn(c(=O)[nH]c1=O)[C@H]2[C@@H]([C@@H]([C@H](O2)COP(=O)(O)O)O)O"
+
+lipids:
+  fatty_acids:
+    palmitic_acid:
+      smiles: "CCCCCCCCCCCCCCCC(=O)O"
+    palmitate_anion:
+      smiles: "CCCCCCCCCCCCCCCC(=O)[O-]"
+      note: "Same as sodium palmitate SMILES, but without the [Na+]."
+  glycerol_backbone:
+    glycerol:
+      smiles: "OCC(O)CO"
+    sn-glycerol-3-phosphate:
+      smiles: "C([C@H](COP(=O)(O)O)O)O"
+  steroids:
+    gonane_core:
+      smiles: "C1CCC2C(C1)CCC1C3CCCCC3CCC21"
+    cholesterol:
+      smiles: "CC(C)CCCC(C)C1CCC2C3CC=C4C[C@H](O)CC[C@]4(C)C3CC[C@]12C"
+
+protein:
+  amino_acids:
+    L-alanine:
+      smiles: "C[C@@H](C(=O)O)N"

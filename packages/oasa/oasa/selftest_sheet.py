@@ -1,22 +1,5 @@
 #!/usr/bin/env python3
-#--------------------------------------------------------------------------
-#     This file is part of OASA - a free chemical python library
-#     Copyright (C) 2003-2008 Beda Kosata <beda@zirael.org>
-#
-#     This program is free software; you can redistribute it and/or modify
-#     it under the terms of the GNU General Public License as published by
-#     the Free Software Foundation; either version 2 of the License, or
-#     (at your option) any later version.
-#
-#     This program is distributed in the hope that it will be useful,
-#     but WITHOUT ANY WARRANTY; without even the implied warranty of
-#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#     GNU General Public License for more details.
-#
-#     Complete text of GNU GPL can be found in the file LICENSE in the
-#     main directory of the program
-#
-#--------------------------------------------------------------------------
+# SPDX-License-Identifier: LGPL-3.0-or-later
 
 """Renderer capabilities sheet generator.
 
@@ -73,13 +56,6 @@ else:
 	from . import render_ops
 	from . import haworth
 
-# Prefer defusedxml for safety, fallback to stdlib
-try:
-	import defusedxml.minidom as dom
-except ImportError:
-	import xml.dom.minidom as dom
-
-
 #============================================
 # Page dimensions at 72 DPI
 PAGE_SIZES = {
@@ -107,67 +83,136 @@ def get_page_dims(page, portrait):
 
 #============================================
 def ops_bbox(ops):
-	"""Compute bounding box of a list of render ops.
+	"""Return (minx, miny, maxx, maxy) for a list of render ops."""
+	minx = miny = float("inf")
+	maxx = maxy = float("-inf")
 
-	Args:
-		ops: List of render ops (LineOp, PolygonOp, CircleOp, PathOp)
-
-	Returns:
-		(minx, miny, maxx, maxy) or None if ops is empty
-	"""
-	if not ops:
-		return None
-
-	minx = miny = float('inf')
-	maxx = maxy = float('-inf')
+	def take_point(x, y):
+		nonlocal minx, miny, maxx, maxy
+		minx = min(minx, x)
+		miny = min(miny, y)
+		maxx = max(maxx, x)
+		maxy = max(maxy, y)
 
 	for op in ops:
 		if isinstance(op, render_ops.LineOp):
-			# Include both endpoints plus half stroke width margin
-			margin = op.width / 2
-			minx = min(minx, op.p1[0] - margin, op.p2[0] - margin)
-			miny = min(miny, op.p1[1] - margin, op.p2[1] - margin)
-			maxx = max(maxx, op.p1[0] + margin, op.p2[0] + margin)
-			maxy = max(maxy, op.p1[1] + margin, op.p2[1] + margin)
-
+			take_point(op.p1[0], op.p1[1])
+			take_point(op.p2[0], op.p2[1])
 		elif isinstance(op, render_ops.PolygonOp):
-			# Include all points
-			for pt in op.points:
-				minx = min(minx, pt[0])
-				miny = min(miny, pt[1])
-				maxx = max(maxx, pt[0])
-				maxy = max(maxy, pt[1])
-
+			for x, y in op.points:
+				take_point(x, y)
 		elif isinstance(op, render_ops.CircleOp):
-			# Include center ± radius
-			minx = min(minx, op.center[0] - op.radius)
-			miny = min(miny, op.center[1] - op.radius)
-			maxx = max(maxx, op.center[0] + op.radius)
-			maxy = max(maxy, op.center[1] + op.radius)
-
+			cx, cy = op.center
+			r = op.radius
+			take_point(cx - r, cy - r)
+			take_point(cx + r, cy + r)
 		elif isinstance(op, render_ops.PathOp):
-			# Include all points from path commands
 			for cmd, payload in op.commands:
 				if payload is None:
 					continue
 				if cmd == "ARC":
-					# ARC: (cx, cy, r, angle1, angle2)
 					cx, cy, r, _a1, _a2 = payload
-					minx = min(minx, cx - r)
-					miny = min(miny, cy - r)
-					maxx = max(maxx, cx + r)
-					maxy = max(maxy, cy + r)
+					take_point(cx - r, cy - r)
+					take_point(cx + r, cy + r)
 				else:
-					# M, L: (x, y)
-					minx = min(minx, payload[0])
-					miny = min(miny, payload[1])
-					maxx = max(maxx, payload[0])
-					maxy = max(maxy, payload[1])
+					x, y = payload
+					take_point(x, y)
 
-	if minx == float('inf'):
-		return None
-
+	if minx == float("inf"):
+		return (0.0, 0.0, 0.0, 0.0)
 	return (minx, miny, maxx, maxy)
+
+
+#============================================
+def normalize_to_height(ops, target_height):
+	"""Normalize ops to a target height, maintaining aspect ratio.
+
+	Args:
+		ops: List of render ops
+		target_height: Desired height in points
+
+	Returns:
+		Tuple of (transformed_ops, actual_width, actual_height)
+	"""
+	if not ops:
+		return [], 0, 0
+
+	minx, miny, maxx, maxy = ops_bbox(ops)
+	current_height = maxy - miny
+
+	if current_height == 0:
+		return ops, maxx - minx, 0
+
+	scale = target_height / current_height
+
+	# Scale ops
+	scaled = _transform_ops(ops, 0, 0, scale=scale)
+
+	# Translate so top-left is at origin
+	minx_s, miny_s, maxx_s, maxy_s = ops_bbox(scaled)
+	translated = _transform_ops(scaled, -minx_s, -miny_s, scale=1.0)
+
+	return translated, (maxx_s - minx_s), (maxy_s - miny_s)
+
+
+#============================================
+def layout_row(vignettes, y_top, page_width, row_height, gutter=20, margin=40):
+	"""Layout multiple vignettes in a horizontal row with equal spacing.
+
+	Args:
+		vignettes: List of (title, ops) tuples
+		y_top: Y coordinate for top of row
+		page_width: Total page width
+		row_height: Target height for normalizing molecules
+		gutter: Space between vignettes
+		margin: Left/right margin
+
+	Returns:
+		List of (title, positioned_ops, x_center, y_center) for rendering
+	"""
+	if not vignettes:
+		return []
+
+	# Normalize all vignettes to same height
+	normalized = []
+	for title, ops in vignettes:
+		norm_ops, width, height = normalize_to_height(ops, row_height)
+		normalized.append((title, norm_ops, width, height))
+
+	# Calculate total width and spacing
+	total_content_width = sum(w for _, _, w, _ in normalized)
+	num_gaps = len(normalized) - 1
+	total_gap_width = num_gaps * gutter
+	available_width = page_width - 2 * margin
+
+	# If content doesn't fit, scale down uniformly
+	if total_content_width + total_gap_width > available_width:
+		scale_factor = available_width / (total_content_width + total_gap_width)
+		# Re-normalize with adjusted height
+		adjusted_height = row_height * scale_factor
+		normalized = []
+		for title, ops, _, _ in vignettes:
+			norm_ops, width, height = normalize_to_height(ops, adjusted_height)
+			normalized.append((title, norm_ops, width, height))
+		total_content_width = sum(w for _, _, w, _ in normalized)
+
+	# Position vignettes with equal gutters
+	result = []
+	x_current = margin
+
+	for title, norm_ops, width, height in normalized:
+		# Center of this vignette
+		x_center = x_current + width / 2
+		y_center = y_top + height / 2
+
+		# Position ops at current x
+		positioned = _transform_ops(norm_ops, x_current, y_top, scale=1.0)
+		result.append((title, positioned, x_center, y_center))
+
+		# Advance to next position
+		x_current += width + gutter
+
+	return result
 
 
 #============================================
@@ -302,7 +347,7 @@ def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, outp
 
 		# Section B: Vignettes
 		vignettes_g = dom_extensions.elementUnder(svg, "g", attributes=(("id", "vignettes"),))
-		_build_vignettes(vignettes_g)
+		_build_vignettes(vignettes_g, width)
 
 		# Footer
 		footer_g = dom_extensions.elementUnder(svg, "g", attributes=(("id", "footer"),))
@@ -316,7 +361,11 @@ def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, outp
 			fill="#666",
 		)
 
-		return doc.toxml("utf-8").decode("utf-8")
+		# Use toprettyxml for readable output (not minified)
+		xml_str = doc.toprettyxml(indent="  ", encoding="utf-8").decode("utf-8")
+		# Remove extra blank lines that toprettyxml adds
+		lines = [line for line in xml_str.split('\n') if line.strip()]
+		return '\n'.join(lines)
 
 	elif backend == "cairo":
 		# Cairo backend - render directly to file
@@ -582,34 +631,136 @@ def _scale_point(point, scale, dx, dy):
 
 
 #============================================
-def _build_vignettes(parent):
-	"""Build complex molecule vignettes (Section B)."""
-	# Vignette layout - adjusted to fit on page
-	title_y = 270          # Fixed y-position for all titles
-	molecule_y = 360       # Fixed y-position for molecule start (well below titles)
-	vignette_spacing = 185 # Horizontal spacing between vignettes
-	vignette_scale = 1.2   # Reduced to fit both Haworth rings on page
+def _build_cholesterol_ops():
+	"""Build cholesterol molecule from CDML template."""
+	import os
 
-	vignettes = [
-		("Benzene (aromatic)", _build_benzene_ops),
-		("Stereochemistry", _build_stereochem_ops),
-		("Haworth projections", _build_haworth_ops),
+	# Handle imports for both module and script usage
+	if __name__ == "__main__":
+		import oasa
+		cdml_module = oasa.cdml
+	else:
+		from . import cdml as cdml_module
+
+	# CDML file lives in bkchem templates
+	here = os.path.dirname(os.path.abspath(__file__))
+	# Navigate from packages/oasa/oasa/ to packages/bkchem/bkchem_data/templates/
+	path = os.path.join(
+		here, "..", "..", "bkchem", "bkchem_data", "templates",
+		"biomolecules", "lipids", "steroids", "cholesterol.cdml"
+	)
+	path = os.path.normpath(path)
+
+	if not os.path.exists(path):
+		# Return empty if file doesn't exist
+		return []
+
+	with open(path, 'r') as f:
+		result = cdml_module.read_cdml(f.read())
+
+	# read_cdml returns a generator, get first molecule
+	try:
+		mol = next(iter(result))
+	except (StopIteration, TypeError):
+		return []
+
+	if mol is None:
+		return []
+
+	context = render_ops.BondRenderContext(
+		molecule=mol,
+		line_width=1.0,
+		bond_width=3.0,
+		wedge_width=6.0,
+		bold_line_width_multiplier=1.2,
+		shown_vertices=set(),
+		bond_coords={},
+		point_for_atom=None,
+	)
+
+	all_ops = []
+	for b in mol.edges:
+		v1, v2 = b.vertices
+		start = (v1.x, v1.y)
+		end = (v2.x, v2.y)
+		context.bond_coords[b] = (start, end)
+		all_ops.extend(render_ops.build_bond_ops(b, start, end, context))
+
+	return all_ops
+
+
+#============================================
+def _build_vignettes(parent, page_width):
+	"""Build complex molecule vignettes using row-based layout.
+
+	Top row: Benzene, Haworth, Fischer (all projection styles)
+	Bottom row: Cholesterol (complex stress test)
+	"""
+	# Row configuration
+	row1_y = 290
+	row1_height = 80
+	row2_y = 460
+	row2_height = 120
+	margin = 40
+	gutter = 20
+
+	# Top row: projection styles
+	row1_vignettes = [
+		("Benzene", _build_benzene_ops()),
+		("Haworth", _build_haworth_ops()),
+		("Fischer", _build_fischer_ops()),
 	]
 
-	for i, (title, builder_func) in enumerate(vignettes):
-		x = 60 + i * vignette_spacing
+	# Bottom row: stress test
+	row2_vignettes = [
+		("Cholesterol", _build_cholesterol_ops()),
+	]
 
-		# Title on separate line above molecules
-		_add_text(parent, x + 60, title_y, title, font_size=11, weight="bold")
+	# Layout row 1
+	row1_result = layout_row(
+		row1_vignettes,
+		y_top=row1_y,
+		page_width=page_width,
+		row_height=row1_height,
+		gutter=gutter,
+		margin=margin
+	)
 
-		# Build vignette below title line
+	# Render row 1
+	for idx, (title, positioned_ops, x_center, y_center) in enumerate(row1_result):
+		# Title above molecule (15pt above)
+		title_y = row1_y - 10
+		_add_text(parent, x_center, title_y, title, font_size=11, weight="bold", anchor="middle")
+
+		# Molecule ops
 		vignette_g = dom_extensions.elementUnder(
 			parent, "g",
-			attributes=(("id", f"vignette-{i}"),)
+			attributes=(("id", f"vignette-row1-{idx}"),)
 		)
-		ops = builder_func()
-		panel_ops = _transform_ops(ops, x, molecule_y, scale=vignette_scale)
-		render_ops.ops_to_svg(vignette_g, panel_ops)
+		render_ops.ops_to_svg(vignette_g, positioned_ops)
+
+	# Layout row 2
+	row2_result = layout_row(
+		row2_vignettes,
+		y_top=row2_y,
+		page_width=page_width,
+		row_height=row2_height,
+		gutter=gutter,
+		margin=margin
+	)
+
+	# Render row 2
+	for idx, (title, positioned_ops, x_center, y_center) in enumerate(row2_result):
+		# Title above molecule (15pt above)
+		title_y = row2_y - 10
+		_add_text(parent, x_center, title_y, title, font_size=11, weight="bold", anchor="middle")
+
+		# Molecule ops
+		vignette_g = dom_extensions.elementUnder(
+			parent, "g",
+			attributes=(("id", f"vignette-row2-{idx}"),)
+		)
+		render_ops.ops_to_svg(vignette_g, positioned_ops)
 
 
 #============================================
@@ -660,65 +811,6 @@ def _build_benzene_ops():
 		a2 = atoms[(i + 1) % 6]
 		start = (a1.x, a1.y)
 		end = (a2.x, a2.y)
-		context.bond_coords[b] = (start, end)
-		ops = render_ops.build_bond_ops(b, start, end, context)
-		all_ops.extend(ops)
-
-	return all_ops
-
-
-#============================================
-def _build_stereochem_ops():
-	"""Build molecule with wedge and hatch bonds."""
-	mol = molecule.molecule()
-
-	# Central carbon
-	center = atom.atom(symbol='C')
-	center.x = 0
-	center.y = 0
-	mol.add_vertex(center)
-
-	# Four substituents in cardinal directions
-	a1 = atom.atom(symbol='C')
-	a1.x = 0
-	a1.y = -20
-	a2 = atom.atom(symbol='C')
-	a2.x = 20
-	a2.y = 0
-	a3 = atom.atom(symbol='C')
-	a3.x = 0
-	a3.y = 20
-	a4 = atom.atom(symbol='C')
-	a4.x = -20
-	a4.y = 0
-
-	substituents = [
-		(a1, 'w'),   # Up - wedge
-		(a2, 'n'),   # Right - normal
-		(a3, 'h'),   # Down - hatch
-		(a4, 'n'),   # Left - normal
-	]
-
-	context = render_ops.BondRenderContext(
-		molecule=mol,
-		line_width=1.0,
-		bond_width=3.0,
-		wedge_width=6.0,
-		bold_line_width_multiplier=1.2,
-		shown_vertices=set(),
-		bond_coords={},
-		point_for_atom=None,
-	)
-
-	all_ops = []
-	for sub_atom, bond_type in substituents:
-		mol.add_vertex(sub_atom)
-		b = bond_module.bond(order=1, type=bond_type)
-		b.vertices = (center, sub_atom)
-		mol.add_edge(center, sub_atom, b)
-
-		start = (center.x, center.y)
-		end = (sub_atom.x, sub_atom.y)
 		context.bond_coords[b] = (start, end)
 		ops = render_ops.build_bond_ops(b, start, end, context)
 		all_ops.extend(ops)
@@ -810,6 +902,94 @@ def _build_ring(size, oxygen_index=None):
 
 
 #============================================
+def _build_fischer_ops():
+	"""Build Fischer projection (D-glucose).
+
+	Fischer projection: vertical backbone with horizontal substituents.
+	Tests straight bond rendering and left/right positioning.
+	No wedges or hatches needed - pure 2D representation.
+	"""
+	mol = molecule.molecule()
+
+	# Vertical backbone: 6 carbons (C1 to C6)
+	backbone_spacing = 25
+	backbone = []
+	for i in range(6):
+		a = atom.atom(symbol='C')
+		a.x = 0
+		a.y = i * backbone_spacing
+		mol.add_vertex(a)
+		backbone.append(a)
+
+	# Connect backbone with normal bonds and store references
+	backbone_bonds = []
+	for i in range(5):
+		b = bond_module.bond(order=1, type='n')
+		b.vertices = (backbone[i], backbone[i + 1])
+		mol.add_edge(backbone[i], backbone[i + 1], b)
+		backbone_bonds.append(b)
+
+	# Horizontal substituents (alternating left/right for D-glucose)
+	# C1 (aldehyde carbon): no horizontal substituents shown
+	# C2: OH right, H left
+	# C3: OH left, H right
+	# C4: OH right, H left
+	# C5: OH right, H left
+	# C6 (CH2OH): no horizontal substituents shown
+
+	substituent_length = 15
+	substituents_data = [
+		# (carbon_idx, [(symbol, dx), ...])
+		(1, [('O', substituent_length), ('H', -substituent_length)]),  # C2
+		(2, [('O', -substituent_length), ('H', substituent_length)]),  # C3
+		(3, [('O', substituent_length), ('H', -substituent_length)]),  # C4
+		(4, [('O', substituent_length), ('H', -substituent_length)]),  # C5
+	]
+
+	context = render_ops.BondRenderContext(
+		molecule=mol,
+		line_width=1.0,
+		bond_width=3.0,
+		wedge_width=4.0,
+		bold_line_width_multiplier=1.2,
+		shown_vertices=set(),
+		bond_coords={},
+		point_for_atom=None,
+	)
+
+	all_ops = []
+
+	# Build backbone bonds first
+	for i, b in enumerate(backbone_bonds):
+		start = (backbone[i].x, backbone[i].y)
+		end = (backbone[i + 1].x, backbone[i + 1].y)
+		context.bond_coords[b] = (start, end)
+		ops = render_ops.build_bond_ops(b, start, end, context)
+		all_ops.extend(ops)
+
+	# Add horizontal substituents
+	for carbon_idx, subs in substituents_data:
+		carbon = backbone[carbon_idx]
+		for symbol, dx in subs:
+			sub = atom.atom(symbol=symbol)
+			sub.x = carbon.x + dx
+			sub.y = carbon.y
+			mol.add_vertex(sub)
+
+			b = bond_module.bond(order=1, type='n')
+			b.vertices = (carbon, sub)
+			mol.add_edge(carbon, sub, b)
+
+			start = (carbon.x, carbon.y)
+			end = (sub.x, sub.y)
+			context.bond_coords[b] = (start, end)
+			ops = render_ops.build_bond_ops(b, start, end, context)
+			all_ops.extend(ops)
+
+	return all_ops
+
+
+#============================================
 def _collect_all_ops(width, height):
 	"""Collect all rendering ops for cairo backend.
 
@@ -847,22 +1027,49 @@ def _collect_all_ops(width, height):
 
 			all_ops.extend(panel_ops)
 
-	# Vignettes - adjusted to fit on page
-	molecule_y = 360       # Molecules positioned well below title line
-	vignette_spacing = 185 # Horizontal spacing
-	vignette_scale = 1.2   # Reduced to fit both Haworth rings on page
+	# Row-based vignette layout (same as SVG backend)
+	row1_y = 290
+	row1_height = 80
+	row2_y = 460
+	row2_height = 120
+	margin = 40
+	gutter = 20
 
-	vignettes = [
-		("Benzene (aromatic)", _build_benzene_ops),
-		("Stereochemistry", _build_stereochem_ops),
-		("Haworth projections", _build_haworth_ops),
+	# Top row: projection styles
+	row1_vignettes = [
+		("Benzene", _build_benzene_ops()),
+		("Haworth", _build_haworth_ops()),
+		("Fischer", _build_fischer_ops()),
 	]
 
-	for idx, (label, builder_func) in enumerate(vignettes):
-		ops = builder_func()
-		x = 60 + idx * vignette_spacing
-		panel_ops = _transform_ops(ops, x, molecule_y, scale=vignette_scale)
-		all_ops.extend(panel_ops)
+	# Bottom row: stress test
+	row2_vignettes = [
+		("Cholesterol", _build_cholesterol_ops()),
+	]
+
+	# Layout and collect row 1
+	row1_result = layout_row(
+		row1_vignettes,
+		y_top=row1_y,
+		page_width=width,
+		row_height=row1_height,
+		gutter=gutter,
+		margin=margin
+	)
+	for _, positioned_ops, _, _ in row1_result:
+		all_ops.extend(positioned_ops)
+
+	# Layout and collect row 2
+	row2_result = layout_row(
+		row2_vignettes,
+		y_top=row2_y,
+		page_width=width,
+		row_height=row2_height,
+		gutter=gutter,
+		margin=margin
+	)
+	for _, positioned_ops, _, _ in row2_result:
+		all_ops.extend(positioned_ops)
 
 	return all_ops
 
@@ -922,19 +1129,59 @@ def _add_cairo_labels(context, width, height):
 		context.move_to(x - extents.width, y + extents.height / 2)
 		context.show_text(color_name)
 
-	# Vignette labels - on separate line well above molecules
-	vignette_labels = ["Benzene (aromatic)", "Stereochemistry", "Haworth projections"]
-	vignette_spacing = 185
-	title_y = 270
+	# Vignette labels using row-based layout (need to compute positions)
+	row1_y = 290
+	row1_height = 80
+	row2_y = 460
+	row2_height = 120
+	margin = 40
+	gutter = 20
+
+	# Top row vignettes
+	row1_vignettes = [
+		("Benzene", _build_benzene_ops()),
+		("Haworth", _build_haworth_ops()),
+		("Fischer", _build_fischer_ops()),
+	]
+
+	row1_result = layout_row(
+		row1_vignettes,
+		y_top=row1_y,
+		page_width=width,
+		row_height=row1_height,
+		gutter=gutter,
+		margin=margin
+	)
+
 	context.set_source_rgb(0, 0, 0)
 	context.set_font_size(11)
 	context.select_font_face("sans-serif", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-	for idx, label in enumerate(vignette_labels):
-		x = 60 + idx * vignette_spacing + 50  # Adjusted centering
-		y = title_y
-		extents = context.text_extents(label)
-		context.move_to(x - extents.width / 2, y)
-		context.show_text(label)
+
+	for title, _, x_center, _ in row1_result:
+		title_y = row1_y - 10
+		extents = context.text_extents(title)
+		context.move_to(x_center - extents.width / 2, title_y)
+		context.show_text(title)
+
+	# Bottom row vignettes
+	row2_vignettes = [
+		("Cholesterol", _build_cholesterol_ops()),
+	]
+
+	row2_result = layout_row(
+		row2_vignettes,
+		y_top=row2_y,
+		page_width=width,
+		row_height=row2_height,
+		gutter=gutter,
+		margin=margin
+	)
+
+	for title, _, x_center, _ in row2_result:
+		title_y = row2_y - 10
+		extents = context.text_extents(title)
+		context.move_to(x_center - extents.width / 2, title_y)
+		context.show_text(title)
 
 	# Footer
 	context.set_font_size(10)

@@ -1,6 +1,18 @@
 # Changelog
 
 ## 2026-02-01
+- Add renderer capabilities sheet generator in
+  `packages/oasa/oasa/selftest_sheet.py` (LGPL-3.0-or-later) with row-based
+  layout, measured bounding boxes, and Fischer projection support.
+- Add capabilities sheet layout specification in
+  [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md) documenting the
+  measure-first layout system and vignette organization.
+- Add CDML architecture plan in
+  [docs/CDML_ARCHITECTURE_PLAN.md](docs/CDML_ARCHITECTURE_PLAN.md) for future
+  BKChem/OASA separation with layer responsibilities and phased integration.
+- Add [docs/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md) with a
+  provenance-based license migration strategy from GPL-2.0 to mixed
+  GPL-2.0 / LGPL-3.0-or-later licensing for new and rewritten components.
 - Add [docs/RENDER_BACKEND_UNIFICATION.md](docs/RENDER_BACKEND_UNIFICATION.md)
   to plan the shared render-ops backend for SVG and Cairo.
 - Refine [docs/RENDER_BACKEND_UNIFICATION.md](docs/RENDER_BACKEND_UNIFICATION.md)
@@ -51,6 +63,40 @@
   `tests/test_bkchem_cdml_bond_smoke.py`.
 - Export `bond_semantics`, `cdml_bond_io`, and `safe_xml` from
   `packages/oasa/oasa/__init__.py` so BKChem uses local helpers.
+- Remove remaining shebangs from pytest-only modules to satisfy the shebang
+  lint check in `tests/test_bkchem_cdml_bond_smoke.py`,
+  `tests/test_bkchem_cdml_fixtures_unit.py`,
+  `tests/test_bkchem_cdml_smoke.py`,
+  `tests/test_bond_vertex_ordering.py`,
+  `tests/test_cdml_bond_io.py`, and
+  `tests/test_cdml_bond_semantics.py`.
+- Switch BKChem wedge rendering to the shared rounded wedge geometry and
+  render Haworth `q` bonds as round-capped thick lines in
+  `packages/bkchem/bkchem/bond.py`.
+- Add BKChem rounded wedge and Haworth `q` rendering tests in
+  `tests/test_bkchem_round_wedge.py`.
+- Add shared atom color palettes in `packages/oasa/oasa/atom_colors.py` and
+  enable SVG atom/bond coloring parity with Cairo in
+  `packages/oasa/oasa/svg_out.py` and `packages/oasa/oasa/cairo_out.py`.
+- Refine `docs/CDML_ARCHITECTURE_PLAN.md` with writer API details, unit
+  convention, namespace handling, feature-flag guidance, and fixture updates.
+- Add an OASA CDML molecule writer in `packages/oasa/oasa/cdml_writer.py`,
+  route OASA CDML reads through it in `packages/oasa/oasa/cdml.py`, and add
+  a basic writer unit test in `tests/test_cdml_writer.py`.
+- Add `config.use_oasa_cdml_writer` and a gated BKChem molecule serializer
+  path in `packages/bkchem/bkchem/config.py` and
+  `packages/bkchem/bkchem/molecule.py`.
+- Extend bond CDML helpers to store present/unknown attributes on the bond
+  object (while keeping properties_ compatibility) in
+  `packages/oasa/oasa/cdml_bond_io.py`.
+- Expose `render_ops` and `wedge_geometry` from `packages/oasa/oasa/__init__.py`
+  and update BKChem bond rendering to import them directly in
+  `packages/bkchem/bkchem/bond.py`.
+- Remove unused XML import from `packages/oasa/oasa/selftest_sheet.py`.
+- Regenerate reference outputs under `docs/reference_outputs/` using
+  `tools/render_reference_outputs.py`.
+- Remove shebangs from pytest modules in `tests/test_bkchem_cdml_roundtrip.py`,
+  `tests/test_cdml_roundtrip_oasa.py`, and `tests/oasa_legacy_test.py`.
 - Switch SVG pretty-print parsing to `defusedxml.minidom` in
   `packages/oasa/oasa/svg_out.py`.
 - Fix Cairo import handling in the renderer capabilities sheet generator in

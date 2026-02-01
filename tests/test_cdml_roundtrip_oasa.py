@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """OASA CDML round-trip metadata checks (Phase 3)."""
 
 # Standard Library

@@ -21,6 +21,7 @@ import copy
 import xml.dom.minidom as dom
 import defusedxml.minidom as safe_minidom
 
+from . import atom_colors
 from . import dom_extensions
 from . import render_ops
 from . import transform
@@ -37,10 +38,18 @@ class svg_out(object):
   bold_line_width_multiplier = 1.2
   # should individual parts of an edge be grouped together
   group_items = True
+  color_atoms = True
+  color_bonds = True
+  atom_colors = atom_colors.atom_colors_full
 
 
-  def __init__( self):
-    pass
+  def __init__( self, color_atoms=None, color_bonds=None, atom_colors=None):
+    if color_atoms is not None:
+      self.color_atoms = color_atoms
+    if color_bonds is not None:
+      self.color_bonds = color_bonds
+    if atom_colors is not None:
+      self.atom_colors = atom_colors
 
   def mol_to_svg( self, mol, before=None, after=None):
     """before and after should be methods or functions that will take one
@@ -84,8 +93,8 @@ class svg_out(object):
       wedge_width=self.wedge_width,
       bold_line_width_multiplier=self.bold_line_width_multiplier,
       bond_second_line_shortening=0.0,
-      color_bonds=False,
-      atom_colors=None,
+      color_bonds=self.color_bonds,
+      atom_colors=self.atom_colors,
       shown_vertices=self._shown_vertices,
       bond_coords=None,
       bond_coords_provider=self._bond_coords_for_edge,
@@ -187,17 +196,21 @@ class svg_out(object):
         if v.multiplicity == 3:
           self._draw_circle( parent, self.transformer.transform_xy((x2+x1)/2,y+5), fill_color="#000", opacity=1, radius=3)
       self._draw_rectangle( parent, self.transformer.transform_4( (x1, y1, x2, y2)), fill_color="#fff")
-      self._draw_text( parent, self.transformer.transform_xy(x,y), text)
+      if self.color_atoms and self.atom_colors:
+        color = render_ops.color_to_hex( self.atom_colors.get( v.symbol, (0, 0, 0))) or "#000"
+      else:
+        color = "#000"
+      self._draw_text( parent, self.transformer.transform_xy(x,y), text, color=color)
 
 
-  def _draw_text( self, parent, xy, text, font_name="Arial", font_size=16):
+  def _draw_text( self, parent, xy, text, font_name="Arial", font_size=16, color="#000"):
     x, y = xy
     dom_extensions.textOnlyElementUnder( parent, "text", text,
                                          (( "x", str( x)),
                                           ( "y", str( y)),
                                           ( "font-family", font_name),
                                           ( "font-size", str( font_size)),
-                                          ( 'fill', "#000")))
+                                          ( 'fill', color)))
 
 
   def _draw_rectangle( self, parent, coords, fill_color="#fff", stroke_color="#fff"):

@@ -25,6 +25,8 @@ import math
 import oasa
 
 from oasa import geometry
+from oasa import render_ops
+from oasa import wedge_geometry
 from warnings import warn
 
 import misc
@@ -878,14 +880,16 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     if not where:
       # the bond is too short to draw it
       return None
-    x1, y1, x2, y2 = where
-
-    self.item = self._draw_wedge_central()[0]
+    items = self._draw_wedge_central( coords=where)
+    if not items:
+      # the bond is too short to draw it
+      return None
+    self.item = items[0]
     self.paper.addtag_withtag( "bond", self.item)
     # draw helper items
     self.second = self.third = []
     self.paper.register_id( self.item, self)
-    return x1,y1,x2,y2
+    return where
 
 
   def _draw_w2( self):
@@ -933,16 +937,82 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
   def _draw_wedge( self, coords):
     """returns the polygon item"""
-    x1, y1, x2, y2 = coords
-    # main item
-    x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, self.paper.real_to_canvas(self.wedge_width)/2.0)
-    xa, ya, xb, yb = geometry.find_parallel( x1, y1, x2, y2, self.line_width/2.0)
-    return [self._create_polygon_with_transform( (xa, ya, x0, y0, 2*x2-x0, 2*y2-y0, 2*x1-xa, 2*y1-ya), width=0, fill=self.line_color, joinstyle="miter")]
+    polygon = self._rounded_wedge_polygon( coords)
+    if not polygon:
+      return []
+    return [self._create_polygon_with_transform( polygon, width=0, fill=self.line_color, joinstyle="round")]
 
-  def _draw_wedge_central( self):
+  def _draw_wedge_central( self, coords=None):
     """returns the polygon item"""
-    polygon = self._polygon_bond_mask(thickness2 = self.paper.real_to_canvas(self.wedge_width))
-    return [self._create_polygon_with_transform( polygon, width=0, fill=self.line_color, joinstyle="miter")]
+    if coords is None:
+      coords = self._where_to_draw_from_and_to()
+    if not coords:
+      return []
+    polygon = self._rounded_wedge_polygon( coords)
+    if not polygon:
+      return []
+    return [self._create_polygon_with_transform( polygon, width=0, fill=self.line_color, joinstyle="round")]
+
+
+  def _rounded_wedge_polygon( self, coords):
+    x1, y1, x2, y2 = coords
+    wide_width = self.paper.real_to_canvas( self.wedge_width)
+    narrow_width = self.line_width
+    if wide_width <= 0:
+      return None
+    try:
+      wedge = wedge_geometry.rounded_wedge_geometry(
+        (x1, y1),
+        (x2, y2),
+        wide_width,
+        narrow_width=narrow_width,
+      )
+    except ValueError:
+      return None
+    points = self._path_commands_to_polygon( wedge["path_commands"])
+    if not points:
+      return None
+    polygon = []
+    for x, y in points:
+      polygon.extend((x, y))
+    return polygon
+
+
+  def _path_commands_to_polygon( self, commands):
+    points = []
+    step_length = max( 2.0, self.line_width)
+    for command, data in commands:
+      if command in ("M", "L"):
+        points.append( (data[0], data[1]))
+        continue
+      if command == "ARC":
+        cx, cy, radius, angle_start, angle_end = data
+        arc_points = self._arc_points( (cx, cy), radius, angle_start, angle_end, step_length)
+        if points and arc_points:
+          if geometry.point_distance( points[-1][0], points[-1][1], arc_points[0][0], arc_points[0][1]) < 0.01:
+            arc_points = arc_points[1:]
+        points.extend( arc_points)
+        continue
+    return points
+
+
+  def _arc_points( self, center, radius, angle_start, angle_end, step_length):
+    if radius <= 0:
+      return []
+    angle_delta = angle_end - angle_start
+    if angle_delta == 0:
+      return []
+    arc_length = abs( angle_delta) * radius
+    if step_length <= 0:
+      step_length = 1.0
+    steps = max( 6, int( round( arc_length / step_length)))
+    step = angle_delta / steps
+    cx, cy = center
+    points = []
+    for i in range( steps + 1):
+      angle = angle_start + step * i
+      points.append( (cx + math.cos( angle) * radius, cy + math.sin( angle) * radius))
+    return points
 
   # zig zag bonds
   def _draw_a1( self):
@@ -1128,12 +1198,24 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
 
   def _draw_q1( self):
+    coords = self._where_to_draw_from_and_to()
+    if not coords:
+      return None
+    x1, y1, x2, y2 = coords
     thickness = self.paper.real_to_canvas(self.wedge_width)
-    polygon = self._polygon_bond_mask( thickness1=thickness, thickness2=thickness)
-    if polygon:
-      self.item = self._create_polygon_with_transform( polygon, width=0, fill=self.line_color, joinstyle="miter")
-      self.paper.addtag_withtag( "bond", self.item)
-      self.paper.register_id( self.item, self)
+    geometry_info = render_ops.haworth_front_edge_geometry( (x1, y1), (x2, y2), thickness)
+    if not geometry_info:
+      return None
+    start, end, _normal, _cap_radius = geometry_info
+    self.item = self._create_line_with_transform(
+      (start[0], start[1], end[0], end[1]),
+      width=thickness,
+      fill=self.line_color,
+      capstyle="round",
+      joinstyle="round",
+    )
+    self.paper.addtag_withtag( "bond", self.item)
+    self.paper.register_id( self.item, self)
 
 
   def _draw_q2( self):

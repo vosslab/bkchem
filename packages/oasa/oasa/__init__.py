@@ -58,6 +58,7 @@ from . import molfile
 from . import inchi
 from . import cdml
 from . import cdml_bond_io
+from . import cdml_writer
 from . import bond_semantics
 from . import safe_xml
 from . import graph
@@ -69,6 +70,8 @@ from .chem_vertex import chem_vertex
 from . import oasa_exceptions
 from . import subsearch
 from . import svg_out
+from . import render_ops
+from . import wedge_geometry
 from . import haworth
 from . import stereochemistry
 from . import geometry
@@ -87,6 +90,7 @@ _EXPORTED_MODULES = [
 	inchi,
 	cdml,
 	cdml_bond_io,
+	cdml_writer,
 	bond_semantics,
 	safe_xml,
 	graph,
@@ -98,6 +102,8 @@ _EXPORTED_MODULES = [
 	oasa_exceptions,
 	subsearch,
 	svg_out,
+	render_ops,
+	wedge_geometry,
 	haworth,
 	stereochemistry,
 	geometry,
@@ -112,7 +118,8 @@ allNames = ['atom', 'bond', 'chem_vertex', 'coords_generator', 'config',
 	'oasa_exceptions', 'periodic_table', 'query_atom', 'smiles',
 	'stereochemistry', 'subsearch', 'svg_out', 'transform',
 	'transform3d']
-allNames.extend(["bond_semantics", "cdml_bond_io", "safe_xml"])
+allNames.extend(["bond_semantics", "cdml_bond_io", "safe_xml", "render_ops", "wedge_geometry"])
+allNames.append("cdml_writer")
 allNames.append("__version__")
 
 try:

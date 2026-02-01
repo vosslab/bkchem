@@ -30,6 +30,7 @@ from oasa import geometry
 from oasa import periodic_table as PT
 from math import atan2, sin, cos, pi, sqrt
 
+import config
 import misc
 import dom_extensions
 import bkchem_exceptions
@@ -373,9 +374,24 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
       to_export = self.children
     else:
       to_export = items
-    mol = doc.createElement('molecule')
-    mol.setAttribute( 'name', self.name)
-    mol.setAttribute( 'id', self.id)
+    use_oasa_writer = bool( config.use_oasa_cdml_writer) and not items
+    if use_oasa_writer:
+      def _bond_width_to_text(value, name=None, bond_obj=None):
+        if bond_obj and name in ("bond_width", "wedge_width"):
+          if bond_obj.paper:
+            return str(value * bond_obj.paper.screen_to_real_ratio())
+        return str(value)
+      mol = oasa.cdml_writer.write_cdml_molecule_element(
+        self,
+        doc=doc,
+        policy="always",
+        coord_to_text=Screen.px_to_text_with_unit,
+        width_to_text=_bond_width_to_text,
+      )
+    else:
+      mol = doc.createElement('molecule')
+      mol.setAttribute( 'name', self.name)
+      mol.setAttribute( 'id', self.id)
     if self.display_form:
       mol.appendChild( safe_xml.parse_dom_from_string( '<display-form>%s</display-form>' % self.display_form).childNodes[0])
     if self.t_atom:
@@ -385,8 +401,14 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
                                                         ('bond_second', str( self.t_bond_second.id))))
       else:
         dom_extensions.elementUnder( mol, 'template', ( ('atom', str( self.t_atom.id)),))
-    for i in to_export:
-      mol.appendChild( i.get_package( doc))
+    if not use_oasa_writer:
+      for i in to_export:
+        mol.appendChild( i.get_package( doc))
+    else:
+      if not mol.hasAttribute( 'name') and self.name:
+        mol.setAttribute( 'name', self.name)
+      if not mol.hasAttribute( 'id') and self.id:
+        mol.setAttribute( 'id', self.id)
 
     if 1: #not items:
       # (we do not save fragments if the molecule is not guaranteed to be saved whole) old
