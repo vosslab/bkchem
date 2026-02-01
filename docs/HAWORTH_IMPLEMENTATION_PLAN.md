@@ -39,11 +39,11 @@
 ## Current rendering constraints
 - OASA has a global `line_width` and `bond_width`, but no per-bond thickness.
 - OASA bond type includes `'b'` (bold) but is not rendered specially yet.
-- OASA has wedge (`'w'`) and hatch (`'h'`) rendering in Cairo, but no wavy
+- OASA has wedge (`'w'`) and hashed (`'h'`) rendering in Cairo, but no wavy
   bond type yet.
 - `svg_out.py` ignores `line_width` for edges, hard-codes stroke width, and
-  does not render wedge/hatch/bold bond types.
-- SVG output currently lacks support for wedge/hatch/bold, so new bond styles
+  does not render wedge/hashed/bold bond types.
+- SVG output currently lacks support for wedge/hashed/bold, so new bond styles
   must land there before Haworth output can be correct.
 
 ## Proposed architecture
@@ -58,7 +58,7 @@
     avoiding regular polygons.
   - Keeps the ring flat and relies on Haworth bond styles for perspective.
   - Ensures ring bond direction matches the ordered ring traversal so
-    wedge/hatch sides are deterministic.
+    wedge/hashed directions are deterministic.
   - Normalizes ring traversal orientation (signed area) so left/right stays
     stable across inputs.
   - For wedge bonds, force the front vertex to be the wide end after
@@ -74,7 +74,6 @@
     apply the bold override when `bond.type == "b"`.
 - Add explicit Haworth bond styles:
   - Wedge bond for Haworth side edges (solid, non-dashed).
-  - Left/right hatch bond variants for Haworth front edges (optional).
   - Wide rectangle bond for front-facing ring edges (NEUROtiker-style strip).
 - Add a wavy bond type (`'s'`) for non-canonical stereochemistry and map it to
   standard molfile stereo code 4 ("either") once rendering exists.
@@ -86,10 +85,8 @@
   `1.35` and rectangle bond thickness is about `1.615`, yielding ~`1.2x`.
   Use ~1.2x as the initial bold multiplier and adjust if additional samples
   show a different ratio.
-- Left/right hatch: same geometry mirrored horizontally across the bond
-  centerline (no directional flag).
 - Haworth front selection: use the frontmost edge (largest screen y) for
-  the rectangle bond, then apply wedges/hatches on the adjacent edges.
+  the rectangle bond, then apply wedges on the adjacent edges.
 - Wavy bond: use a smooth sine wave (see `wavy_bond.png`) for "either"
   stereochemistry.
 
@@ -107,7 +104,7 @@
 3) Substituents: position OH/CH2OH groups using up/down rules for D/L and
    alpha/beta.
 4) Bond styles: add full new bond type support in Cairo and SVG, including
-   wavy variants, left/right hatch, wide rectangle, and per-bond colors.
+   wavy variants, wide rectangle, and per-bond colors.
 5) API + tests: add a small smoke test and a reference PNG/SVG output.
 6) Docs: document the new API and add usage examples.
 7) CLI: add a small CLI entry point for Haworth output so batch and test
@@ -118,7 +115,7 @@
 - Haworth layout geometry: verify ring templates yield expected atom order
   and bond directions for pyranose and furanose.
 - Bond tagging: confirm front edges are tagged with the correct bond style
-  (left hatch, right hatch, wide rectangle) and back edges remain normal.
+  (wide rectangle) and back edges remain normal.
 - Stereochemistry flags: confirm D/L and alpha/beta input toggles the expected
   up/down substituent placement without needing full stereochemical inference.
 - CDML encoding: ensure new bond types round-trip through CDML load/save.
@@ -139,14 +136,14 @@
 
 ## Staged rollout with testable outcomes
 ### Stage 1: SVG/Cairo bond width + existing styles
-- Outcome: `bond.type == "b"` renders thicker in SVG and Cairo; wedge/hatch
+- Outcome: `bond.type == "b"` renders thicker in SVG and Cairo; wedge/hashed
   render in SVG.
-- Tests: render a molecule with normal, bold, wedge, and hatch bonds; assert
-  SVG contains the expected stroke widths and wedge/hatch shapes.
+- Tests: render a molecule with normal, bold, wedge, and hashed bonds; assert
+  SVG contains the expected stroke widths and wedge/hashed shapes.
 
 ### Stage 2: Full new bond types support
 - Outcome: new bond types render in SVG and Cairo, including wavy variants,
-  left/right hatch, wide rectangle, and per-bond colors (hex RGB).
+  wide rectangle, and per-bond colors (hex RGB).
 - Tests: render a "printer self-test" sheet with every bond type and color;
   assert SVG includes bond-style markers and PNG output is non-empty.
 

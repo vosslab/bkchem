@@ -56,7 +56,7 @@ def layout_row(vignettes, y_top, page_width, row_height, gutter, margin):
 |  Title: "OASA Renderer Capabilities"            |
 +-------------------------------------------------+
 |                                                  |
-|  Bond Grid (8 types x 5 colors = 40 cells)      |
+|  Bond Grid (8 types x 6 colors = 48 cells)      |
 |  +---+---+---+---+---+---+---+---+             |
 |  | n | b | w | h | q | s |s^ |s# |  Black        |
 |  +---+---+---+---+---+---+---+---+             |
@@ -121,7 +121,7 @@ These test different chemical projection conventions:
    - Target: Clean hexagon with alternating interior bonds
 
 2. **Haworth** - Sugar ring projections (pyranose + furanose)
-   - Tests: Wedge, hatch, wide-rectangle bonds
+   - Tests: Wedge, hashed, wide-rectangle bonds
    - Target: Side-by-side rings with proper 3D perspective
 
 3. **Fischer** - D-glucose vertical projection

@@ -304,9 +304,6 @@ def _tag_front_edges(atoms, bonds, points, front_style="haworth", back_style="n"
 			style = front_styles.get(i, "q")
 			bond.type = style
 			bond.properties_['haworth_position'] = 'front'
-			if style in ('l', 'r'):
-				bond.hatch_side = 'left' if style == 'l' else 'right'
-				bond.properties_['hatch_side'] = bond.hatch_side
 			if style == "w":
 				_orient_wedge(bond, front_vertices)
 				if front_idx is not None:
@@ -320,8 +317,6 @@ def _tag_front_edges(atoms, bonds, points, front_style="haworth", back_style="n"
 
 #============================================
 def _resolve_front_style(front_style, edge_x, center_x):
-	if front_style in ("lr", "hatch"):
-		return "h"
 	return front_style
 
 

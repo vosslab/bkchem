@@ -59,6 +59,7 @@ from . import inchi
 from . import cdml
 from . import cdml_bond_io
 from . import cdml_writer
+from . import codec_registry
 from . import bond_semantics
 from . import safe_xml
 from . import graph
@@ -91,6 +92,7 @@ _EXPORTED_MODULES = [
 	cdml,
 	cdml_bond_io,
 	cdml_writer,
+	codec_registry,
 	bond_semantics,
 	safe_xml,
 	graph,
@@ -118,7 +120,7 @@ allNames = ['atom', 'bond', 'chem_vertex', 'coords_generator', 'config',
 	'oasa_exceptions', 'periodic_table', 'query_atom', 'smiles',
 	'stereochemistry', 'subsearch', 'svg_out', 'transform',
 	'transform3d']
-allNames.extend(["bond_semantics", "cdml_bond_io", "safe_xml", "render_ops", "wedge_geometry"])
+allNames.extend(["bond_semantics", "cdml_bond_io", "codec_registry", "safe_xml", "render_ops", "wedge_geometry"])
 allNames.append("cdml_writer")
 allNames.append("__version__")
 

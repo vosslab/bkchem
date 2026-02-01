@@ -7,6 +7,14 @@ and documentation source. Legacy websites are archived and not maintained. Any
 legacy email addresses are kept for attribution only and are not support
 contacts.
 
+## Definitions
+- Plugin: BKChem GUI extension (menu action or drawing mode) that runs inside
+  the editor and uses Tk/UI state.
+- Addon: filesystem plugin loaded from addon folders and described by an XML
+  descriptor plus a Python script. Addons are one plugin mechanism.
+- Codec: OASA format adapter for reading and writing molecule data (SMILES,
+  InChI, molfile, CDML). Codecs are non-GUI and registered in OASA.
+
 ## What is a plugin
 
 BKChem supports custom plugins: small extensions that add menu actions or new

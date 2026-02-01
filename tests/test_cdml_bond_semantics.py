@@ -66,7 +66,7 @@ def test_cdml_canonicalizes_wedge_vertices():
 
 
 #============================================
-def test_cdml_canonicalizes_hatch_vertices():
+def test_cdml_canonicalizes_hashed_vertices():
 	text = _make_cdml_text("h1")
 	mol = oasa.cdml.text_to_mol(text)
 	assert mol is not None

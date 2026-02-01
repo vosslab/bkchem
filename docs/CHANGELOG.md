@@ -1,9 +1,30 @@
 # Changelog
 
 ## 2026-02-01
+- Remove legacy left/right hatch references from
+  [docs/BKCHEM_FORMAT_SPEC.md](docs/BKCHEM_FORMAT_SPEC.md).
+- Define plugins, addons, and codecs in `README.md`,
+  `docs/USAGE.md`, and `docs/CUSTOM_PLUGINS.md` to avoid terminology drift.
+- Add the codec registry plan in
+  [docs/CODEC_REGISTRY_PLAN.md](docs/CODEC_REGISTRY_PLAN.md).
+- Add refactor progress tracking in `refactor_progress.md`.
+- Add an OASA codec registry with default SMILES/InChI/molfile/CDML
+  registration in `packages/oasa/oasa/codec_registry.py`.
+- Expose `codec_registry` from `packages/oasa/oasa/__init__.py`.
+- Add CDML text/file writer helpers and module capability flags in
+  `packages/oasa/oasa/cdml_writer.py`.
+- Route `packages/oasa/chemical_convert.py` through the codec registry and
+  allow CDML output selection.
+- Add codec registry coverage in `tests/test_codec_registry.py`.
 - Add renderer capabilities sheet generator in
   `packages/oasa/oasa/selftest_sheet.py` (LGPL-3.0-or-later) with row-based
   layout, measured bounding boxes, and Fischer projection support.
+- Refactor Haworth and Fischer vignettes in `packages/oasa/oasa/selftest_sheet.py`
+  to use SMILES → layout → render pipeline instead of hand-placed coordinates,
+  testing connectivity-driven molecule rendering.
+- Add orange color row to bond grid in `packages/oasa/oasa/selftest_sheet.py`
+  (8 types × 6 colors = 48 cells) and adjust vignette positions to accommodate
+  taller grid.
 - Add capabilities sheet layout specification in
   [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md) documenting the
   measure-first layout system and vignette organization.
@@ -97,6 +118,21 @@
   `tools/render_reference_outputs.py`.
 - Remove shebangs from pytest modules in `tests/test_bkchem_cdml_roundtrip.py`,
   `tests/test_cdml_roundtrip_oasa.py`, and `tests/oasa_legacy_test.py`.
+- Add SPDX headers to new LGPL files in
+  `packages/oasa/oasa/cdml_writer.py`,
+  `packages/oasa/oasa/atom_colors.py`,
+  `tests/test_cdml_writer.py`, and
+  `tests/test_bkchem_round_wedge.py`.
+- Remove the executable bit from `tests/oasa_legacy_test.py` to satisfy
+  shebang alignment checks.
+- Add OASA CDML writer round-trip tests in
+  `tests/test_cdml_writer_roundtrip.py`.
+- Add a BKChem CDML writer-flag smoke test in
+  `tests/test_bkchem_cdml_writer_flag.py`.
+- Add a CDML golden fixture corpus under `tests/fixtures/cdml/` (benzene,
+  stereochem, haworth, cholesterol, legacy, embedded SVG) and load tests in
+  `tests/test_cdml_fixture_loads.py`.
+- Add a legacy fixture migration check in `tests/test_cdml_versioning.py`.
 - Switch SVG pretty-print parsing to `defusedxml.minidom` in
   `packages/oasa/oasa/svg_out.py`.
 - Fix Cairo import handling in the renderer capabilities sheet generator in

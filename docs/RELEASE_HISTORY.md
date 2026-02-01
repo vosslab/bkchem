@@ -24,7 +24,7 @@ Reference forks:
 - https://github.com/simone16/oasa
 
 ### Highlights (@simone16)
-- Reworked bond drawing (bold, wedge, hatch) and enabled bold-bond saving.
+- Reworked bond drawing (bold, wedge, hashed) and enabled bold-bond saving.
 - Improved zoom behavior, scaling, and selector handling.
 - Fixed arrow rendering, selection, and movement (including retro-arrows).
 - Corrected bond appearance ratios and polygon bond thickness.
@@ -200,7 +200,7 @@ Reference forks:
 
 ### Enhancements
 - more types of groups are supported (such as -(CH2)7COOH)
-- added wedge/hatch width to context menu
+- added wedge/hashed width to context menu
 
 ### Changes
 - double bond is always centered if its between two visible atoms that are not part of a ring
@@ -597,7 +597,7 @@ Reference forks:
 
 ### Changes
 - if both atoms of a bond are visible, the 'stroke-linecap' is set to 'butt' instead of 'round'
-- drawing of hatches was tuned a little
+- drawing of hashed bonds was tuned a little
 - the size of the SVG picture is given in 'mm', fixing some rendering problems
 - the CDML format was slightly changed - old files should be read properly in new BKchem but new files will likely crash in old BKchem (when groups of text-atoms are used)
 - Pmw is distributed together with BKchem as I had to fix an unicode problem there and it seems the Pmw itself is dead
@@ -718,7 +718,7 @@ Reference forks:
 - atom mode added to enable creation of sigle-atom molecules
 - marks on selected atoms can be moved via arrow keys in mark mode (select the atom, go to the mark mode and use the arrow keys to move the marks), it is a quick addition that will be hopefully enhanced in the next release
 - reaction mode was added (you can define the reactants, products etc. for each arrow)
-- equithick hatch bonds were introduced and made default (you can change it by clicking on the bond more than once), this is because it is recommended as sharp hatch bonds are usually wrongly interpreted. Thanks to Michal Bozon for the patch
+- equithick hashed bonds were introduced and made default (you can change it by clicking on the bond more than once), this is because it is recommended as sharp hashed bonds are usually wrongly interpreted. Thanks to Michal Bozon for the patch
 - CH2OH group was added
 - INChI reading was updated to version 1.12Beta (older version is also supported)
 - INChI reading of molecules with movable H atoms was fixed
@@ -828,7 +828,7 @@ Reference forks:
 
 ### Enhancements
 - bond order and type were separaded
-- it is possible to draw wedge/hatch double bonds
+- it is possible to draw wedge/hashed double bonds
 - adder (unspecified stereo) and bold bond was added
 - double stereo bond may be drawn in two different ways (second bond is also stereo or line-only)
 - transform mode was introduced

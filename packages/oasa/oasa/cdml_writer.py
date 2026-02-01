@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #--------------------------------------------------------------------------
 #     This file is part of OASA - a free chemical python library
 #     Copyright (C) 2003-2008 Beda Kosata <beda@zirael.org>
@@ -32,6 +33,13 @@ from .periodic_table import periodic_table as PT
 
 
 POINTS_PER_CM = 72.0 / 2.54
+CDML_NAMESPACE = "http://www.freesoftware.fsf.org/bkchem/cdml"
+DEFAULT_CDML_VERSION = "26.02"
+
+reads_text = False
+writes_text = True
+reads_files = False
+writes_files = True
 
 
 #============================================
@@ -137,6 +145,32 @@ def write_cdml_molecule_element(mol, *, doc=None, policy="present_only", coord_t
 			)
 		)
 	return mol_el
+
+
+#============================================
+def mol_to_text(mol, *, policy="present_only", version=None, namespace=None, coord_to_text=None, width_to_text=None):
+	"""Serialize a molecule to CDML text."""
+	doc = dom.Document()
+	cdml_el = doc.createElement("cdml")
+	cdml_el.setAttribute("version", str(version or DEFAULT_CDML_VERSION))
+	cdml_el.setAttribute("xmlns", str(namespace or CDML_NAMESPACE))
+	cdml_el.appendChild(
+		write_cdml_molecule_element(
+			mol,
+			doc=doc,
+			policy=policy,
+			coord_to_text=coord_to_text,
+			width_to_text=width_to_text,
+		)
+	)
+	doc.appendChild(cdml_el)
+	return doc.toxml(encoding="utf-8").decode("utf-8")
+
+
+#============================================
+def mol_to_file(mol, f, **kwargs):
+	"""Write CDML text for a molecule into a file-like object."""
+	f.write(mol_to_text(mol, **kwargs))
 
 
 #============================================
@@ -308,9 +342,6 @@ def _bond_values_and_defaults(bond_obj, width_to_text=None):
 		wavy_style = bond_obj.properties_.get("wavy_style")
 	if wavy_style:
 		values["wavy_style"] = wavy_style
-	hatch_side = getattr(bond_obj, "hatch_side", None)
-	if hatch_side:
-		values["hatch_side"] = hatch_side
 	return values, defaults
 
 

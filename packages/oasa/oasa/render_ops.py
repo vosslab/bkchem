@@ -562,7 +562,7 @@ def _rounded_wedge_ops(start, end, line_width, wedge_width, color):
 
 
 #============================================
-def _hatch_ops(start, end, line_width, wedge_width, color1, color2, gradient):
+def _hashed_ops(start, end, line_width, wedge_width, color1, color2, gradient):
 	x1, y1 = start
 	x2, y2 = end
 	x, y, x0, y0 = geometry.find_parallel(x1, y1, x2, y2, wedge_width / 2.0)
@@ -712,8 +712,8 @@ def build_bond_ops(edge, start, end, context):
 			ops.extend(_rounded_wedge_ops(start, end, context.line_width,
 					context.wedge_width, color1))
 			return ops
-		if edge.type == 'h' or edge.type == 'l' or edge.type == 'r':
-			ops.extend(_hatch_ops(start, end, context.line_width, context.wedge_width,
+		if edge.type == 'h':
+			ops.extend(_hashed_ops(start, end, context.line_width, context.wedge_width,
 					color1, color2, gradient))
 			return ops
 		if edge.type == 'q':

@@ -41,7 +41,6 @@ CDML_META_ATTRS = {
 	"simple_double",
 	"color",
 	"wavy_style",
-	"hatch_side",
 }
 
 CDML_ALL_ATTRS = CDML_CORE_ATTRS | CDML_META_ATTRS
@@ -57,7 +56,6 @@ CDML_ATTR_ORDER = (
 	"simple_double",
 	"color",
 	"wavy_style",
-	"hatch_side",
 )
 
 
@@ -95,10 +93,6 @@ def read_cdml_bond_attributes(bond_el, bond, preserve_attrs=None, known_attrs=No
 		if name == "wavy_style":
 			bond.wavy_style = value
 			bond.properties_["wavy_style"] = value
-			continue
-		if name == "hatch_side":
-			bond.hatch_side = value
-			bond.properties_["hatch_side"] = value
 			continue
 		if name in preserve_attrs:
 			bond.properties_[name] = value

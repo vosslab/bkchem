@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #--------------------------------------------------------------------------
 #     This file is part of OASA - a free chemical python library
 #     Copyright (C) 2003-2008 Beda Kosata <beda@zirael.org>

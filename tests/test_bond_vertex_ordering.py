@@ -36,7 +36,7 @@ def test_canonicalize_wedge_vertices_by_geometry():
 
 
 #============================================
-def test_canonicalize_hatch_vertices_by_geometry():
+def test_canonicalize_hashed_vertices_by_geometry():
 	a1, a2 = _make_atoms()
 	b = oasa.bond(order=1, type="h")
 	b.set_vertices((a1, a2))

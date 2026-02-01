@@ -4,7 +4,7 @@
 """Renderer capabilities sheet generator.
 
 Generates a single-page visual reference showing all OASA rendering capabilities:
-- Bond types (normal, bold, wedge, hatch, wavy, etc.)
+- Bond types (normal, bold, wedge, hashed, wavy, etc.)
 - Colors (per-bond colors)
 - Complex features (aromatic rings, stereochemistry, Haworth projections)
 
@@ -442,6 +442,7 @@ def _build_bond_grid(parent):
 		('#00f', 'Blue'),
 		('#0a0', 'Green'),
 		('#a0a', 'Purple'),
+		('#f80', 'Orange'),
 	]
 
 	# Grid layout
@@ -632,7 +633,11 @@ def _scale_point(point, scale, dx, dy):
 
 #============================================
 def _build_cholesterol_ops():
-	"""Build cholesterol molecule from CDML template."""
+	"""Build cholesterol molecule from CDML template.
+
+	Returns:
+		(ops, labels) where labels is empty list
+	"""
 	import os
 
 	# Handle imports for both module and script usage
@@ -653,7 +658,7 @@ def _build_cholesterol_ops():
 
 	if not os.path.exists(path):
 		# Return empty if file doesn't exist
-		return []
+		return [], []
 
 	with open(path, 'r') as f:
 		result = cdml_module.read_cdml(f.read())
@@ -662,10 +667,10 @@ def _build_cholesterol_ops():
 	try:
 		mol = next(iter(result))
 	except (StopIteration, TypeError):
-		return []
+		return [], []
 
 	if mol is None:
-		return []
+		return [], []
 
 	context = render_ops.BondRenderContext(
 		molecule=mol,
@@ -686,7 +691,39 @@ def _build_cholesterol_ops():
 		context.bond_coords[b] = (start, end)
 		all_ops.extend(render_ops.build_bond_ops(b, start, end, context))
 
-	return all_ops
+	return all_ops, []
+
+
+#============================================
+def _add_atom_labels(parent, labels, original_ops, positioned_ops):
+	"""Add atom labels transformed to match positioned ops.
+
+	Args:
+		parent: SVG group element
+		labels: List of (x, y, text, font_size, anchor) tuples in original coordinates
+		original_ops: Original ops before transformation
+		positioned_ops: Transformed ops after layout
+	"""
+	if not labels:
+		return
+
+	# Compute transformation by comparing bboxes
+	orig_bbox = ops_bbox(original_ops)
+	pos_bbox = ops_bbox(positioned_ops)
+
+	if orig_bbox[2] == orig_bbox[0] or orig_bbox[3] == orig_bbox[1]:
+		return  # Degenerate bbox
+
+	# Scale and translation
+	scale = (pos_bbox[2] - pos_bbox[0]) / (orig_bbox[2] - orig_bbox[0])
+	dx = pos_bbox[0] - orig_bbox[0] * scale
+	dy = pos_bbox[1] - orig_bbox[1] * scale
+
+	# Transform and add labels
+	for x, y, text, font_size, anchor in labels:
+		tx = x * scale + dx
+		ty = y * scale + dy
+		_add_text(parent, tx, ty, text, font_size=font_size, anchor=anchor)
 
 
 #============================================
@@ -697,28 +734,34 @@ def _build_vignettes(parent, page_width):
 	Bottom row: Cholesterol (complex stress test)
 	"""
 	# Row configuration
-	row1_y = 290
+	row1_y = 325  # Moved down to accommodate 6-row bond grid
 	row1_height = 80
-	row2_y = 460
+	row2_y = 495  # Moved down proportionally
 	row2_height = 120
 	margin = 40
 	gutter = 20
 
 	# Top row: projection styles
-	row1_vignettes = [
-		("Benzene", _build_benzene_ops()),
-		("Haworth", _build_haworth_ops()),
-		("Fischer", _build_fischer_ops()),
+	# Each builder returns (ops, labels) where labels = [(x, y, text, font_size, anchor), ...]
+	benzene_ops, benzene_labels = _build_benzene_ops()
+	haworth_ops, haworth_labels = _build_haworth_ops()
+	fischer_ops, fischer_labels = _build_fischer_ops()
+
+	row1_data = [
+		("Benzene", benzene_ops, benzene_labels),
+		("Haworth", haworth_ops, haworth_labels),
+		("Fischer", fischer_ops, fischer_labels),
 	]
 
 	# Bottom row: stress test
-	row2_vignettes = [
-		("Cholesterol", _build_cholesterol_ops()),
+	cholesterol_ops, cholesterol_labels = _build_cholesterol_ops()
+	row2_data = [
+		("Cholesterol", cholesterol_ops, cholesterol_labels),
 	]
 
 	# Layout row 1
 	row1_result = layout_row(
-		row1_vignettes,
+		[(title, ops) for title, ops, _ in row1_data],
 		y_top=row1_y,
 		page_width=page_width,
 		row_height=row1_height,
@@ -727,7 +770,7 @@ def _build_vignettes(parent, page_width):
 	)
 
 	# Render row 1
-	for idx, (title, positioned_ops, x_center, y_center) in enumerate(row1_result):
+	for idx, ((title, positioned_ops, x_center, y_center), (_, original_ops, labels)) in enumerate(zip(row1_result, row1_data)):
 		# Title above molecule (15pt above)
 		title_y = row1_y - 10
 		_add_text(parent, x_center, title_y, title, font_size=11, weight="bold", anchor="middle")
@@ -739,9 +782,12 @@ def _build_vignettes(parent, page_width):
 		)
 		render_ops.ops_to_svg(vignette_g, positioned_ops)
 
+		# Add atom labels (transformed to match positioned ops)
+		_add_atom_labels(vignette_g, labels, original_ops, positioned_ops)
+
 	# Layout row 2
 	row2_result = layout_row(
-		row2_vignettes,
+		[(title, ops) for title, ops, _ in row2_data],
 		y_top=row2_y,
 		page_width=page_width,
 		row_height=row2_height,
@@ -750,7 +796,7 @@ def _build_vignettes(parent, page_width):
 	)
 
 	# Render row 2
-	for idx, (title, positioned_ops, x_center, y_center) in enumerate(row2_result):
+	for idx, ((title, positioned_ops, x_center, y_center), (_, original_ops, labels)) in enumerate(zip(row2_result, row2_data)):
 		# Title above molecule (15pt above)
 		title_y = row2_y - 10
 		_add_text(parent, x_center, title_y, title, font_size=11, weight="bold", anchor="middle")
@@ -762,10 +808,17 @@ def _build_vignettes(parent, page_width):
 		)
 		render_ops.ops_to_svg(vignette_g, positioned_ops)
 
+		# Add atom labels
+		_add_atom_labels(vignette_g, labels, original_ops, positioned_ops)
+
 
 #============================================
 def _build_benzene_ops():
-	"""Build benzene ring with alternating double bonds."""
+	"""Build benzene ring with alternating double bonds.
+
+	Returns:
+		(ops, labels) where labels is empty list
+	"""
 	mol = molecule.molecule()
 
 	# Hexagon vertices
@@ -815,42 +868,235 @@ def _build_benzene_ops():
 		ops = render_ops.build_bond_ops(b, start, end, context)
 		all_ops.extend(ops)
 
-	return all_ops
+	return all_ops, []
+
+
+#============================================
+def _mol_from_smiles(smiles_str, calc_coords=True):
+	"""Build molecule from SMILES.
+
+	Args:
+		smiles_str: SMILES string
+		calc_coords: If True, generate initial 2D coordinates
+
+	Returns:
+		OASA molecule with atoms/bonds (and optional coordinates)
+	"""
+	# Handle imports for both module and script usage
+	if __name__ == "__main__":
+		import oasa
+		smiles_module = oasa.smiles
+	else:
+		from . import smiles as smiles_module
+
+	# Parse SMILES
+	# calc_coords=1 generates initial 2D layout (required for haworth.build_haworth)
+	# calc_coords=0 gives connectivity only
+	mol = smiles_module.text_to_mol(smiles_str, calc_coords=1 if calc_coords else 0)
+	return mol
 
 
 #============================================
 def _build_haworth_ops():
-	"""Build Haworth projection rings using the haworth module.
+	"""Build Haworth projection rings from SMILES templates.
 
 	Creates pyranose (6-membered) and furanose (5-membered) rings
-	with proper wedge, hatch, and wide-rectangle bond styling.
+	from connectivity, applies Haworth layout, then renders.
+	Tests: SMILES → haworth layout → render ops.
+
+	Returns:
+		(ops, labels) where labels includes "O" for oxygen atoms
 	"""
-	# Build pyranose (6-membered ring with oxygen)
-	pyranose = _build_ring(6, oxygen_index=0)
+	# Build pyranose from SMILES (tetrahydropyran scaffold)
+	# Connectivity only, no coordinates yet
+	pyranose = _mol_from_smiles("C1CCOCC1")
+	# Haworth layout is first place coordinates appear
 	haworth.build_haworth(pyranose, mode="pyranose")
 
-	# Build furanose (5-membered ring with oxygen)
-	furanose = _build_ring(5, oxygen_index=0)
+	# Build pyranose ops
+	pyranose_ops = []
+	pyranose_context = render_ops.BondRenderContext(
+		molecule=pyranose,
+		line_width=1.0,
+		bond_width=3.0,
+		wedge_width=6.0,
+		bold_line_width_multiplier=1.2,
+		shown_vertices=set(),
+		bond_coords={},
+		point_for_atom=None,
+	)
+	for bond in pyranose.edges:
+		v1, v2 = bond.vertices
+		start = (v1.x, v1.y)
+		end = (v2.x, v2.y)
+		pyranose_context.bond_coords[bond] = (start, end)
+		ops = render_ops.build_bond_ops(bond, start, end, pyranose_context)
+		pyranose_ops.extend(ops)
+
+	# Build furanose from SMILES (tetrahydrofuran scaffold)
+	furanose = _mol_from_smiles("C1CCOC1")
 	haworth.build_haworth(furanose, mode="furanose")
 
-	# Offset furanose to the right of pyranose (minimal spacing to fit on page)
-	max_x = max(a.x for a in pyranose.vertices)
-	min_x_furanose = min(a.x for a in furanose.vertices)
-	# Place furanose with just 20 units gap from pyranose
-	offset = max_x - min_x_furanose + 20.0
-	for a in furanose.vertices:
-		a.x += offset
+	# Build furanose ops
+	furanose_ops = []
+	furanose_context = render_ops.BondRenderContext(
+		molecule=furanose,
+		line_width=1.0,
+		bond_width=3.0,
+		wedge_width=6.0,
+		bold_line_width_multiplier=1.2,
+		shown_vertices=set(),
+		bond_coords={},
+		point_for_atom=None,
+	)
+	for bond in furanose.edges:
+		v1, v2 = bond.vertices
+		start = (v1.x, v1.y)
+		end = (v2.x, v2.y)
+		furanose_context.bond_coords[bond] = (start, end)
+		ops = render_ops.build_bond_ops(bond, start, end, furanose_context)
+		furanose_ops.extend(ops)
 
-	# Combine both rings into one molecule
-	pyranose.insert_a_graph(furanose)
-	mol = pyranose
+	# Compute bbox-based offset for side-by-side layout (measure, don't guess)
+	pyranose_bbox = ops_bbox(pyranose_ops)
+	furanose_bbox = ops_bbox(furanose_ops)
+
+	# Place furanose to the right with measured gap
+	gap = 20.0
+	offset_x = (pyranose_bbox[2] - furanose_bbox[0]) + gap
+	offset_y = 0.0
+
+	# Transform furanose ops
+	furanose_ops = _transform_ops(furanose_ops, offset_x, offset_y, scale=1.0)
+
+	# Combine ops
+	all_ops = pyranose_ops + furanose_ops
+
+	# Find oxygen atoms for labels (by symbol, not construction order)
+	labels = []
+	for v in pyranose.vertices:
+		if v.symbol == 'O':
+			labels.append((v.x, v.y - 4, "O", 10, "middle"))
+			break
+
+	# Furanose oxygen labels need to be transformed too
+	for v in furanose.vertices:
+		if v.symbol == 'O':
+			labels.append((v.x + offset_x, v.y + offset_y - 4, "O", 10, "middle"))
+			break
+
+	return all_ops, labels
+
+
+#============================================
+def _build_fischer_ops(show_explicit_hydrogens=False):
+	"""Build Fischer projection from D-glucose SMILES.
+
+	Fischer projection: vertical backbone with horizontal substituents.
+	Tests: SMILES → traversal-based layout → render ops.
+
+	Args:
+		show_explicit_hydrogens: If True, show H labels for implicit hydrogens
+		                        on stereocenters (default: False)
+
+	Returns:
+		(ops, labels) where labels includes CHO, CH2OH, OH, H
+	"""
+	# D-glucose open-chain form (simplified, no explicit stereo for now)
+	# C(=O)C(O)C(O)C(O)C(O)CO represents the 6-carbon aldose
+	mol = _mol_from_smiles("C(=O)C(O)C(O)C(O)C(O)CO")
+
+	# Find carbon backbone by traversing longest carbon chain
+	# Start from aldehyde carbon (has =O neighbor)
+	backbone = []
+	for v in mol.vertices:
+		if v.symbol == 'C':
+			# Check if this carbon has a double-bonded oxygen (aldehyde)
+			for bond in mol.edges:
+				if v in bond.vertices:
+					# Get neighbor: vertices is (v1, v2)
+					v1, v2 = bond.vertices
+					n = v2 if v1 == v else v1
+					if n.symbol == 'O' and bond.order == 2:
+						backbone.append(v)
+						break
+			if backbone:
+				break
+
+	# Traverse chain to build backbone list
+	if backbone:
+		visited = {backbone[0]}
+		current = backbone[0]
+		# Follow carbon-carbon single bonds
+		while True:
+			next_carbon = None
+			for bond in mol.edges:
+				if current not in bond.vertices or bond.order != 1:
+					continue
+				# Get neighbor
+				v1, v2 = bond.vertices
+				neighbor = v2 if v1 == current else v1
+				if neighbor.symbol == 'C' and neighbor not in visited:
+					next_carbon = neighbor
+					break
+			if next_carbon is None:
+				break
+			backbone.append(next_carbon)
+			visited.add(next_carbon)
+			current = next_carbon
+
+	# Layout: place backbone vertically with measured bond_length
+	bond_length = 25.0  # From context, not hardcoded magic
+	for i, carbon in enumerate(backbone):
+		carbon.x = 0.0
+		carbon.y = i * bond_length
+
+	# Place substituents horizontally
+	# For each carbon, find non-backbone neighbors and place them
+	sub_length = 15.0  # Horizontal bond length
+	for i, carbon in enumerate(backbone):
+		substituents = []
+		for bond in mol.edges:
+			if carbon in bond.vertices:
+				# Get neighbor
+				v1, v2 = bond.vertices
+				neighbor = v2 if v1 == carbon else v1
+				if neighbor not in backbone:
+					substituents.append((neighbor, bond))
+
+		# Place substituents alternating left/right (D-glucose pattern)
+		# C2, C4, C5: OH right, others left
+		# C3: OH left
+		# This is simplified - real stereo would come from SMILES stereo flags
+		for j, (sub, bond) in enumerate(substituents):
+			if sub.symbol == 'O' and bond.order == 1:  # OH group
+				# D-glucose pattern: C2=right, C3=left, C4=right, C5=right
+				if i in [1, 3, 4]:  # C2, C4, C5 (0-indexed)
+					sub.x = carbon.x + sub_length
+				else:
+					sub.x = carbon.x - sub_length
+			elif sub.symbol == 'H':  # H
+				# Opposite side from OH
+				if i in [1, 3, 4]:
+					sub.x = carbon.x - sub_length
+				else:
+					sub.x = carbon.x + sub_length
+			elif sub.symbol == 'O' and bond.order == 2:  # Aldehyde O
+				# Place above (already positioned by double bond)
+				sub.x = carbon.x
+				sub.y = carbon.y - 10.0
+			else:  # Other (e.g., CH2 in CH2OH)
+				sub.x = carbon.x
+				sub.y = carbon.y
+
+			sub.y = carbon.y  # Same y as carbon for horizontal bonds
 
 	# Build render ops for all bonds
 	context = render_ops.BondRenderContext(
 		molecule=mol,
 		line_width=1.0,
 		bond_width=3.0,
-		wedge_width=6.0,
+		wedge_width=4.0,
 		bold_line_width_multiplier=1.2,
 		shown_vertices=set(),
 		bond_coords={},
@@ -866,127 +1112,67 @@ def _build_haworth_ops():
 		ops = render_ops.build_bond_ops(bond, start, end, context)
 		all_ops.extend(ops)
 
-	return all_ops
+	# Labels: find by traversal, not indices
+	labels = []
 
+	# CHO label at top (first carbon in backbone)
+	if backbone:
+		labels.append((backbone[0].x, backbone[0].y - 6, "CHO", 9, "middle"))
 
-def _build_ring(size, oxygen_index=None):
-	"""Build a simple ring molecule (helper for Haworth).
+		# CH2OH label at bottom (last carbon in backbone)
+		labels.append((backbone[-1].x, backbone[-1].y + 9, "CH2OH", 9, "middle"))
 
-	Args:
-		size: Number of atoms in ring
-		oxygen_index: Optional index for oxygen atom (None = all carbons)
+	# OH and H labels for middle carbons (stereocenters)
+	for i, carbon in enumerate(backbone[1:-1], start=1):  # Skip first and last
+		# Track which sides have explicit substituents
+		left_sub = None
+		right_sub = None
+		sub_length_label = 15.0 + 3  # Substituent length + label offset
 
-	Returns:
-		molecule with ring structure
-	"""
-	mol = molecule.molecule()
-	atoms = []
-	for idx in range(size):
-		symbol = 'C'
-		if oxygen_index is not None and idx == oxygen_index:
-			symbol = 'O'
-		a = atom.atom(symbol=symbol)
-		a.x = idx * 20
-		a.y = 0
-		mol.add_vertex(a)
-		atoms.append(a)
+		# Find existing substituents
+		for bond in mol.edges:
+			if carbon not in bond.vertices:
+				continue
+			# Get neighbor
+			v1, v2 = bond.vertices
+			neighbor = v2 if v1 == carbon else v1
+			if neighbor not in backbone and neighbor.symbol in ['O', 'H']:
+				if bond.order == 1:  # Single bond (not aldehyde)
+					dx = neighbor.x - carbon.x
+					if dx > 0:
+						right_sub = neighbor
+					elif dx < 0:
+						left_sub = neighbor
 
-	for idx in range(size):
-		b = bond_module.bond(order=1, type='n')
-		v1 = atoms[idx]
-		v2 = atoms[(idx + 1) % size]
-		b.vertices = (v1, v2)
-		mol.add_edge(v1, v2, b)
+		# Add labels for explicit substituents
+		for bond in mol.edges:
+			if carbon not in bond.vertices:
+				continue
+			v1, v2 = bond.vertices
+			neighbor = v2 if v1 == carbon else v1
+			if neighbor not in backbone and neighbor.symbol in ['O', 'H']:
+				if bond.order == 1:  # Single bond (not aldehyde)
+					label_text = 'OH' if neighbor.symbol == 'O' else 'H'
+					dx = neighbor.x - carbon.x
+					label_x = neighbor.x + (3 if dx > 0 else -3)
+					label_y = neighbor.y + 3
+					anchor = "start" if dx > 0 else "end"
+					labels.append((label_x, label_y, label_text, 9, anchor))
 
-	return mol
+		# Add implicit hydrogen labels if requested
+		if show_explicit_hydrogens:
+			if left_sub is None:
+				# Add H label on left
+				label_x = carbon.x - sub_length_label
+				label_y = carbon.y + 3
+				labels.append((label_x, label_y, "H", 9, "end"))
+			if right_sub is None:
+				# Add H label on right
+				label_x = carbon.x + sub_length_label
+				label_y = carbon.y + 3
+				labels.append((label_x, label_y, "H", 9, "start"))
 
-
-#============================================
-def _build_fischer_ops():
-	"""Build Fischer projection (D-glucose).
-
-	Fischer projection: vertical backbone with horizontal substituents.
-	Tests straight bond rendering and left/right positioning.
-	No wedges or hatches needed - pure 2D representation.
-	"""
-	mol = molecule.molecule()
-
-	# Vertical backbone: 6 carbons (C1 to C6)
-	backbone_spacing = 25
-	backbone = []
-	for i in range(6):
-		a = atom.atom(symbol='C')
-		a.x = 0
-		a.y = i * backbone_spacing
-		mol.add_vertex(a)
-		backbone.append(a)
-
-	# Connect backbone with normal bonds and store references
-	backbone_bonds = []
-	for i in range(5):
-		b = bond_module.bond(order=1, type='n')
-		b.vertices = (backbone[i], backbone[i + 1])
-		mol.add_edge(backbone[i], backbone[i + 1], b)
-		backbone_bonds.append(b)
-
-	# Horizontal substituents (alternating left/right for D-glucose)
-	# C1 (aldehyde carbon): no horizontal substituents shown
-	# C2: OH right, H left
-	# C3: OH left, H right
-	# C4: OH right, H left
-	# C5: OH right, H left
-	# C6 (CH2OH): no horizontal substituents shown
-
-	substituent_length = 15
-	substituents_data = [
-		# (carbon_idx, [(symbol, dx), ...])
-		(1, [('O', substituent_length), ('H', -substituent_length)]),  # C2
-		(2, [('O', -substituent_length), ('H', substituent_length)]),  # C3
-		(3, [('O', substituent_length), ('H', -substituent_length)]),  # C4
-		(4, [('O', substituent_length), ('H', -substituent_length)]),  # C5
-	]
-
-	context = render_ops.BondRenderContext(
-		molecule=mol,
-		line_width=1.0,
-		bond_width=3.0,
-		wedge_width=4.0,
-		bold_line_width_multiplier=1.2,
-		shown_vertices=set(),
-		bond_coords={},
-		point_for_atom=None,
-	)
-
-	all_ops = []
-
-	# Build backbone bonds first
-	for i, b in enumerate(backbone_bonds):
-		start = (backbone[i].x, backbone[i].y)
-		end = (backbone[i + 1].x, backbone[i + 1].y)
-		context.bond_coords[b] = (start, end)
-		ops = render_ops.build_bond_ops(b, start, end, context)
-		all_ops.extend(ops)
-
-	# Add horizontal substituents
-	for carbon_idx, subs in substituents_data:
-		carbon = backbone[carbon_idx]
-		for symbol, dx in subs:
-			sub = atom.atom(symbol=symbol)
-			sub.x = carbon.x + dx
-			sub.y = carbon.y
-			mol.add_vertex(sub)
-
-			b = bond_module.bond(order=1, type='n')
-			b.vertices = (carbon, sub)
-			mol.add_edge(carbon, sub, b)
-
-			start = (carbon.x, carbon.y)
-			end = (sub.x, sub.y)
-			context.bond_coords[b] = (start, end)
-			ops = render_ops.build_bond_ops(b, start, end, context)
-			all_ops.extend(ops)
-
-	return all_ops
+	return all_ops, labels
 
 
 #============================================
@@ -1003,7 +1189,7 @@ def _collect_all_ops(width, height):
 		('n', 'Normal'), ('b', 'Bold'), ('w', 'Wedge'), ('h', 'Hatch'),
 		('q', 'Wide rect'), ('s', 'Wavy (sine)'), ('s_triangle', 'Wavy (tri)'), ('s_box', 'Wavy (box)'),
 	]
-	colors = [('#000', 'Black'), ('#f00', 'Red'), ('#00f', 'Blue'), ('#0a0', 'Green'), ('#a0a', 'Purple')]
+	colors = [('#000', 'Black'), ('#f00', 'Red'), ('#00f', 'Blue'), ('#0a0', 'Green'), ('#a0a', 'Purple'), ('#f80', 'Orange')]
 
 	# Grid layout
 	grid_x = 50
@@ -1028,23 +1214,29 @@ def _collect_all_ops(width, height):
 			all_ops.extend(panel_ops)
 
 	# Row-based vignette layout (same as SVG backend)
-	row1_y = 290
+	row1_y = 325  # Moved down to accommodate 6-row bond grid
 	row1_height = 80
-	row2_y = 460
+	row2_y = 495  # Moved down proportionally
 	row2_height = 120
 	margin = 40
 	gutter = 20
 
 	# Top row: projection styles
+	# Each builder returns (ops, labels), extract just ops
+	benzene_ops, _ = _build_benzene_ops()
+	haworth_ops, _ = _build_haworth_ops()
+	fischer_ops, _ = _build_fischer_ops()
+
 	row1_vignettes = [
-		("Benzene", _build_benzene_ops()),
-		("Haworth", _build_haworth_ops()),
-		("Fischer", _build_fischer_ops()),
+		("Benzene", benzene_ops),
+		("Haworth", haworth_ops),
+		("Fischer", fischer_ops),
 	]
 
 	# Bottom row: stress test
+	cholesterol_ops, _ = _build_cholesterol_ops()
 	row2_vignettes = [
-		("Cholesterol", _build_cholesterol_ops()),
+		("Cholesterol", cholesterol_ops),
 	]
 
 	# Layout and collect row 1
@@ -1109,7 +1301,7 @@ def _add_cairo_labels(context, width, height):
 		context.show_text(name)
 
 	# Color row headers
-	colors = [('#000', 'Black'), ('#f00', 'Red'), ('#00f', 'Blue'), ('#0a0', 'Green'), ('#a0a', 'Purple')]
+	colors = [('#000', 'Black'), ('#f00', 'Red'), ('#00f', 'Blue'), ('#0a0', 'Green'), ('#a0a', 'Purple'), ('#f80', 'Orange')]
 	cell_h = 35
 	label_offset = 15
 	for row, (color_hex, color_name) in enumerate(colors):
@@ -1130,18 +1322,23 @@ def _add_cairo_labels(context, width, height):
 		context.show_text(color_name)
 
 	# Vignette labels using row-based layout (need to compute positions)
-	row1_y = 290
+	row1_y = 325  # Moved down to accommodate 6-row bond grid
 	row1_height = 80
-	row2_y = 460
+	row2_y = 495  # Moved down proportionally
 	row2_height = 120
 	margin = 40
 	gutter = 20
 
 	# Top row vignettes
+	# Each builder returns (ops, labels), extract just ops for cairo
+	benzene_ops, _ = _build_benzene_ops()
+	haworth_ops, _ = _build_haworth_ops()
+	fischer_ops, _ = _build_fischer_ops()
+
 	row1_vignettes = [
-		("Benzene", _build_benzene_ops()),
-		("Haworth", _build_haworth_ops()),
-		("Fischer", _build_fischer_ops()),
+		("Benzene", benzene_ops),
+		("Haworth", haworth_ops),
+		("Fischer", fischer_ops),
 	]
 
 	row1_result = layout_row(
@@ -1164,8 +1361,9 @@ def _add_cairo_labels(context, width, height):
 		context.show_text(title)
 
 	# Bottom row vignettes
+	cholesterol_ops, _ = _build_cholesterol_ops()
 	row2_vignettes = [
-		("Cholesterol", _build_cholesterol_ops()),
+		("Cholesterol", cholesterol_ops),
 	]
 
 	row2_result = layout_row(

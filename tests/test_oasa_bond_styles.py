@@ -20,7 +20,7 @@ BOND_STYLE_COLUMNS = [
 	("normal", "n", None),
 	("bold", "b", None),
 	("wedge", "w", None),
-	("hatch", "h", None),
+	("hashed", "h", None),
 	("wide-rect", "q", None),
 	("wavy-sine", "s", "sine"),
 	("wavy-box", "s", "box"),

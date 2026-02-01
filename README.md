@@ -9,6 +9,14 @@ conversion and analysis. This repository is the primary home for both projects.
 - `packages/oasa/` OASA (Open Architecture for Sketching Atoms and Molecules)
   library and CLI converters used by BKChem.
 
+## Terminology
+- Plugin: BKChem GUI extension (menu action or drawing mode) that runs inside the
+  editor and uses Tk/UI state.
+- Addon: filesystem plugin loaded from `packages/bkchem/addons/` or
+  `~/.bkchem/addons/`, described by a small XML manifest and script.
+- Codec: OASA format adapter for reading and writing molecules (SMILES, InChI,
+  molfile, CDML). Codecs are non-GUI and registered in OASA.
+
 ## BKChem
 BKChem is the user-facing drawing application. It uses OASA as the backend for
 structure parsing, conversion, and analysis.

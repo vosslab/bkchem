@@ -20,6 +20,13 @@ bkchem
 - Install and import instructions are in
   [packages/oasa/README.md](packages/oasa/README.md).
 
+## Terminology
+- Plugin: BKChem GUI extension that adds a menu action or drawing mode.
+- Addon: filesystem plugin loaded from the addons folders and described by an
+  XML descriptor plus a Python script.
+- Codec: OASA format adapter for reading and writing molecule data (SMILES,
+  InChI, molfile, CDML) without any GUI dependencies.
+
 ## Reference outputs
 - Regenerate Haworth and wavy-bond reference outputs using
   [tools/render_reference_outputs.py](tools/render_reference_outputs.py).

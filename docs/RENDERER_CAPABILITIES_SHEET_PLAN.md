@@ -2,7 +2,7 @@
 
 ## Purpose
 Create a single-page visual reference showing all OASA rendering capabilities:
-- Bond types (normal, bold, wedge, hatch, wavy, Haworth, etc.)
+- Bond types (normal, bold, wedge, hashed, wavy, Haworth, etc.)
 - Colors (per-bond colors, gradients)
 - Complex features (aromatic rings, Haworth projections, stereochemistry)
 
@@ -42,9 +42,7 @@ Since backend unification is complete:
 - Normal (`'n'`)
 - Bold (`'b'`)
 - Wedge (`'w'`)
-- Hatch (`'h'`)
-- Left hatch (`'l'`)
-- Right hatch (`'r'`)
+- Hashed (`'h'`)
 - Wide rectangle (`'q'` - Haworth front edge)
 - Wavy (`'s'`)
 - Double bond
@@ -64,7 +62,7 @@ Keep geometry identical across cells - visual differences come from rendering on
 **3-6 panels**, each exercising features the grid cannot:
 
 1. **Aromatic ring**: benzene with alternating double bonds or aromatic circle
-2. **Stereochemistry**: molecule with wedge and hatch bonds on chiral center
+2. **Stereochemistry**: molecule with wedge and hashed bonds on chiral center
 3. **Haworth rings**: pyranose and furanose side-by-side
 4. **Mixed colors**: molecule with bonds in different colors
 5. **Multi-bond**: molecule with single, double, triple bonds together

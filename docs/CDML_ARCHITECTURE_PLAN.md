@@ -160,7 +160,7 @@ def read_cdml(text, *, normalize_fn=None):
 
 **Golden corpus:**
 - benzene.cdml
-- stereochem.cdml (wedge/hatch)
+- stereochem.cdml (wedge/hashed)
 - haworth.cdml (sugars)
 - cholesterol.cdml (complex biomolecule)
 - legacy_weird.cdml (triggers migration)

@@ -162,7 +162,7 @@ Maintainability only improves when legacy paths are removed:
 
 - Deterministic vertex ordering is now the only source of hashed and wedge
   directionality, so nondeterminism on CDML read will flip stereochemistry or
-  hatch appearance.
+  hashed appearance.
 - GUI output drift: Phase 4 is required for visual parity but not for CDML
   correctness.
 
