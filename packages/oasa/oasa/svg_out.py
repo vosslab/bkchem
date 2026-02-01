@@ -19,6 +19,7 @@
 
 import copy
 import xml.dom.minidom as dom
+import defusedxml.minidom as safe_minidom
 
 from . import dom_extensions
 from . import render_ops
@@ -237,7 +238,7 @@ def mol_to_svg( mol, filename):
 def pretty_print_svg( svg_text):
   if isinstance( svg_text, bytes):
     svg_text = svg_text.decode("utf-8")
-  parsed = dom.parseString( svg_text)
+  parsed = safe_minidom.parseString( svg_text)
   pretty = parsed.toprettyxml( indent="  ")
   lines = [line for line in pretty.splitlines() if line.strip()]
   return "\n".join( lines)

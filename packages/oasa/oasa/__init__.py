@@ -57,6 +57,9 @@ from . import coords_optimizer
 from . import molfile
 from . import inchi
 from . import cdml
+from . import cdml_bond_io
+from . import bond_semantics
+from . import safe_xml
 from . import graph
 from . import linear_formula
 from . import periodic_table
@@ -83,6 +86,9 @@ _EXPORTED_MODULES = [
 	molfile,
 	inchi,
 	cdml,
+	cdml_bond_io,
+	bond_semantics,
+	safe_xml,
 	graph,
 	linear_formula,
 	periodic_table,
@@ -106,6 +112,7 @@ allNames = ['atom', 'bond', 'chem_vertex', 'coords_generator', 'config',
 	'oasa_exceptions', 'periodic_table', 'query_atom', 'smiles',
 	'stereochemistry', 'subsearch', 'svg_out', 'transform',
 	'transform3d']
+allNames.extend(["bond_semantics", "cdml_bond_io", "safe_xml"])
 allNames.append("__version__")
 
 try:

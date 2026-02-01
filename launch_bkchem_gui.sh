@@ -9,6 +9,6 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
 	exit 1
 fi
 
-export PYTHONPATH="${ROOT_DIR}/packages/bkchem:${ROOT_DIR}/packages/bkchem/bkchem:${ROOT_DIR}:${PYTHONPATH:-}"
+export PYTHONPATH="${ROOT_DIR}/packages/bkchem:${ROOT_DIR}/packages/bkchem/bkchem:${ROOT_DIR}/packages/oasa:${ROOT_DIR}/packages/oasa/oasa:${ROOT_DIR}:${PYTHONPATH:-}"
 
 exec "${PYTHON_BIN}" -m bkchem.cli "$@"

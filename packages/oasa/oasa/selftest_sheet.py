@@ -73,10 +73,11 @@ else:
 	from . import render_ops
 	from . import haworth
 
+# Prefer defusedxml for safety, fallback to stdlib
 try:
-	import xml.dom.minidom as dom
-except ImportError:
 	import defusedxml.minidom as dom
+except ImportError:
+	import xml.dom.minidom as dom
 
 
 #============================================
@@ -105,6 +106,133 @@ def get_page_dims(page, portrait):
 
 
 #============================================
+def ops_bbox(ops):
+	"""Compute bounding box of a list of render ops.
+
+	Args:
+		ops: List of render ops (LineOp, PolygonOp, CircleOp, PathOp)
+
+	Returns:
+		(minx, miny, maxx, maxy) or None if ops is empty
+	"""
+	if not ops:
+		return None
+
+	minx = miny = float('inf')
+	maxx = maxy = float('-inf')
+
+	for op in ops:
+		if isinstance(op, render_ops.LineOp):
+			# Include both endpoints plus half stroke width margin
+			margin = op.width / 2
+			minx = min(minx, op.p1[0] - margin, op.p2[0] - margin)
+			miny = min(miny, op.p1[1] - margin, op.p2[1] - margin)
+			maxx = max(maxx, op.p1[0] + margin, op.p2[0] + margin)
+			maxy = max(maxy, op.p1[1] + margin, op.p2[1] + margin)
+
+		elif isinstance(op, render_ops.PolygonOp):
+			# Include all points
+			for pt in op.points:
+				minx = min(minx, pt[0])
+				miny = min(miny, pt[1])
+				maxx = max(maxx, pt[0])
+				maxy = max(maxy, pt[1])
+
+		elif isinstance(op, render_ops.CircleOp):
+			# Include center ± radius
+			minx = min(minx, op.center[0] - op.radius)
+			miny = min(miny, op.center[1] - op.radius)
+			maxx = max(maxx, op.center[0] + op.radius)
+			maxy = max(maxy, op.center[1] + op.radius)
+
+		elif isinstance(op, render_ops.PathOp):
+			# Include all points from path commands
+			for cmd, payload in op.commands:
+				if payload is None:
+					continue
+				if cmd == "ARC":
+					# ARC: (cx, cy, r, angle1, angle2)
+					cx, cy, r, _a1, _a2 = payload
+					minx = min(minx, cx - r)
+					miny = min(miny, cy - r)
+					maxx = max(maxx, cx + r)
+					maxy = max(maxy, cy + r)
+				else:
+					# M, L: (x, y)
+					minx = min(minx, payload[0])
+					miny = min(miny, payload[1])
+					maxx = max(maxx, payload[0])
+					maxy = max(maxy, payload[1])
+
+	if minx == float('inf'):
+		return None
+
+	return (minx, miny, maxx, maxy)
+
+
+#============================================
+def place_ops_in_rect(ops, rect, align="center", padding=5, preserve_aspect=True):
+	"""Place ops inside a rectangle with scaling and alignment.
+
+	Args:
+		ops: List of render ops to place
+		rect: (x, y, width, height) rectangle to place ops in
+		align: "center", "left", "right", "top", "bottom"
+		padding: Padding inside rect in points
+		preserve_aspect: If True, maintain aspect ratio
+
+	Returns:
+		List of transformed ops
+	"""
+	bbox = ops_bbox(ops)
+	if bbox is None:
+		return []
+
+	minx, miny, maxx, maxy = bbox
+	content_width = maxx - minx
+	content_height = maxy - miny
+
+	if content_width == 0 or content_height == 0:
+		return []
+
+	rect_x, rect_y, rect_width, rect_height = rect
+	available_width = rect_width - 2 * padding
+	available_height = rect_height - 2 * padding
+
+	# Compute scale
+	if preserve_aspect:
+		scale = min(available_width / content_width, available_height / content_height)
+	else:
+		scale = min(available_width / content_width, available_height / content_height)
+
+	scaled_width = content_width * scale
+	scaled_height = content_height * scale
+
+	# Compute offset based on alignment
+	if align == "center":
+		dx = rect_x + padding + (available_width - scaled_width) / 2 - minx * scale
+		dy = rect_y + padding + (available_height - scaled_height) / 2 - miny * scale
+	elif align == "left":
+		dx = rect_x + padding - minx * scale
+		dy = rect_y + padding + (available_height - scaled_height) / 2 - miny * scale
+	elif align == "right":
+		dx = rect_x + padding + (available_width - scaled_width) - minx * scale
+		dy = rect_y + padding + (available_height - scaled_height) / 2 - miny * scale
+	elif align == "top":
+		dx = rect_x + padding + (available_width - scaled_width) / 2 - minx * scale
+		dy = rect_y + padding - miny * scale
+	elif align == "bottom":
+		dx = rect_x + padding + (available_width - scaled_width) / 2 - minx * scale
+		dy = rect_y + padding + (available_height - scaled_height) - miny * scale
+	else:
+		dx = rect_x + padding - minx * scale
+		dy = rect_y + padding - miny * scale
+
+	# Transform ops
+	return _transform_ops(ops, dx, dy, scale)
+
+
+#============================================
 def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, output_path=None, cairo_format="png"):
 	"""Build a capabilities sheet showing all rendering features.
 
@@ -119,11 +247,13 @@ def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, outp
 		SVG text (str) for SVG backend
 		None for cairo backend (writes directly to output_path)
 	"""
+	cairo = None
 	if backend == "cairo":
 		if output_path is None:
 			raise ValueError("output_path is required for cairo backend")
 		try:
-			import cairo
+			import cairo as cairo_module
+			cairo = cairo_module
 		except ImportError:
 			raise ImportError("pycairo is required for cairo backend. Install with: pip install pycairo")
 
@@ -134,7 +264,14 @@ def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, outp
 
 	if backend == "svg":
 		# SVG backend - build DOM tree
-		doc = dom.Document()
+		# defusedxml doesn't have Document(), use implementation
+		try:
+			from xml.dom.minidom import getDOMImplementation
+			impl = getDOMImplementation()
+			doc = impl.createDocument(None, None, None)
+		except:
+			import xml.dom.minidom
+			doc = xml.dom.minidom.Document()
 		svg = dom_extensions.elementUnder(
 			doc,
 			"svg",
@@ -183,8 +320,8 @@ def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, outp
 
 	elif backend == "cairo":
 		# Cairo backend - render directly to file
-		import cairo
-
+		if cairo is None:
+			raise RuntimeError("Cairo backend requested but pycairo is unavailable.")
 		# Create appropriate surface
 		if cairo_format == "png":
 			surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width), int(height))
@@ -243,10 +380,10 @@ def _build_bond_grid(parent):
 		('b', 'Bold'),
 		('w', 'Wedge'),
 		('h', 'Hatch'),
-		('l', 'Left hatch'),
-		('r', 'Right hatch'),
 		('q', 'Wide rect'),
-		('s', 'Wavy'),
+		('s', 'Wavy (sine)'),
+		('s_triangle', 'Wavy (tri)'),
+		('s_box', 'Wavy (box)'),
 	]
 
 	# Colors to show
@@ -326,13 +463,22 @@ def _build_bond_fragment(bond_type, color):
 	Returns:
 		List of ops for rendering
 	"""
-	# Handle special cases for bond order
+	# Handle special cases for bond order and wavy styles
+	wavy_style = None
 	if bond_type == '=' or bond_type == 2:
 		bond_order = 2
 		bond_type_code = 'n'
 	elif bond_type == '#' or bond_type == 3:
 		bond_order = 3
 		bond_type_code = 'n'
+	elif bond_type == 's_triangle':
+		bond_order = 1
+		bond_type_code = 's'
+		wavy_style = 'triangle'
+	elif bond_type == 's_box':
+		bond_order = 1
+		bond_type_code = 's'
+		wavy_style = 'box'
 	else:
 		bond_order = 1
 		bond_type_code = bond_type
@@ -351,6 +497,8 @@ def _build_bond_fragment(bond_type, color):
 	bond = bond_module.bond(order=bond_order, type=bond_type_code)
 	bond.vertices = (a1, a2)
 	bond.properties_['line_color'] = color
+	if wavy_style:
+		bond.properties_['wavy_style'] = wavy_style
 	mol.add_edge(a1, a2, bond)
 
 	# Build ops using existing infrastructure
@@ -439,8 +587,8 @@ def _build_vignettes(parent):
 	# Vignette layout - adjusted to fit on page
 	title_y = 270          # Fixed y-position for all titles
 	molecule_y = 360       # Fixed y-position for molecule start (well below titles)
-	vignette_spacing = 170 # Horizontal spacing between vignettes (reduced to fit Haworth)
-	vignette_scale = 1.5   # Reduced from 1.8 to fit both Haworth rings on page
+	vignette_spacing = 185 # Horizontal spacing between vignettes
+	vignette_scale = 1.2   # Reduced to fit both Haworth rings on page
 
 	vignettes = [
 		("Benzene (aromatic)", _build_benzene_ops),
@@ -593,10 +741,11 @@ def _build_haworth_ops():
 	furanose = _build_ring(5, oxygen_index=0)
 	haworth.build_haworth(furanose, mode="furanose")
 
-	# Offset furanose to the right of pyranose (reduced spacing to fit on page)
+	# Offset furanose to the right of pyranose (minimal spacing to fit on page)
 	max_x = max(a.x for a in pyranose.vertices)
-	min_x = min(a.x for a in pyranose.vertices)
-	offset = (max_x - min_x) + 30.0  # Reduced from 50 to 30 to fit on page
+	min_x_furanose = min(a.x for a in furanose.vertices)
+	# Place furanose with just 20 units gap from pyranose
+	offset = max_x - min_x_furanose + 20.0
 	for a in furanose.vertices:
 		a.x += offset
 
@@ -672,7 +821,7 @@ def _collect_all_ops(width, height):
 	# Bond types and colors
 	bond_types = [
 		('n', 'Normal'), ('b', 'Bold'), ('w', 'Wedge'), ('h', 'Hatch'),
-		('l', 'Left hatch'), ('r', 'Right hatch'), ('q', 'Wide rect'), ('s', 'Wavy'),
+		('q', 'Wide rect'), ('s', 'Wavy (sine)'), ('s_triangle', 'Wavy (tri)'), ('s_box', 'Wavy (box)'),
 	]
 	colors = [('#000', 'Black'), ('#f00', 'Red'), ('#00f', 'Blue'), ('#0a0', 'Green'), ('#a0a', 'Purple')]
 
@@ -700,8 +849,8 @@ def _collect_all_ops(width, height):
 
 	# Vignettes - adjusted to fit on page
 	molecule_y = 360       # Molecules positioned well below title line
-	vignette_spacing = 170 # Reduced to fit Haworth rings on page
-	vignette_scale = 1.5   # Reduced from 1.8 to fit both Haworth rings
+	vignette_spacing = 185 # Horizontal spacing
+	vignette_scale = 1.2   # Reduced to fit both Haworth rings on page
 
 	vignettes = [
 		("Benzene (aromatic)", _build_benzene_ops),
@@ -739,7 +888,7 @@ def _add_cairo_labels(context, width, height):
 	context.show_text(text)
 
 	# Bond type column headers
-	bond_types = ['Normal', 'Bold', 'Wedge', 'Hatch', 'Left hatch', 'Right hatch', 'Wide rect', 'Wavy']
+	bond_types = ['Normal', 'Bold', 'Wedge', 'Hatch', 'Wide rect', 'Wavy (sine)', 'Wavy (tri)', 'Wavy (box)']
 	context.select_font_face("sans-serif", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
 	context.set_font_size(9)
 	grid_x = 50
@@ -775,13 +924,13 @@ def _add_cairo_labels(context, width, height):
 
 	# Vignette labels - on separate line well above molecules
 	vignette_labels = ["Benzene (aromatic)", "Stereochemistry", "Haworth projections"]
-	vignette_spacing = 180
+	vignette_spacing = 185
 	title_y = 270
 	context.set_source_rgb(0, 0, 0)
 	context.set_font_size(11)
 	context.select_font_face("sans-serif", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 	for idx, label in enumerate(vignette_labels):
-		x = 60 + idx * vignette_spacing + 60  # +60 to center over molecule
+		x = 60 + idx * vignette_spacing + 50  # Adjusted centering
 		y = title_y
 		extents = context.text_extents(label)
 		context.move_to(x - extents.width / 2, y)
@@ -829,7 +978,7 @@ def main():
 	if args.output is None:
 		args.output = f"oasa_capabilities_sheet.{args.format}"
 
-	print(f"Generating capabilities sheet...")
+	print("Generating capabilities sheet...")
 
 	if args.format == "svg":
 		# SVG backend
@@ -845,6 +994,7 @@ def main():
 		# Cairo backend for PNG and PDF
 		try:
 			import cairo
+			_ = cairo
 		except ImportError:
 			print("ERROR: pycairo is required for PNG and PDF output")
 			print("Install with: pip install pycairo")

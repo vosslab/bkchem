@@ -45,8 +45,6 @@ class bond(edge, object):
   'b' - bold
   'd' - dash
   's' - wavy
-  'l' - left hatch (Haworth)
-  'r' - right hatch (Haworth)
   'q' - wide rectangle (Haworth)
   """
   attrs_to_copy = edge.attrs_to_copy + ("order","aromatic","type",

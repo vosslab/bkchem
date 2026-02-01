@@ -25,6 +25,8 @@ from . import dom_extensions as dom_ext
 from . import safe_xml
 from .atom import atom
 from .bond import bond
+from . import bond_semantics
+from . import cdml_bond_io
 from .molecule import molecule
 from .known_groups import cdml_to_smiles
 from .periodic_table import periodic_table as PT
@@ -73,26 +75,34 @@ def read_cdml( text):
       break
 
     for bond_el in dom_ext.simpleXPathSearch( mol_el, "bond"):
-      type = bond_el.getAttribute( 'type')
-      if type[1] == '0':
+      type_value = bond_el.getAttribute( 'type')
+      bond_type, order, legacy = bond_semantics.parse_cdml_bond_type( type_value)
+      if order == 0:
         # we ignore bonds with order 0
         continue
+      if not bond_type:
+        bond_type = 'n'
       v1 = atom_id_remap[ bond_el.getAttribute( 'start')]
       v2 = atom_id_remap[ bond_el.getAttribute( 'end')]
-      e = bond( order=int( type[1]), type=type[0])
-      color = bond_el.getAttribute( 'color')
-      if color:
-        e.line_color = color
-        e.properties_['line_color'] = color
-      wavy_style = bond_el.getAttribute( 'wavy_style')
-      if wavy_style:
-        e.wavy_style = wavy_style
-        e.properties_['wavy_style'] = wavy_style
-      hatch_side = bond_el.getAttribute( 'hatch_side')
-      if hatch_side:
-        e.hatch_side = hatch_side
-        e.properties_['hatch_side'] = hatch_side
+      e = bond( order=order, type=bond_type)
+      if legacy:
+        e.properties_[ 'legacy_bond_type'] = legacy
+      cdml_bond_io.read_cdml_bond_attributes(
+        bond_el,
+        e,
+        preserve_attrs={
+          'line_width',
+          'bond_width',
+          'wedge_width',
+          'double_ratio',
+          'center',
+          'auto_sign',
+          'equithick',
+          'simple_double',
+        },
+      )
       mol.add_edge( v1, v2, e=e)
+      bond_semantics.canonicalize_bond_vertices( e)
 
     if mol.is_connected():
       # this is here to handle diborane and similar weird things

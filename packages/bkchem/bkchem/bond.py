@@ -80,8 +80,6 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       # d = dotted - - - -
       # o = dotted . . . .
       # s = wavy
-      # l = left hatch (Haworth)
-      # r = right hatch (Haworth)
       # q = wide rectangle (Haworth)
     self.order = order
     if atoms:
@@ -1391,8 +1389,12 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     b = ['no', 'yes']
     type = package.getAttribute( 'type')
     if type:
-      self.type = type[0]
+      type_char = type[0]
+      normalized, legacy = oasa.bond_semantics.normalize_bond_type_char( type_char)
+      self.type = normalized or 'n'
       self.order = int( type[1])
+      if legacy:
+        self.properties_[ 'legacy_bond_type'] = legacy
     else:
       self.type = 'n'
       self.order = 1
@@ -1427,6 +1429,12 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     # end of implied
     self.atom1 = Store.id_manager.get_object_with_id( package.getAttribute( 'start'))
     self.atom2 = Store.id_manager.get_object_with_id( package.getAttribute( 'end'))
+    oasa.cdml_bond_io.read_cdml_bond_attributes(
+      package,
+      self,
+      known_attrs=oasa.cdml_bond_io.CDML_ALL_ATTRS,
+    )
+    oasa.bond_semantics.canonicalize_bond_vertices( self)
 
 
   def post_read_analysis( self):
@@ -1445,28 +1453,66 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     (the returned element is not inserted into the document)"""
     b = ['no', 'yes']
     bnd = doc.createElement('bond')
-    dom_extensions.setAttributes( bnd, (('type', "%s%d" % (self.type, self.order)),
-                                        ('line_width', str( self.line_width)),
-                                        ('start', self.atom1.id),
-                                        ('end', self.atom2.id),
-                                        ('id', str( self.id)),
-                                        ('double_ratio', str( self.double_length_ratio))))
+    dom_extensions.setAttributes(
+      bnd,
+      (
+        ('type', "%s%d" % (self.type, self.order)),
+        ('start', self.atom1.id),
+        ('end', self.atom2.id),
+        ('id', str( self.id)),
+      ),
+    )
+    values = {}
+    values['line_width'] = str( self.line_width)
+    values['double_ratio'] = str( self.double_length_ratio)
     if hasattr( self, 'equithick') and self.equithick:
-      bnd.setAttribute( 'equithick', str(1))
+      values['equithick'] = str(1)
     if self.order != 1:
-      bnd.setAttribute( 'bond_width', str( self.bond_width * self.paper.screen_to_real_ratio()))
-      if self.order == 2:
-        bnd.setAttribute( 'center', b[ int( self.center)])
+      values['bond_width'] = str( self.bond_width * self.paper.screen_to_real_ratio())
+      if self.order == 2 and self.center is not None:
+        values['center'] = b[ int( self.center)]
         if self.auto_bond_sign != 1:
-          bnd.setAttribute( 'auto_sign', str( self.auto_bond_sign))
+          values['auto_sign'] = str( self.auto_bond_sign)
     if self.type != 'n':
-      bnd.setAttribute( 'wedge_width', str( self.wedge_width * self.paper.screen_to_real_ratio()))
+      values['wedge_width'] = str( self.wedge_width * self.paper.screen_to_real_ratio())
     if self.line_color != '#000':
-      bnd.setAttribute( 'color', self.line_color)
+      values['color'] = self.line_color
     if self.type != 'n' and self.order != 1:
-      bnd.setAttribute( 'simple_double', str( int( self.simple_double)))
+      values['simple_double'] = str( int( self.simple_double))
+    if getattr( self, 'hatch_side', None):
+      values['hatch_side'] = self.hatch_side
     if self.wavy_style:
-      bnd.setAttribute( 'wavy_style', self.wavy_style)
+      values['wavy_style'] = self.wavy_style
+    defaults = {
+      'color': '#000',
+      'auto_sign': '1',
+      'equithick': '0',
+      'simple_double': '1',
+    }
+    if self.paper and self.paper.standard:
+      defaults['line_width'] = str( Screen.any_to_px( self.paper.standard.line_width))
+      defaults['double_ratio'] = str( self.paper.standard.double_length_ratio)
+      defaults['bond_width'] = str(
+        Screen.any_to_px( self.paper.standard.bond_width)
+        * self.paper.screen_to_real_ratio()
+      )
+      defaults['wedge_width'] = str(
+        Screen.any_to_px( self.paper.standard.wedge_width)
+        * self.paper.screen_to_real_ratio()
+      )
+    present = oasa.cdml_bond_io.get_cdml_present( self)
+    optional_attrs = oasa.cdml_bond_io.select_cdml_attributes(
+      values,
+      defaults=defaults,
+      present=present,
+    )
+    unknown_attrs = oasa.cdml_bond_io.collect_unknown_cdml_attributes(
+      self,
+      known_attrs=oasa.cdml_bond_io.CDML_ALL_ATTRS,
+      present=present,
+    )
+    if optional_attrs or unknown_attrs:
+      dom_extensions.setAttributes( bnd, tuple( optional_attrs + unknown_attrs))
     return bnd
 
 

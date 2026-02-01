@@ -24,6 +24,56 @@
 - Move the furanose oxygen to the top position and add a furanose oxygen
   placement check in `packages/oasa/oasa/haworth.py` and
   `tests/test_haworth_layout.py`.
+- Add Phase 0 BKChem CDML fixtures (basic types, stereo, aromatic ring, wavy
+  color, BKChem widths) under `tests/fixtures/bkchem_phase0/`.
+- Add a subprocess-backed BKChem CDML load/save/reload smoke test in
+  `tests/test_bkchem_cdml_smoke.py`.
+- Add unit coverage for the Phase 0 CDML fixtures in
+  `tests/test_bkchem_cdml_fixtures_unit.py`.
+- Add OASA bond semantics helpers (legacy type normalization and vertex
+  canonicalization) in `packages/oasa/oasa/bond_semantics.py`.
+- Normalize legacy bond types and canonicalize wedge/hashed vertex ordering on
+  CDML read in `packages/oasa/oasa/cdml.py`.
+- Normalize legacy bond types and canonicalize wedge/hashed vertex ordering on
+  BKChem CDML read in `packages/bkchem/bkchem/bond.py`.
+- Add vertex ordering tests for wedge/hashed bonds in
+  `tests/test_bond_vertex_ordering.py`.
+- Add CDML bond semantics tests (legacy type normalization and canonicalized
+  vertex ordering) in `tests/test_cdml_bond_semantics.py`.
+- Add CDML bond attribute helpers (presence tracking, unknown preservation,
+  and serialization selection) in `packages/oasa/oasa/cdml_bond_io.py`.
+- Route OASA CDML bond parsing through shared CDML attribute helpers in
+  `packages/oasa/oasa/cdml.py`.
+- Route BKChem CDML bond parsing and serialization through shared CDML
+  attribute helpers in `packages/bkchem/bkchem/bond.py`.
+- Add CDML bond IO unit tests in `tests/test_cdml_bond_io.py`.
+- Add a BKChem CDML bond serialization smoke test in
+  `tests/test_bkchem_cdml_bond_smoke.py`.
+- Export `bond_semantics`, `cdml_bond_io`, and `safe_xml` from
+  `packages/oasa/oasa/__init__.py` so BKChem uses local helpers.
+- Switch SVG pretty-print parsing to `defusedxml.minidom` in
+  `packages/oasa/oasa/svg_out.py`.
+- Fix Cairo import handling in the renderer capabilities sheet generator in
+  `packages/oasa/oasa/selftest_sheet.py`.
+- Update `launch_bkchem_gui.sh` to include local OASA paths in `PYTHONPATH`.
+- Add a CDML round-trip fixture in
+  `tests/fixtures/cdml_roundtrip/custom_attr.cdml`.
+- Generate reference outputs under `docs/reference_outputs/` using
+  `tools/render_reference_outputs.py`.
+- Add Phase 3 CDML round-trip fixtures in `tests/fixtures/cdml_roundtrip/`.
+- Add OASA CDML round-trip metadata tests in
+  `tests/test_cdml_roundtrip_oasa.py`.
+- Add BKChem CDML round-trip subprocess smoke test in
+  `tests/test_bkchem_cdml_roundtrip.py`.
+- Ensure BKChem CDML smoke tests include local OASA paths in
+  `tests/test_bkchem_cdml_smoke.py`.
+- Remove shebangs from pytest modules that are not intended to be executable:
+  `tests/test_bkchem_cdml_bond_smoke.py`,
+  `tests/test_bkchem_cdml_fixtures_unit.py`,
+  `tests/test_bkchem_cdml_smoke.py`,
+  `tests/test_bond_vertex_ordering.py`,
+  `tests/test_cdml_bond_io.py`,
+  `tests/test_cdml_bond_semantics.py`.
 - Remove left/right hatch rendering and map any legacy `l`/`r` bonds to standard
   hatch output in `packages/oasa/oasa/render_ops.py`, plus update the bond
   styles smoke list in `tests/test_oasa_bond_styles.py`.
