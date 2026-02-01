@@ -2,81 +2,110 @@
 
 ## Overview
 - BKChem is a Tkinter desktop application for drawing chemical structures.
-- The UI is a Tk window with a canvas-based drawing surface and tool modes.
-- The core chemistry model wraps the OASA (Open Architecture for Sketching
-  Atoms and Molecules) library for atoms, bonds, and graphs.
-- Native persistence is CDML, with SVG and other formats supported via exporters.
-- Plugins extend import, export, and workflow features.
+- OASA (Open Architecture for Sketching Atoms and Molecules) provides the
+  chemistry graph model, format conversions, and render backends.
+- CDML is the native document format, with SVG and other formats supported via
+  exporters and plugins.
 
-## Entry points and runtime
-- `packages/bkchem/bkchem/bkchem.py` boots the app, loads preferences, sets
-  locale, and parses CLI flags (batch mode, version, help).
-- `packages/bkchem/bkchem/main.py` defines the `BKChem` Tk application class and
-  builds menus, toolbars, mode buttons, and the main canvas.
-- Batch mode uses the same model and exporters without interactive bindings.
-
-## UI and interaction layer
-- `packages/bkchem/bkchem/paper.py` implements `chem_paper`, the main Tk Canvas
-  that manages the drawing stack, selection, and event bindings.
-- `packages/bkchem/bkchem/modes.py`, `packages/bkchem/bkchem/interactors.py`,
-  and `packages/bkchem/bkchem/context_menu.py` define editing modes and input
-  handling.
-- `packages/bkchem/bkchem/undo.py` and `packages/bkchem/bkchem/edit_pool.py`
-  handle undo stacks and edit history.
-- `packages/bkchem/bkchem/graphics.py` and
-  `packages/bkchem/bkchem/helper_graphics.py` render helper shapes.
-
-## Chemistry model and drawing objects
-- `packages/bkchem/bkchem/molecule.py` subclasses `oasa.molecule` and the BKChem
-  container base.
-- `packages/bkchem/bkchem/atom.py` and `packages/bkchem/bkchem/bond.py` extend
-  OASA atoms and bonds with drawing and UI metadata.
-- `packages/bkchem/bkchem/group.py`, `packages/bkchem/bkchem/fragment.py`,
-  `packages/bkchem/bkchem/reaction.py`, `packages/bkchem/bkchem/arrow.py`, and
-  `packages/bkchem/bkchem/textatom.py` implement higher-level objects.
-
-## OASA integration
-- The `packages/oasa/` package provides the chemistry graph model and format
-  parsers.
-- `packages/bkchem/bkchem/oasa_bridge.py` translates between BKChem molecules
-  and OASA molecules for SMILES, InChI, and molfile support.
-- The OASA docs are the source of truth for the dependency architecture.
-  [OASA code architecture](../packages/oasa/docs/CODE_ARCHITECTURE.md).
-
-## File formats and I O
-- CDML is the native document format; serialization lives in
-  `packages/bkchem/bkchem/xml_writer.py`,
-  `packages/bkchem/bkchem/dom_extensions.py`, and
-  `packages/bkchem/bkchem/CDML_versions.py`.
-- `packages/bkchem/bkchem/export.py` handles CDML and CD-SVG exports.
-- `packages/bkchem/bkchem/non_xml_writer.py` provides bitmap export when PIL is
-  available.
-- `packages/bkchem/bkchem/plugins/` contains built-in exporters for formats
-  such as PDF, PS, and SVG, plus integration helpers for Cairo.
-
-## Configuration and shared state
-- `packages/bkchem/bkchem/pref_manager.py`, `packages/bkchem/bkchem/config.py`,
-  and `packages/bkchem/bkchem/os_support.py` manage preferences and filesystem
-  paths.
-- `packages/bkchem/bkchem/singleton_store.py` holds shared app state (current
-  app, screen data).
-- `packages/bkchem/bkchem/messages.py` and `packages/bkchem/bkchem/logger.py`
-  provide user and log messaging.
-
-## Plugin system
-- `packages/bkchem/bkchem/plugin_support.py` loads XML descriptors from
-  `packages/bkchem/addons/` and user addon directories and executes script
-  addons.
-- Internal exporter plugins live in `packages/bkchem/bkchem/plugins/` and are
-  imported as code; they are separate from filesystem addons.
-- Plugin scripts run with access to the live application instance.
+## Major components
+- Application entry points
+  - [packages/bkchem/bkchem/bkchem.py](packages/bkchem/bkchem/bkchem.py) boots
+    the app, loads preferences, and parses CLI flags.
+  - [packages/bkchem/bkchem/cli.py](packages/bkchem/bkchem/cli.py) exposes the
+    console entry point for BKChem.
+  - [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py) defines the
+    `BKChem` Tk application class, menus, and mode wiring.
+- UI and interaction layer
+  - [packages/bkchem/bkchem/paper.py](packages/bkchem/bkchem/paper.py) implements
+    `chem_paper`, the main Tk Canvas for drawing, selection, and events.
+  - [packages/bkchem/bkchem/modes.py](packages/bkchem/bkchem/modes.py),
+    [packages/bkchem/bkchem/interactors.py](packages/bkchem/bkchem/interactors.py),
+    and [packages/bkchem/bkchem/context_menu.py](packages/bkchem/bkchem/context_menu.py)
+    define editing modes and input handlers.
+  - [packages/bkchem/bkchem/undo.py](packages/bkchem/bkchem/undo.py) and
+    [packages/bkchem/bkchem/edit_pool.py](packages/bkchem/bkchem/edit_pool.py)
+    manage undo stacks and edit history.
+- Chemistry model and drawing objects
+  - [packages/bkchem/bkchem/molecule.py](packages/bkchem/bkchem/molecule.py)
+    wraps [packages/oasa/oasa/molecule.py](packages/oasa/oasa/molecule.py).
+  - [packages/bkchem/bkchem/atom.py](packages/bkchem/bkchem/atom.py) and
+    [packages/bkchem/bkchem/bond.py](packages/bkchem/bkchem/bond.py) extend OASA
+    atoms and bonds with drawing metadata.
+  - [packages/bkchem/bkchem/group.py](packages/bkchem/bkchem/group.py),
+    [packages/bkchem/bkchem/fragment.py](packages/bkchem/bkchem/fragment.py),
+    [packages/bkchem/bkchem/reaction.py](packages/bkchem/bkchem/reaction.py),
+    [packages/bkchem/bkchem/arrow.py](packages/bkchem/bkchem/arrow.py), and
+    [packages/bkchem/bkchem/textatom.py](packages/bkchem/bkchem/textatom.py)
+    implement higher-level drawing objects.
+- OASA core library
+  - [packages/oasa/oasa/](packages/oasa/oasa/) contains the chemistry graph
+    model, parsers, and conversions.
+  - [packages/oasa/oasa/render_ops.py](packages/oasa/oasa/render_ops.py) defines
+    shared render ops for SVG and Cairo.
+  - [packages/oasa/oasa/svg_out.py](packages/oasa/oasa/svg_out.py) and
+    [packages/oasa/oasa/cairo_out.py](packages/oasa/oasa/cairo_out.py) render
+    shared ops to SVG and Cairo surfaces.
+  - [packages/oasa/oasa/haworth.py](packages/oasa/oasa/haworth.py) provides
+    Haworth layout helpers for carbohydrate projections.
+- File formats and I/O
+  - CDML serialization lives in
+    [packages/bkchem/bkchem/xml_writer.py](packages/bkchem/bkchem/xml_writer.py),
+    [packages/bkchem/bkchem/dom_extensions.py](packages/bkchem/bkchem/dom_extensions.py),
+    and [packages/bkchem/bkchem/CDML_versions.py](packages/bkchem/bkchem/CDML_versions.py).
+  - Export helpers live in
+    [packages/bkchem/bkchem/export.py](packages/bkchem/bkchem/export.py) and
+    [packages/bkchem/bkchem/non_xml_writer.py](packages/bkchem/bkchem/non_xml_writer.py).
+  - Built-in exporters live under
+    [packages/bkchem/bkchem/plugins/](packages/bkchem/bkchem/plugins/).
+- Templates and reusable structures
+  - Template loading is handled by
+    [packages/bkchem/bkchem/temp_manager.py](packages/bkchem/bkchem/temp_manager.py)
+    and catalog discovery in
+    [packages/bkchem/bkchem/template_catalog.py](packages/bkchem/bkchem/template_catalog.py).
+  - Built-in templates live under
+    [packages/bkchem/bkchem_data/templates/](packages/bkchem/bkchem_data/templates/),
+    including biomolecule templates in
+    [packages/bkchem/bkchem_data/templates/biomolecules/](packages/bkchem/bkchem_data/templates/biomolecules/).
+- Plugin system
+  - [packages/bkchem/bkchem/plugin_support.py](packages/bkchem/bkchem/plugin_support.py)
+    loads addon XML descriptors and scripts from
+    [packages/bkchem/addons/](packages/bkchem/addons/).
 
 ## Data flow
-1. `packages/bkchem/bkchem/bkchem.py` loads preferences, initializes locale, and
-   creates a `BKChem` instance.
-2. `BKChem.initialize()` builds the UI and constructs a `chem_paper` canvas.
-3. User input is routed through modes and interactors into canvas operations.
+1. [packages/bkchem/bkchem/bkchem.py](packages/bkchem/bkchem/bkchem.py) loads
+   preferences, initializes locale, and creates a `BKChem` instance.
+2. [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py) builds the UI
+   and constructs a [packages/bkchem/bkchem/paper.py](packages/bkchem/bkchem/paper.py)
+   canvas.
+3. User input routes through modes and interactors into canvas operations.
 4. `chem_paper` maintains a stack of top-level objects (molecules, arrows, text).
 5. Model edits update atoms and bonds, which redraw onto the canvas.
-6. Save and export paths serialize CDML or render SVG or bitmap output.
-7. Imports use OASA parsers and `oasa_bridge` to create BKChem molecules.
+6. Save and export paths serialize CDML or render SVG/bitmap output through OASA.
+7. Imports use OASA parsers and
+   [packages/bkchem/bkchem/oasa_bridge.py](packages/bkchem/bkchem/oasa_bridge.py)
+   to create BKChem molecules.
+
+## Testing and verification
+- Tests live under [tests/](tests/) with smoke and lint runners such as
+  [tests/run_smoke.sh](tests/run_smoke.sh) and
+  [tests/test_pyflakes_code_lint.py](tests/test_pyflakes_code_lint.py).
+- Haworth and render ops coverage includes
+  [tests/test_haworth_layout.py](tests/test_haworth_layout.py),
+  [tests/test_oasa_bond_styles.py](tests/test_oasa_bond_styles.py), and
+  [tests/test_render_ops_snapshot.py](tests/test_render_ops_snapshot.py).
+- Reference image checks live in
+  [tests/test_reference_outputs.py](tests/test_reference_outputs.py).
+
+## Extension points
+- Add new BKChem addons under [packages/bkchem/addons/](packages/bkchem/addons/)
+  with XML descriptors for discovery.
+- Add export plugins under
+  [packages/bkchem/bkchem/plugins/](packages/bkchem/bkchem/plugins/).
+- Add templates under
+  [packages/bkchem/bkchem_data/templates/](packages/bkchem/bkchem_data/templates/)
+  or subfolders scanned by
+  [packages/bkchem/bkchem/template_catalog.py](packages/bkchem/bkchem/template_catalog.py).
+
+## Known gaps
+- Verify how installer packaging bundles `bkchem_data` assets in macOS and
+  Windows distributions.

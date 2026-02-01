@@ -17,7 +17,7 @@
 ## Style targets (from local SVG samples)
 - Use filled polygons or thick strokes for front-facing ring edges.
 - Use thinner strokes for back-facing ring edges and substituent bonds.
-- Maintain a mild perspective skew for the ring (not a flat hexagon).
+- Keep ring geometry flat; use Haworth bond styles to convey front/back depth.
 - Use existing OASA/BKChem font settings and label spacing to avoid custom
   typography rules.
 
@@ -54,8 +54,15 @@
   - Assigns atom order and ring orientation.
   - Tags front bonds as bold and back bonds as normal, using existing bond
     styles instead of custom typography.
-  - Uses a vertical squash to match the "smushed" ring appearance in the
-    reference SVGs.
+  - Uses non-regular ring templates derived from sample Haworth drawings,
+    avoiding regular polygons.
+  - Keeps the ring flat and relies on Haworth bond styles for perspective.
+  - Ensures ring bond direction matches the ordered ring traversal so
+    wedge/hatch sides are deterministic.
+  - Normalizes ring traversal orientation (signed area) so left/right stays
+    stable across inputs.
+  - For wedge bonds, force the front vertex to be the wide end after
+    tagging the Haworth front edge.
   - Positions substituents up/down based on D/L and alpha/beta choices.
 - Add a minimal public API to request Haworth layout, for example:
   - `oasa.haworth.build_haworth(mol, mode="pyranose", stereo="alpha", series="D")`
@@ -66,8 +73,8 @@
   - In `svg_out.py`, pass the `line_width` argument to the SVG elements and
     apply the bold override when `bond.type == "b"`.
 - Add explicit Haworth bond styles:
-  - Left hatch bond for Haworth front edges.
-  - Right hatch bond for Haworth front edges.
+  - Wedge bond for Haworth side edges (solid, non-dashed).
+  - Left/right hatch bond variants for Haworth front edges (optional).
   - Wide rectangle bond for front-facing ring edges (NEUROtiker-style strip).
 - Add a wavy bond type (`'s'`) for non-canonical stereochemistry and map it to
   standard molfile stereo code 4 ("either") once rendering exists.
@@ -81,6 +88,8 @@
   show a different ratio.
 - Left/right hatch: same geometry mirrored horizontally across the bond
   centerline (no directional flag).
+- Haworth front selection: use the frontmost edge (largest screen y) for
+  the rectangle bond, then apply wedges/hatches on the adjacent edges.
 - Wavy bond: use a smooth sine wave (see `wavy_bond.png`) for "either"
   stereochemistry.
 
@@ -91,8 +100,10 @@
 
 ## Implementation phases
 1) Rendering: add per-bond thickness support in Cairo and SVG.
-2) Layout: implement pyranose and furanose ring templates with perspective
-   skew and bond thickness tagging.
+2) Layout: implement pyranose and furanose ring templates with Haworth
+   bond tagging.
+2.5) Ring oxygen placement: rotate the ring so the O atom sits at the top
+   portion of the ring when present.
 3) Substituents: position OH/CH2OH groups using up/down rules for D/L and
    alpha/beta.
 4) Bond styles: add full new bond type support in Cairo and SVG, including
@@ -104,8 +115,8 @@
 
 ## Testing plan
 ### Unit tests
-- Haworth layout geometry: verify ring templates yield expected atom order,
-  bond directions, and vertical squash proportions for pyranose and furanose.
+- Haworth layout geometry: verify ring templates yield expected atom order
+  and bond directions for pyranose and furanose.
 - Bond tagging: confirm front edges are tagged with the correct bond style
   (left hatch, right hatch, wide rectangle) and back edges remain normal.
 - Stereochemistry flags: confirm D/L and alpha/beta input toggles the expected
@@ -159,6 +170,9 @@
 ### Stage 6: Docs + reference outputs
 - Outcome: updated docs plus reference SVG/PNG for Haworth and wavy-bond
   glucose samples.
+- Store reference outputs under [docs/reference_outputs/](docs/reference_outputs/)
+  and document regeneration in
+  [docs/REFERENCE_OUTPUTS.md](docs/REFERENCE_OUTPUTS.md).
 - Tests: smoke test ensures reference outputs exist and are non-empty.
 
 ### Stage 7: CLI + batch output

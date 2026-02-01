@@ -52,6 +52,7 @@ import interactors
 import oasa_bridge
 import dom_extensions
 import safe_xml
+import template_catalog
 
 from paper import chem_paper
 from edit_pool import editPool
@@ -209,6 +210,10 @@ class BKChem( Tk):
       ( _("Edit"),  'command', _('Selected to clipboard as SVG'), None, _("Create SVG for the selected objects and place it to clipboard in text form"), lambda : self.paper.selected_to_real_clipboard_as_SVG(),  'selected'),
       ( _("Edit"),  'separator'),
       ( _("Edit"),  'command', _('Select all'), '(C-S-a)', _("Select everything on the paper"), lambda : self.paper.select_all(),  None),
+
+      # insert menu
+      ( _('Insert'), 'menu', _("Insert templates and reusable structures"), 'left'),
+      ( _("Insert"), 'command', _('Biomolecule template'), None, _("Insert a biomolecule template into the drawing"), self.insert_biomolecule_template, None),
 
       # align menu
       ( _('Align'), 'menu',    _("Aligning of selected objects"), 'left'),
@@ -415,6 +420,10 @@ class BKChem( Tk):
     Store.utm = template_manager()
     self.read_user_templates()
 
+    # manager for biomolecule templates
+    Store.btm = template_manager()
+    self.read_biomolecule_templates()
+
     # groups manager
     Store.gm = template_manager()
     Store.gm.add_template_from_CDML( "groups.cdml")
@@ -450,6 +459,7 @@ class BKChem( Tk):
                    'arrow': modes.arrow_mode(),
                    'plus': modes.plus_mode(),
                    'template': modes.template_mode(),
+                   'biotemplate': modes.biomolecule_template_mode(),
                    'text': modes.text_mode(),
                    'rotate': modes.rotate_mode(),
                    'bondalign': modes.bond_align_mode(),
@@ -463,7 +473,7 @@ class BKChem( Tk):
                    #'externaldata': modes.external_data_mode(),
                    #'rapiddraw': modes.rapid_draw_mode()
                    }
-    self.modes_sort = ['edit', 'draw', 'template', 'usertemplate', 'atom', 'mark', 'arrow',
+    self.modes_sort = ['edit', 'draw', 'template', 'biotemplate', 'usertemplate', 'atom', 'mark', 'arrow',
                        'plus', 'text', 'bracket', 'rotate', 'bondalign', 'vector', 'misc']#  'reaction', 'externaldata'] #, 'rapiddraw']
 
     # import plugin modes
@@ -1295,6 +1305,14 @@ Enter InChI:""")
     [Store.utm.add_template_from_CDML( n) for n in os_support.get_local_templates()]
 
 
+  def read_biomolecule_templates( self):
+    dirs = template_catalog.discover_biomolecule_template_dirs()
+    entries = template_catalog.scan_template_dirs( dirs)
+    for entry in entries:
+      label = template_catalog.format_entry_label( entry)
+      Store.btm.add_template_from_CDML( entry.path, name_override=label)
+
+
   def gen_inchi( self):
     program = Store.pm.get_preference( "inchi_program_path")
     self.paper.swap_sides_of_selected("horizontal")
@@ -1357,6 +1375,16 @@ Enter InChI:""")
     if name:
       self.save_CDML( name=name, update_default_dir=0)
       Store.log( _("The file was saved as a template %s") % name)
+
+
+  def insert_biomolecule_template( self):
+    if not Store.btm or not Store.btm.get_template_names():
+      Store.log( _("No biomolecule templates are available"))
+      return
+    if hasattr( self, 'radiobuttons') and 'biotemplate' in self.modes_sort:
+      self.radiobuttons.invoke( 'biotemplate')
+    else:
+      self.change_mode( 'biotemplate')
 
 
   def clean( self):

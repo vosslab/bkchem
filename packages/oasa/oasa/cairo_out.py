@@ -21,10 +21,11 @@ import copy
 import math
 import cairo
 
-from . import misc
 from . import geometry
-from . import transform3d
+from . import misc
+from . import render_ops
 from . import safe_xml
+from . import transform3d
 
 
 
@@ -104,7 +105,7 @@ class cairo_out(object):
   # all metrics is scaled properly, the values corespond to pixels only
   # when scaling is 1.0
   default_options = {
-    'scaling': 1.0,
+    'scaling': 2.0,
     # should atom coordinates be rounded to whole pixels before rendering?
     # This improves image sharpness but might slightly change the geometry
     'align_coords': True,
@@ -161,6 +162,7 @@ class cairo_out(object):
     self.molecule = mol
     for v in mol.vertices:
       self._draw_vertex( v)
+    self._shown_vertices = set( self._vertex_to_bbox.keys())
     for e in copy.copy( mol.edges):
       self._draw_edge( e)
 
@@ -268,87 +270,7 @@ class cairo_out(object):
       return round( x) + 0.5
     return round( x)
 
-
   def _draw_edge( self, e):
-    def draw_plain_or_colored_line( _start, _end, second=False):
-      """second means if this is not the main line, drawing might be different"""
-      if not has_shown_vertex or not self.color_bonds:
-        if not second:
-          self._draw_line( _start, _end, line_width=edge_line_width, capstyle=cairo.LINE_CAP_ROUND, color=color1)
-        else:
-          self._draw_line( _start, _end, line_width=edge_line_width, capstyle=cairo.LINE_CAP_BUTT, color=color1)
-      else:
-        self._draw_colored_line( _start, _end, line_width=edge_line_width, start_color=color1, end_color=color2)
-
-
-    def draw_plain_or_colored_wedge( _start, _end):
-      x1, y1 = _start
-      x2, y2 = _end
-      x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, self.wedge_width/2.0)
-      xa, ya, xb, yb = geometry.find_parallel( x1, y1, x2, y2, self.line_width/2.0)
-      # no coloring now
-      if not has_shown_vertex or not self.color_bonds:
-        self._create_cairo_path( [(xa, ya), (x0, y0), (2*x2-x0, 2*y2-y0), (2*x1-xa, 2*y1-ya)], closed=True)
-        self._set_source_color( color1)
-        self.context.fill()
-      else:
-        # ratio 0.4 looks better than 0.5 because the area difference
-        # is percieved more than length difference
-        ratio = 0.4
-        xm1 = ratio*xa + (1-ratio)*x0
-        ym1 = ratio*ya + (1-ratio)*y0
-        xm2 = (1-ratio)*(2*x2-x0) + ratio*(2*x1-xa)
-        ym2 = (1-ratio)*(2*y2-y0) + ratio*(2*y1-ya)
-        self._set_source_color( color1)
-        self._create_cairo_path( [(xa,ya), (xm1,ym1), (xm2,ym2), (2*x1-xa, 2*y1-ya)], closed=True)
-        self.context.fill()
-        self._set_source_color( color2)
-        self._create_cairo_path( [(xm1,ym1), (x0, y0), (2*x2-x0, 2*y2-y0), (xm2,ym2)], closed=True)
-        self.context.fill()
-
-
-    def draw_plain_or_colored_hatch( _start, _end):
-      x1, y1 = _start
-      x2, y2 = _end
-      # no coloring now
-      x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, self.wedge_width/2.0)
-      xa, ya, xb, yb = geometry.find_parallel( x1, y1, x2, y2, self.line_width/2.0)
-      d = math.sqrt( (x1-x2)**2 + (y1-y2)**2) # length of the bond
-      if d == 0:
-        return  # to prevent division by zero
-      dx1 = (x0 - xa)/d
-      dy1 = (y0 - ya)/d
-      dx2 = (2*x2 -x0 -2*x1 +xa)/d
-      dy2 = (2*y2 -y0 -2*y1 +ya)/d
-      # we have to decide if the first line should be at the position of the first atom
-      draw_start = 1  # is index not boolean
-      if not v1 in self._vertex_to_bbox and v1.occupied_valency > 1:
-        draw_start = 1
-      draw_end = 1    # is added to index not boolean
-      if not v2 in self._vertex_to_bbox and v2.occupied_valency > 1:
-        draw_end = 0
-      # adjust the step length
-      step_size = 2*(self.line_width)
-      ns = round( d / step_size) or 1
-      step_size = d / ns
-      # now we finally draw
-      self.context.set_line_cap( cairo.LINE_CAP_BUTT)
-      self._set_source_color( color1)
-      middle = 0.5 * (draw_start + int( round( d/ step_size)) + draw_end - 2)
-      for i in range( draw_start, int( round( d/ step_size)) +draw_end):
-        coords = [xa+dx1*i*step_size, ya+dy1*i*step_size, 2*x1-xa+dx2*i*step_size, 2*y1-ya+dy2*i*step_size]
-        if coords[0] == coords[2] and coords[1] == coords[3]:
-          if (dx1+dx2) > (dy1+dy2):
-            coords[0] += 1
-          else:
-            coords[1] += 1
-        self._create_cairo_path( [coords[:2],coords[2:]])
-        if i >= middle:
-          self.context.stroke()
-          self._set_source_color( color2)
-      self.context.stroke()
-
-    # code itself
     # at first detect the need to make 3D adjustments
     self._transform = transform3d.transform3d()
     self._invtransform = transform3d.transform3d()
@@ -373,90 +295,22 @@ class cairo_out(object):
     if coords:
       start = coords[:2]
       end = coords[2:]
-      v1, v2 = e.vertices
-      bond_color = self._edge_color( e)
-      if bond_color:
-        color1 = color2 = bond_color
-      elif self.color_bonds:
-        color1 = self.atom_colors.get( v1.symbol, (0,0,0))
-        color2 = self.atom_colors.get( v2.symbol, (0,0,0))
-      else:
-        color1 = color2 = (0,0,0)
-      has_shown_vertex = bool( [1 for _v in e.vertices if _v in self._vertex_to_bbox])
-      edge_line_width = self.line_width
-      if e.type == 'b':
-        edge_line_width = self.line_width * self.bold_line_width_multiplier
-
-      if e.order == 1:
-        if e.type == 'w':
-          draw_plain_or_colored_wedge( start, end)
-        elif e.type == 'h':
-          draw_plain_or_colored_hatch( start, end)
-        elif e.type == 'l':
-          self._draw_side_hatch( start, end, side=1, line_width=edge_line_width, color=color1)
-        elif e.type == 'r':
-          self._draw_side_hatch( start, end, side=-1, line_width=edge_line_width, color=color1)
-        elif e.type == 'q':
-          self._draw_wide_rectangle( start, end, line_width=edge_line_width, color=color1)
-        elif e.type == 's':
-          self._draw_wavy( start, end, style=self._wavy_style( e), line_width=edge_line_width, color=color1)
-        else:
-          draw_plain_or_colored_line( start, end)
-
-      if e.order == 2:
-        side = 0
-        # find how to center the bonds
-        # rings have higher priority in setting the positioning
-        in_ring = False
-        for ring in self.molecule.get_smallest_independent_cycles_dangerous_and_cached():
-          double_bonds = len( [b for b in self.molecule.vertex_subgraph_to_edge_subgraph(ring) if b.order == 2])
-          if v1 in ring and v2 in ring:
-            in_ring = True
-            side += double_bonds * sum(geometry.on_which_side_is_point(start + end, (a.x, a.y))
-                                           for a in ring
-                                               if a != v1 and a != v2)
-        # if rings did not decide, use the other neigbors
-        if not side:
-          for v in v1.neighbors + v2.neighbors:
-            if v != v1 and v!= v2:
-              side += geometry.on_which_side_is_point( start+end, (v.x, v.y))
-        # if neighbors did not decide either
-        if not side and (in_ring or not has_shown_vertex):
-          if in_ring:
-            # we don't want centered bonds inside rings
-            side = 1 # select arbitrary value
-          else:
-            # bond between two unshown atoms - we want to center them only in some cases
-            if len( v1.neighbors) == 1 and len( v2.neighbors) == 1:
-              # both atoms have only one neighbor
-              side = 0
-            elif len( v1.neighbors) < 3 and len( v2.neighbors) < 3:
-              # try to figure out which side is more towards the center of the molecule
-              side = sum(geometry.on_which_side_is_point(start + end, (a.x,a.y))
-                             for a in self.molecule.vertices
-                                 if a != v1 and a != v2)
-              if not side:
-                side = 1 # we choose arbitrary value, we don't want centering
-        if side:
-          draw_plain_or_colored_line( start, end)
-          x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], self.bond_width*misc.signum( side))
-          # shorten the second line
-          length = geometry.point_distance( x1,y1,x2,y2)
-          if v2 not in self._vertex_to_bbox:
-            x2, y2 = geometry.elongate_line( x1, y1, x2, y2, -self.bond_second_line_shortening*length)
-          if v1 not in self._vertex_to_bbox:
-            x1, y1 = geometry.elongate_line( x2, y2, x1, y1, -self.bond_second_line_shortening*length)
-          draw_plain_or_colored_line( (x1, y1), (x2, y2), second=True)
-        else:
-          for i in (1,-1):
-            x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], i*self.bond_width*0.5)
-            draw_plain_or_colored_line( (x1, y1), (x2, y2))
-
-      elif e.order == 3:
-        draw_plain_or_colored_line( start, end)
-        for i in (1,-1):
-          x1, y1, x2, y2 = geometry.find_parallel( start[0], start[1], end[0], end[1], i*self.bond_width*0.7)
-          draw_plain_or_colored_line( (x1, y1), (x2, y2), second=True)
+      context = render_ops.BondRenderContext(
+        molecule=self.molecule,
+        line_width=self.line_width,
+        bond_width=self.bond_width,
+        wedge_width=self.wedge_width,
+        bold_line_width_multiplier=self.bold_line_width_multiplier,
+        bond_second_line_shortening=self.bond_second_line_shortening,
+        color_bonds=self.color_bonds,
+        atom_colors=self.atom_colors,
+        shown_vertices=self._shown_vertices,
+        bond_coords=None,
+        bond_coords_provider=self._bond_coords_for_edge,
+        point_for_atom=self._point_for_atom,
+      )
+      ops = render_ops.build_bond_ops( e, start, end, context)
+      render_ops.ops_to_cairo( self.context, ops)
 
     if transform:
       # if transform was used, we need to transform back
@@ -464,134 +318,16 @@ class cairo_out(object):
         n.coords = self._invtransform.transform_xyz( *n.coords)
 
 
-  def _draw_side_hatch( self, start, end, side=1, line_width=1.0, color=(0,0,0)):
-    x1, y1 = start
-    x2, y2 = end
-    d = geometry.point_distance( x1, y1, x2, y2)
-    if d == 0:
-      return
-    dx = (x2 - x1) / d
-    dy = (y2 - y1) / d
-    px = -dy
-    py = dx
-    step_size = 2 * line_width
-    ns = round( d / step_size) or 1
-    step_size = d / ns
-    offset = side * self.wedge_width
-    self.context.set_line_cap( cairo.LINE_CAP_BUTT)
-    self._set_source_color( color)
-    for i in range( 0, int( round( d / step_size)) + 1):
-      bx = x1 + dx * i * step_size
-      by = y1 + dy * i * step_size
-      ex = bx + px * offset
-      ey = by + py * offset
-      self._create_cairo_path( [(bx, by), (ex, ey)])
-    self.context.set_line_width( line_width)
-    self.context.stroke()
+  def _point_for_atom( self, atom):
+    return (atom.x, atom.y)
 
 
-  def _draw_wavy( self, start, end, style="sine", line_width=1.0, color=(0,0,0)):
-    points = self._wave_points( start, end, style=style)
-    if not points:
-      return
-    self._create_cairo_path( points)
-    self.context.set_line_cap( cairo.LINE_CAP_ROUND)
-    self.context.set_line_width( line_width)
-    self._set_source_color( color)
-    self.context.stroke()
-
-
-  def _draw_wide_rectangle( self, start, end, line_width=1.0, color=(0,0,0)):
-    x1, y1 = start
-    x2, y2 = end
-    d = geometry.point_distance( x1, y1, x2, y2)
-    if d == 0:
-      return
-    dx = (x2 - x1) / d
-    dy = (y2 - y1) / d
-    px = -dy
-    py = dx
-    half = (line_width * self.bold_line_width_multiplier) / 2.0
-    points = [(x1 + px * half, y1 + py * half),
-              (x1 - px * half, y1 - py * half),
-              (x2 - px * half, y2 - py * half),
-              (x2 + px * half, y2 + py * half)]
-    self._create_cairo_path( points, closed=True)
-    self._set_source_color( color)
-    self.context.fill()
-
-
-  def _wave_points( self, start, end, style="sine"):
-    x1, y1 = start
-    x2, y2 = end
-    d = geometry.point_distance( x1, y1, x2, y2)
-    if d == 0:
-      return []
-    dx = (x2 - x1) / d
-    dy = (y2 - y1) / d
-    px = -dy
-    py = dx
-    amplitude = max( self.line_width * 1.5, 1.0)
-    wavelength = max( self.line_width * 6.0, 6.0)
-    steps = int( max( d / (wavelength / 8.0), 8))
-    step_size = d / steps
-    points = []
-    for i in range( steps + 1):
-      t = i * step_size
-      phase = (t / wavelength)
-      if style == "triangle":
-        value = 2 * abs( 2 * (phase - math.floor( phase + 0.5))) - 1
-      elif style == "box":
-        value = 1.0 if math.sin( 2 * math.pi * phase) >= 0 else -1.0
-      elif style == "half-circle":
-        half = wavelength / 2.0
-        local = (t % half) / half
-        value = math.sqrt( max( 0.0, 1 - (2 * local - 1) ** 2))
-        if int( t / half) % 2:
-          value *= -1
-      else:
-        value = math.sin( 2 * math.pi * phase)
-      ox = px * amplitude * value
-      oy = py * amplitude * value
-      points.append( (x1 + dx * t + ox, y1 + dy * t + oy))
-    return points
-
-
-  def _edge_color( self, e):
-    color = getattr( e, "line_color", None)
-    if not color:
-      color = e.properties_.get( "line_color") or e.properties_.get( "color")
-    return self._parse_hex_color( color)
-
-
-  def _wavy_style( self, e):
-    return (getattr( e, "wavy_style", None)
-            or e.properties_.get( "wavy_style")
-            or "sine")
-
-
-  def _parse_hex_color( self, color):
-    if not color:
+  def _bond_coords_for_edge( self, edge):
+    coords = self._where_to_draw_from_and_to( edge)
+    if not coords:
       return None
-    if isinstance( color, tuple) and len( color) in (3, 4):
-      return color
-    if not isinstance( color, str):
-      return None
-    text = color.strip()
-    if not text.startswith( "#"):
-      return None
-    value = text[1:]
-    if len( value) == 3:
-      value = "".join( ch * 2 for ch in value)
-    if len( value) != 6:
-      return None
-    try:
-      r = int( value[0:2], 16) / 255.0
-      g = int( value[2:4], 16) / 255.0
-      b = int( value[4:6], 16) / 255.0
-    except ValueError:
-      return None
-    return (r, g, b)
+    return (coords[:2], coords[2:])
+
 
   def _where_to_draw_from_and_to( self, b):
     def fix_bbox( a):
@@ -754,36 +490,6 @@ class cairo_out(object):
 
 
   ## ------------------------------ lowlevel drawing methods ------------------------------
-  def _draw_colored_line( self, start, end, line_width=1, capstyle=cairo.LINE_CAP_BUTT,
-                          start_color=(0,0,0), end_color=(0,0,0)):
-    x1,y1 = start
-    x2,y2 = end
-    length = geometry.point_distance( x1,y1,x2,y2)
-    xn2,yn2 = geometry.elongate_line( x1,y1,x2,y2, -0.5*length)
-    line1 = [(x1,y1),(xn2,yn2)]
-    xn1,yn1 = geometry.elongate_line( x2,y2,x1,y1, -0.5*length)
-    line2 = [(xn1,yn1),(x2,y2)]
-    self.context.set_line_cap( cairo.LINE_CAP_BUTT) # this is forced here
-    self.context.set_line_width( line_width)
-    for line,color in zip( [line1,line2], [start_color,end_color]):
-      self.context.set_source_rgb( *color)
-      self._create_cairo_path( line, closed=False)
-      self.context.stroke()
-
-
-  def _draw_line( self, start, end, line_width=1, capstyle=cairo.LINE_CAP_BUTT, color=(0,0,0)):
-    self.context.set_source_rgb( *color)
-    # cap style
-    self.context.set_line_cap( capstyle)
-    # line width
-    self.context.set_line_width( line_width)
-    # the path itself
-    cs = [start, end]
-    self._create_cairo_path( cs, closed=False)
-    # stroke it
-    self.context.stroke()
-
-
   def _draw_text( self, xy, text, font_name=None, font_size=None, center_letter=None,
                   color=(0,0,0)):
     class text_chunk(object):

@@ -1130,7 +1130,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
 
   def _draw_q1( self):
-    thickness = self.line_width * 1.2
+    thickness = self.paper.real_to_canvas(self.wedge_width)
     polygon = self._polygon_bond_mask( thickness1=thickness, thickness2=thickness)
     if polygon:
       self.item = self._create_polygon_with_transform( polygon, width=0, fill=self.line_color, joinstyle="miter")

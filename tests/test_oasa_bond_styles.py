@@ -16,18 +16,26 @@ import oasa
 
 
 DEFAULT_SMILES = "CCCCC"
-PRINTER_BOND_TYPES = [
-	('n', None, '#000000'),
-	('b', None, '#239e2d'),
-	('w', None, '#d94a2d'),
-	('h', None, '#2d5fd9'),
-	('l', None, '#8a2dd9'),
-	('r', None, '#d92d8a'),
-	('q', None, '#d9a12d'),
-	('s', 'sine', '#2dd9c1'),
-	('s', 'half-circle', '#2d8ad9'),
-	('s', 'box', '#2dd94a'),
-	('s', 'triangle', '#d92d2d'),
+BOND_STYLE_COLUMNS = [
+	("normal", "n", None),
+	("bold", "b", None),
+	("wedge", "w", None),
+	("hatch", "h", None),
+	("wide-rect", "q", None),
+	("wavy-sine", "s", "sine"),
+	("wavy-box", "s", "box"),
+	("wavy-triangle", "s", "triangle"),
+	("wavy-half-circle", "s", "half-circle"),
+]
+PRINTER_COLORS = [
+	"#000000",
+	"#239e2d",
+	"#d94a2d",
+	"#2d5fd9",
+	"#8a2dd9",
+	"#d92d8a",
+	"#d9a12d",
+	"#2dd9c1",
 ]
 
 
@@ -67,32 +75,29 @@ def build_molecule():
 def build_printer_self_test():
 	"""Build a molecule with all bond styles and colors for smoke testing."""
 	mol = oasa.molecule()
-	spacing_x = 60
-	spacing_y = 45
-	segment = 40
-	cols = 3
-	for idx, (bond_type, wavy_style, color) in enumerate(PRINTER_BOND_TYPES):
-		row = idx // cols
-		col = idx % cols
-		x = col * spacing_x
-		y = row * spacing_y
-		a1 = oasa.atom(symbol='C')
-		a2 = oasa.atom(symbol='C')
-		a1.x = x
-		a1.y = y
-		a2.x = x + segment
-		a2.y = y
-		mol.add_vertex(a1)
-		mol.add_vertex(a2)
-		bond = oasa.bond(order=1, type=bond_type)
-		if wavy_style:
-			bond.wavy_style = wavy_style
-			bond.properties_['wavy_style'] = wavy_style
-		if color:
+	spacing_x = 110
+	spacing_y = 70
+	segment = 80
+	for row, color in enumerate(PRINTER_COLORS):
+		for col, (_label, bond_type, wavy_style) in enumerate(BOND_STYLE_COLUMNS):
+			x = col * spacing_x
+			y = row * spacing_y
+			a1 = oasa.atom(symbol='C')
+			a2 = oasa.atom(symbol='C')
+			a1.x = x
+			a1.y = y
+			a2.x = x + segment
+			a2.y = y
+			mol.add_vertex(a1)
+			mol.add_vertex(a2)
+			bond = oasa.bond(order=1, type=bond_type)
+			if wavy_style:
+				bond.wavy_style = wavy_style
+				bond.properties_['wavy_style'] = wavy_style
 			bond.line_color = color
 			bond.properties_['line_color'] = color
-		bond.vertices = (a1, a2)
-		mol.add_edge(a1, a2, bond)
+			bond.vertices = (a1, a2)
+			mol.add_edge(a1, a2, bond)
 	return mol
 
 
@@ -110,10 +115,10 @@ def render_svg(mol, output_path):
 
 
 #============================================
-def render_png(mol, output_path):
+def render_png(mol, output_path, scaling=1.0):
 	"""Render a molecule to PNG using cairo_out."""
 	from oasa import cairo_out
-	renderer = cairo_out.cairo_out(color_bonds=False, color_atoms=False)
+	renderer = cairo_out.cairo_out(color_bonds=False, color_atoms=False, scaling=scaling)
 	renderer.line_width = 2
 	renderer.bold_line_width_multiplier = 1.2
 	renderer.mols_to_cairo([mol], output_path, format="png")
@@ -130,7 +135,7 @@ def test_oasa_bond_styles_svg(output_dir):
 
 	with open(svg_path, 'r', encoding='utf-8') as handle:
 		svg_text = handle.read()
-	assert "<polygon" in svg_text
+	assert "<path" in svg_text
 	assert 'stroke-linecap="butt"' in svg_text
 	assert 'stroke-width="2.4"' in svg_text
 
@@ -155,8 +160,9 @@ def test_oasa_bond_styles_printer_svg(output_dir):
 	assert os.path.getsize(svg_path) > 0
 	with open(svg_path, 'r', encoding='utf-8') as handle:
 		svg_text = handle.read()
-	assert "<polyline" in svg_text
+	assert "<path" in svg_text
 	assert "#239e2d" in svg_text
+	assert "#d92d8a" in svg_text
 
 
 #============================================
@@ -165,6 +171,6 @@ def test_oasa_bond_styles_printer_png(output_dir):
 		pytest.skip("Cairo backend not available.")
 	mol = build_printer_self_test()
 	png_path = output_path(output_dir, "oasa_bond_styles_printer_self_test.png")
-	render_png(mol, png_path)
+	render_png(mol, png_path, scaling=2.0)
 	assert os.path.isfile(png_path)
 	assert os.path.getsize(png_path) > 0

@@ -48,6 +48,7 @@ import external_data
 import dom_extensions
 import special_parents
 import helper_graphics as hg
+import template_catalog
 
 from bond import bond
 from atom import atom
@@ -2045,6 +2046,170 @@ class reaction_mode( basic_mode):
     self.cleanup( old_paper)
     self.startup()
     self.on_submode_switch( 0)
+
+
+
+## -------------------- BIOMOLECULE TEMPLATE MODE --------------------
+class biomolecule_template_mode( template_mode):
+
+  def __init__( self):
+    template_mode.__init__( self)
+    self.name = _('biomolecule templates')
+    self.template_manager = Store.btm
+    self._category_keys = []
+    self._category_labels = []
+    self._category_label_to_key = {}
+    self._category_templates = {}
+    self._category_template_indices = {}
+    self._template_labels = []
+    self._template_indices = []
+    self._build_biomolecule_catalog()
+    self.submodes = [self._category_labels, self._template_labels]
+    self.submodes_names = [self._category_labels, self._template_labels]
+    self.submode = [0, 0]
+    self.pulldown_menu_submodes = [0, 1]
+
+
+  def _build_biomolecule_catalog( self):
+    entries = template_catalog.scan_template_dirs(
+      template_catalog.discover_biomolecule_template_dirs()
+    )
+    template_names = self.template_manager.get_template_names()
+    label_to_index = {}
+    for i, label in enumerate( template_names):
+      label_to_index[ label] = i
+    catalog = template_catalog.build_category_map( entries)
+    self._category_keys = sorted( catalog.keys())
+    self._category_labels = [self._format_label( key) for key in self._category_keys]
+    self._category_label_to_key = dict( zip( self._category_labels, self._category_keys))
+    for key in self._category_keys:
+      subcats = catalog[ key]
+      entries_flat = []
+      for subcat in sorted( subcats.keys()):
+        entries_flat.extend( subcats[ subcat])
+      labels = []
+      indices = []
+      for entry in entries_flat:
+        label = template_catalog.format_entry_label( entry)
+        if label not in label_to_index:
+          continue
+        labels.append( label)
+        indices.append( label_to_index[ label])
+      self._category_templates[ key] = labels
+      self._category_template_indices[ key] = indices
+    if self._category_labels:
+      self._apply_category_selection( self._category_labels[0])
+
+
+  def _format_label( self, text):
+    return text.replace( "_", " ").strip()
+
+
+  def _apply_category_selection( self, label):
+    key = self._category_label_to_key.get( label)
+    if not key and self._category_keys:
+      key = self._category_keys[0]
+    if key:
+      self._template_labels = self._category_templates.get( key, [])
+      self._template_indices = self._category_template_indices.get( key, [])
+    else:
+      self._template_labels = []
+      self._template_indices = []
+
+
+  def _update_template_menu( self):
+    if not hasattr( Store.app, "subbuttons"):
+      return
+    if len( Store.app.subbuttons) < 2:
+      return
+    menu = Store.app.subbuttons[1]
+    if hasattr( menu, "setitems"):
+      menu.setitems( self._template_labels)
+    if self._template_labels and hasattr( menu, "setvalue"):
+      menu.setvalue( self._template_labels[0])
+
+
+  def _get_selected_template_index( self):
+    if not self._template_indices:
+      return None
+    if len( self.submode) < 2:
+      return self._template_indices[0]
+    index = self.submode[1]
+    if index < 0 or index >= len( self._template_indices):
+      return None
+    return self._template_indices[ index]
+
+
+  def _get_transformed_template( self, template_index, coords, type='empty', paper=None):
+    return self.template_manager.get_transformed_template( template_index, coords, type=type, paper=paper)
+
+
+  def _get_templates_valency( self, template_index):
+    return self.template_manager.get_templates_valency( template_index)
+
+
+  def on_submode_switch( self, submode_index, name=''):
+    if submode_index == 0:
+      self._apply_category_selection( name)
+      self.submodes[1] = self._template_labels
+      self.submodes_names[1] = self._template_labels
+      if self._template_labels:
+        self.submode[1] = 0
+      self._update_template_menu()
+
+
+  def mouse_click( self, event):
+    template_index = self._get_selected_template_index()
+    if template_index is None:
+      Store.log( _("No biomolecule template is available"))
+      return
+    Store.app.paper.unselect_all()
+    if not self.focused:
+      xy = Store.app.paper.canvas_to_real((event.x, event.y))
+      t = self._get_transformed_template( template_index,
+                                          xy,
+                                          type='empty', paper=Store.app.paper)
+    else:
+      if isinstance( self.focused, oasa.graph.vertex):
+        if self.focused.z != 0:
+          Store.log( _("Sorry, it is not possible to append a template to an atom with non-zero Z coordinate, yet."),
+                        message_type="hint")
+          return
+        if self.focused.free_valency >= self._get_templates_valency( template_index):
+          x1, y1 = self.focused.neighbors[0].get_xy()
+          x2, y2 = self.focused.get_xy()
+          t = self._get_transformed_template( template_index, (x1,y1,x2,y2), type='atom1', paper=Store.app.paper)
+        else:
+          x1, y1 = self.focused.get_xy()
+          x2, y2 = self.focused.molecule.find_place( self.focused, Screen.any_to_px( Store.app.paper.standard.bond_length))
+          t = self._get_transformed_template( template_index, (x1,y1,x2,y2), type='atom2', paper=Store.app.paper)
+      elif isinstance( self.focused, bond):
+        x1, y1 = self.focused.atom1.get_xy()
+        x2, y2 = self.focused.atom2.get_xy()
+        #find right side of bond to append template to
+        atms = self.focused.atom1.neighbors + self.focused.atom2.neighbors
+        atms = misc.difference( atms, [self.focused.atom1, self.focused.atom2])
+        coords = [a.get_xy() for a in atms]
+        if sum(geometry.on_which_side_is_point((x1,y1,x2,y2), xy) for xy in coords) > 0:
+          x1, y1, x2, y2 = x2, y2, x1, y1
+        t = self._get_transformed_template( template_index, (x1,y1,x2,y2), type='bond', paper=Store.app.paper)
+        if not t:
+          return # the template was not meant to be added to a bond
+      else:
+        return
+    Store.app.paper.stack.append( t)
+    t.draw( automatic="both")
+    Store.app.paper.select( [o for o in t])
+    Store.app.paper.handle_overlap()
+    # checking of valency
+    if self.focused:
+      if isinstance( self.focused, bond) and (self.focused.atom1.free_valency < 0 or self.focused.atom2.free_valency < 0):
+        Store.log( _("maximum valency exceeded!"), message_type="warning")
+      elif isinstance( self.focused, oasa.graph.vertex) and self.focused.free_valency < 0:
+        Store.log( _("maximum valency exceeded!"), message_type="warning")
+
+    Store.app.paper.start_new_undo_record()
+    Store.app.paper.add_bindings()
 
 
 

@@ -33,6 +33,7 @@ class Store(object):
   app = None          # the application
   tm = None           # the template manager
   utm = None          # uset templates manager
+  btm = None          # biomolecule templates manager
   gm = None           # the group manager
   pm = None           # the preferences manager
   logger = None       # the logger

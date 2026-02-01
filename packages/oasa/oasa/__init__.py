@@ -66,6 +66,7 @@ from .chem_vertex import chem_vertex
 from . import oasa_exceptions
 from . import subsearch
 from . import svg_out
+from . import haworth
 from . import stereochemistry
 from . import geometry
 from . import transform3d
@@ -91,6 +92,7 @@ _EXPORTED_MODULES = [
 	oasa_exceptions,
 	subsearch,
 	svg_out,
+	haworth,
 	stereochemistry,
 	geometry,
 	transform3d,

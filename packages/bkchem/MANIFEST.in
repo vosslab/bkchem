@@ -5,6 +5,7 @@ include addons/*.py
 include addons/*.xml
 include bkchem_data/templates/*.cdml
 include bkchem_data/templates/*.xml
+recursive-include bkchem_data/templates/biomolecules *.cdml
 include bkchem_data/pixmaps/*.gif
 include bkchem_data/images/*.ppm
 include bkchem_data/images/*.ico

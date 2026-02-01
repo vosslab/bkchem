@@ -52,7 +52,14 @@ class editPool( Frame):
     Frame.__init__( self, master, **kw)
     self.text = ''
     self.interpret = 1
-    self.editPool = Entry( self, width=50, state='disabled', font="Helvetica 12")
+    self.editPool = Entry(
+      self,
+      width=50,
+      state='disabled',
+      font="Helvetica 12",
+      disabledbackground=config.background_color,
+      disabledforeground="#555555",
+    )
     self.editPool.pack( side='left')
 
     self.editPool.bind( '<Return>', self._interpretButtonPressed)

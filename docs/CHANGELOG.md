@@ -1,5 +1,95 @@
 # Changelog
 
+## 2026-02-01
+- Add [docs/RENDER_BACKEND_UNIFICATION.md](docs/RENDER_BACKEND_UNIFICATION.md)
+  to plan the shared render-ops backend for SVG and Cairo.
+- Refine [docs/RENDER_BACKEND_UNIFICATION.md](docs/RENDER_BACKEND_UNIFICATION.md)
+  with a shared context-provider rule and ops-JSON acceptance criteria.
+- Add invariants and scope boundaries to
+  [docs/RENDER_BACKEND_UNIFICATION.md](docs/RENDER_BACKEND_UNIFICATION.md) to
+  pin down rounding, ordering, and out-of-scope text rendering.
+- Add rounded wedge geometry helpers in
+  `packages/oasa/oasa/wedge_geometry.py` and default wedge bonds to the rounded
+  ops path in `packages/oasa/oasa/render_ops.py`.
+- Refine rounded wedge geometry to use flat wide ends with corner fillets and
+  update Haworth wedges, snapshots, and unit coverage in
+  `packages/oasa/oasa/wedge_geometry.py`,
+  `packages/oasa/oasa/render_ops.py`,
+  `tests/fixtures/render_ops_snapshot.json`, and
+  `tests/test_wedge_geometry.py`.
+- Update [docs/ROUNDED_WEDGES_PLAN.md](docs/ROUNDED_WEDGES_PLAN.md) to describe
+  corner fillets and the flat-base wedge shape.
+- Include the in-ring oxygen in the Haworth SVG/PNG smoke layout builder in
+  `tests/test_haworth_layout.py`.
+- Move the furanose oxygen to the top position and add a furanose oxygen
+  placement check in `packages/oasa/oasa/haworth.py` and
+  `tests/test_haworth_layout.py`.
+- Remove left/right hatch rendering and map any legacy `l`/`r` bonds to standard
+  hatch output in `packages/oasa/oasa/render_ops.py`, plus update the bond
+  styles smoke list in `tests/test_oasa_bond_styles.py`.
+- Drop the Haworth wedge front-cap hook so Haworth wedges use the shared rounded
+  wedge path in `packages/oasa/oasa/render_ops.py`.
+- Remove the legacy straight-wedge fallback so all wedges use the rounded
+  geometry path in `packages/oasa/oasa/render_ops.py`.
+- Add `launch_bkchem_gui.sh` to start the BKChem GUI from the repo root.
+- Update the bond-style SVG smoke test to expect path output for rounded wedges
+  in `tests/test_oasa_bond_styles.py`.
+- Define shared render ops, serialization, and bond op generation in
+  `packages/oasa/oasa/render_ops.py`.
+- Migrate SVG/Cairo bond rendering to shared render ops in
+  `packages/oasa/oasa/svg_out.py` and `packages/oasa/oasa/cairo_out.py`.
+- Add a render-ops snapshot test and fixture in
+  `tests/test_render_ops_snapshot.py` and
+  `tests/fixtures/render_ops_snapshot.json`.
+- Update the bond-style printer SVG smoke assertion to expect path output in
+  `tests/test_oasa_bond_styles.py`.
+- Remove unused bond drawing helpers from the Cairo backend so it only renders
+  shared ops in `packages/oasa/oasa/cairo_out.py`.
+- Move Haworth front-bond coordinate lookup into shared render ops by passing
+  bond coordinate providers from both SVG and Cairo backends.
+- Add Haworth substituent placement rules for D/L and alpha/beta in
+  `packages/oasa/oasa/haworth.py`.
+- Add ops-level substituent orientation tests in
+  `tests/test_haworth_layout.py`.
+- Add folder-based template catalog scanning utilities in
+  `packages/bkchem/bkchem/template_catalog.py` plus a scan test in
+  `tests/test_template_catalog.py`.
+- Add biomolecule template label formatting and biomolecule template directory
+  discovery helpers in `packages/bkchem/bkchem/template_catalog.py`.
+- Add a biomolecule template manager, mode, and Insert-menu entry for
+  template insertion in `packages/bkchem/bkchem/main.py`,
+  `packages/bkchem/bkchem/modes.py`, and
+  `packages/bkchem/bkchem/singleton_store.py`.
+- Add CDML biomolecule templates (carbs, protein, lipids, nucleic acids) under
+  `packages/bkchem/bkchem_data/templates/biomolecules/`.
+- Add biomolecule template insertion smoke coverage in
+  `tests/test_biomolecule_templates.py`, plus label formatting coverage in
+  `tests/test_template_catalog.py`.
+- Add [docs/REFERENCE_OUTPUTS.md](docs/REFERENCE_OUTPUTS.md) and a
+  `tools/render_reference_outputs.py` helper to generate Haworth and wavy-bond
+  reference SVG/PNG outputs under `docs/reference_outputs/`.
+- Add a reference output smoke test in `tests/test_reference_outputs.py`.
+- Refresh [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) and
+  [docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md) with updated component and
+  repository layout details.
+- Add new doc set stubs and pointers:
+  [docs/NEWS.md](docs/NEWS.md),
+  [docs/RELATED_PROJECTS.md](docs/RELATED_PROJECTS.md),
+  [docs/ROADMAP.md](docs/ROADMAP.md),
+  [docs/TODO.md](docs/TODO.md),
+  [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md),
+  [docs/USAGE.md](docs/USAGE.md).
+- Fix mixed-indentation lines in `packages/oasa/oasa/render_ops.py`.
+- Add [docs/ROUNDED_WEDGES_PLAN.md](docs/ROUNDED_WEDGES_PLAN.md) with a
+  comprehensive plan for robust, reusable rounded wedge geometry that works
+  for all wedge bonds (both standard stereochemistry and Haworth projections).
+  The plan uses a clean 4-parameter endpoint-based API (tip_point, base_point,
+  wide_width, narrow_width=0.0) where the wedge is directional (expands from
+  tip to base), length and angle are derived outputs (not inputs), includes
+  area-based validation tests to verify correctness at all orientations, and
+  eliminates scaling/mirroring parameters (directionality encoded in endpoint
+  order, scaling is caller's responsibility).
+
 ## 2026-01-31
 - Add [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md)
   to outline Haworth projection goals, scope, and implementation phases.
@@ -60,6 +150,53 @@
   self-test smoke in `tests/test_oasa_bond_styles.py`.
 - Add a `--save` flag to `tests/test_oasa_bond_styles.py` so bond-style smoke
   outputs can be written to the current working directory.
+- Implement Stage 3 Haworth layout in OASA with ring templates and front-edge
+  bond tagging, and add `tests/test_haworth_layout.py` for layout and SVG
+  smoke coverage.
+- Allow `tests/test_haworth_layout.py` to save SVG output to the current
+  working directory with the shared `--save` pytest flag.
+- Expand the bond-style printer self-test grid to use bond types along the
+  x-axis and colors along the y-axis, increase output size, and densify
+  wavy-bond sampling for smoother SVG output.
+- Flatten the Haworth ring template (no skew) and increase wide-rectangle
+  bond thickness in OASA and BKChem rendering.
+- Tag Haworth front edges with left hatch, wide rectangle, and right hatch
+  bond styles by default, and fix midpoint lookup when resolving hatch sides.
+- Drop Haworth ring distortion parameters (skew/vertical squash) in favor of
+  flat ring geometry plus Haworth bond styles, and update the plan text.
+- Replace regular-polygon Haworth rings with non-regular pyranose/furanose
+  templates derived from sample geometry.
+- Make Haworth front edges use wedge side bonds plus a wide rectangle by
+  default, update the smoke test to render both ring types, and switch to
+  symmetric non-regular templates.
+- Rotate Haworth ring atom order so a ring oxygen sits at the top portion of
+  the template when present, and add a smoke assertion for that placement.
+- Combine the Haworth pyranose/furanose smoke render into a single
+  side-by-side SVG output.
+- Set ring bond vertex order to match the ring traversal and pick the
+  Haworth rectangle edge by frontmost midpoint with adjacent wedges.
+- Flip the furanose template vertically to keep the front edge at the
+  bottom, and normalize Haworth ring traversal orientation for consistent
+  left/right behavior.
+- Orient Haworth wedge bonds so the front vertex is the wide end, and add a
+  smoke assertion that the front edge is the max-midpoint-y edge.
+- Add intentional overlap for Haworth wide rectangles and wedges in SVG/Cairo
+  output to eliminate seam gaps without changing atom coordinates.
+- Lengthen the furanose front edge by widening the template coordinates.
+- Render Haworth wide rectangles as thick stroked lines with round caps to
+  smooth joins and clean up the silhouette.
+- Inset Haworth round-capped front edges by half the line width to avoid
+  protruding past wedge joins.
+- Drop wedge cap circles; keep wedge polygons and round-capped front edges
+  for cleaner Haworth joins.
+- Replace Haworth wedge bases with rounded arc paths aligned to the front
+  edge cap center to eliminate join artifacts.
+- Extend the Haworth layout smoke test to render Cairo PNG output alongside
+  SVG output (skipping when pycairo is unavailable).
+- Offset wedge cap centers inward to keep wedge length stable, and flip the
+  Haworth Cairo smoke molecule so PNG orientation matches SVG.
+- Increase the default Cairo render scaling factor for higher-resolution PNG
+  output.
 - Replace legacy XML parsing in BKChem and OASA with `safe_xml` wrappers,
   including ftext markup parsing and CDML/CDATA imports.
 - Replace `eval()` with `ast.literal_eval()` in preference and external data
@@ -202,6 +339,40 @@
 - Add SMILES and InChI export plugins powered by OASA for BKChem exports.
 - Expand the BKChem plugin smoke test to report plugin modes, extensions, and
   doc strings (optional summary output).
+## 2026-02-01
+- Regenerate biomolecule template CDML files from `biomolecule_smiles.txt`.
+- Add `tools/generate_biomolecule_templates.py` to rebuild biomolecule templates.
+- Split biomolecule template selection into category and template dropdowns.
+- Match the disabled edit-pool background to the UI theme to avoid a black bar.
+- Fix mixed indentation in `packages/oasa/oasa/selftest_sheet.py`.
+- Pretty-print SVG output when writing files in `packages/oasa/oasa/svg_out.py`.
+- Add [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md)
+  with a phased plan for aligning BKChem and OASA bond semantics.
+- Teach `tools/generate_biomolecule_templates.py` to read YAML input and add
+  legacy name mapping when generating template paths.
+- Regenerate biomolecule templates from `biomolecule_smiles.yaml`.
+- Remove left/right hatch references from
+  [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md) and
+  focus on deterministic vertex ordering for hashed bonds.
+- Refine [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md)
+  to call out vertex ordering rules, snapshot guidance, and updated risks.
+- Add explicit canonicalization helper and serialization policy to
+  [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md).
+- Add test strategy section to
+  [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md)
+  covering fixtures, invariants, and vertex ordering tests.
+- Expand the test strategy in
+  [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md)
+  with atom label and coordinate transform smoke tests plus fixture suite scope.
+- Add maintainability expansion guidance to
+  [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md)
+  covering shared OASA core boundaries, next semantic layers, and a deletion
+  gate.
+- Add measurable phases with pass criteria to
+  [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md),
+  including the test harness phase and deletion gate phase.
+
+## 2026-01-31
 - Add an optional export check to the BKChem plugin smoke test, writing sample
   files and reporting output sizes.
 - Use the macOS system menu bar when running on Darwin, keeping in-window menus

@@ -35,6 +35,8 @@ bkchem = ["bkchem.js"]
 bkchem_data = [
   "templates/*.cdml",
   "templates/*.xml",
+  "templates/biomolecules/*/*.cdml",
+  "templates/biomolecules/*/*/*.cdml",
   "pixmaps/*.gif",
   "images/*.ppm",
   "images/*.ico",

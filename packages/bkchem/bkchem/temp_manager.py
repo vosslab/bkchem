@@ -45,7 +45,7 @@ class template_manager(object):
     self._prepared_templates = []
 
 
-  def add_template_from_CDML( self, file):
+  def add_template_from_CDML( self, file, name_override=None):
     if not os.path.isfile( file):
       file = os_support.get_path( file, "template")
       if not file:
@@ -62,8 +62,12 @@ class template_manager(object):
     Store.app.paper.onread_id_sandbox_activate()
     added = []
     for tmp in doc.getElementsByTagName('molecule'):
+      if name_override:
+        tmp.setAttribute( 'name', name_override)
       self.templates.append( tmp)
       m = molecule( Store.app.paper, package=tmp)
+      if name_override:
+        m.name = name_override
       self._prepared_templates.append( m)
       added.append( m)
     Store.app.paper.onread_id_sandbox_finish( apply_to=[]) # just switch the id_managers, no id mangling
