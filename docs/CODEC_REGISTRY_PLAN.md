@@ -45,7 +45,7 @@ Deliverable:
 - Provide a small `list_codecs()` call for tooling and tests (DONE).
 - Ensure CDML text/file IO exists for registry usage (DONE).
 
-## Phase 3: BKChem integration
+## Phase 3: BKChem integration (DONE)
 - Route BKChem import/export bridges through the registry:
   - `packages/bkchem/bkchem/oasa_bridge.py` becomes the adapter that calls the
     registry instead of direct module calls.

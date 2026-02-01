@@ -26,7 +26,7 @@ booleans = ['no', 'yes']
 on_off   = ['off', 'on']
 
 # note that 'no' is there just to shift the index of single to 1
-bond_types = ['no','single', 'double','triple','wedge','hatch']
+bond_types = ['no','single', 'double','triple','wedge','hashed']
 alternative_bond_types = ['n','s', 'd','t','w','h']
 numbered_bond_types = ['no','1', '2','3','W','H']
 
@@ -168,4 +168,3 @@ roman_numbers = {0:   '0',
                  -9:  '-IX',
                  -10: '-X'
                  }
-

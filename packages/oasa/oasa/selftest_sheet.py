@@ -902,7 +902,7 @@ def _build_haworth_ops():
 
 	Creates pyranose (6-membered) and furanose (5-membered) rings
 	from connectivity, applies Haworth layout, then renders.
-	Tests: SMILES → haworth layout → render ops.
+	Tests: SMILES -> haworth layout -> render ops.
 
 	Returns:
 		(ops, labels) where labels includes "O" for oxygen atoms
@@ -993,7 +993,7 @@ def _build_fischer_ops(show_explicit_hydrogens=False):
 	"""Build Fischer projection from D-glucose SMILES.
 
 	Fischer projection: vertical backbone with horizontal substituents.
-	Tests: SMILES → traversal-based layout → render ops.
+	Tests: SMILES -> traversal-based layout -> render ops.
 
 	Args:
 		show_explicit_hydrogens: If True, show H labels for implicit hydrogens

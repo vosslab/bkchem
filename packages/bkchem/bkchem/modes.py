@@ -753,14 +753,14 @@ class draw_mode( edit_mode):
     self._start_atom = None
     self.submodes = [['30','18','6','1'],
                      ['single','double','triple'],
-                     ['normal','wedge','hatch','adder','bbold','dash','dotted'],
+                     ['normal','wedge','hashed','adder','bbold','dash','dotted'],
                      ['fixed','freestyle'],
                      ['nosimpledouble','simpledouble']]
     self.submodes_names = [[_('30'),_('18'),_('6'),_('1')],
                            [_('single'),_('double'),_('triple')],
-                           [_('normal'),_('wedge'),_('hatch'),_('adder'),_('bold'),_('dash'),_('dotted')],
+                           [_('normal'),_('wedge'),_('hashed'),_('adder'),_('bold'),_('dash'),_('dotted')],
                            [_('fixed length'),_('freestyle')],
-                           [_('normal double bonds for wedge/hatch'),_('simple double bonds for wedge/hatch')]]
+                           [_('normal double bonds for wedge/hashed'),_('simple double bonds for wedge/hashed')]]
     self.submode = [0, 0, 0, 0, 1]
 
 

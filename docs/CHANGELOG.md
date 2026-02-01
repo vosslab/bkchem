@@ -1,6 +1,14 @@
 # Changelog
 
 ## 2026-02-01
+- Replace hatch terminology with hashed in docs and Python code, remove legacy
+  hatch-side handling, and update hashed labels in BKChem UI mode lists.
+- Fix the Fischer explicit hydrogen test import path, remove the shebang, and
+  avoid returning values from pytest tests in `tests/test_fischer_explicit_h.py`.
+- Route BKChem conversion helpers through the OASA codec registry in
+  `packages/bkchem/bkchem/oasa_bridge.py`.
+- Document codec-registry-backed plugin guidance in
+  [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md).
 - Remove legacy left/right hatch references from
   [docs/BKCHEM_FORMAT_SPEC.md](docs/BKCHEM_FORMAT_SPEC.md).
 - Define plugins, addons, and codecs in `README.md`,
@@ -20,10 +28,10 @@
   `packages/oasa/oasa/selftest_sheet.py` (LGPL-3.0-or-later) with row-based
   layout, measured bounding boxes, and Fischer projection support.
 - Refactor Haworth and Fischer vignettes in `packages/oasa/oasa/selftest_sheet.py`
-  to use SMILES → layout → render pipeline instead of hand-placed coordinates,
+  to use SMILES -> layout -> render pipeline instead of hand-placed coordinates,
   testing connectivity-driven molecule rendering.
 - Add orange color row to bond grid in `packages/oasa/oasa/selftest_sheet.py`
-  (8 types × 6 colors = 48 cells) and adjust vignette positions to accommodate
+  (8 types x 6 colors = 48 cells) and adjust vignette positions to accommodate
   taller grid.
 - Add capabilities sheet layout specification in
   [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md) documenting the

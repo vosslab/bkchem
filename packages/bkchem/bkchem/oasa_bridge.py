@@ -35,22 +35,28 @@ from singleton_store import Screen
 
 
 
+def _get_codec( name):
+  return oasa.codec_registry.get_codec( name)
+
+
 def read_smiles( text, paper):
-  mol = oasa.smiles.text_to_mol( text)
+  codec = _get_codec( "smiles")
+  mol = codec.read_text( text)
   oasa.coords_generator.calculate_coords( mol, bond_length=1.0, force=1)
   return oasa_mol_to_bkchem_mol( mol, paper)
 
 
 def mol_to_smiles( mol):
+  codec = _get_codec( "smiles")
   m = bkchem_mol_to_oasa_mol( mol)
   m.remove_unimportant_hydrogens()
-  c = oasa.smiles.converter()
-  text = c.mols_to_text([m])
+  text = codec.write_text( m)
   return text
 
 
 def read_inchi( text, paper):
-  mol = oasa.inchi.text_to_mol( text, calc_coords=1, include_hydrogens=False)
+  codec = _get_codec( "inchi")
+  mol = codec.read_text( text, calc_coords=1, include_hydrogens=False)
   #oasa.coords_generator.calculate_coords( mol, bond_length=1.0, force=1)
   m = oasa_mol_to_bkchem_mol( mol, paper)
   return m
@@ -64,7 +70,8 @@ def mol_to_inchi( mol, program):
 
 
 def read_molfile( file, paper):
-  mol = oasa.molfile.file_to_mol( file)
+  codec = _get_codec( "molfile")
+  mol = codec.read_file( file)
   if not mol.is_connected():
     mols = mol.get_disconnected_subgraphs()
     return [oasa_mol_to_bkchem_mol( mol, paper) for mol in mols]
@@ -73,8 +80,9 @@ def read_molfile( file, paper):
 
 
 def write_molfile( mol, file):
+  codec = _get_codec( "molfile")
   m = bkchem_mol_to_oasa_mol( mol)
-  oasa.molfile.mol_to_file( m, file)
+  codec.write_file( m, file)
 
 
 # ==================================================

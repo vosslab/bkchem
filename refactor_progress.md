@@ -41,8 +41,8 @@ Last updated: 2026-02-01
   ready.
 
 ### [docs/BKCHEM_FORMAT_SPEC.md](docs/BKCHEM_FORMAT_SPEC.md)
-- Status: Needs review for l/r hatch references and current bond type list.
-- Next: Update bond type list to reflect the removal of left/right hatches and
+- Status: Needs review for legacy l/r references and current bond type list.
+- Next: Update bond type list to reflect the removal of left/right variants and
   current normalization rules.
 
 ### [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md)
@@ -61,9 +61,9 @@ Last updated: 2026-02-01
   default flip as near-term tasks.
 
 ### [docs/CODEC_REGISTRY_PLAN.md](docs/CODEC_REGISTRY_PLAN.md)
-- Status: Phase 1-2 complete; Phase 3+ pending.
-- Notes: Registry exists and the CLI uses it.
-- Next: Route BKChem import/export through the registry and update plugin docs.
+- Status: Phase 1-3 complete; Phase 4+ pending.
+- Notes: Registry exists, CLI uses it, and BKChem oasa_bridge routes through it.
+- Next: Update plugin docs and add registry-specific plugin validation notes.
 
 ## Short-term priorities
 - Complete codec registry Phase 3: route `oasa_bridge` and BKChem format plugins

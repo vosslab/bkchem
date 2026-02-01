@@ -76,7 +76,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       #Bond types:
       # n = normal
       # w = wedge (3d out of screen)
-      # h = hatch (3d into screen)
+      # h = hashed (3d into screen)
       # a = any stereochemistry
       # b = bold
       # d = dotted - - - -
@@ -88,10 +88,10 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       self.atom1, self.atom2 = atoms
 
     # canvas data
-    self.item = None  #Used for selection, sometimes not displayed (eg. is a straight line for hatch bonds).
+    self.item = None  #Used for selection, sometimes not displayed (eg. is a straight line for hashed bonds).
     self.second = []  #see below --v
     self.third = []   #Accessory items, used by double bonds ( both if centered, one if not ) and triple bonds (both, always centered).
-    self.items = []   #Used as main item to display by bonds with more items (hatch, dotted, ...)
+    self.items = []   #Used as main item to display by bonds with more items (hashed, dotted, ...)
     self.selector = None
     self._selected = 0
 
@@ -539,7 +539,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     # main item
     self.paper.itemconfig( self.item, fill='')
     # the small lines
-    self.items = self._draw_hatch( (x1,y1,x2,y2))
+    self.items = self._draw_hashed( (x1,y1,x2,y2))
     return x1,y1,x2,y2
 
 
@@ -549,7 +549,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       return None
     x1, y1, x2, y2 = where
     self.paper.itemconfig( self.item, fill='')
-    self.items = self._draw_side_hatch( (x1, y1, x2, y2), side=1)
+    self.items = self._draw_side_hashed( (x1, y1, x2, y2), side=1)
     return x1, y1, x2, y2
 
 
@@ -559,7 +559,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       return None
     x1, y1, x2, y2 = where
     self.paper.itemconfig( self.item, fill='')
-    self.items = self._draw_side_hatch( (x1, y1, x2, y2), side=-1)
+    self.items = self._draw_side_hashed( (x1, y1, x2, y2), side=-1)
     return x1, y1, x2, y2
 
 
@@ -585,7 +585,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
     x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, d)
     # gray magic (not black, but not so white :)
-    _second_draw_method = (self.simple_double and not self.center) and self._draw_second_line or self._draw_hatch
+    _second_draw_method = (self.simple_double and not self.center) and self._draw_second_line or self._draw_hashed
     self.second = _second_draw_method( (x,y,x0,y0))
     if self.center:
       self.third = _second_draw_method( (2*x1-x, 2*y1-y, 2*x2-x0, 2*y2-y0))
@@ -603,7 +603,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     d = self.paper.real_to_canvas(self.bond_width)
     x, y, x0, y0 = geometry.find_parallel( x1, y1, x2, y2, d)
     # gray magic (not black, but not so white :)
-    _second_draw_method = (self.simple_double and not self.center) and self._draw_second_line or self._draw_hatch
+    _second_draw_method = (self.simple_double and not self.center) and self._draw_second_line or self._draw_hashed
     self.second = _second_draw_method( (x,y,x0,y0))
     self.third = _second_draw_method( (2*x1-x, 2*y1-y, 2*x2-x0, 2*y2-y0))
 
@@ -624,7 +624,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     self._draw_n3()
 
 
-  def _draw_hatch( self, coords):
+  def _draw_hashed( self, coords):
     """returns list items"""
     if not hasattr( self, 'equithick'):
       self.equithick = 0
@@ -680,7 +680,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
     return items
 
 
-  def _draw_side_hatch( self, coords, side=1):
+  def _draw_side_hashed( self, coords, side=1):
     x1, y1, x2, y2 = coords
     d = math.sqrt( (x1-x2)**2 + (y1-y2)**2)
     if d == 0:
@@ -1561,8 +1561,6 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       values['color'] = self.line_color
     if self.type != 'n' and self.order != 1:
       values['simple_double'] = str( int( self.simple_double))
-    if getattr( self, 'hatch_side', None):
-      values['hatch_side'] = self.hatch_side
     if self.wavy_style:
       values['wavy_style'] = self.wavy_style
     defaults = {

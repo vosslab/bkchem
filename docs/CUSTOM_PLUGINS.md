@@ -45,6 +45,17 @@ BKChem supports two plugin types:
 
 This guide focuses on script plugins.
 
+## Codecs and plugins
+
+Plugins should rely on `oasa_bridge` for format import and export instead of
+calling OASA modules directly. `oasa_bridge` routes conversions through the
+OASA codec registry so formats stay centralized and consistent.
+
+If you need a new format:
+- Add or extend the codec in OASA.
+- Update the registry in `packages/oasa/oasa/codec_registry.py`.
+- Then call the bridge from BKChem plugins or addons.
+
 ## XML descriptor
 
 A plugin XML file is short and declarative:
