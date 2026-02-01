@@ -27,7 +27,7 @@ Last updated: 2026-02-01
 - Next: Add CLI entry point and usage docs for batch Haworth output.
 
 ### [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md)
-- Status: Phases 0-3 complete; Phase 4 optional; Phase 5 pending.
+- Status: Phases 0-3 complete; Phase 4 optional; Phase 5 in progress.
 - Notes: Bond semantics normalized, CDML attribute helpers shared, metadata
   round-trip tests are in place. GUI parity work (q, rounded wedge) is done.
 - Next: Decide when to flip the `BKCHEM_USE_OASA_CDML` default and remove the
@@ -37,8 +37,7 @@ Last updated: 2026-02-01
 - Status: Phase 1 complete; Phase 2 mostly complete; Phase 3 optional.
 - Notes: OASA CDML writer exists; BKChem uses it behind a flag; round-trip
   fixtures and tests exist.
-- Next: Tighten the flag flip criteria and remove legacy code paths when
-  ready.
+- Next: Remove legacy code paths once the new default settles.
 
 ### [docs/BKCHEM_FORMAT_SPEC.md](docs/BKCHEM_FORMAT_SPEC.md)
 - Status: Needs review for legacy l/r references and current bond type list.
@@ -61,9 +60,10 @@ Last updated: 2026-02-01
   default flip as near-term tasks.
 
 ### [docs/CODEC_REGISTRY_PLAN.md](docs/CODEC_REGISTRY_PLAN.md)
-- Status: Phase 1-3 complete; Phase 4+ pending.
-- Notes: Registry exists, CLI uses it, and BKChem oasa_bridge routes through it.
-- Next: Update plugin docs and add registry-specific plugin validation notes.
+- Status: Phase 1-5 complete.
+- Notes: Registry exists, CLI uses it, BKChem oasa_bridge routes through it, and
+  plugin guidance plus drift tests are in place.
+- Next: None unless new formats are added.
 
 ## Short-term priorities
 - Complete codec registry Phase 3: route `oasa_bridge` and BKChem format plugins

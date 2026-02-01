@@ -370,28 +370,42 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
 
 
   def get_package( self, doc, items=None):
-    if not items:
-      to_export = self.children
-    else:
-      to_export = items
-    use_oasa_writer = bool( config.use_oasa_cdml_writer) and not items
-    if use_oasa_writer:
-      def _bond_width_to_text(value, name=None, bond_obj=None):
-        if bond_obj and name in ("bond_width", "wedge_width"):
-          if bond_obj.paper:
-            return str(value * bond_obj.paper.screen_to_real_ratio())
-        return str(value)
-      mol = oasa.cdml_writer.write_cdml_molecule_element(
-        self,
-        doc=doc,
-        policy="always",
-        coord_to_text=Screen.px_to_text_with_unit,
-        width_to_text=_bond_width_to_text,
-      )
-    else:
-      mol = doc.createElement('molecule')
-      mol.setAttribute( 'name', self.name)
-      mol.setAttribute( 'id', self.id)
+    def _bond_width_to_text(value, name=None, bond_obj=None):
+      if bond_obj and name in ("bond_width", "wedge_width"):
+        if bond_obj.paper:
+          return str(value * bond_obj.paper.screen_to_real_ratio())
+      return str(value)
+
+    def _subset_molecule( items):
+      atoms = []
+      bonds = []
+      for item in items:
+        if isinstance( item, atom):
+          atoms.append( item)
+        elif isinstance( item, bond):
+          bonds.append( item)
+      for bond_obj in bonds:
+        for vertex in bond_obj.vertices:
+          if vertex not in atoms:
+            atoms.append( vertex)
+      class _Subset:
+        def __init__( self, name, mol_id, vertices, edges):
+          self.name = name
+          self.id = mol_id
+          self.vertices = vertices
+          self.edges = edges
+      return _Subset( self.name, self.id, atoms, bonds)
+
+    export_mol = self
+    if items:
+      export_mol = _subset_molecule( items)
+    mol = oasa.cdml_writer.write_cdml_molecule_element(
+      export_mol,
+      doc=doc,
+      policy="always",
+      coord_to_text=Screen.px_to_text_with_unit,
+      width_to_text=_bond_width_to_text,
+    )
     if self.display_form:
       mol.appendChild( safe_xml.parse_dom_from_string( '<display-form>%s</display-form>' % self.display_form).childNodes[0])
     if self.t_atom:
@@ -401,14 +415,10 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
                                                         ('bond_second', str( self.t_bond_second.id))))
       else:
         dom_extensions.elementUnder( mol, 'template', ( ('atom', str( self.t_atom.id)),))
-    if not use_oasa_writer:
-      for i in to_export:
-        mol.appendChild( i.get_package( doc))
-    else:
-      if not mol.hasAttribute( 'name') and self.name:
-        mol.setAttribute( 'name', self.name)
-      if not mol.hasAttribute( 'id') and self.id:
-        mol.setAttribute( 'id', self.id)
+    if not mol.hasAttribute( 'name') and self.name:
+      mol.setAttribute( 'name', self.name)
+    if not mol.hasAttribute( 'id') and self.id:
+      mol.setAttribute( 'id', self.id)
 
     if 1: #not items:
       # (we do not save fragments if the molecule is not guaranteed to be saved whole) old

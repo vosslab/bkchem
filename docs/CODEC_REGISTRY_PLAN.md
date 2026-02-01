@@ -52,12 +52,12 @@ Deliverable:
 - Update BKChem format plugins to use the bridge API only.
 - Keep plugin menu names and extensions unchanged for users.
 
-## Phase 4: Plugin contract cleanup
+## Phase 4: Plugin contract cleanup (DONE)
 - Document the registry-backed contract in
   [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md).
 - Ensure plugin export paths use codec capabilities for validation.
 
-## Phase 5: Tests and drift prevention
+## Phase 5: Tests and drift prevention (DONE)
 - Add tests that:
   - Assert the registry returns the same codec for names and aliases.
   - Assert extension mapping is stable.

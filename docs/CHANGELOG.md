@@ -9,6 +9,12 @@
   `packages/bkchem/bkchem/oasa_bridge.py`.
 - Document codec-registry-backed plugin guidance in
   [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md).
+- Add BKChem codec-registry bridge tests in
+  `tests/test_codec_registry_bkchem_bridge.py`.
+- Flip the default `use_oasa_cdml_writer` flag to True in
+  `packages/bkchem/bkchem/config.py`.
+- Mark CDML architecture plan phases 1 and 2 complete in
+  [docs/CDML_ARCHITECTURE_PLAN.md](docs/CDML_ARCHITECTURE_PLAN.md).
 - Remove legacy left/right hatch references from
   [docs/BKCHEM_FORMAT_SPEC.md](docs/BKCHEM_FORMAT_SPEC.md).
 - Define plugins, addons, and codecs in `README.md`,

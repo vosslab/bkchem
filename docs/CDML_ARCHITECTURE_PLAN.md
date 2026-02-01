@@ -7,6 +7,14 @@
 
 Clean boundaries prevent duplication and clarify responsibilities.
 
+## Implementation status
+
+- Phase 1: Complete (OASA molecule writer in place, BKChem uses it).
+- Phase 2: Complete (round-trip fixtures and tests are in place).
+- Phase 3: Optional (not started).
+- Follow-up: Remove legacy BKChem CDML serialization path now that the default
+  is flipped to the OASA writer.
+
 ---
 
 ## 1. Layer Responsibilities
@@ -145,6 +153,9 @@ def read_cdml(text, *, normalize_fn=None):
 - Unit tests for molecule round-trip
 - BKChem integration behind flag
 
+**Status:** Complete. The writer exists and `use_oasa_cdml_writer` now defaults
+to True.
+
 ### Phase 2: Round-Trip Invariants (SAFER)
 
 **Goal:** Prove no data loss
@@ -165,11 +176,15 @@ def read_cdml(text, *, normalize_fn=None):
 - cholesterol.cdml (complex biomolecule)
 - legacy_weird.cdml (triggers migration)
 
+**Status:** Complete. Fixtures and round-trip tests are in place.
+
 ### Phase 3: Expand Beyond Molecules (OPTIONAL)
 
 **Only if needed:** Move arrows/text/marks to shared doc model
 
 This is a larger architectural shift. Not required for chemistry maintainability.
+
+**Status:** Optional, not started.
 
 ---
 
