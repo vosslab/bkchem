@@ -406,21 +406,35 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
       coord_to_text=Screen.px_to_text_with_unit,
       width_to_text=_bond_width_to_text,
     )
-    atom_elements = {}
-    for atom_el in mol.getElementsByTagName( "atom"):
-      atom_id = atom_el.getAttribute( "id")
+    atom_elements = []
+    atom_elements_by_id = {}
+    for node in mol.childNodes:
+      if node.nodeType != node.ELEMENT_NODE:
+        continue
+      if node.tagName != "atom":
+        continue
+      atom_elements.append( node)
+      atom_id = node.getAttribute( "id")
       if atom_id:
-        atom_elements[atom_id] = atom_el
+        atom_elements_by_id[atom_id] = node
+    unused_atom_elements = list( atom_elements)
     for vertex in export_mol.vertices:
       if not hasattr( vertex, "get_package"):
         continue
       vertex_id = getattr( vertex, "id", None)
-      if vertex_id is None:
-        continue
       new_el = vertex.get_package( doc)
-      old_el = atom_elements.get( str( vertex_id))
+      old_el = None
+      if vertex_id is not None:
+        old_el = atom_elements_by_id.get( str( vertex_id))
+      if old_el is None and unused_atom_elements:
+        old_el = unused_atom_elements.pop( 0)
       if old_el:
+        old_id = old_el.getAttribute( "id")
+        if old_id:
+          new_el.setAttribute( "id", old_id)
         mol.replaceChild( new_el, old_el)
+        if old_el in unused_atom_elements:
+          unused_atom_elements.remove( old_el)
       else:
         mol.appendChild( new_el)
     if self.display_form:

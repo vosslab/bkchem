@@ -1,7 +1,7 @@
 # Todo code
 
 - Mirror OASA modernization for BKChem (pyflakes cleanup and globals refactors).
-- Expand `oasa_cli.py` beyond Haworth once the CLI surface is finalized
+- Expand `packages/oasa/oasa_cli.py` beyond Haworth once the CLI surface is finalized
   (format conversion, batch reference output generation).
 - Decide whether to remove the legacy PostScript builtin exporter once Cairo is
   required.

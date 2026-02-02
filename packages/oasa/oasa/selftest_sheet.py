@@ -232,6 +232,163 @@ def layout_row(vignettes, y_top, page_width, row_height, gutter=20, margin=40):
 
 
 #============================================
+def _parse_svg_length(value):
+	"""Parse an SVG length string into float."""
+	if value is None:
+		return 0.0
+	text = str(value).strip()
+	for unit in ("px", "pt", "cm", "mm", "in"):
+		if text.lower().endswith(unit):
+			text = text[: -len(unit)]
+			break
+	try:
+		return float(text)
+	except ValueError:
+		return 0.0
+
+
+#============================================
+def _svg_doc_dimensions(svg_doc):
+	"""Return (width, height) parsed from an SVG document."""
+	root = svg_doc.documentElement
+	width = _parse_svg_length(root.getAttribute("width"))
+	height = _parse_svg_length(root.getAttribute("height"))
+	if width and height:
+		return width, height
+	view_box = root.getAttribute("viewBox")
+	if view_box:
+		parts = [p for p in view_box.replace(",", " ").split() if p]
+		if len(parts) == 4:
+			try:
+				return float(parts[2]), float(parts[3])
+			except ValueError:
+				pass
+	return 0.0, 0.0
+
+
+#============================================
+def _append_svg_fragment(parent, svg_doc, x_offset, y_offset, scale=1.0, group_id=None):
+	"""Append an SVG fragment into the target document with transform."""
+	doc = parent.ownerDocument
+	attributes = []
+	if group_id:
+		attributes.append(("id", group_id))
+	transform = f"translate({x_offset},{y_offset}) scale({scale})"
+	attributes.append(("transform", transform))
+	group = dom_extensions.elementUnder(parent, "g", attributes=tuple(attributes))
+	root = svg_doc.documentElement
+	for node in root.childNodes:
+		if node.nodeType != node.ELEMENT_NODE:
+			continue
+		group.appendChild(doc.importNode(node, deep=True))
+	return group
+
+
+#============================================
+def layout_row_mixed(vignettes, y_top, page_width, row_height, gutter=20, margin=40):
+	"""Layout vignettes that may be ops or SVG fragments in a row.
+
+	Args:
+		vignettes: List of dicts with keys:
+			- title
+			- kind ("ops" or "svg")
+			- ops (for kind="ops")
+			- svg_doc (for kind="svg")
+		y_top: Y coordinate for top of row
+		page_width: Total page width
+		row_height: Target height for normalizing molecules
+		gutter: Space between vignettes
+		margin: Left/right margin
+
+	Returns:
+		List of dicts with positioned data for rendering.
+	"""
+	if not vignettes:
+		return []
+
+	normalized = []
+	for entry in vignettes:
+		title = entry["title"]
+		if entry["kind"] == "svg":
+			width, height = _svg_doc_dimensions(entry["svg_doc"])
+			if height <= 0:
+				raise ValueError("SVG fragment has invalid height for layout.")
+			scale = row_height / height
+			normalized.append({
+				"title": title,
+				"kind": "svg",
+				"svg_doc": entry["svg_doc"],
+				"scale": scale,
+				"width": width * scale,
+				"height": height * scale,
+			})
+		else:
+			norm_ops, width, height = normalize_to_height(entry["ops"], row_height)
+			normalized.append({
+				"title": title,
+				"kind": "ops",
+				"ops": norm_ops,
+				"original_ops": entry["ops"],
+				"labels": entry.get("labels", []),
+				"width": width,
+				"height": height,
+			})
+
+	total_content_width = sum(entry["width"] for entry in normalized)
+	num_gaps = len(normalized) - 1
+	total_gap_width = num_gaps * gutter
+	available_width = page_width - 2 * margin
+
+	if total_content_width + total_gap_width > available_width:
+		scale_factor = available_width / (total_content_width + total_gap_width)
+		adjusted_height = row_height * scale_factor
+		normalized = []
+		for entry in vignettes:
+			title = entry["title"]
+			if entry["kind"] == "svg":
+				width, height = _svg_doc_dimensions(entry["svg_doc"])
+				if height <= 0:
+					raise ValueError("SVG fragment has invalid height for layout.")
+				scale = adjusted_height / height
+				normalized.append({
+					"title": title,
+					"kind": "svg",
+					"svg_doc": entry["svg_doc"],
+					"scale": scale,
+					"width": width * scale,
+					"height": height * scale,
+				})
+			else:
+				norm_ops, width, height = normalize_to_height(entry["ops"], adjusted_height)
+				normalized.append({
+					"title": title,
+					"kind": "ops",
+					"ops": norm_ops,
+					"original_ops": entry["ops"],
+					"labels": entry.get("labels", []),
+					"width": width,
+					"height": height,
+				})
+
+	result = []
+	x_current = margin
+	for entry in normalized:
+		width = entry["width"]
+		height = entry["height"]
+		x_center = x_current + width / 2
+		y_center = y_top + height / 2
+		entry_out = dict(entry)
+		entry_out["x"] = x_current
+		entry_out["y"] = y_top
+		entry_out["x_center"] = x_center
+		entry_out["y_center"] = y_center
+		result.append(entry_out)
+		x_current += width + gutter
+
+	return result
+
+
+#============================================
 def place_ops_in_rect(ops, rect, align="center", padding=5, preserve_aspect=True):
 	"""Place ops inside a rectangle with scaling and alignment.
 
@@ -758,26 +915,26 @@ def _build_vignettes(parent, page_width):
 	gutter = 20
 
 	# Top row: projection styles
-	# Each builder returns (ops, labels) where labels = [(x, y, text, font_size, anchor), ...]
+	# Ops builders return (ops, labels); SVG builders return SVG docs
 	benzene_ops, benzene_labels = _build_benzene_ops()
-	haworth_ops, haworth_labels = _build_haworth_ops()
+	haworth_svg = _build_haworth_svg()
 	fischer_ops, fischer_labels = _build_fischer_ops()
 
 	row1_data = [
-		("Benzene", benzene_ops, benzene_labels),
-		("Haworth", haworth_ops, haworth_labels),
-		("Fischer", fischer_ops, fischer_labels),
+		{"title": "Benzene", "kind": "ops", "ops": benzene_ops, "labels": benzene_labels},
+		{"title": "Haworth", "kind": "svg", "svg_doc": haworth_svg},
+		{"title": "Fischer", "kind": "ops", "ops": fischer_ops, "labels": fischer_labels},
 	]
 
 	# Bottom row: stress test
 	cholesterol_ops, cholesterol_labels = _build_cholesterol_ops()
 	row2_data = [
-		("Cholesterol", cholesterol_ops, cholesterol_labels),
+		{"title": "Cholesterol", "kind": "ops", "ops": cholesterol_ops, "labels": cholesterol_labels},
 	]
 
 	# Layout row 1
-	row1_result = layout_row(
-		[(title, ops) for title, ops, _ in row1_data],
+	row1_result = layout_row_mixed(
+		row1_data,
 		y_top=row1_y,
 		page_width=page_width,
 		row_height=row1_height,
@@ -786,24 +943,38 @@ def _build_vignettes(parent, page_width):
 	)
 
 	# Render row 1
-	for idx, ((title, positioned_ops, x_center, y_center), (_, original_ops, labels)) in enumerate(zip(row1_result, row1_data)):
+	for idx, entry in enumerate(row1_result):
+		title = entry["title"]
+		x_center = entry["x_center"]
 		# Title above molecule (15pt above)
 		title_y = row1_y - 10
 		_add_text(parent, x_center, title_y, title, font_size=11, weight="bold", anchor="middle")
+
+		if entry["kind"] == "svg":
+			_append_svg_fragment(
+				parent,
+				entry["svg_doc"],
+				entry["x"],
+				entry["y"],
+				scale=entry["scale"],
+				group_id=f"vignette-row1-{idx}",
+			)
+			continue
 
 		# Molecule ops
 		vignette_g = dom_extensions.elementUnder(
 			parent, "g",
 			attributes=(("id", f"vignette-row1-{idx}"),)
 		)
+		positioned_ops = _transform_ops(entry["ops"], entry["x"], entry["y"], scale=1.0)
 		render_ops.ops_to_svg(vignette_g, positioned_ops)
 
 		# Add atom labels (transformed to match positioned ops)
-		_add_atom_labels(vignette_g, labels, original_ops, positioned_ops)
+		_add_atom_labels(vignette_g, entry.get("labels", []), entry["original_ops"], positioned_ops)
 
 	# Layout row 2
-	row2_result = layout_row(
-		[(title, ops) for title, ops, _ in row2_data],
+	row2_result = layout_row_mixed(
+		row2_data,
 		y_top=row2_y,
 		page_width=page_width,
 		row_height=row2_height,
@@ -812,20 +983,20 @@ def _build_vignettes(parent, page_width):
 	)
 
 	# Render row 2
-	for idx, ((title, positioned_ops, x_center, y_center), (_, original_ops, labels)) in enumerate(zip(row2_result, row2_data)):
+	for idx, entry in enumerate(row2_result):
 		# Title above molecule (15pt above)
 		title_y = row2_y - 10
-		_add_text(parent, x_center, title_y, title, font_size=11, weight="bold", anchor="middle")
+		_add_text(parent, entry["x_center"], title_y, entry["title"], font_size=11, weight="bold", anchor="middle")
 
-		# Molecule ops
 		vignette_g = dom_extensions.elementUnder(
 			parent, "g",
 			attributes=(("id", f"vignette-row2-{idx}"),)
 		)
+		positioned_ops = _transform_ops(entry["ops"], entry["x"], entry["y"], scale=1.0)
 		render_ops.ops_to_svg(vignette_g, positioned_ops)
 
 		# Add atom labels
-		_add_atom_labels(vignette_g, labels, original_ops, positioned_ops)
+		_add_atom_labels(vignette_g, entry.get("labels", []), entry["original_ops"], positioned_ops)
 
 
 #============================================
@@ -991,9 +1162,10 @@ def _build_haworth_svg():
 
 
 def _build_haworth_ops():
-	"""Build Haworth using canonical renderer, extract ops for layout.
+	"""Build Haworth ops for the cairo backend fallback.
 
-	Uses canonical pipeline from _build_haworth_svg():
+	Uses canonical pipeline from _build_haworth_svg(), but returns render ops
+	for the cairo backend, where SVG embedding is not available.
 	1. Build molecules from SMILES (O is ring vertex)
 	2. Apply haworth.build_haworth() (semantic layout)
 	3. Assert invariants (in-ring O, semantic front edge)

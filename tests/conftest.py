@@ -1,52 +1,40 @@
+# Standard Library
 import os
-
-import pytest
-
-
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-SKIP_ENV = "SKIP_REPO_HYGIENE"
+import subprocess
+import sys
 
 
-#============================================
-@pytest.fixture
-def repo_root() -> str:
-	"""
-	Provide the repository root path.
-	"""
-	return REPO_ROOT
+def repo_root():
+	output = subprocess.check_output(
+		["git", "rev-parse", "--show-toplevel"],
+		text=True,
+	).strip()
+	if not output:
+		raise RuntimeError("git rev-parse --show-toplevel returned empty output")
+	return output
 
 
-#============================================
-def pytest_addoption(parser) -> None:
-	"""
-	Add repo hygiene options.
-	"""
-	group = parser.getgroup("repo-hygiene")
-	group.addoption(
-		"--no-ascii-fix",
-		action="store_true",
-		help="Disable auto-fix for ASCII compliance tests.",
-	)
-	group.addoption(
-		"--save",
-		action="store_true",
-		help="Save OASA bond style outputs to the current working directory.",
-	)
+def add_repo_root_to_sys_path():
+	root = repo_root()
+	if root not in sys.path:
+		sys.path.insert(0, root)
+	return root
 
 
-#============================================
-@pytest.fixture
-def skip_repo_hygiene() -> bool:
-	"""
-	Check whether repo hygiene tests should be skipped.
-	"""
-	return os.environ.get(SKIP_ENV) == "1"
+def add_bkchem_to_sys_path():
+	root = add_repo_root_to_sys_path()
+	bkchem_dir = os.path.join(root, "packages", "bkchem")
+	if bkchem_dir not in sys.path:
+		sys.path.insert(0, bkchem_dir)
+	bkchem_module_dir = os.path.join(bkchem_dir, "bkchem")
+	if bkchem_module_dir not in sys.path:
+		sys.path.append(bkchem_module_dir)
+	return root
 
 
-#============================================
-@pytest.fixture
-def ascii_fix_enabled(request) -> bool:
-	"""
-	Check whether ASCII compliance auto-fix is enabled.
-	"""
-	return not request.config.getoption("--no-ascii-fix")
+def add_oasa_to_sys_path():
+	root = add_repo_root_to_sys_path()
+	oasa_dir = os.path.join(root, "packages", "oasa")
+	if oasa_dir not in sys.path:
+		sys.path.insert(0, oasa_dir)
+	return root

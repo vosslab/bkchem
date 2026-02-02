@@ -1,11 +1,12 @@
 # Standard Library
-import os
 import sys
 
+from conftest import add_oasa_to_sys_path
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT_DIR not in sys.path:
-	sys.path.insert(0, ROOT_DIR)
+
+add_oasa_to_sys_path()
+if "oasa" in sys.modules:
+	del sys.modules["oasa"]
 
 
 # local repo modules

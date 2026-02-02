@@ -9,8 +9,7 @@ import sys
 
 
 #============================================
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
-OASA_DIR = os.path.join(REPO_ROOT, "packages", "oasa")
+OASA_DIR = os.path.abspath(os.path.dirname(__file__))
 if OASA_DIR not in sys.path:
 	sys.path.insert(0, OASA_DIR)
 

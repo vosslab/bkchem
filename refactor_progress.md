@@ -6,7 +6,7 @@ Last updated: 2026-02-01
 - Registry refactor: OASA codec registry is implemented and in use by the CLI.
 - Rendering refactor: SVG/Cairo unified via render ops, rounded wedges default.
 - CDML refactor: OASA CDML writer is the only BKChem serialization path.
-- Haworth CLI: batch SMILES rendering is available via `oasa_cli.py`.
+- Haworth CLI: batch SMILES rendering is available via `packages/oasa/oasa_cli.py`.
 
 ## Plan status by document
 
@@ -65,5 +65,5 @@ Last updated: 2026-02-01
 - Next: None unless new formats are added.
 
 ## Short-term priorities
-- Expand `oasa_cli.py` once the public CLI surface is finalized (format
+- Expand `packages/oasa/oasa_cli.py` once the public CLI surface is finalized (format
   conversion, batch reference output generation).

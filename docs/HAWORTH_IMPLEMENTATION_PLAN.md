@@ -176,7 +176,7 @@
 - Outcome: provide a CLI for Haworth rendering that accepts SMILES input and
   produces SVG/PNG outputs for batch testing and automation.
 - Example target command (final syntax TBD):
-  - `oasa_cli.py --haworth --smiles 'OC[C@@H]1O[C@@H](O)[C@@H](O)[C@H](O)[C@H]1O' --output alpha-D-glucopyranose.png`
+  - `python3 packages/oasa/oasa_cli.py haworth --smiles 'OC[C@@H]1O[C@@H](O)[C@@H](O)[C@H](O)[C@H]1O' --output alpha-D-glucopyranose.png`
 - Tests: smoke run the CLI with known SMILES inputs and confirm output files
   exist and are non-empty.
 

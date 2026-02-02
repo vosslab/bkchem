@@ -16,20 +16,30 @@
   configures PYTHONPATH for BKChem/OASA packages, sets Python 3.12 interpreter,
   and enables clean Python execution (no .pyc files, unbuffered output). Use with
   `source source_me.sh` before running tests or development scripts.
-- Implement Option 3 canonical Haworth renderer in `packages/oasa/oasa/selftest_sheet.py`:
+- Complete canonical Haworth integration in `packages/oasa/oasa/selftest_sheet.py`:
   add `_build_haworth_svg()` using canonical renderer path (svg_out.mol_to_svg,
   same as test_haworth_layout.py), add `_assert_haworth_invariants()` to verify
   exactly one in-ring oxygen vertex and at least one semantically tagged front
-  bond before rendering. Haworth now renders via projection grammar (semantic
-  bond tags + layout) instead of hand-assembled primitives. NOTE: Integration
-  incomplete - `_build_haworth_ops()` raises NotImplementedError with explicit
-  message about architectural migration state. Selftest correctly fails hard per
-  SELFTEST_PAGE_SPEC.md requirement: "prefer failure over incorrect output."
+  bond before rendering, rewrite `_build_haworth_ops()` to use canonical pipeline
+  (molecule from SMILES, haworth.build_haworth, invariant checks, svg_out rendering)
+  and extract ops for layout system. Haworth now renders via projection grammar
+  (semantic bond tags + layout) with atoms+bonds together from svg_out, not
+  hand-assembled primitives. Oxygen appears because it's a vertex, not added text.
 - Remove the `use_oasa_cdml_writer` flag and keep OASA CDML serialization as the
   only BKChem path, updating the serializer smoke test in
   `tests/test_bkchem_cdml_writer_flag.py`.
-- Add `oasa_cli.py` with a Haworth SMILES CLI for SVG/PNG output and a CLI smoke
-  test in `tests/test_oasa_haworth_cli.py`.
+- Add `packages/oasa/oasa_cli.py` with a Haworth SMILES CLI for SVG/PNG output
+  and a CLI smoke test in `tests/test_oasa_haworth_cli.py`.
+- Update CLI references to the `packages/oasa/oasa_cli.py` path across plans
+  and usage docs.
+- Render the Haworth selftest vignette from the canonical molecule pipeline
+  by embedding svg_out output in `packages/oasa/oasa/selftest_sheet.py`, and
+  add mixed SVG/ops layout helpers to preserve semantic rendering.
+- Resolve repo root in new CDML/CLI tests via `git rev-parse --show-toplevel`
+  to match repo style guidance.
+- Add `tests/test_haworth_cairo_layout.py` as a pre-merge baseline copy of
+  Haworth layout tests, and update Haworth tests to resolve repo root via
+  `git rev-parse --show-toplevel`.
 - Document the Haworth CLI in [docs/USAGE.md](docs/USAGE.md) and
   [packages/oasa/docs/USAGE.md](packages/oasa/docs/USAGE.md).
 - Update [refactor_progress.md](refactor_progress.md) to mark Haworth CLI and
@@ -357,7 +367,8 @@
   CDML version update locations.
 - Add a Haworth CLI phase to
   [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md),
-  including a draft `oasa_cli.py --haworth` command and smoke testing notes.
+  including a draft `packages/oasa/oasa_cli.py haworth` command and smoke
+  testing notes.
 - Update `tests/oasa_legacy_test.py` to write named outputs into a temporary
   directory so test files are cleaned up after the run.
 - Use `defusedxml.minidom` in `tests/test_cdml_versioning.py` to satisfy

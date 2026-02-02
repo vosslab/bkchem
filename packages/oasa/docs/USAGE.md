@@ -14,11 +14,11 @@ Examples:
 
 ## Haworth CLI
 - Render Haworth projections from SMILES using
-  [oasa_cli.py](../../oasa_cli.py).
+  [packages/oasa/oasa_cli.py](../oasa_cli.py).
 
 Examples:
-- `python3 oasa_cli.py haworth -s "C1CCOCC1" -o haworth.svg`
-- `python3 oasa_cli.py haworth -s "C1CCOCC1" -o haworth.png`
+- `python3 packages/oasa/oasa_cli.py haworth -s "C1CCOCC1" -o haworth.svg`
+- `python3 packages/oasa/oasa_cli.py haworth -s "C1CCOCC1" -o haworth.png`
 
 ## Smoke rendering test
 - Requires `pycairo` in the active environment.

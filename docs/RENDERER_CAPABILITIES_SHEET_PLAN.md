@@ -264,7 +264,7 @@ def test_capabilities_sheet_ops_snapshot():
 
 ## CLI
 
-### Entry point: `oasa_cli.py` (or add to existing CLI)
+### Entry point: `packages/oasa/oasa_cli.py` (or add to existing CLI)
 ```python
 def cmd_render_selftest(args):
     """Generate renderer capabilities sheet."""
@@ -292,16 +292,16 @@ def cmd_render_selftest(args):
 ### Usage
 ```bash
 # Generate SVG
-oasa_cli.py render-selftest --out capabilities.svg --format svg --page letter
+python3 packages/oasa/oasa_cli.py render-selftest --out capabilities.svg --format svg --page letter
 
 # Generate PNG
-oasa_cli.py render-selftest --out capabilities.png --format png --page letter --dpi 300
+python3 packages/oasa/oasa_cli.py render-selftest --out capabilities.png --format png --page letter --dpi 300
 
 # Generate PDF
-oasa_cli.py render-selftest --out capabilities.pdf --format pdf --page letter
+python3 packages/oasa/oasa_cli.py render-selftest --out capabilities.pdf --format pdf --page letter
 
 # Open immediately after generation (macOS)
-oasa_cli.py render-selftest --out capabilities.svg --format svg --open
+python3 packages/oasa/oasa_cli.py render-selftest --out capabilities.svg --format svg --open
 ```
 
 ## Implementation order

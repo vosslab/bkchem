@@ -4,11 +4,22 @@
 
 # Standard Library
 import os
+import subprocess
 import sys
 import xml.dom.minidom
 
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+def _repo_root():
+	output = subprocess.check_output(
+		["git", "rev-parse", "--show-toplevel"],
+		text=True,
+	).strip()
+	if not output:
+		raise RuntimeError("git rev-parse --show-toplevel returned empty output")
+	return output
+
+
+ROOT_DIR = _repo_root()
 if ROOT_DIR not in sys.path:
 	sys.path.insert(0, ROOT_DIR)
 
