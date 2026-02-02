@@ -24,6 +24,8 @@ Usage:
 import math
 import os
 import sys
+import tempfile
+import xml.dom.minidom
 
 # Handle imports for both module and script usage
 if __name__ == "__main__":
@@ -1117,7 +1119,7 @@ def _build_haworth_svg():
 	1. Build molecules from SMILES (O is ring vertex, not label)
 	2. Apply haworth.build_haworth() (semantic layout + bond tagging)
 	3. Assert canonical invariants (projection grammar, not picture)
-	4. Render via svg_out.mol_to_svg() (atoms + bonds together)
+	4. Render via render_out.mol_to_output() (atoms + bonds together)
 	5. Return SVG document (atomic object for embedding)
 
 	Returns:
@@ -1126,9 +1128,9 @@ def _build_haworth_svg():
 	# Handle imports for both module and script usage
 	if __name__ == "__main__":
 		import oasa
-		svg_out_module = oasa.svg_out
+		render_out_module = oasa.render_out
 	else:
-		from . import svg_out as svg_out_module
+		from . import render_out as render_out_module
 
 	# Build pyranose from SMILES (oxygen-first for canonical ordering)
 	pyranose = _mol_from_smiles("O1CCCCC1")
@@ -1150,15 +1152,23 @@ def _build_haworth_svg():
 	combined = pyranose
 	combined.insert_a_graph(furanose)
 
-	# CANONICAL ENTRY POINT - same as test_haworth_layout.py
-	renderer = svg_out_module.svg_out()
-	renderer.line_width = 1.0
-	renderer.bond_width = 3.0
-	renderer.wedge_width = 6.0
-	renderer.margin = 5
-
-	svg_doc = renderer.mol_to_svg(combined)
-	return svg_doc
+	options = {
+		"line_width": 1.0,
+		"bond_width": 3.0,
+		"wedge_width": 6.0,
+		"margin": 5,
+	}
+	temp_path = ""
+	try:
+		with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as handle:
+			temp_path = handle.name
+		render_out_module.mol_to_output(combined, temp_path, format="svg", **options)
+		with open(temp_path, "r", encoding="utf-8") as handle:
+			svg_text = handle.read()
+		return xml.dom.minidom.parseString(svg_text)
+	finally:
+		if temp_path and os.path.exists(temp_path):
+			os.remove(temp_path)
 
 
 def _build_haworth_ops():
@@ -1209,7 +1219,7 @@ def _build_haworth_ops():
 	renderer.margin = 5
 
 	# Call mol_to_svg to trigger rendering (this sets up internal state)
-	svg_doc = renderer.mol_to_svg(combined)
+	renderer.mol_to_svg(combined)
 
 	# Extract ops from renderer's internal bond rendering
 	# svg_out uses render_ops.build_bond_ops internally

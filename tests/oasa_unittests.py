@@ -18,13 +18,13 @@
 
 #--------------------------------------------------------------------------
 
-import os
-import sys
 import unittest
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "packages", "oasa"))
-if ROOT_DIR not in sys.path:
-  sys.path.insert(0, ROOT_DIR)
+# Local repo modules
+import conftest
+
+
+conftest.add_oasa_to_sys_path()
 
 from oasa import linear_formula
 from oasa import smiles

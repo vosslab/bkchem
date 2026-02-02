@@ -1,17 +1,57 @@
 # Standard Library
 import os
-import subprocess
 import sys
 
 
+def pytest_addoption(parser):
+	parser.addoption(
+		"--save",
+		action="store_true",
+		default=False,
+		help="Save rendered outputs to the current working directory",
+	)
+
+
 def repo_root():
-	output = subprocess.check_output(
-		["git", "rev-parse", "--show-toplevel"],
-		text=True,
-	).strip()
-	if not output:
-		raise RuntimeError("git rev-parse --show-toplevel returned empty output")
-	return output
+	root = _find_repo_root(os.getcwd())
+	if not root:
+		raise RuntimeError("repo root could not be resolved from current working directory")
+	return root
+
+
+#============================================
+def tests_root():
+	return os.path.join(repo_root(), "tests")
+
+
+#============================================
+def tests_path(*parts):
+	return os.path.join(tests_root(), *parts)
+
+
+#============================================
+def _find_repo_root(start_dir):
+	current = os.path.abspath(start_dir)
+	while True:
+		if _looks_like_repo_root(current):
+			return current
+		parent = os.path.dirname(current)
+		if parent == current:
+			return ""
+		current = parent
+
+
+#============================================
+def _looks_like_repo_root(path):
+	if not path:
+		return False
+	if not os.path.isdir(path):
+		return False
+	if not os.path.isfile(os.path.join(path, "AGENTS.md")):
+		return False
+	if not os.path.isfile(os.path.join(path, "docs", "REPO_STYLE.md")):
+		return False
+	return True
 
 
 def add_repo_root_to_sys_path():

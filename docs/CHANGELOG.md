@@ -35,11 +35,12 @@
 - Render the Haworth selftest vignette from the canonical molecule pipeline
   by embedding svg_out output in `packages/oasa/oasa/selftest_sheet.py`, and
   add mixed SVG/ops layout helpers to preserve semantic rendering.
-- Resolve repo root in new CDML/CLI tests via `git rev-parse --show-toplevel`
-  to match repo style guidance.
-- Add `tests/test_haworth_cairo_layout.py` as a pre-merge baseline copy of
-  Haworth layout tests, and update Haworth tests to resolve repo root via
-  `git rev-parse --show-toplevel`.
+- Resolve repo root in CDML/CLI tests via shared helpers in
+  [tests/conftest.py](tests/conftest.py) (no git commands), and register the
+  `--save` pytest option for smoke output preservation.
+- Add [tests/test_haworth_cairo_layout.py](tests/test_haworth_cairo_layout.py)
+  as a pre-merge baseline copy of Haworth layout tests, and update Haworth tests
+  to use [tests/conftest.py](tests/conftest.py) path helpers.
 - Document the Haworth CLI in [docs/USAGE.md](docs/USAGE.md) and
   [packages/oasa/docs/USAGE.md](packages/oasa/docs/USAGE.md).
 - Update [refactor_progress.md](refactor_progress.md) to mark Haworth CLI and
@@ -57,6 +58,16 @@
   passthrough and unique IDs for atom replacement coverage.
 - Add `tests/test_bkchem_cdml_vertex_tags.py` to ensure group/text/query tags
   are preserved in CDML output.
+- Add `packages/oasa/oasa/render_out.py` with a merged mol-to-output entry point
+  for SVG and Cairo-backed formats, and route the Haworth CLI through it.
+- Replace test-local repo root and fixtures path lookups with
+  [tests/conftest.py](tests/conftest.py) helpers, removing `os.path.dirname(__file__)`
+  usage across tests and updates to helper scripts under `tests/`.
+- Render Haworth smoke outputs via `render_out.mol_to_output` in the Haworth
+  layout tests and use the merged output path for Haworth SVG embedding in
+  `packages/oasa/oasa/selftest_sheet.py`.
+- Resolve repo root in [tests/run_smoke.sh](tests/run_smoke.sh) from the script
+  directory instead of running git.
 
 ## 2026-02-01
 - Update [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md) to establish

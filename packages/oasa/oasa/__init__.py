@@ -72,6 +72,7 @@ from . import oasa_exceptions
 from . import subsearch
 from . import svg_out
 from . import render_ops
+from . import render_out
 from . import wedge_geometry
 from . import haworth
 from . import stereochemistry
@@ -105,6 +106,7 @@ _EXPORTED_MODULES = [
 	subsearch,
 	svg_out,
 	render_ops,
+	render_out,
 	wedge_geometry,
 	haworth,
 	stereochemistry,
@@ -120,7 +122,15 @@ allNames = ['atom', 'bond', 'chem_vertex', 'coords_generator', 'config',
 	'oasa_exceptions', 'periodic_table', 'query_atom', 'smiles',
 	'stereochemistry', 'subsearch', 'svg_out', 'transform',
 	'transform3d']
-allNames.extend(["bond_semantics", "cdml_bond_io", "codec_registry", "safe_xml", "render_ops", "wedge_geometry"])
+allNames.extend([
+	"bond_semantics",
+	"cdml_bond_io",
+	"codec_registry",
+	"safe_xml",
+	"render_ops",
+	"render_out",
+	"wedge_geometry",
+])
 allNames.append("cdml_writer")
 allNames.append("__version__")
 

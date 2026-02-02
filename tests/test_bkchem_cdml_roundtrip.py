@@ -12,12 +12,11 @@ import tempfile
 import pytest
 import defusedxml.ElementTree
 
+# Local repo modules
+import conftest
 
-FIXTURES_DIR = os.path.join(
-	os.path.dirname(__file__),
-	"fixtures",
-	"cdml_roundtrip",
-)
+
+FIXTURES_DIR = conftest.tests_path("fixtures", "cdml_roundtrip")
 FIXTURE_CHECKS = {
 	"custom_attr.cdml": "_check_custom_attr",
 	"wavy_color.cdml": "_check_wavy_color",
@@ -192,7 +191,7 @@ def _check_vertex_ordering(root):
 
 #============================================
 def _run_roundtrip(fixtures_dir, output_dir=None):
-	root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+	root_dir = conftest.repo_root()
 	_ensure_sys_path(root_dir)
 	_ensure_gettext_fallbacks()
 	_verify_tkinter()

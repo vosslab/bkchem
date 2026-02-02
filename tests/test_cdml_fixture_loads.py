@@ -4,25 +4,20 @@
 
 # Standard Library
 import os
-import sys
 
 # Third Party
 from defusedxml import minidom
 
+# Local repo modules
+import conftest
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "packages", "oasa"))
-if ROOT_DIR not in sys.path:
-	sys.path.insert(0, ROOT_DIR)
+conftest.add_oasa_to_sys_path()
 
 # local repo modules
 import oasa
 
 
-FIXTURES_DIR = os.path.join(
-	os.path.dirname(__file__),
-	"fixtures",
-	"cdml",
-)
+FIXTURES_DIR = conftest.tests_path("fixtures", "cdml")
 
 
 #============================================

@@ -6,12 +6,11 @@ import os
 # Third Party
 import defusedxml.ElementTree
 
+# Local repo modules
+import conftest
 
-FIXTURES_DIR = os.path.join(
-	os.path.dirname(__file__),
-	"fixtures",
-	"bkchem_phase0",
-)
+
+FIXTURES_DIR = conftest.tests_path("fixtures", "bkchem_phase0")
 FIXTURE_EXPECTATIONS = {
 	"basic_types.cdml": {
 		"types": {"n1", "b1", "d1", "o1", "a1"},

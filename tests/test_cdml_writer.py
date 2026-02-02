@@ -3,12 +3,11 @@
 """Unit tests for OASA CDML molecule writer."""
 
 # Standard Library
-import os
-import sys
+# Local repo modules
+import conftest
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "packages", "oasa"))
-if ROOT_DIR not in sys.path:
-	sys.path.insert(0, ROOT_DIR)
+
+conftest.add_oasa_to_sys_path()
 
 # local repo modules
 import oasa

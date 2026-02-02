@@ -5,11 +5,12 @@ import re
 import sys
 
 import git_file_utils
+import conftest
 
 SCOPE_ENV = "REPO_HYGIENE_SCOPE"
 FAST_ENV = "FAST_REPO_HYGIENE"
 SKIP_ENV = "SKIP_REPO_HYGIENE"
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+REPO_ROOT = conftest.repo_root()
 ERROR_RE = re.compile(r":[0-9]+:[0-9]+:")
 CODEPOINT_RE = re.compile(r"non-ISO-8859-1 character U\+([0-9A-Fa-f]{4,6})")
 SKIP_FILE_PATTERNS = [

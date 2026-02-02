@@ -16,8 +16,8 @@ if OASA_DIR not in sys.path:
 
 # local repo modules
 from oasa import haworth
+from oasa import render_out
 from oasa import smiles
-from oasa import svg_out
 
 
 #============================================
@@ -135,7 +135,6 @@ def _render_haworth(args):
 	if output_format == "png":
 		if importlib.util.find_spec("cairo") is None:
 			raise RuntimeError("PNG output requires pycairo.")
-		from oasa import cairo_out
 
 	# Parse SMILES and generate initial coordinates
 	mol = smiles.text_to_mol(args.smiles, calc_coords=DEFAULT_BOND_LENGTH)
@@ -152,14 +151,7 @@ def _render_haworth(args):
 	# Ensure the output directory exists
 	_ensure_parent_dir(args.output)
 
-	if output_format == "svg":
-		renderer = svg_out.svg_out()
-		doc = renderer.mol_to_svg(mol)
-		svg_bytes = doc.toxml("utf-8")
-		with open(args.output, "wb") as handle:
-			handle.write(svg_bytes)
-	else:
-		cairo_out.mol_to_png(mol, args.output)
+	render_out.mol_to_output(mol, args.output, format=output_format)
 	return args.output
 
 

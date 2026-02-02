@@ -2,31 +2,20 @@
 
 # Standard Library
 import os
-import subprocess
-import sys
 
 # Third Party
 import pytest
 
-def _repo_root():
-	output = subprocess.check_output(
-		["git", "rev-parse", "--show-toplevel"],
-		text=True,
-	).strip()
-	if not output:
-		raise RuntimeError("git rev-parse --show-toplevel returned empty output")
-	return output
+# Local repo modules
+import conftest
 
 
-ROOT_DIR = _repo_root()
-OASA_DIR = os.path.join(ROOT_DIR, "packages", "oasa")
-if OASA_DIR not in sys.path:
-	sys.path.insert(0, OASA_DIR)
+conftest.add_oasa_to_sys_path()
 
-# local repo modules
 import oasa
 from oasa import haworth
 from oasa import render_ops
+from oasa import render_out
 
 
 #============================================
@@ -138,14 +127,9 @@ def test_haworth_furanose_oxygen_not_first():
 
 #============================================
 def test_haworth_svg_smoke(output_dir):
-	from oasa import svg_out
-	renderer = svg_out.svg_out()
-
 	pyranose = _build_haworth_smoke_mol()
 	svg_path = output_path(output_dir, "haworth_layout_smoke.svg")
-	combined_doc = renderer.mol_to_svg(pyranose)
-	with open(svg_path, "wb") as handle:
-		handle.write(combined_doc.toxml("utf-8"))
+	render_out.mol_to_output(pyranose, svg_path, format="svg")
 	assert os.path.isfile(svg_path)
 	assert os.path.getsize(svg_path) > 0
 	with open(svg_path, "r", encoding="utf-8") as handle:
@@ -156,14 +140,15 @@ def test_haworth_svg_smoke(output_dir):
 #============================================
 def test_haworth_cairo_smoke(output_dir):
 	try:
-		from oasa import cairo_out
+		import cairo
+		_ = cairo
 	except ImportError:
 		pytest.skip("pycairo is required for cairo smoke rendering")
 
 	pyranose = _build_haworth_smoke_mol()
 	_flip_y(pyranose)
 	png_path = output_path(output_dir, "haworth_layout_smoke.png")
-	cairo_out.mol_to_cairo(pyranose, png_path, format="png")
+	render_out.mol_to_output(pyranose, png_path, format="png")
 	assert os.path.isfile(png_path)
 	assert os.path.getsize(png_path) > 0
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # source_me.sh - Set up environment for testing and development
 #
 # This script is for TESTING AND DEVELOPMENT ONLY, not for installation.

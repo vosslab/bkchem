@@ -1,21 +1,12 @@
 """Smoke tests for biomolecule templates."""
 
-# Standard Library
-import os
-import sys
-
-
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-BKCHEM_DIR = os.path.join(ROOT_DIR, "packages", "bkchem")
-BKCHEM_PKG_DIR = os.path.join(BKCHEM_DIR, "bkchem")
+# Local repo modules
+import conftest
 
 
 #============================================
 def _ensure_sys_path():
-	if BKCHEM_DIR not in sys.path:
-		sys.path.insert(0, BKCHEM_DIR)
-	if BKCHEM_PKG_DIR not in sys.path:
-		sys.path.append(BKCHEM_PKG_DIR)
+	conftest.add_bkchem_to_sys_path()
 
 
 #============================================

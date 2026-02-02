@@ -30,7 +30,6 @@ from oasa import geometry
 from oasa import periodic_table as PT
 from math import atan2, sin, cos, pi, sqrt
 
-import config
 import misc
 import dom_extensions
 import bkchem_exceptions

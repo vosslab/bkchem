@@ -1,16 +1,10 @@
 """Tests for folder-based template catalog discovery."""
 
-# Standard Library
-import os
-import sys
+# Local repo modules
+import conftest
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-BKCHEM_DIR = os.path.join(ROOT_DIR, "packages", "bkchem")
-BKCHEM_PKG_DIR = os.path.join(BKCHEM_DIR, "bkchem")
-if BKCHEM_DIR not in sys.path:
-	sys.path.insert(0, BKCHEM_DIR)
-if BKCHEM_PKG_DIR not in sys.path:
-	sys.path.append(BKCHEM_PKG_DIR)
+
+conftest.add_bkchem_to_sys_path()
 
 # local repo modules
 import template_catalog

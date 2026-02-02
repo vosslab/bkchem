@@ -1,19 +1,12 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 """Unit tests for codec registry usage in bkchem oasa_bridge."""
 
-# Standard Library
-import os
-import sys
+# Local repo modules
+import conftest
 
-# Third Party
-import pytest
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "packages"))
-BKCHEM_DIR = os.path.join(ROOT_DIR, "bkchem", "bkchem")
-OASA_DIR = os.path.join(ROOT_DIR, "oasa")
-for path in (BKCHEM_DIR, OASA_DIR):
-	if path not in sys.path:
-		sys.path.insert(0, path)
+conftest.add_bkchem_to_sys_path()
+conftest.add_oasa_to_sys_path()
 
 # local repo modules
 import oasa

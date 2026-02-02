@@ -11,12 +11,11 @@ import tempfile
 # Third Party
 import pytest
 
+# Local repo modules
+import conftest
 
-FIXTURES_DIR = os.path.join(
-	os.path.dirname(__file__),
-	"fixtures",
-	"bkchem_phase0",
-)
+
+FIXTURES_DIR = conftest.tests_path("fixtures", "bkchem_phase0")
 FIXTURE_FILES = (
 	"basic_types.cdml",
 	"stereo.cdml",
@@ -112,7 +111,7 @@ def _export_cdml(app, output_path):
 #============================================
 def _run_cdml_smoke(fixtures_dir, output_dir=None):
 	"""Run the BKChem CDML load/save/reload checks."""
-	root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+	root_dir = conftest.repo_root()
 	_ensure_sys_path(root_dir)
 	_ensure_gettext_fallbacks()
 	_verify_tkinter()

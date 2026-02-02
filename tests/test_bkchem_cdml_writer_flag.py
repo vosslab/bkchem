@@ -3,40 +3,18 @@
 """BKChem molecule serialization using the OASA CDML writer."""
 
 # Standard Library
-import os
-import subprocess
 import sys
 import xml.dom.minidom
 
-
-def _repo_root():
-	output = subprocess.check_output(
-		["git", "rev-parse", "--show-toplevel"],
-		text=True,
-	).strip()
-	if not output:
-		raise RuntimeError("git rev-parse --show-toplevel returned empty output")
-	return output
+# Local repo modules
+import conftest
 
 
-ROOT_DIR = _repo_root()
-if ROOT_DIR not in sys.path:
-	sys.path.insert(0, ROOT_DIR)
-
-BKCHEM_DIR = os.path.join(ROOT_DIR, "packages", "bkchem")
-if BKCHEM_DIR not in sys.path:
-	sys.path.insert(0, BKCHEM_DIR)
-BKCHEM_MODULE_DIR = os.path.join(BKCHEM_DIR, "bkchem")
-if BKCHEM_MODULE_DIR not in sys.path:
-	sys.path.append(BKCHEM_MODULE_DIR)
-
-OASA_DIR = os.path.join(ROOT_DIR, "packages", "oasa")
-if OASA_DIR not in sys.path:
-	sys.path.insert(0, OASA_DIR)
+conftest.add_bkchem_to_sys_path()
+conftest.add_oasa_to_sys_path()
 if "oasa" in sys.modules:
 	del sys.modules["oasa"]
 
-# local repo modules
 import bkchem.atom
 import bkchem.bond
 import bkchem.classes

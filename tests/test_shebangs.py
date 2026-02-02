@@ -3,9 +3,10 @@ import stat
 from typing import Optional
 
 import git_file_utils
+import conftest
 
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+REPO_ROOT = conftest.repo_root()
 SKIP_DIRS = {
 	".git",
 	".venv",

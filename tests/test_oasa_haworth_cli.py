@@ -1,10 +1,11 @@
 # Standard Library
 import sys
 
-from conftest import add_oasa_to_sys_path
+# Local repo modules
+import conftest
 
 
-add_oasa_to_sys_path()
+conftest.add_oasa_to_sys_path()
 if "oasa" in sys.modules:
 	del sys.modules["oasa"]
 

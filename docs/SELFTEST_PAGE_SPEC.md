@@ -6,7 +6,7 @@ The capabilities sheet (`selftest_sheet.py`) generates a single-page visual refe
 
 **Critical Constraint**: The selftest exists to validate **chemical correctness and renderer fidelity**, not just stroke styles. Every vignette must originate from a molecule graph, never from hand-assembled render primitives.
 
-**Invariant**: The selftest must exercise the same molecule → layout → renderer pipeline used by real users. This explicitly disallows manual bond ops + label hacks.
+**Invariant**: The selftest must exercise the same molecule -> layout -> renderer pipeline used by real users. This explicitly disallows manual bond ops + label hacks.
 
 ## Canonical Rendering Rule
 
@@ -30,7 +30,7 @@ Every molecule vignette **MUST** satisfy these invariants. Violations abort self
 
 - Width **MUST** be > 0
 - Height **MUST** be > 0
-- All coordinates (minx, miny, maxx, maxy) **MUST** be finite (not NaN, not ±Infinity)
+- All coordinates (minx, miny, maxx, maxy) **MUST** be finite (not NaN, not +/-Infinity)
 
 **Why**: A missing or degenerate bbox indicates a renderer or integration bug. Silent fallback produces misleading output (e.g., "everything collapses into the left margin"). The selftest is a capability sheet - broken rendering must stop the run so it gets fixed immediately.
 
@@ -193,11 +193,11 @@ These test different chemical projection conventions:
 
 The following patterns violate canonical rendering and must not be used:
 
-- ❌ Manually constructing render_ops for bonds and adding atom labels separately
-- ❌ Adding atom labels as a post-processing pass after bond rendering
-- ❌ Using white rectangles to "fake" atom backgrounds
-- ❌ Encoding projection semantics (Haworth front edge, Fischer stereochem) in coordinates
-- ❌ Hand-assembling primitives instead of using the molecule renderer
+-  Manually constructing render_ops for bonds and adding atom labels separately
+-  Adding atom labels as a post-processing pass after bond rendering
+-  Using white rectangles to "fake" atom backgrounds
+-  Encoding projection semantics (Haworth front edge, Fischer stereochem) in coordinates
+-  Hand-assembling primitives instead of using the molecule renderer
 
 **Rule**: If you're building bonds manually and then adding labels, you're doing it wrong.
 
@@ -389,7 +389,7 @@ row1_height = 70      # Reduce size
 
 - Fix Haworth to meet canonical invariants (in-ring O vertex, semantic front edge)
 - Fix Fischer to use proper atom rendering (not manual labels)
-- Ensure round-trip stability: SMILES/CDML → layout → render → verify invariants
+- Ensure round-trip stability: SMILES/CDML -> layout -> render -> verify invariants
 - Add molecule-level invariant checks before rendering
 
 **Principle**: Walk before running. One correct projection beats three broken ones.

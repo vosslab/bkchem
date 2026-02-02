@@ -2,14 +2,14 @@
 
 # Standard Library
 import math
-import os
-import sys
 
 import pytest
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "packages", "oasa"))
-if ROOT_DIR not in sys.path:
-	sys.path.insert(0, ROOT_DIR)
+# Local repo modules
+import conftest
+
+
+conftest.add_oasa_to_sys_path()
 
 # local repo modules
 from oasa import wedge_geometry

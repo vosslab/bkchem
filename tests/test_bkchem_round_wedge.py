@@ -3,24 +3,14 @@
 """BKChem rounded wedge and Haworth q rendering tests."""
 
 # Standard Library
-import os
 import sys
 
+# Local repo modules
+import conftest
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT_DIR not in sys.path:
-	sys.path.insert(0, ROOT_DIR)
 
-BKCHEM_DIR = os.path.join(ROOT_DIR, "packages", "bkchem")
-if BKCHEM_DIR not in sys.path:
-	sys.path.insert(0, BKCHEM_DIR)
-BKCHEM_MODULE_DIR = os.path.join(BKCHEM_DIR, "bkchem")
-if BKCHEM_MODULE_DIR not in sys.path:
-	sys.path.append(BKCHEM_MODULE_DIR)
-
-OASA_DIR = os.path.join(ROOT_DIR, "packages", "oasa")
-if OASA_DIR not in sys.path:
-	sys.path.insert(0, OASA_DIR)
+conftest.add_bkchem_to_sys_path()
+conftest.add_oasa_to_sys_path()
 if "oasa" in sys.modules:
 	del sys.modules["oasa"]
 
