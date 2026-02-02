@@ -66,6 +66,14 @@
 - Render Haworth smoke outputs via `render_out.mol_to_output` in the Haworth
   layout tests and use the merged output path for Haworth SVG embedding in
   `packages/oasa/oasa/selftest_sheet.py`.
+- Align selftest molecule vignettes with the SPEC by rendering benzene, Fischer,
+  Haworth, and cholesterol via the molecule renderer (no manual ops/labels),
+  and composite vignette PNGs in the Cairo backend instead of ops.
+- Use defusedxml parsing for embedded SVG fragments in
+  `packages/oasa/oasa/selftest_sheet.py` to satisfy bandit XML safety checks.
+- Add the selftest motto ("Do less, but show more. Let the backend handle the
+  complexities.") to [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md)
+  and [docs/RENDERER_CAPABILITIES_SHEET_PLAN.md](docs/RENDERER_CAPABILITIES_SHEET_PLAN.md).
 - Resolve repo root in [tests/run_smoke.sh](tests/run_smoke.sh) from the script
   directory instead of running git.
 

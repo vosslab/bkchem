@@ -1,5 +1,7 @@
 # OASA Capabilities Sheet: Layout Specification
 
+Motto: Do less, but show more. Let the backend handle the complexities.
+
 ## Purpose
 
 The capabilities sheet (`selftest_sheet.py`) generates a single-page visual reference demonstrating all OASA rendering features. It serves as both a regression test and documentation.

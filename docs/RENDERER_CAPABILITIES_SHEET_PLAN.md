@@ -1,5 +1,7 @@
 # Renderer capabilities sheet plan
 
+Motto: Do less, but show more. Let the backend handle the complexities.
+
 ## Purpose
 Create a single-page visual reference showing all OASA rendering capabilities:
 - Bond types (normal, bold, wedge, hashed, wavy, Haworth, etc.)
