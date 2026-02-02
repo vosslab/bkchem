@@ -2,5 +2,4 @@
 Pmw
 Pillow
 defusedxml
-oasa
 pycairo
