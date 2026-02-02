@@ -207,20 +207,17 @@ Assess the current state of GPL v2 code coverage across the repository to track 
 
 Files are classified into three categories:
 
-1. **Pure GPL-2.0**: Files with no commits in 2025 or later
-   - Last modified before 2025
-   - All content is GPL v2
+1. **Pure GPL-2.0**: All lines last edited before the cutoff date
+   - Every line is GPL v2 provenance
    - Example: untouched legacy files
 
-2. **Pure LGPL-3.0-or-later**: Files created in 2025 with no pre-2025 history
-   - First commit is in 2025 or later
-   - No GPLv2-derived code
+2. **Pure LGPL-3.0-or-later**: All lines last edited on/after the cutoff date
+   - No GPLv2-derived code remains
    - Example: brand new renderer modules
 
-3. **Mixed**: Files with both pre-2025 and 2025+ commits
-   - Contains both GPL v2 and LGPL code
-   - Requires percentage calculation
-   - Example: files edited in place during migration
+3. **Mixed**: Lines exist on both sides of the cutoff
+   - Contains GPL v2 and newer code
+   - Must remain GPL-2.0 until fully rewritten
 
 ### Assessment Methodology
 
@@ -231,75 +228,54 @@ Files are classified into three categories:
 find packages tests -name "*.py" -type f | sort > /tmp/all_python_files.txt
 ```
 
-#### Step 2: Classify each file by git history
+#### Step 2: Classify each file by git blame line dates
 
-For each file, use git log to determine:
+For each file, use git blame to read the last edit time for each line:
 
 ```bash
-# Get first commit date (file creation)
-git log --follow --format=%aI --reverse -- <file> | head -n1
-
-# Get last commit date (most recent edit)
-git log --format=%aI -n1 -- <file>
-
-# Count total commits
-git log --oneline -- <file> | wc -l
-
-# Count commits before 2025
-git log --oneline --before="2025-01-01" -- <file> | wc -l
-
-# Count commits in 2025 or later
-git log --oneline --since="2025-01-01" -- <file> | wc -l
+git blame --line-porcelain --date=unix -- <file>
 ```
 
-Classification logic:
+Classification logic (reporting-only):
 
 ```python
-first_commit_date = get_first_commit_date(file)
-last_commit_date = get_last_commit_date(file)
-commits_before_2025 = count_commits_before_2025(file)
-commits_since_2025 = count_commits_since_2025(file)
+cutoff_ts = to_unix_timestamp("2025-01-01")
+line_times = [committer_time_per_line(file)]
+lines_before = sum(1 for t in line_times if t < cutoff_ts)
+lines_after = total_lines - lines_before
 
-if first_commit_date >= "2025-01-01":
+if lines_before == 0:
     classification = "Pure LGPL-3.0-or-later"
-elif last_commit_date < "2025-01-01":
+elif lines_after == 0:
     classification = "Pure GPL-2.0"
 else:
     classification = "Mixed"
 ```
 
-#### Step 3: Calculate GPL v2 percentage for mixed files
+#### Step 3: Calculate GPL v2 percentage for mixed files (reporting only)
 
 For mixed files, calculate GPL v2 percentage using multiple metrics:
 
-**Metric 1: Commit count percentage**
+**Metric 1: Line age percentage (primary)**
+```python
+gpl_line_percentage = (lines_before / total_lines) * 100
+```
+
+**Metric 2: Commit count percentage (secondary)**
 ```python
 gpl_commit_percentage = (commits_before_2025 / total_commits) * 100
 ```
 
-**Metric 2: Line change percentage**
+**Metric 3: Line-change percentage (secondary)**
 ```bash
-# Lines added before 2025
 git log --before="2025-01-01" --numstat --pretty="%H" -- <file> | \
   awk 'NF==3 {added+=$1} END {print added}'
 
-# Lines added since 2025
 git log --since="2025-01-01" --numstat --pretty="%H" -- <file> | \
   awk 'NF==3 {added+=$1} END {print added}'
-
-# Calculate percentage
-gpl_line_percentage = (lines_before_2025 / total_lines_added) * 100
 ```
 
-**Metric 3: Time-weighted percentage**
-```python
-# Weight by days between commits
-total_days = (last_commit_date - first_commit_date).days
-days_before_2025 = (min(last_commit_date, "2025-01-01") - first_commit_date).days
-gpl_time_percentage = (days_before_2025 / total_days) * 100
-```
-
-**Recommended metric**: Use commit count percentage as primary metric, with line change percentage as secondary validation.
+**Recommended metric**: Use line age percentage as primary; other metrics are supplemental.
 
 #### Step 4: Generate summary report
 

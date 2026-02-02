@@ -268,6 +268,37 @@
   by comparing date values to avoid timezone-aware vs naive datetime errors.
 - Add an ASCII progress bar to [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py)
   to show scan status while building coverage records.
+- Fix GPL/LGPL classification in [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py)
+  by comparing date values (not strings) and show normalized dates in per-file output.
+- Prefer SPDX headers and legacy license text detection when classifying files
+  in [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py), and record the
+  classification source in CSV output.
+- Clamp GPL time-percentage calculations in
+  [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py) when the cutoff
+  date predates the first commit to avoid negative values.
+- Update [docs/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md) to require
+  line-based (git blame) classification for GPL/LGPL reporting, with line-age
+  percentage as the primary metric and commit/change metrics as secondary.
+- Update [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py) to
+  classify files from git blame line dates, clean up per-file reporting, and
+  report line-add metrics when requested.
+- Replace non-ASCII checkmark glyphs in
+  [docs/MODULAR_MENU_ARCHITECTURE.md](docs/MODULAR_MENU_ARCHITECTURE.md) with
+  ASCII equivalents for compliance.
+- Add per-file spot-check samples (git blame lines around the cutoff) to
+  [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py) output when
+  using `--file`.
+- Make `tools/assess_gpl_coverage.py --file` process only the requested file
+  without scanning the full repo or emitting a progress bar.
+- Handle boundary commits in `tools/assess_gpl_coverage.py` spot-check output
+  by accepting blame hashes prefixed with '^'.
+- Clarify GPLv2 vs LGPLv3 labeling in
+  [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py) output for
+  summaries and per-file reports.
+- Silence SPDX "missing" noise in [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py)
+  output, and make SPDX mismatch reporting opt-in via `--show-spdx`.
+- Fix spot-check blame parsing so committer-time lines are processed, and label
+  commit counts as GPLv2 vs LGPLv3 in per-file output.
 - Center single-letter atom labels by default and scale label background boxes
   to font size to keep Haworth ring hetero atoms aligned after font scaling.
 
