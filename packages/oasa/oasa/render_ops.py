@@ -26,9 +26,7 @@ import math
 
 # local repo modules
 from . import dom_extensions
-from . import geometry
-from . import misc
-from . import wedge_geometry
+from . import safe_xml
 
 
 #============================================
@@ -82,19 +80,39 @@ class PathOp:
 
 #============================================
 @dataclasses.dataclass(frozen=True)
-class BondRenderContext:
-	molecule: object
-	line_width: float
-	bond_width: float
-	wedge_width: float
-	bold_line_width_multiplier: float
-	bond_second_line_shortening: float = 0.0
-	color_bonds: bool = False
-	atom_colors: dict | None = None
-	shown_vertices: set | None = None
-	bond_coords: dict | None = None
-	bond_coords_provider: object | None = None
-	point_for_atom: object | None = None
+class TextOp:
+	x: float
+	y: float
+	text: str
+	font_size: float = 12.0
+	font_name: str = "sans-serif"
+	anchor: str = "start"
+	weight: str = "normal"
+	color: object | None = None
+	z: int = 0
+	op_id: str | None = None
+
+
+#============================================
+def _text_segments(text):
+	if "<" not in text and ">" not in text:
+		return [(text, set())]
+	try:
+		root = safe_xml.parse_xml_string(f"<text>{text}</text>")
+	except Exception:
+		return [(text, set())]
+	segments = []
+
+	def _walk(node, attrs):
+		if node.text:
+			segments.append((node.text, set(attrs)))
+		for child in list(node):
+			_walk(child, attrs + [child.tag])
+			if child.tail:
+				segments.append((child.tail, set(attrs)))
+
+	_walk(root, [])
+	return segments
 
 
 #============================================
@@ -255,6 +273,19 @@ def ops_to_json_dict(ops, round_digits=3):
 				"join": op.join,
 				"z": op.z,
 			}
+		elif isinstance(op, TextOp):
+			entry = {
+				"kind": "text",
+				"x": _serialize_number(op.x, round_digits),
+				"y": _serialize_number(op.y, round_digits),
+				"text": op.text,
+				"font_size": _serialize_number(op.font_size, round_digits),
+				"font_name": op.font_name,
+				"anchor": op.anchor,
+				"weight": op.weight,
+				"color": color_to_hex(op.color),
+				"z": op.z,
+			}
 		else:
 			continue
 		if op.op_id:
@@ -266,6 +297,11 @@ def ops_to_json_dict(ops, round_digits=3):
 #============================================
 def ops_to_json_text(ops, round_digits=3):
 	return json.dumps(ops_to_json_dict(ops, round_digits=round_digits), indent=2, sort_keys=True)
+
+
+#============================================
+def supports_text_ops():
+	return True
 
 
 #============================================
@@ -358,6 +394,35 @@ def ops_to_svg(parent, ops):
 			if op.join:
 				attrs += (( 'stroke-linejoin', op.join),)
 			dom_extensions.elementUnder(parent, 'path', attrs)
+			continue
+		if isinstance(op, TextOp):
+			fill = color_to_hex(op.color) or "#000"
+			segments = _text_segments(op.text)
+			attrs = (
+				("x", str(op.x)),
+				("y", str(op.y)),
+				("font-family", op.font_name),
+				("font-size", str(op.font_size)),
+				("text-anchor", op.anchor),
+				("fill", fill),
+				("stroke", "none"),
+			)
+			if op.weight and op.weight != "normal":
+				attrs += (("font-weight", op.weight),)
+			if len(segments) == 1 and not segments[0][1]:
+				dom_extensions.textOnlyElementUnder(parent, "text", op.text, attrs)
+				continue
+			text_el = dom_extensions.elementUnder(parent, "text", attrs)
+			for chunk, tags in segments:
+				span_attrs = ()
+				if "sub" in tags:
+					span_attrs += (("baseline-shift", "sub"),
+						("font-size", str(op.font_size * 0.7)),)
+				elif "sup" in tags:
+					span_attrs += (("baseline-shift", "super"),
+						("font-size", str(op.font_size * 0.7)),)
+				dom_extensions.textOnlyElementUnder(text_el, "tspan", chunk, span_attrs)
+			continue
 
 
 #============================================
@@ -463,300 +528,43 @@ def ops_to_cairo(context, ops):
 					context.set_source_rgb(0, 0, 0)
 				context.set_line_width(op.stroke_width)
 				context.stroke()
+			continue
+		if isinstance(op, TextOp):
+			if not _set_cairo_color(context, op.color):
+				context.set_source_rgb(0, 0, 0)
+			weight = 1 if op.weight == "bold" else 0
+			segments = _text_segments(op.text)
+			context.select_font_face(op.font_name, 0, weight)
+			context.set_font_size(op.font_size)
+			asc, _desc, _height, _ax, _ay = context.font_extents()
+			total_width = 0.0
+			for chunk, tags in segments:
+				if "sub" in tags or "sup" in tags:
+					context.set_font_size(op.font_size * 0.7)
+				else:
+					context.set_font_size(op.font_size)
+				extents = context.text_extents(chunk)
+				total_width += extents.x_advance
+			x = op.x
+			if op.anchor == "middle":
+				x -= total_width / 2.0
+			elif op.anchor == "end":
+				x -= total_width
+			for chunk, tags in segments:
+				if "sub" in tags:
+					y = op.y + asc / 2.0
+					context.set_font_size(op.font_size * 0.7)
+				elif "sup" in tags:
+					y = op.y - asc / 2.0
+					context.set_font_size(op.font_size * 0.7)
+				else:
+					y = op.y
+					context.set_font_size(op.font_size)
+				extents = context.text_extents(chunk)
+				context.move_to(x, y)
+				context.show_text(chunk)
+				x += extents.x_advance
+			continue
 
 
 #============================================
-def haworth_front_edge_geometry(start, end, width, overlap=None, front_pad=None):
-	x1, y1 = start
-	x2, y2 = end
-	d = math.hypot(x2 - x1, y2 - y1)
-	if d == 0:
-		return None
-	dx = (x2 - x1) / d
-	dy = (y2 - y1) / d
-	if overlap is None:
-		overlap = max(1.0, 0.25 * width)
-	if front_pad is None:
-		front_pad = max(overlap, 0.35 * width)
-	x1 -= dx * front_pad
-	y1 -= dy * front_pad
-	x2 += dx * front_pad
-	y2 += dy * front_pad
-	cap_radius = width / 2.0
-	x1 += dx * cap_radius
-	y1 += dy * cap_radius
-	x2 -= dx * cap_radius
-	y2 -= dy * cap_radius
-	normal = (-dy, dx)
-	return (x1, y1), (x2, y2), normal, cap_radius
-
-
-#============================================
-def haworth_front_edge_ops(start, end, width, color):
-	geom = haworth_front_edge_geometry(start, end, width)
-	if not geom:
-		return []
-	(start, end, _normal, _cap_radius) = geom
-	return [LineOp(start, end, width=width, cap="round", color=color)]
-
-
-#============================================
-def _point_for_atom(context, atom):
-	if context.point_for_atom:
-		return context.point_for_atom(atom)
-	return (atom.x, atom.y)
-
-
-#============================================
-def _edge_wavy_style(edge):
-	return (getattr(edge, "wavy_style", None)
-			or edge.properties_.get("wavy_style")
-			or "sine")
-
-
-#============================================
-def _edge_line_color(edge):
-	color = getattr(edge, "line_color", None)
-	if not color:
-		color = edge.properties_.get("line_color") or edge.properties_.get("color")
-	return color_to_hex(color)
-
-
-#============================================
-def _edge_line_width(edge, context):
-	if edge.type == 'b':
-		return context.line_width * context.bold_line_width_multiplier
-	return context.line_width
-
-
-#============================================
-def _resolve_edge_colors(edge, context, has_shown_vertex):
-	edge_color = _edge_line_color(edge)
-	if edge_color:
-		return edge_color, edge_color, False
-	if context.color_bonds and context.atom_colors:
-		v1, v2 = edge.vertices
-		color1 = color_to_hex(context.atom_colors.get(v1.symbol, (0, 0, 0))) or "#000"
-		color2 = color_to_hex(context.atom_colors.get(v2.symbol, (0, 0, 0))) or "#000"
-		if has_shown_vertex and color1 != color2:
-			return color1, color2, True
-		return color1, color2, False
-	return "#000", "#000", False
-
-
-#============================================
-def _line_ops(start, end, width, color1, color2, gradient, cap):
-	if gradient and color1 and color2 and color1 != color2:
-		mid = ((start[0] + end[0]) / 2.0, (start[1] + end[1]) / 2.0)
-		return [
-			LineOp(start, mid, width=width, cap="butt", color=color1),
-			LineOp(mid, end, width=width, cap="butt", color=color2),
-		]
-	return [LineOp(start, end, width=width, cap=cap, color=color1 or "#000")]
-
-
-#============================================
-def _rounded_wedge_ops(start, end, line_width, wedge_width, color):
-	geom = wedge_geometry.rounded_wedge_geometry(start, end, wedge_width, line_width)
-	return [PathOp(commands=geom["path_commands"], fill=color or "#000")]
-
-
-#============================================
-def _hashed_ops(start, end, line_width, wedge_width, color1, color2, gradient):
-	x1, y1 = start
-	x2, y2 = end
-	x, y, x0, y0 = geometry.find_parallel(x1, y1, x2, y2, wedge_width / 2.0)
-	xa, ya, xb, yb = geometry.find_parallel(x1, y1, x2, y2, line_width / 2.0)
-	d = geometry.point_distance(x1, y1, x2, y2)
-	if d == 0:
-		return []
-	dx1 = (x0 - xa) / d
-	dy1 = (y0 - ya) / d
-	dx2 = (2 * x2 - x0 - 2 * x1 + xa) / d
-	dy2 = (2 * y2 - y0 - 2 * y1 + ya) / d
-	step_size = 2 * line_width
-	ns = round(d / step_size) or 1
-	step_size = d / ns
-	ops = []
-	total = int(round(d / step_size)) + 1
-	middle = max(1, total // 2)
-	for i in range(1, total):
-		coords = [
-			xa + dx1 * i * step_size,
-			ya + dy1 * i * step_size,
-			2 * x1 - xa + dx2 * i * step_size,
-			2 * y1 - ya + dy2 * i * step_size,
-		]
-		if coords[0] == coords[2] and coords[1] == coords[3]:
-			if (dx1 + dx2) > (dy1 + dy2):
-				coords[0] += 1
-			else:
-				coords[1] += 1
-		color = color1
-		if gradient and color2 and i >= middle:
-			color = color2
-		ops.append(LineOp((coords[0], coords[1]), (coords[2], coords[3]),
-				width=line_width, cap="butt", color=color))
-	return ops
-
-
-#============================================
-def _wave_points(start, end, line_width, style):
-	x1, y1 = start
-	x2, y2 = end
-	d = geometry.point_distance(x1, y1, x2, y2)
-	if d == 0:
-		return []
-	dx = (x2 - x1) / d
-	dy = (y2 - y1) / d
-	px = -dy
-	py = dx
-	amplitude = max(line_width * 1.5, 1.0)
-	wavelength = max(line_width * 6.0, 6.0)
-	steps = int(max(d / (wavelength / 16.0), 16))
-	step_size = d / steps
-	points = []
-	for i in range(steps + 1):
-		t = i * step_size
-		phase = (t / wavelength)
-		if style == "triangle":
-			value = 2 * abs(2 * (phase - math.floor(phase + 0.5))) - 1
-		elif style == "box":
-			value = 1.0 if math.sin(2 * math.pi * phase) >= 0 else -1.0
-		elif style == "half-circle":
-			half = wavelength / 2.0
-			local = (t % half) / half
-			value = math.sqrt(max(0.0, 1 - (2 * local - 1) ** 2))
-			if int(t / half) % 2:
-				value *= -1
-		else:
-			value = math.sin(2 * math.pi * phase)
-		ox = px * amplitude * value
-		oy = py * amplitude * value
-		points.append((x1 + dx * t + ox, y1 + dy * t + oy))
-	return points
-
-
-#============================================
-def _wavy_ops(start, end, line_width, style, color):
-	points = _wave_points(start, end, line_width, style)
-	if len(points) < 2:
-		return []
-	commands = [("M", (points[0][0], points[0][1]))]
-	for x, y in points[1:]:
-		commands.append(("L", (x, y)))
-	return [PathOp(commands=tuple(commands), fill="none", stroke=color or "#000",
-			stroke_width=line_width, cap="round", join="round")]
-
-
-#============================================
-def _double_bond_side(context, v1, v2, start, end, has_shown_vertex):
-	side = 0
-	in_ring = False
-	molecule = context.molecule
-	if molecule:
-		for ring in molecule.get_smallest_independent_cycles():
-			if v1 in ring and v2 in ring:
-				in_ring = True
-				double_bonds = len([bond for bond in molecule.vertex_subgraph_to_edge_subgraph(ring) if bond.order == 2])
-				for atom in ring:
-					if atom is v1 or atom is v2:
-						continue
-					side += double_bonds * geometry.on_which_side_is_point(
-						start + end, _point_for_atom(context, atom)
-					)
-	if not side:
-		for atom in v1.neighbors + v2.neighbors:
-			if atom is v1 or atom is v2:
-				continue
-			side += geometry.on_which_side_is_point(start + end, _point_for_atom(context, atom))
-	if not side and (in_ring or not has_shown_vertex):
-		if in_ring:
-			side = 1
-		else:
-			if len(v1.neighbors) == 1 and len(v2.neighbors) == 1:
-				side = 0
-			elif len(v1.neighbors) < 3 and len(v2.neighbors) < 3 and molecule:
-				side = sum(
-					geometry.on_which_side_is_point(start + end, _point_for_atom(context, atom))
-					for atom in molecule.vertices
-					if atom is not v1 and atom is not v2
-				)
-				if not side:
-					side = 1
-	return side
-
-
-#============================================
-def build_bond_ops(edge, start, end, context):
-	if start is None or end is None:
-		return []
-	v1, v2 = edge.vertices
-	has_shown_vertex = False
-	if context.shown_vertices:
-		has_shown_vertex = v1 in context.shown_vertices or v2 in context.shown_vertices
-	color1, color2, gradient = _resolve_edge_colors(edge, context, has_shown_vertex)
-	edge_line_width = _edge_line_width(edge, context)
-	ops = []
-
-	if edge.order == 1:
-		if edge.type == 'w':
-			haworth_front = edge.properties_.get("haworth_position") == "front"
-			if haworth_front:
-				overlap = max(1.0, 0.25 * context.wedge_width)
-				d = geometry.point_distance(start[0], start[1], end[0], end[1])
-				if d:
-					dx = (end[0] - start[0]) / d
-					dy = (end[1] - start[1]) / d
-					end = (end[0] + dx * overlap, end[1] + dy * overlap)
-			ops.extend(_rounded_wedge_ops(start, end, context.line_width,
-					context.wedge_width, color1))
-			return ops
-		if edge.type == 'h':
-			ops.extend(_hashed_ops(start, end, context.line_width, context.wedge_width,
-					color1, color2, gradient))
-			return ops
-		if edge.type == 'q':
-			ops.extend(haworth_front_edge_ops(start, end, context.wedge_width, color1))
-			return ops
-		if edge.type == 's':
-			ops.extend(_wavy_ops(start, end, edge_line_width, _edge_wavy_style(edge), color1))
-			return ops
-		ops.extend(_line_ops(start, end, edge_line_width, color1, color2, gradient, cap="round"))
-		return ops
-
-	if edge.order == 2:
-		side = _double_bond_side(context, v1, v2, start, end, has_shown_vertex)
-		if side:
-			ops.extend(_line_ops(start, end, edge_line_width, color1, color2, gradient, cap="round"))
-			x1, y1, x2, y2 = geometry.find_parallel(
-				start[0], start[1], end[0], end[1], context.bond_width * misc.signum(side)
-			)
-			length = geometry.point_distance(x1, y1, x2, y2)
-			if length and context.bond_second_line_shortening:
-				if not context.shown_vertices or v2 not in context.shown_vertices:
-					x2, y2 = geometry.elongate_line(x1, y1, x2, y2,
-							-context.bond_second_line_shortening * length)
-				if not context.shown_vertices or v1 not in context.shown_vertices:
-					x1, y1 = geometry.elongate_line(x2, y2, x1, y1,
-							-context.bond_second_line_shortening * length)
-			ops.extend(_line_ops((x1, y1), (x2, y2), edge_line_width,
-					color1, color2, gradient, cap="butt"))
-			return ops
-		for i in (1, -1):
-			x1, y1, x2, y2 = geometry.find_parallel(
-				start[0], start[1], end[0], end[1], i * context.bond_width * 0.5
-			)
-			ops.extend(_line_ops((x1, y1), (x2, y2), edge_line_width,
-					color1, color2, gradient, cap="round"))
-		return ops
-
-	if edge.order == 3:
-		ops.extend(_line_ops(start, end, edge_line_width, color1, color2, gradient, cap="round"))
-		for i in (1, -1):
-			x1, y1, x2, y2 = geometry.find_parallel(
-				start[0], start[1], end[0], end[1], i * context.bond_width * 0.7
-			)
-			ops.extend(_line_ops((x1, y1), (x2, y2), edge_line_width,
-					color1, color2, gradient, cap="butt"))
-	return ops

@@ -1,6 +1,124 @@
 # Changelog
 
 ## 2026-02-02
+- Add [docs/MENU_REFACTOR_SUMMARY.md](docs/MENU_REFACTOR_SUMMARY.md) as executive
+  summary tying together all menu refactor documentation: 6 core decisions (eliminate
+  exec-based plugins, adopt YAML + Dataclass Hybrid menus, complete platform abstraction,
+  backend/frontend separation with OASA as chemistry backend, modular built-in tools
+  replacing addons, unified renderer architecture for GUI and export), performance
+  requirements (< 100ms menu build, < 3ms avg / 5ms p95 state updates), 6-phase
+  implementation plan (14 weeks total: format handlers to OASA, menu system core,
+  menu migration, tools system, renderer unification, cleanup), risk mitigation
+  strategies, success metrics (500 lines removed, 80% test coverage, zero exec calls),
+  stakeholder communication guidance, Q&A section covering user workflows, extensibility,
+  sandboxing rationale, performance, rollback strategy, translations, OASA standalone
+  status. Summary includes comparison tables for plugin reclassification, backend/frontend
+  boundaries, architecture benefits, and approval checklist.
+- Fix non-ASCII characters in [docs/MODULAR_MENU_ARCHITECTURE.md](docs/MODULAR_MENU_ARCHITECTURE.md)
+  replacing degree symbols with "deg" and "degrees" text equivalents to ensure strict
+  ASCII compliance for all documentation.
+- Verify ASCII compliance for all menu refactor documentation
+  (MENU_REFACTOR_ANALYSIS.md, BKCHEM_GUI_MENU_REFACTOR.md, MODULAR_MENU_ARCHITECTURE.md,
+  MENU_REFACTOR_SUMMARY.md) - all pass grep checks with no non-ASCII characters.
+- Add platform abstraction layer to [docs/BKCHEM_GUI_MENU_REFACTOR.md](docs/BKCHEM_GUI_MENU_REFACTOR.md)
+  with MenuBackend interface (create_menubar, add_menu, add_menu_item, add_separator,
+  add_cascade, set_item_state) making YAML structure and MenuBuilder 100%
+  platform-agnostic, PmwMenuBackend with automatic platform detection, platform-specific
+  adapters (PmwMacOSAdapter using MainMenuBar, PmwLinuxAdapter using standard MenuBar,
+  PmwWindowsAdapter), opaque MenuHandle and MenuItemHandle eliminating all
+  platform-specific code from menu builder, enabling easy port to Qt/Gtk/Cocoa by
+  swapping backend implementation.
+- Add performance monitoring section to [docs/BKCHEM_GUI_MENU_REFACTOR.md](docs/BKCHEM_GUI_MENU_REFACTOR.md)
+  with PerformanceMonitor class (measure context manager, configurable warn threshold,
+  stats tracking), instrumented MenuBuilder measuring build_menus and update_menu_states
+  operations, performance acceptance criteria (menu build < 100ms one-time, state
+  update < 3ms avg and < 5ms p95 for frequent operations), baseline benchmarking
+  script comparing current vs new system, optimization strategy (state indexing for
+  5-10x speedup, predicate caching for 2-3x speedup, after_idle batching), continuous
+  monitoring in debug builds with automatic warning on slow operations.
+- Add [docs/MODULAR_MENU_ARCHITECTURE.md](docs/MODULAR_MENU_ARCHITECTURE.md)
+  defining architecture for modular built-in chemistry tools (not plugins):
+  Tool base class with metadata (id, name_key, category, requires_selection),
+  ToolRegistry for discovery, tool categories (analysis, conversion, visual,
+  fetchers, editing), automatic menu population via tool_category in YAML,
+  migration plan for 8 current addons (angle_between_bonds, text_to_group,
+  red_aromates, fetch_from_webbook, fragment_search, mass_scissors, animate_undo)
+  converting XML + exec() scripts to built-in Tool subclasses, chemistry logic
+  extraction to OASA backend (geometry.measure_bond_angle, aromaticity detection,
+  fragment search, NIST fetchers), Python extension mechanism for user
+  extensibility (safer than exec-based plugins using standard importlib), removes
+  ~500 lines of plugin infrastructure while maintaining modularity and
+  eliminating security risks from arbitrary code execution.
+- Add [docs/MENU_REFACTOR_ANALYSIS.md](docs/MENU_REFACTOR_ANALYSIS.md) with
+  comprehensive analysis of plugin architecture, menu system complexity, and
+  migration challenges: assess whether import/export format handlers should remain
+  as plugins (recommendation: move core formats like CML/CDXML/molfile to format
+  registry, keep renderer backends as optional plugins, sandbox script plugins,
+  remove unused mode plugins), analyze menu hooks (plugin injection, recent files,
+  selection-driven enablement) with simplification strategies (declarative plugin
+  slots, observable managers, indexed state updates, restricted plugin locations
+  reducing complexity by ~70%), document 7 major migration challenges with detailed
+  solutions (format plugin compatibility via parallel registry, translation key
+  stability via preserved label_key values, plugin backward compatibility via
+  LegacyMenuShim, macOS platform handling via PlatformMenuAdapter, performance
+  optimization via state indexing reducing updates from O(n^2) to O(n), toolbar
+  unification deferral, testing without GUI via mock Pmw), provide 6-phase
+  prioritized action plan with time estimates (10 weeks total) and success criteria
+  per phase.
+- Add "GPL v2 Code Coverage Assessment Plan" section to
+  [docs/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md) with comprehensive
+  methodology for assessing GPL v2 code coverage across repository using git log,
+  classification system (pure GPL-2.0, pure LGPL-3.0-or-later, mixed), git history
+  analysis commands, GPL v2 percentage calculation methods for mixed files (commit
+  count, line changes, time-weighted), summary report format, SPDX header compliance
+  tracking, implementation script structure, usage examples, and ongoing maintenance
+  strategy. Plan assumes all edits prior to 2025 are GPL-2.0 and provides baseline
+  metrics to track migration progress.
+- Split rendering into geometry producer vs painters: add
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  with `BondRenderContext` and `build_bond_ops`, update svg/cairo backends,
+  selftest, and render ops snapshot tests to use it.
+- Update BKChem `bond._draw_q1` to use `render_geometry.haworth_front_edge_geometry`
+  after the geometry split.
+- Move SVG vertex rendering to ops: add `build_vertex_ops` helpers in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py),
+  switch [packages/oasa/oasa/svg_out.py](packages/oasa/oasa/svg_out.py) and
+  selftest molecule ops to use them.
+- Add [docs/BKCHEM_GUI_MENU_REFACTOR.md](docs/BKCHEM_GUI_MENU_REFACTOR.md)
+  documenting current menu construction and a refactor plan.
+- Comprehensively rewrite [docs/BKCHEM_GUI_MENU_REFACTOR.md](docs/BKCHEM_GUI_MENU_REFACTOR.md)
+  to recommend YAML + Dataclass Hybrid approach combining YAML menu structure
+  (human-editable hierarchy) with Python dataclass action registry (type-safe handlers).
+  Add architecture overview diagram, complete implementation examples for YAML menus,
+  Python actions with lazy translation, menu builder combining YAML + actions, plugin API,
+  toolbar unification, and comprehensive test suite. Replace implementation phases with
+  detailed 7-phase plan (0: Analysis, 1: Action registry Python-only, 2: YAML structure
+  for File menu, 3: Incremental migration menu-by-menu, 4: Plugin API integration,
+  5: Toolbar unification, 6: Cleanup and testing, 7: Portability demo) with per-phase
+  deliverables, success criteria, code examples, and specific task checklists. Document
+  portability to Qt/Swift/web frameworks, i18n compatibility with .po files, comparison
+  of approaches (human readability, ease of add/rearrange, difficulty, verbosity), and
+  provide concrete first step with minimal working action registry and unit tests.
+- Add [docs/BKCHEM_GUI_CODE_REVIEW.md](docs/BKCHEM_GUI_CODE_REVIEW.md) with
+  a GUI code quality review and prioritized improvement areas.
+- Expand [docs/BKCHEM_GUI_CODE_REVIEW.md](docs/BKCHEM_GUI_CODE_REVIEW.md) with
+  additional architectural findings covering menu system architecture (tuple schema,
+  enablement logic), mode system architecture (registration, plugin modes, submodes,
+  toolbar creation), key sequence handling (CAMS modifiers, sequence building, focus
+  fragility), context menu architecture (dynamic building, configurable properties),
+  canvas event binding (platform-specific issues), singleton initialization (template
+  managers), plugin menu integration, and recent files menu. Add expanded next steps
+  with immediate/medium/long-term priorities including script execution boundaries,
+  platform input normalization, key modifier recovery, mode system cleanup, unit test
+  harness, event binding tests, and documentation requirements.
+- Add [docs/BACKEND_CODE_REVIEW.md](docs/BACKEND_CODE_REVIEW.md) documenting
+  backend rendering quality notes, risks, and follow-up recommendations.
+- Rework `packages/oasa/oasa/selftest_sheet.py` to build a backend-agnostic
+  ops list (including molecule vignettes via `_build_molecule_ops`) and render
+  through a single SVG/Cairo sink, removing backend-specific composition and
+  embedded SVG/PNG handling while keeping titles and grid labels as ops.
+- Update `tests/test_fischer_explicit_h.py` to assert Fischer explicit hydrogen
+  labels via `render_ops.TextOp` output instead of SVG DOM inspection.
 - Update [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md) with "Vignette
   Contract (Hard Requirements)" section defining bbox invariant (finite, non-zero
   width/height required, raises ValueError on violation) and projection-specific
@@ -76,6 +194,82 @@
   and [docs/RENDERER_CAPABILITIES_SHEET_PLAN.md](docs/RENDERER_CAPABILITIES_SHEET_PLAN.md).
 - Resolve repo root in [tests/run_smoke.sh](tests/run_smoke.sh) from the script
   directory instead of running git.
+- Fix ftext chunk splitting to avoid duplicated chunk objects and orphaned
+  canvas text items, preventing atom labels from moving twice and leaving
+  duplicates during drag operations.
+- Ensure SVG text labels do not inherit stroke styling by explicitly setting
+  `stroke="none"` on text ops and legacy SVG text drawing, fixing Haworth
+  oxygen labels appearing black in SVG viewers while keeping fill-based coloring.
+- Keep atom label text weight normal so SVG and Cairo/PNG outputs match after
+  switching to fill-based text coloring.
+- Increase Cairo text weight by default (font_weight=bold) so PNG/PDF output
+  better matches SVG appearance; allow overriding via cairo_out options.
+- Render atom labels in bold in SVG to match Cairo/PNG output weight.
+- Use round linecaps for color-split bond segments to avoid visible gaps at
+  Haworth ring junctions when gradients are used.
+- Update Fischer rendering to show explicit H by default, keep OH/H bonds
+  horizontal, place the aldehyde group at 120 degrees (O= and H), and label
+  hydroxyl substituents as OH with CH2OH at the terminus using label properties.
+- Adjust Fischer labels to use HO on the left side, keep the aldehyde H angled,
+  and remove the terminal methyl from the cholesterol template so it renders as
+  a terminal OH.
+- Align left-side HO labels with the bond by using a label-specific anchor so
+  the O sits at the attachment point.
+- Increase default PNG resolution to 600 DPI by mapping Cairo PNG scaling to DPI
+  (with explicit `dpi` override support) and add a `--dpi` option to the
+  selftest sheet PNG output path.
+- Add default PNG target width of 1500 px (overrideable via `target_width_px`)
+  to produce larger postcard-like raster outputs when using Cairo.
+- Add review notes to GUI docs clarifying menu tuple variants, key modifier
+  handling, mode switching behavior, and translation asset locations.
+- Add basic subscript/superscript markup support to render ops text output for
+  SVG/Cairo, and label Fischer CH2OH as CH<sub>2</sub>OH to render as a subscript.
+- Scale molecule label font size from a bond-length ratio in the selftest
+  sheet renderer to keep text size consistent across templates, and render
+  cholesterol with explicit OH on the terminal oxygen.
+- Add alpha-D-glucopyranose CDML vignette to the selftest sheet and place it
+  to the right of cholesterol in the second row.
+- Render the alpha-D-glucopyranose vignette in Haworth form by applying
+  `haworth.build_haworth` with D-series alpha substituent orientation mapping.
+- Derive alpha-D-glucopyranose Haworth substituent orientations from ring
+  topology (identify C1/C5 via the exocyclic carbon) and apply explicit
+  up/down placement for all ring substituents.
+- Replace non-ASCII box drawing and checkmark glyphs in
+  [docs/BKCHEM_GUI_MENU_REFACTOR.md](docs/BKCHEM_GUI_MENU_REFACTOR.md) with
+  ASCII equivalents to satisfy compliance checks.
+- Add review comments to [docs/BKCHEM_GUI_MENU_REFACTOR.md](docs/BKCHEM_GUI_MENU_REFACTOR.md)
+  covering translation extraction, menu label stability, Pmw component lookup,
+  and plugin insertion compatibility.
+- Update [docs/BKCHEM_GUI_MENU_REFACTOR.md](docs/BKCHEM_GUI_MENU_REFACTOR.md)
+  MenuBuilder implementation to address review comments: move top-level menu
+  labels and cascade labels to Python action registry (not YAML) for gettext
+  extraction, store menu component and item index (not translated labels) for
+  state updates to avoid label collision fragility, use app._get_menu_component()
+  instead of direct pmw_menubar.component() to preserve macOS compatibility,
+  add CascadeDefinition dataclass with translation keys, update usage examples
+  to show menu-level actions and cascade definitions, add backward compatibility
+  shim (add_to_menu_by_label) for legacy plugins using translated label lookup
+  with 4-phase migration path from label-based to menu-ID-based plugin API.
+- Add review comments to [docs/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md)
+  clarifying GPL-2.0-only compatibility concerns, provenance vs percentage
+  reporting, and limitations of date-based heuristics.
+- Clarify in [docs/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md) that mixed
+  GPLv2/new files must remain GPL-2.0 until all GPLv2 code is removed and the
+  file is fully rewritten.
+- Clarify that GPLv2 percentage metrics are reporting-only and intended to
+  scope legacy content and support author outreach, not relicensing decisions.
+- Add preferred one-command usage examples for the GPL coverage assessment
+  script (summary, full report, CSV) to [docs/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md).
+- Add [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py) for
+  reporting-only GPL/LGPL coverage metrics and update
+  [docs/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md) to reference the
+  tools path.
+- Fix date handling in [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py)
+  by comparing date values to avoid timezone-aware vs naive datetime errors.
+- Add an ASCII progress bar to [tools/assess_gpl_coverage.py](tools/assess_gpl_coverage.py)
+  to show scan status while building coverage records.
+- Center single-letter atom labels by default and scale label background boxes
+  to font size to keep Haworth ring hetero atoms aligned after font scaling.
 
 ## 2026-02-01
 - Update [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md) to establish

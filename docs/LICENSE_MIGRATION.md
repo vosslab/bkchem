@@ -11,8 +11,30 @@ This repository is transitioning from GPL-2.0 to a mixed GPL-2.0 / LGPL-3.0-or-l
 **Default rule:**
 - All new files are `LGPL-3.0-or-later`
 - Any file that contains GPLv2-derived code stays `GPL-2.0`
+- Any mixed file (GPLv2 + new code) stays `GPL-2.0` until all GPLv2 content
+  is fully removed and the file is rewritten from scratch
 
 No percentage tests. No intent tests. Just provenance.
+
+## Review comments
+
+- The compatibility notes need a careful correction. `LGPL-3.0-or-later`
+  is compatible with `GPL-2.0-or-later`, but not with `GPL-2.0-only`.
+  The plan should explicitly confirm whether BKChem is GPL-2.0-only or
+  GPL-2.0-or-later before relying on LGPLv3 components.
+- The "GPL v2 Code Coverage Assessment Plan" introduces percentage-based
+  classification for "Mixed" files, which conflicts with the earlier rule
+  of "provenance, not percentage." These percentage metrics must be
+  reporting-only: use them to understand scope and support outreach to
+  original authors, not to justify relicensing decisions.
+- The 2025-based cutoff is a tracking heuristic, not proof of provenance.
+  A pre-2025 creation date does not automatically imply GPLv2 provenance,
+  and a 2025 creation date does not prove a clean-room rewrite. Document
+  this as a reporting assumption only.
+- The document assumes git history is authoritative. That is useful for
+  reporting, but it is not sufficient for relicensing decisions when files
+  were moved, rebased, or imported. Add a note that provenance may require
+  manual review beyond git timestamps.
 
 ## Mixed Licensing Is Intentional
 
@@ -168,6 +190,252 @@ This boundary is not strict, but it is a useful guide.
 - GPL-2.0: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 - LGPL-3.0: https://www.gnu.org/licenses/lgpl-3.0.html
 - GPL Compatibility: https://www.gnu.org/licenses/gpl-faq.html#AllCompatibility
+
+## GPL v2 Code Coverage Assessment Plan
+
+### Objective
+
+Assess the current state of GPL v2 code coverage across the repository to track migration progress and identify remaining legacy code. This assessment will provide baseline metrics and guide future relicensing efforts.
+
+### Assumptions
+
+1. **All edits prior to 2025 are GPL-2.0**: Any file with commits before January 1, 2025 is considered GPL v2 code
+2. **File creation date determines initial license**: Files created in 2025 or later are LGPL-3.0-or-later unless proven otherwise
+3. **Git history is authoritative**: Use git log to determine file creation and modification dates
+
+### Classification System
+
+Files are classified into three categories:
+
+1. **Pure GPL-2.0**: Files with no commits in 2025 or later
+   - Last modified before 2025
+   - All content is GPL v2
+   - Example: untouched legacy files
+
+2. **Pure LGPL-3.0-or-later**: Files created in 2025 with no pre-2025 history
+   - First commit is in 2025 or later
+   - No GPLv2-derived code
+   - Example: brand new renderer modules
+
+3. **Mixed**: Files with both pre-2025 and 2025+ commits
+   - Contains both GPL v2 and LGPL code
+   - Requires percentage calculation
+   - Example: files edited in place during migration
+
+### Assessment Methodology
+
+#### Step 1: Identify all Python files
+
+```bash
+# Find all Python files in packages/ and tests/
+find packages tests -name "*.py" -type f | sort > /tmp/all_python_files.txt
+```
+
+#### Step 2: Classify each file by git history
+
+For each file, use git log to determine:
+
+```bash
+# Get first commit date (file creation)
+git log --follow --format=%aI --reverse -- <file> | head -n1
+
+# Get last commit date (most recent edit)
+git log --format=%aI -n1 -- <file>
+
+# Count total commits
+git log --oneline -- <file> | wc -l
+
+# Count commits before 2025
+git log --oneline --before="2025-01-01" -- <file> | wc -l
+
+# Count commits in 2025 or later
+git log --oneline --since="2025-01-01" -- <file> | wc -l
+```
+
+Classification logic:
+
+```python
+first_commit_date = get_first_commit_date(file)
+last_commit_date = get_last_commit_date(file)
+commits_before_2025 = count_commits_before_2025(file)
+commits_since_2025 = count_commits_since_2025(file)
+
+if first_commit_date >= "2025-01-01":
+    classification = "Pure LGPL-3.0-or-later"
+elif last_commit_date < "2025-01-01":
+    classification = "Pure GPL-2.0"
+else:
+    classification = "Mixed"
+```
+
+#### Step 3: Calculate GPL v2 percentage for mixed files
+
+For mixed files, calculate GPL v2 percentage using multiple metrics:
+
+**Metric 1: Commit count percentage**
+```python
+gpl_commit_percentage = (commits_before_2025 / total_commits) * 100
+```
+
+**Metric 2: Line change percentage**
+```bash
+# Lines added before 2025
+git log --before="2025-01-01" --numstat --pretty="%H" -- <file> | \
+  awk 'NF==3 {added+=$1} END {print added}'
+
+# Lines added since 2025
+git log --since="2025-01-01" --numstat --pretty="%H" -- <file> | \
+  awk 'NF==3 {added+=$1} END {print added}'
+
+# Calculate percentage
+gpl_line_percentage = (lines_before_2025 / total_lines_added) * 100
+```
+
+**Metric 3: Time-weighted percentage**
+```python
+# Weight by days between commits
+total_days = (last_commit_date - first_commit_date).days
+days_before_2025 = (min(last_commit_date, "2025-01-01") - first_commit_date).days
+gpl_time_percentage = (days_before_2025 / total_days) * 100
+```
+
+**Recommended metric**: Use commit count percentage as primary metric, with line change percentage as secondary validation.
+
+#### Step 4: Generate summary report
+
+Create a summary report with the following sections:
+
+**Overall Statistics:**
+```
+Total Python files: X
+Pure GPL-2.0 files: Y (Z%)
+Pure LGPL-3.0-or-later files: A (B%)
+Mixed files: C (D%)
+```
+
+**Mixed File Details:**
+```
+File                                    Total   GPL    LGPL   GPL%
+                                        Commits Commits Commits
+packages/oasa/oasa/cdml.py              47      42     5      89.4%
+packages/bkchem/bkchem/bond.py          23      18     5      78.3%
+...
+```
+
+**GPL v2 Content by Package:**
+```
+Package                 Total   GPL-2.0  LGPL    Mixed
+                        Files   Files    Files   Files
+packages/bkchem         45      35       2       8
+packages/oasa           67      28       30      9
+tests                   89      15       65      9
+```
+
+#### Step 5: Track SPDX header compliance
+
+For each file, check if SPDX header matches classification:
+
+```bash
+# Check for SPDX header
+head -n5 <file> | grep -E "SPDX-License-Identifier: (GPL-2\.0|LGPL-3\.0-or-later)"
+```
+
+Report files with:
+- Missing SPDX headers
+- Incorrect SPDX headers (classification mismatch)
+- Need for header addition or correction
+
+### Implementation Script
+
+Create `tools/assess_gpl_coverage.py` with the following structure:
+
+```python
+#!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
+import subprocess
+import os
+from datetime import datetime
+from pathlib import Path
+
+def get_file_classification(file_path):
+    """Classify file based on git history."""
+    # Implementation here
+    pass
+
+def calculate_gpl_percentage(file_path):
+    """Calculate GPL v2 percentage for mixed files."""
+    # Implementation here
+    pass
+
+def check_spdx_header(file_path):
+    """Check if SPDX header matches classification."""
+    # Implementation here
+    pass
+
+def generate_report():
+    """Generate comprehensive GPL v2 coverage report."""
+    # Find all Python files
+    # Classify each file
+    # Calculate statistics
+    # Output report
+    pass
+
+if __name__ == "__main__":
+    generate_report()
+```
+
+### Usage
+
+Preferred "one command per report" usage:
+
+```bash
+# Summary
+/opt/homebrew/opt/python@3.12/bin/python3.12 tools/assess_gpl_coverage.py --summary
+
+# Full report
+/opt/homebrew/opt/python@3.12/bin/python3.12 tools/assess_gpl_coverage.py \
+  > docs/gpl_coverage_report_$(date +%Y%m%d).txt
+
+# CSV export
+/opt/homebrew/opt/python@3.12/bin/python3.12 tools/assess_gpl_coverage.py --csv \
+  > gpl_coverage.csv
+```
+
+Additional options:
+
+```bash
+# Check specific file
+/opt/homebrew/opt/python@3.12/bin/python3.12 tools/assess_gpl_coverage.py \
+  --file packages/oasa/oasa/cdml.py
+
+# List files needing SPDX headers
+/opt/homebrew/opt/python@3.12/bin/python3.12 tools/assess_gpl_coverage.py \
+  --missing-headers
+```
+
+### Expected Outcomes
+
+1. **Baseline metrics**: Number and percentage of GPL v2, LGPL, and mixed files
+2. **Migration progress tracking**: Monitor reduction in GPL v2 percentage over time
+3. **SPDX compliance**: Identify files needing license headers
+4. **Targeted relicensing**: Prioritize mixed files with low GPL v2 percentage for rewriting
+5. **Documentation**: Generated reports document license provenance
+
+### Ongoing Maintenance
+
+- Run assessment monthly during active migration
+- Update report after significant relicensing efforts
+- Track trends: GPL v2 file count and percentage over time
+- Include assessment summary in release notes
+
+### Next Steps
+
+1. Implement `tools/assess_gpl_coverage.py`
+2. Run initial assessment to establish baseline
+3. Document baseline metrics in CHANGELOG.md
+4. Use report to prioritize files for relicensing
+5. Re-run assessment quarterly to track progress
 
 ## See Also
 

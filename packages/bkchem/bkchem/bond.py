@@ -25,7 +25,7 @@ import math
 import oasa
 
 from oasa import geometry
-from oasa import render_ops
+from oasa import render_geometry
 from oasa import wedge_geometry
 from warnings import warn
 
@@ -1203,7 +1203,7 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       return None
     x1, y1, x2, y2 = coords
     thickness = self.paper.real_to_canvas(self.wedge_width)
-    geometry_info = render_ops.haworth_front_edge_geometry( (x1, y1), (x2, y2), thickness)
+    geometry_info = render_geometry.haworth_front_edge_geometry( (x1, y1), (x2, y2), thickness)
     if not geometry_info:
       return None
     start, end, _normal, _cap_radius = geometry_info

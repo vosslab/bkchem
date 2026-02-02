@@ -12,6 +12,7 @@ conftest.add_oasa_to_sys_path()
 
 # local repo modules
 import oasa
+from oasa import render_geometry
 from oasa import render_ops
 
 
@@ -21,7 +22,7 @@ SNAPSHOT_PATH = conftest.tests_path("fixtures", "render_ops_snapshot.json")
 #============================================
 def _build_ops():
 	mol = oasa.molecule()
-	context = render_ops.BondRenderContext(
+	context = render_geometry.BondRenderContext(
 		molecule=mol,
 		line_width=2.0,
 		bond_width=6.0,
@@ -60,7 +61,7 @@ def _build_ops():
 		bond.properties_["line_color"] = color
 		bond.vertices = (a1, a2)
 		mol.add_edge(a1, a2, bond)
-		ops.extend(render_ops.build_bond_ops(bond, (x1, y1), (x2, y2), context))
+		ops.extend(render_geometry.build_bond_ops(bond, (x1, y1), (x2, y2), context))
 	ops.append(
 		render_ops.PathOp(
 			commands=(

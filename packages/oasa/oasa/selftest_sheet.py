@@ -24,9 +24,8 @@ Usage:
 import importlib
 import math
 import os
+import statistics
 import sys
-import tempfile
-import defusedxml.minidom as safe_minidom
 import xml.dom.minidom as xml_minidom
 
 # Handle imports for both module and script usage
@@ -41,7 +40,9 @@ if __name__ == "__main__":
 	atom = importlib.import_module("oasa.atom")
 	bond_module = importlib.import_module("oasa.bond")
 	molecule = importlib.import_module("oasa.molecule")
+	atom_colors = oasa.atom_colors
 	dom_extensions = oasa.dom_extensions
+	render_geometry = oasa.render_geometry
 	render_ops = oasa.render_ops
 	haworth = oasa.haworth
 else:
@@ -49,7 +50,9 @@ else:
 	atom = importlib.import_module(".atom", __package__)
 	bond_module = importlib.import_module(".bond", __package__)
 	molecule = importlib.import_module(".molecule", __package__)
+	from . import atom_colors
 	from . import dom_extensions
+	from . import render_geometry
 	from . import render_ops
 	from . import haworth
 
@@ -114,6 +117,18 @@ def ops_bbox(ops):
 				else:
 					x, y = payload
 					take_point(x, y)
+		elif isinstance(op, render_ops.TextOp):
+			text = op.text or ""
+			font_size = op.font_size or 0.0
+			width = len(text) * font_size * 0.6
+			height = font_size
+			x = op.x
+			if op.anchor == "middle":
+				x -= width / 2.0
+			elif op.anchor == "end":
+				x -= width
+			take_point(x, op.y - height)
+			take_point(x + width, op.y)
 
 	if minx == float("inf"):
 		raise ValueError("ops_bbox: empty ops list (no renderable content)")
@@ -229,192 +244,6 @@ def layout_row(vignettes, y_top, page_width, row_height, gutter=20, margin=40):
 
 
 #============================================
-def _parse_svg_length(value):
-	"""Parse an SVG length string into float."""
-	if value is None:
-		return 0.0
-	text = str(value).strip()
-	for unit in ("px", "pt", "cm", "mm", "in"):
-		if text.lower().endswith(unit):
-			text = text[: -len(unit)]
-			break
-	try:
-		return float(text)
-	except ValueError:
-		return 0.0
-
-
-#============================================
-def _svg_doc_dimensions(svg_doc):
-	"""Return (width, height) parsed from an SVG document."""
-	root = svg_doc.documentElement
-	width = _parse_svg_length(root.getAttribute("width"))
-	height = _parse_svg_length(root.getAttribute("height"))
-	if width and height:
-		return width, height
-	view_box = root.getAttribute("viewBox")
-	if view_box:
-		parts = [p for p in view_box.replace(",", " ").split() if p]
-		if len(parts) == 4:
-			try:
-				return float(parts[2]), float(parts[3])
-			except ValueError:
-				pass
-	return 0.0, 0.0
-
-
-#============================================
-def _append_svg_fragment(parent, svg_doc, x_offset, y_offset, scale=1.0, group_id=None):
-	"""Append an SVG fragment into the target document with transform."""
-	doc = parent.ownerDocument
-	attributes = []
-	if group_id:
-		attributes.append(("id", group_id))
-	transform = f"translate({x_offset},{y_offset}) scale({scale})"
-	attributes.append(("transform", transform))
-	group = dom_extensions.elementUnder(parent, "g", attributes=tuple(attributes))
-	root = svg_doc.documentElement
-	for node in root.childNodes:
-		if node.nodeType != node.ELEMENT_NODE:
-			continue
-		group.appendChild(doc.importNode(node, deep=True))
-	return group
-
-
-#============================================
-def layout_row_mixed(vignettes, y_top, page_width, row_height, gutter=20, margin=40):
-	"""Layout vignettes that may be ops or SVG fragments in a row.
-
-	Args:
-		vignettes: List of dicts with keys:
-			- title
-			- kind ("ops", "svg", or "image")
-			- ops (for kind="ops")
-			- svg_doc (for kind="svg")
-			- surface/width/height (for kind="image")
-		y_top: Y coordinate for top of row
-		page_width: Total page width
-		row_height: Target height for normalizing molecules
-		gutter: Space between vignettes
-		margin: Left/right margin
-
-	Returns:
-		List of dicts with positioned data for rendering.
-	"""
-	if not vignettes:
-		return []
-
-	normalized = []
-	for entry in vignettes:
-		title = entry["title"]
-		if entry["kind"] == "svg":
-			width, height = _svg_doc_dimensions(entry["svg_doc"])
-			if height <= 0:
-				raise ValueError("SVG fragment has invalid height for layout.")
-			scale = row_height / height
-			normalized.append({
-				"title": title,
-				"kind": "svg",
-				"svg_doc": entry["svg_doc"],
-				"scale": scale,
-				"width": width * scale,
-				"height": height * scale,
-			})
-		elif entry["kind"] == "image":
-			width = entry["width"]
-			height = entry["height"]
-			if height <= 0:
-				raise ValueError("Image fragment has invalid height for layout.")
-			scale = row_height / height
-			normalized.append({
-				"title": title,
-				"kind": "image",
-				"surface": entry["surface"],
-				"scale": scale,
-				"width": width * scale,
-				"height": height * scale,
-			})
-		else:
-			norm_ops, width, height = normalize_to_height(entry["ops"], row_height)
-			normalized.append({
-				"title": title,
-				"kind": "ops",
-				"ops": norm_ops,
-				"original_ops": entry["ops"],
-				"labels": entry.get("labels", []),
-				"width": width,
-				"height": height,
-			})
-
-	total_content_width = sum(entry["width"] for entry in normalized)
-	num_gaps = len(normalized) - 1
-	total_gap_width = num_gaps * gutter
-	available_width = page_width - 2 * margin
-
-	if total_content_width + total_gap_width > available_width:
-		scale_factor = available_width / (total_content_width + total_gap_width)
-		adjusted_height = row_height * scale_factor
-		normalized = []
-		for entry in vignettes:
-			title = entry["title"]
-			if entry["kind"] == "svg":
-				width, height = _svg_doc_dimensions(entry["svg_doc"])
-				if height <= 0:
-					raise ValueError("SVG fragment has invalid height for layout.")
-				scale = adjusted_height / height
-				normalized.append({
-					"title": title,
-					"kind": "svg",
-					"svg_doc": entry["svg_doc"],
-					"scale": scale,
-					"width": width * scale,
-					"height": height * scale,
-				})
-			elif entry["kind"] == "image":
-				width = entry["width"]
-				height = entry["height"]
-				if height <= 0:
-					raise ValueError("Image fragment has invalid height for layout.")
-				scale = adjusted_height / height
-				normalized.append({
-					"title": title,
-					"kind": "image",
-					"surface": entry["surface"],
-					"scale": scale,
-					"width": width * scale,
-					"height": height * scale,
-				})
-			else:
-				norm_ops, width, height = normalize_to_height(entry["ops"], adjusted_height)
-				normalized.append({
-					"title": title,
-					"kind": "ops",
-					"ops": norm_ops,
-					"original_ops": entry["ops"],
-					"labels": entry.get("labels", []),
-					"width": width,
-					"height": height,
-				})
-
-	result = []
-	x_current = margin
-	for entry in normalized:
-		width = entry["width"]
-		height = entry["height"]
-		x_center = x_current + width / 2
-		y_center = y_top + height / 2
-		entry_out = dict(entry)
-		entry_out["x"] = x_current
-		entry_out["y"] = y_top
-		entry_out["x_center"] = x_center
-		entry_out["y_center"] = y_center
-		result.append(entry_out)
-		x_current += width + gutter
-
-	return result
-
-
-#============================================
 def place_ops_in_rect(ops, rect, align="center", padding=5, preserve_aspect=True):
 	"""Place ops inside a rectangle with scaling and alignment.
 
@@ -477,7 +306,51 @@ def place_ops_in_rect(ops, rect, align="center", padding=5, preserve_aspect=True
 
 
 #============================================
-def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, output_path=None, cairo_format="png"):
+def build_renderer_capabilities_ops(page="letter", seed=0):
+	"""Build ops for the renderer capabilities sheet.
+
+	Args:
+		page: Page size ("letter", "a4") - always portrait orientation
+		seed: Random seed for reproducible molecule generation (not used yet)
+
+	Returns:
+		Tuple of (ops, width, height)
+	"""
+	_ = seed
+	width, height = get_page_dims(page, portrait=True)
+	include_text = render_ops.supports_text_ops()
+	ops = []
+
+	if include_text:
+		ops.append(render_ops.TextOp(
+			x=width / 2,
+			y=30,
+			text="OASA Renderer Capabilities",
+			font_size=20,
+			anchor="middle",
+			weight="bold",
+			color="#000",
+		))
+
+	ops.extend(_build_bond_grid_ops(include_text))
+	ops.extend(_build_vignettes_ops(width, include_text))
+
+	if include_text:
+		ops.append(render_ops.TextOp(
+			x=width / 2,
+			y=height - 20,
+			text="Generated by OASA selftest_sheet.py",
+			font_size=10,
+			anchor="middle",
+			color="#666",
+		))
+
+	return ops, width, height
+
+
+#============================================
+def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, output_path=None,
+																			cairo_format="png", png_dpi=600):
 	"""Build a capabilities sheet showing all rendering features.
 
 	Args:
@@ -486,34 +359,20 @@ def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, outp
 		seed: Random seed for reproducible molecule generation (not used yet)
 		output_path: Output file path (required for cairo backend)
 		cairo_format: Format for cairo backend ("png" or "pdf")
+		png_dpi: Target DPI for PNG output (default: 300)
 
 	Returns:
 		SVG text (str) for SVG backend
 		None for cairo backend (writes directly to output_path)
 	"""
-	cairo = None
-	if backend == "cairo":
-		if output_path is None:
-			raise ValueError("output_path is required for cairo backend")
-		try:
-			import cairo as cairo_module
-			cairo = cairo_module
-		except ImportError:
-			raise ImportError("pycairo is required for cairo backend. Install with: pip install pycairo")
-
-	if backend not in ("svg", "cairo"):
-		raise ValueError(f"Unknown backend: {backend}. Must be 'svg' or 'cairo'")
-
-	width, height = get_page_dims(page, portrait=True)
+	ops, width, height = build_renderer_capabilities_ops(page=page, seed=seed)
 
 	if backend == "svg":
-		# SVG backend - build DOM tree
-		# defusedxml doesn't have Document(), use implementation
 		try:
 			from xml.dom.minidom import getDOMImplementation
 			impl = getDOMImplementation()
 			doc = impl.createDocument(None, None, None)
-		except:
+		except Exception:
 			doc = xml_minidom.Document()
 		svg = dom_extensions.elementUnder(
 			doc,
@@ -524,130 +383,62 @@ def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, outp
 				("width", str(width)),
 				("height", str(height)),
 				("viewBox", f"0 0 {width} {height}"),
-			)
+			),
 		)
-
-		# Add title
-		title_g = dom_extensions.elementUnder(svg, "g", attributes=(("id", "title"),))
-		_add_text(
-			title_g,
-			width / 2,
-			30,
-			"OASA Renderer Capabilities",
-			font_size=20,
-			anchor="middle",
-			weight="bold",
-		)
-
-		# Section A: Bond grid
-		grid_g = dom_extensions.elementUnder(svg, "g", attributes=(("id", "bond-grid"),))
-		_build_bond_grid(grid_g)
-
-		# Section B: Vignettes
-		vignettes_g = dom_extensions.elementUnder(svg, "g", attributes=(("id", "vignettes"),))
-		_build_vignettes(vignettes_g, width)
-
-		# Footer
-		footer_g = dom_extensions.elementUnder(svg, "g", attributes=(("id", "footer"),))
-		_add_text(
-			footer_g,
-			width / 2,
-			height - 20,
-			"Generated by OASA selftest_sheet.py",
-			font_size=10,
-			anchor="middle",
-			fill="#666",
-		)
-
-		# Use toprettyxml for readable output (not minified)
-		xml_str = doc.toprettyxml(indent="  ", encoding="utf-8").decode("utf-8")
-		# Remove extra blank lines that toprettyxml adds
-		lines = [line for line in xml_str.split('\n') if line.strip()]
-		return '\n'.join(lines)
-
-	elif backend == "cairo":
-		# Cairo backend - render directly to file
-		if cairo is None:
-			raise RuntimeError("Cairo backend requested but pycairo is unavailable.")
-		# Create appropriate surface
-		if cairo_format == "png":
-			surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width), int(height))
-		elif cairo_format == "pdf":
-			surface = cairo.PDFSurface(output_path, width, height)
-		elif cairo_format == "svg":
-			surface = cairo.SVGSurface(output_path, width, height)
+		render_ops.ops_to_svg(svg, ops)
+		if __name__ == "__main__":
+			import oasa
+			svg_out = oasa.svg_out
 		else:
-			raise ValueError(f"Unknown cairo format: {cairo_format}")
+			from . import svg_out
+		return svg_out.pretty_print_svg(doc.toxml("utf-8"))
 
-		context = cairo.Context(surface)
+	if backend != "cairo":
+		raise ValueError(f"Unknown backend: {backend}. Must be 'svg' or 'cairo'")
+	if output_path is None:
+		raise ValueError("output_path is required for cairo backend")
+	try:
+		import cairo
+	except ImportError as exc:
+		raise RuntimeError("Cairo output requires pycairo.") from exc
 
-		# White background for PNG
-		if cairo_format == "png":
-			context.set_source_rgb(1, 1, 1)
-			context.paint()
-
-		# Collect and render bond grid ops
-		bond_ops = _collect_all_ops(width, height)
-		render_ops.ops_to_cairo(context, bond_ops)
-
-		# Render molecule vignettes via renderer pipeline (PNG surfaces)
-		row1_data, row2_data = _build_vignette_image_entries()
-		params = _vignette_layout_params()
-		row1_result = layout_row_mixed(
-			row1_data,
-			y_top=params["row1_y"],
-			page_width=width,
-			row_height=params["row1_height"],
-			gutter=params["gutter"],
-			margin=params["margin"]
+	if cairo_format == "png":
+		if png_dpi <= 0:
+			raise ValueError("png_dpi must be > 0")
+		scale = float(png_dpi) / 72.0
+		surface = cairo.ImageSurface(
+			cairo.FORMAT_ARGB32,
+			int(round(width * scale)),
+			int(round(height * scale)),
 		)
-		row2_result = layout_row_mixed(
-			row2_data,
-			y_top=params["row2_y"],
-			page_width=width,
-			row_height=params["row2_height"],
-			gutter=params["gutter"],
-			margin=params["margin"]
-		)
-		_render_cairo_vignette_images(context, row1_result, row2_result)
+	elif cairo_format == "pdf":
+		surface = cairo.PDFSurface(output_path, width, height)
+	elif cairo_format == "svg":
+		surface = cairo.SVGSurface(output_path, width, height)
+	else:
+		raise ValueError(f"Unknown cairo format: {cairo_format}")
 
-		# Add text labels using cairo
-		_add_cairo_labels(context, width, height, row1_result, row2_result)
-
-		# Finish rendering
-		if cairo_format == "png":
-			surface.write_to_png(output_path)
-		surface.finish()
-
-		return None
+	context = cairo.Context(surface)
+	if cairo_format == "png":
+		context.scale(scale, scale)
+		context.set_source_rgb(1, 1, 1)
+		context.paint()
+	render_ops.ops_to_cairo(context, ops)
+	if cairo_format == "png":
+		surface.write_to_png(output_path)
+	surface.finish()
+	return None
 
 
 #============================================
-def _add_text(parent, x, y, text, font_size=12, anchor="start", weight="normal", fill="#000"):
-	"""Add text element to SVG."""
-	attrs = (
-		("x", str(x)),
-		("y", str(y)),
-		("font-family", "sans-serif"),
-		("font-size", str(font_size)),
-		("text-anchor", anchor),
-		("fill", fill),
-	)
-	if weight != "normal":
-		attrs += (("font-weight", weight),)
-	text_elem = dom_extensions.elementUnder(parent, "text", attributes=attrs)
-	text_elem.appendChild(parent.ownerDocument.createTextNode(text))
-
-
-#============================================
-def _build_bond_grid(parent):
-	"""Build bond type x color grid (Section A)."""
+def _build_bond_grid_ops(include_text):
+	"""Build bond type x color grid ops (Section A)."""
 	# Bond types to show
 	bond_types = [
 		('n', 'Normal'),
 		('b', 'Bold'),
 		('w', 'Wedge'),
-		('h', 'Hatch'),
+		('h', 'Hashed'),
 		('q', 'Wide rect'),
 		('s', 'Wavy (sine)'),
 		('s_triangle', 'Wavy (tri)'),
@@ -671,54 +462,57 @@ def _build_bond_grid(parent):
 	cell_h = 35
 	label_offset = 15
 
-	# Column headers (bond type names)
-	for col, (bond_type, bond_name) in enumerate(bond_types):
-		x = grid_x + col * cell_w + cell_w / 2
-		y = grid_y - 5
-		_add_text(parent, x, y, bond_name, font_size=9, anchor="middle")
+	ops = []
 
-	# Row headers (color names)
-	for row, (color, color_name) in enumerate(colors):
-		x = grid_x - 10
-		y = grid_y + label_offset + row * cell_h + cell_h / 2
-		_add_text(parent, x, y, color_name, font_size=9, anchor="end", fill=color)
+	if include_text:
+		for col, (_bond_type, bond_name) in enumerate(bond_types):
+			x = grid_x + col * cell_w + cell_w / 2
+			y = grid_y - 5
+			ops.append(render_ops.TextOp(
+				x=x,
+				y=y,
+				text=bond_name,
+				font_size=9,
+				anchor="middle",
+				color="#000",
+			))
 
-	# Grid cells
+		for row, (color, color_name) in enumerate(colors):
+			x = grid_x - 10
+			y = grid_y + label_offset + row * cell_h + cell_h / 2
+			ops.append(render_ops.TextOp(
+				x=x,
+				y=y,
+				text=color_name,
+				font_size=9,
+				anchor="end",
+				color=color,
+			))
+
 	for row, (color, _) in enumerate(colors):
 		for col, (bond_type, _) in enumerate(bond_types):
 			x = grid_x + col * cell_w
 			y = grid_y + label_offset + row * cell_h
-
-			# Create cell group
-			cell_g = dom_extensions.elementUnder(
-				parent, "g",
-				attributes=(("id", f"cell-{bond_type}-{color}"),)
+			points = (
+				(x, y),
+				(x + cell_w, y),
+				(x + cell_w, y + cell_h),
+				(x, y + cell_h),
 			)
+			ops.append(render_ops.PolygonOp(
+				points=points,
+				fill="none",
+				stroke="#ddd",
+				stroke_width=0.5,
+			))
 
-			# Draw cell border (light gray)
-			dom_extensions.elementUnder(
-				cell_g, "rect",
-				attributes=(
-					("x", str(x)),
-					("y", str(y)),
-					("width", str(cell_w)),
-					("height", str(cell_h)),
-					("fill", "none"),
-					("stroke", "#ddd"),
-					("stroke-width", "0.5"),
-				)
-			)
-
-			# Build bond fragment ops
 			fragment_ops = _build_bond_fragment(bond_type, color)
-
-			# Transform ops into cell position
 			cx = x + cell_w / 2
 			cy = y + cell_h / 2
 			panel_ops = _transform_ops(fragment_ops, cx - 15, cy, scale=1.0)
+			ops.extend(panel_ops)
 
-			# Paint ops
-			render_ops.ops_to_svg(cell_g, panel_ops)
+	return ops
 
 
 #============================================
@@ -771,7 +565,7 @@ def _build_bond_fragment(bond_type, color):
 	mol.add_edge(a1, a2, bond)
 
 	# Build ops using existing infrastructure
-	context = render_ops.BondRenderContext(
+	context = render_geometry.BondRenderContext(
 		molecule=mol,
 		line_width=1.0,
 		bond_width=3.0,
@@ -782,7 +576,7 @@ def _build_bond_fragment(bond_type, color):
 		point_for_atom=None,
 	)
 
-	return render_ops.build_bond_ops(bond, (0, 0), (30, 0), context)
+	return render_geometry.build_bond_ops(bond, (0, 0), (30, 0), context)
 
 
 #============================================
@@ -838,6 +632,18 @@ def _transform_ops(ops, dx, dy, scale=1.0):
 				stroke_width=op.stroke_width * scale,
 				cap=op.cap, join=op.join, z=op.z
 			))
+		elif isinstance(op, render_ops.TextOp):
+			transformed.append(render_ops.TextOp(
+				x=op.x * scale + dx,
+				y=op.y * scale + dy,
+				text=op.text,
+				font_size=op.font_size * scale,
+				font_name=op.font_name,
+				anchor=op.anchor,
+				weight=op.weight,
+				color=op.color,
+				z=op.z,
+			))
 		else:
 			# Unknown op type, skip
 			continue
@@ -858,56 +664,96 @@ def _mol_render_options():
 		"wedge_width": 6.0,
 		"bold_line_width_multiplier": 1.2,
 		"margin": 5,
+		"font_name": "Arial",
+		"font_size": 16,
+		"font_size_ratio": 0.65,
+		"color_atoms": True,
+		"color_bonds": True,
+		"atom_colors": atom_colors.atom_colors_full,
+		"show_hydrogens_on_hetero": False,
 	}
 
 
 #============================================
-def _render_svg_doc_from_mol(mol, options):
-	if mol is None:
-		raise ValueError("Cannot render a missing molecule.")
-	if __name__ == "__main__":
-		import oasa
-		render_out_module = oasa.render_out
-	else:
-		from . import render_out as render_out_module
-
-	temp_path = ""
-	try:
-		with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as handle:
-			temp_path = handle.name
-		render_out_module.mol_to_output(mol, temp_path, format="svg", **options)
-		with open(temp_path, "r", encoding="utf-8") as handle:
-			svg_text = handle.read()
-		return safe_minidom.parseString(svg_text)
-	finally:
-		if temp_path and os.path.exists(temp_path):
-			os.remove(temp_path)
+def _bond_lengths(mol):
+	lengths = []
+	for edge in mol.edges:
+		v1, v2 = edge.vertices
+		dx = v1.x - v2.x
+		dy = v1.y - v2.y
+		length = math.hypot(dx, dy)
+		if length > 0:
+			lengths.append(length)
+	return lengths
 
 
 #============================================
-def _render_png_surface_from_mol(mol, options):
+def _scaled_font_size(mol, ratio, fallback):
+	if ratio <= 0:
+		return fallback
+	lengths = _bond_lengths(mol)
+	if not lengths:
+		return fallback
+	median_length = statistics.median(lengths)
+	if not math.isfinite(median_length) or median_length <= 0:
+		return fallback
+	return ratio * median_length
+
+
+#============================================
+def _build_molecule_ops(mol, options):
+	"""Build render ops for a molecule using shared bond logic."""
 	if mol is None:
 		raise ValueError("Cannot render a missing molecule.")
-	try:
-		import cairo
-	except ImportError as exc:
-		raise RuntimeError("Cairo backend requires pycairo.") from exc
-	if __name__ == "__main__":
-		import oasa
-		render_out_module = oasa.render_out
-	else:
-		from . import render_out as render_out_module
+	line_width = options.get("line_width", 1.0)
+	bond_width = options.get("bond_width", 3.0)
+	wedge_width = options.get("wedge_width", 6.0)
+	bold_line_width_multiplier = options.get("bold_line_width_multiplier", 1.2)
+	color_atoms = options.get("color_atoms", True)
+	color_bonds = options.get("color_bonds", True)
+	atom_colors_map = options.get("atom_colors", None)
+	font_name = options.get("font_name", "Arial")
+	font_size = options.get("font_size", 16)
+	font_size_ratio = options.get("font_size_ratio", None)
+	show_hydrogens_on_hetero = options.get("show_hydrogens_on_hetero", False)
+	if font_size_ratio is not None:
+		font_size = _scaled_font_size(mol, font_size_ratio, font_size)
 
-	temp_path = ""
-	try:
-		with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as handle:
-			temp_path = handle.name
-		render_out_module.mol_to_output(mol, temp_path, format="png", **options)
-		surface = cairo.ImageSurface.create_from_png(temp_path)
-		return surface, surface.get_width(), surface.get_height()
-	finally:
-		if temp_path and os.path.exists(temp_path):
-			os.remove(temp_path)
+	shown_vertices = set([v for v in mol.vertices if render_geometry.vertex_is_shown(v)])
+	bond_coords = {}
+	for edge in mol.edges:
+		v1, v2 = edge.vertices
+		bond_coords[edge] = ((v1.x, v1.y), (v2.x, v2.y))
+
+	context = render_geometry.BondRenderContext(
+		molecule=mol,
+		line_width=line_width,
+		bond_width=bond_width,
+		wedge_width=wedge_width,
+		bold_line_width_multiplier=bold_line_width_multiplier,
+		bond_second_line_shortening=0.0,
+		color_bonds=color_bonds,
+		atom_colors=atom_colors_map,
+		shown_vertices=shown_vertices,
+		bond_coords=bond_coords,
+		point_for_atom=lambda atom: (atom.x, atom.y),
+	)
+
+	ops = []
+	for edge in mol.edges:
+		start, end = bond_coords.get(edge, (None, None))
+		ops.extend(render_geometry.build_bond_ops(edge, start, end, context))
+
+	for vertex in mol.vertices:
+		ops.extend(render_geometry.build_vertex_ops(
+			vertex,
+			show_hydrogens_on_hetero=show_hydrogens_on_hetero,
+			color_atoms=color_atoms,
+			atom_colors=atom_colors_map,
+			font_name=font_name,
+			font_size=font_size,
+		))
+	return ops
 
 
 #============================================
@@ -945,39 +791,107 @@ def _build_cholesterol_mol():
 	if mol is None:
 		raise ValueError("Cholesterol CDML returned an empty molecule.")
 
+	for atom_node in list(mol.vertices):
+		if atom_node.symbol != "O":
+			continue
+		for neighbor in list(atom_node.neighbors):
+			if neighbor.symbol != "C":
+				continue
+			if len(neighbor.neighbors) != 1:
+				continue
+			edge = mol.get_edge_between(atom_node, neighbor)
+			if edge:
+				mol.disconnect_edge(edge)
+			mol.remove_vertex(neighbor)
+			break
+
 	return mol
 
 
 #============================================
-def _add_atom_labels(parent, labels, original_ops, positioned_ops):
-	"""Add atom labels transformed to match positioned ops.
+def _build_alpha_d_glucopyranose_mol():
+	"""Build alpha-D-glucopyranose molecule from CDML template."""
 
-	Args:
-		parent: SVG group element
-		labels: List of (x, y, text, font_size, anchor) tuples in original coordinates
-		original_ops: Original ops before transformation
-		positioned_ops: Transformed ops after layout
-	"""
-	if not labels:
-		return
+	# Handle imports for both module and script usage
+	if __name__ == "__main__":
+		import oasa
+		cdml_module = oasa.cdml
+	else:
+		from . import cdml as cdml_module
 
-	# Compute transformation by comparing bboxes
-	orig_bbox = ops_bbox(original_ops)
-	pos_bbox = ops_bbox(positioned_ops)
+	here = os.path.dirname(os.path.abspath(__file__))
+	path = os.path.join(
+		here, "..", "..", "bkchem", "bkchem_data", "templates",
+		"biomolecules", "carbs", "monosaccharides",
+		"alpha_d_glucopyranose.cdml"
+	)
+	path = os.path.normpath(path)
 
-	if orig_bbox[2] == orig_bbox[0] or orig_bbox[3] == orig_bbox[1]:
-		return  # Degenerate bbox
+	if not os.path.exists(path):
+		raise FileNotFoundError(f"Alpha-D-glucopyranose template not found: {path}")
 
-	# Scale and translation
-	scale = (pos_bbox[2] - pos_bbox[0]) / (orig_bbox[2] - orig_bbox[0])
-	dx = pos_bbox[0] - orig_bbox[0] * scale
-	dy = pos_bbox[1] - orig_bbox[1] * scale
+	with open(path, 'r') as f:
+		result = cdml_module.read_cdml(f.read())
 
-	# Transform and add labels
-	for x, y, text, font_size, anchor in labels:
-		tx = x * scale + dx
-		ty = y * scale + dy
-		_add_text(parent, tx, ty, text, font_size=font_size, anchor=anchor)
+	try:
+		mol = next(iter(result))
+	except (StopIteration, TypeError):
+		raise ValueError("Alpha-D-glucopyranose CDML did not yield any molecules.")
+
+	if mol is None:
+		raise ValueError("Alpha-D-glucopyranose CDML returned an empty molecule.")
+
+	layout = haworth.build_haworth(mol, mode="pyranose")
+	ring_atoms = layout["ring_atoms"]
+	ring_set = set(ring_atoms)
+
+	oxygen = next((a for a in ring_atoms if a.symbol == "O"), None)
+	if oxygen is None:
+		raise ValueError("Alpha-D-glucopyranose ring oxygen was not found.")
+	oxygen_neighbors = [n for n in oxygen.neighbors if n in ring_set]
+	if len(oxygen_neighbors) != 2:
+		raise ValueError("Alpha-D-glucopyranose ring oxygen does not have two ring neighbors.")
+
+	def has_exocyclic_carbon(atom_node):
+		return any(n.symbol == "C" and n not in ring_set for n in atom_node.neighbors)
+
+	c5 = None
+	for candidate in oxygen_neighbors:
+		if has_exocyclic_carbon(candidate):
+			c5 = candidate
+			break
+	if c5 is None:
+		c5 = max(oxygen_neighbors, key=lambda atom_node: sum(1 for n in atom_node.neighbors if n not in ring_set))
+	c1 = oxygen_neighbors[0] if oxygen_neighbors[1] is c5 else oxygen_neighbors[1]
+
+	ordered = [oxygen, c1]
+	prev = oxygen
+	curr = c1
+	while True:
+		choices = [n for n in curr.neighbors if n in ring_set and n is not prev]
+		if not choices:
+			break
+		nxt = choices[0]
+		if nxt is oxygen:
+			break
+		ordered.append(nxt)
+		prev, curr = curr, nxt
+		if len(ordered) > len(ring_atoms):
+			break
+	if len(ordered) != len(ring_atoms):
+		raise ValueError("Failed to order glucopyranose ring atoms.")
+
+	c2, c3, c4, c5 = ordered[2], ordered[3], ordered[4], ordered[5]
+	substituent_map = {
+		c1: "down",
+		c2: "down",
+		c3: "up",
+		c4: "down",
+		c5: "up",
+	}
+	haworth.place_substituents(mol, ring_atoms, substituent_map=substituent_map)
+
+	return mol
 
 
 #============================================
@@ -993,131 +907,63 @@ def _vignette_layout_params():
 
 
 #============================================
-def _build_vignette_svg_entries():
-	row1_data = [
-		{"title": "Benzene", "kind": "svg", "svg_doc": _build_benzene_svg()},
-		{"title": "Haworth", "kind": "svg", "svg_doc": _build_haworth_svg()},
-		{"title": "Fischer", "kind": "svg", "svg_doc": _build_fischer_svg()},
-	]
-	row2_data = [
-		{"title": "Cholesterol", "kind": "svg", "svg_doc": _build_cholesterol_svg()},
-	]
-	return row1_data, row2_data
-
-
-#============================================
-def _build_vignette_image_entries():
-	options = _mol_render_options()
-	row1_data = []
-	benzene_surface = _render_png_surface_from_mol(_build_benzene_mol(), options)
-	row1_data.append({
-		"title": "Benzene",
-		"kind": "image",
-		"surface": benzene_surface[0],
-		"width": benzene_surface[1],
-		"height": benzene_surface[2],
-	})
-	haworth_surface = _render_png_surface_from_mol(_build_haworth_mol(), options)
-	row1_data.append({
-		"title": "Haworth",
-		"kind": "image",
-		"surface": haworth_surface[0],
-		"width": haworth_surface[1],
-		"height": haworth_surface[2],
-	})
-	fischer_surface = _render_png_surface_from_mol(_build_fischer_mol(), options)
-	row1_data.append({
-		"title": "Fischer",
-		"kind": "image",
-		"surface": fischer_surface[0],
-		"width": fischer_surface[1],
-		"height": fischer_surface[2],
-	})
-
-	cholesterol_surface = _render_png_surface_from_mol(_build_cholesterol_mol(), options)
-	row2_data = [{
-		"title": "Cholesterol",
-		"kind": "image",
-		"surface": cholesterol_surface[0],
-		"width": cholesterol_surface[1],
-		"height": cholesterol_surface[2],
-	}]
-	return row1_data, row2_data
-
-
-#============================================
-def _build_vignettes(parent, page_width):
-	"""Build complex molecule vignettes using row-based layout.
-
-	Top row: Benzene, Haworth, Fischer (all projection styles)
-	Bottom row: Cholesterol (complex stress test)
-	"""
+def _build_vignettes_ops(page_width, include_text):
+	"""Build complex molecule vignettes using row-based layout."""
 	params = _vignette_layout_params()
-	row1_data, row2_data = _build_vignette_svg_entries()
-
-	# Layout row 1
-	row1_result = layout_row_mixed(
-		row1_data,
+	row1_vignettes = [
+		("Benzene", _build_benzene_ops()),
+		("Haworth", _build_haworth_ops()),
+		("Fischer", _build_fischer_ops()),
+	]
+	row2_vignettes = [
+		("Cholesterol", _build_cholesterol_ops()),
+		("alpha-D-Glucopyranose", _build_alpha_d_glucopyranose_ops()),
+	]
+	row1_result = layout_row(
+		row1_vignettes,
 		y_top=params["row1_y"],
 		page_width=page_width,
 		row_height=params["row1_height"],
 		gutter=params["gutter"],
-		margin=params["margin"]
+		margin=params["margin"],
 	)
-
-	# Render row 1
-	for idx, entry in enumerate(row1_result):
-		title = entry["title"]
-		x_center = entry["x_center"]
-		# Title above molecule (15pt above)
-		title_y = params["row1_y"] - 10
-		_add_text(parent, x_center, title_y, title, font_size=11, weight="bold", anchor="middle")
-
-		if entry["kind"] == "svg":
-			_append_svg_fragment(
-				parent,
-				entry["svg_doc"],
-				entry["x"],
-				entry["y"],
-				scale=entry["scale"],
-				group_id=f"vignette-row1-{idx}",
-			)
-			continue
-
-		# SVG molecule vignette
-		_append_svg_fragment(
-			parent,
-			entry["svg_doc"],
-			entry["x"],
-			entry["y"],
-			scale=entry["scale"],
-			group_id=f"vignette-row1-{idx}",
-		)
-
-	# Layout row 2
-	row2_result = layout_row_mixed(
-		row2_data,
+	row2_result = layout_row(
+		row2_vignettes,
 		y_top=params["row2_y"],
 		page_width=page_width,
 		row_height=params["row2_height"],
 		gutter=params["gutter"],
-		margin=params["margin"]
+		margin=params["margin"],
 	)
 
-	# Render row 2
-	for idx, entry in enumerate(row2_result):
-		# Title above molecule (15pt above)
-		title_y = params["row2_y"] - 10
-		_add_text(parent, entry["x_center"], title_y, entry["title"], font_size=11, weight="bold", anchor="middle")
+	ops = []
+	for title, positioned_ops, x_center, _y_center in row1_result:
+		ops.extend(positioned_ops)
+		if include_text:
+			ops.append(render_ops.TextOp(
+				x=x_center,
+				y=params["row1_y"] - 10,
+				text=title,
+				font_size=11,
+				anchor="middle",
+				weight="bold",
+				color="#000",
+			))
 
-		_append_svg_fragment(
-			parent,
-			entry["svg_doc"],
-			entry["x"],
-			entry["y"],
-			scale=entry["scale"],
-			group_id=f"vignette-row2-{idx}",
-		)
+	for title, positioned_ops, x_center, _y_center in row2_result:
+		ops.extend(positioned_ops)
+		if include_text:
+			ops.append(render_ops.TextOp(
+				x=x_center,
+				y=params["row2_y"] - 10,
+				text=title,
+				font_size=11,
+				anchor="middle",
+				weight="bold",
+				color="#000",
+			))
+
+	return ops
 
 
 #============================================
@@ -1228,20 +1074,9 @@ def _build_haworth_mol():
 	return combined
 
 
-def _build_haworth_svg():
-	"""Build Haworth projection using canonical renderer (same as test_haworth_layout).
-
-	CANONICAL RENDERING PATH - matches test_haworth_layout.py exactly:
-	1. Build molecules from SMILES (O is ring vertex, not label)
-	2. Apply haworth.build_haworth() (semantic layout + bond tagging)
-	3. Assert canonical invariants (projection grammar, not picture)
-	4. Render via render_out.mol_to_output() (atoms + bonds together)
-	5. Return SVG document (atomic object for embedding)
-
-	Returns:
-		SVG document (rendered molecule, not decomposed ops)
-	"""
-	return _render_svg_doc_from_mol(_build_haworth_mol(), _mol_render_options())
+def _build_haworth_ops():
+	"""Build Haworth projection ops from canonical molecule layout."""
+	return _build_molecule_ops(_build_haworth_mol(), _mol_render_options())
 
 
 #============================================
@@ -1304,10 +1139,47 @@ def _build_fischer_mol(show_explicit_hydrogens=False):
 		carbon.x = 0.0
 		carbon.y = i * bond_length
 
-	# Place substituents horizontally
+	# Place aldehyde group at 120-degree angle (O double bond, H single bond)
+	if backbone:
+		aldehyde = backbone[0]
+		# Find aldehyde oxygen (double-bonded O)
+		for bond in mol.edges:
+			if aldehyde not in bond.vertices or bond.order != 2:
+				continue
+			v1, v2 = bond.vertices
+			neighbor = v2 if v1 == aldehyde else v1
+			if neighbor.symbol == "O":
+				angle = math.radians(150)
+				neighbor.x = aldehyde.x + bond_length * math.cos(angle)
+				neighbor.y = aldehyde.y - bond_length * math.sin(angle)
+				break
+		# Add explicit aldehyde H on the opposite side
+		angle = math.radians(30)
+		aldehyde_h = atom.atom(symbol="H")
+		aldehyde_h.x = aldehyde.x + bond_length * math.cos(angle)
+		aldehyde_h.y = aldehyde.y - bond_length * math.sin(angle)
+		aldehyde_h.properties_["fischer_role"] = "aldehyde_h"
+		mol.add_vertex(aldehyde_h)
+		aldehyde_bond = bond_module.bond(order=1, type="n")
+		aldehyde_bond.vertices = (aldehyde, aldehyde_h)
+		mol.add_edge(aldehyde, aldehyde_h, aldehyde_bond)
+
+	# Place substituents horizontally (vertical for aldehyde oxygen)
 	# For each carbon, find non-backbone neighbors and place them
 	sub_length = 15.0  # Horizontal bond length
 	for i, carbon in enumerate(backbone):
+		if i == len(backbone) - 1:
+			carbon.properties_["label"] = "CH<sub>2</sub>OH"
+			for bond in list(mol.edges):
+				if carbon not in bond.vertices:
+					continue
+				v1, v2 = bond.vertices
+				neighbor = v2 if v1 == carbon else v1
+				if neighbor in backbone:
+					continue
+				if neighbor.symbol == "O" and bond.order == 1:
+					mol.disconnect_edge(bond)
+					mol.remove_vertex(neighbor)
 		substituents = []
 		for bond in mol.edges:
 			if carbon in bond.vertices:
@@ -1322,27 +1194,32 @@ def _build_fischer_mol(show_explicit_hydrogens=False):
 		# C3: OH left
 		# This is simplified - real stereo would come from SMILES stereo flags
 		for j, (sub, bond) in enumerate(substituents):
+			if sub.properties_.get("fischer_role") == "aldehyde_h":
+				continue
+			horizontal = True
 			if sub.symbol == 'O' and bond.order == 1:  # OH group
 				# D-glucose pattern: C2=right, C3=left, C4=right, C5=right
 				if i in [1, 3, 4]:  # C2, C4, C5 (0-indexed)
 					sub.x = carbon.x + sub_length
+					sub.properties_["label_anchor"] = "start"
 				else:
 					sub.x = carbon.x - sub_length
+					sub.properties_["label_anchor"] = "end"
+				sub.properties_["label"] = "HO" if sub.x < carbon.x else "OH"
 			elif sub.symbol == 'H':  # H
 				# Opposite side from OH
 				if i in [1, 3, 4]:
 					sub.x = carbon.x - sub_length
 				else:
 					sub.x = carbon.x + sub_length
-			elif sub.symbol == 'O' and bond.order == 2:  # Aldehyde O
-				# Place above (already positioned by double bond)
-				sub.x = carbon.x
-				sub.y = carbon.y - 10.0
+			elif sub.symbol == 'O' and bond.order == 2:  # Aldehyde O (already placed)
+				horizontal = False
 			else:  # Other (e.g., CH2 in CH2OH)
 				sub.x = carbon.x
 				sub.y = carbon.y
 
-			sub.y = carbon.y  # Same y as carbon for horizontal bonds
+			if horizontal:
+				sub.y = carbon.y  # Same y as carbon for horizontal bonds
 
 	if show_explicit_hydrogens:
 		for carbon in backbone[1:-1]:
@@ -1387,163 +1264,29 @@ def _build_fischer_mol(show_explicit_hydrogens=False):
 
 
 #============================================
-def _build_benzene_svg():
-	return _render_svg_doc_from_mol(_build_benzene_mol(), _mol_render_options())
+def _build_benzene_ops():
+	return _build_molecule_ops(_build_benzene_mol(), _mol_render_options())
 
 
 #============================================
-def _build_fischer_svg(show_explicit_hydrogens=False):
+def _build_fischer_ops(show_explicit_hydrogens=True):
 	mol = _build_fischer_mol(show_explicit_hydrogens=show_explicit_hydrogens)
-	return _render_svg_doc_from_mol(mol, _mol_render_options())
+	return _build_molecule_ops(mol, _mol_render_options())
 
 
 #============================================
-def _build_cholesterol_svg():
-	return _render_svg_doc_from_mol(_build_cholesterol_mol(), _mol_render_options())
+def _build_cholesterol_ops():
+	options = _mol_render_options()
+	options["show_hydrogens_on_hetero"] = True
+	return _build_molecule_ops(_build_cholesterol_mol(), options)
 
 
 #============================================
-def _collect_all_ops(width, height):
-	"""Collect bond grid ops for cairo backend.
-
-	Returns:
-		List of render ops for the bond grid
-	"""
-	all_ops = []
-
-	# Bond types and colors
-	bond_types = [
-		('n', 'Normal'), ('b', 'Bold'), ('w', 'Wedge'), ('h', 'Hatch'),
-		('q', 'Wide rect'), ('s', 'Wavy (sine)'), ('s_triangle', 'Wavy (tri)'), ('s_box', 'Wavy (box)'),
-	]
-	colors = [('#000', 'Black'), ('#f00', 'Red'), ('#00f', 'Blue'), ('#0a0', 'Green'), ('#a0a', 'Purple'), ('#f80', 'Orange')]
-
-	# Grid layout
-	grid_x = 50
-	grid_y = 75  # 60 + 15 (label offset)
-	cell_w = 70
-	cell_h = 35
-
-	# Grid cells - collect ops for each bond/color combination
-	for row, (color, _) in enumerate(colors):
-		for col, (bond_type, _) in enumerate(bond_types):
-			x = grid_x + col * cell_w
-			y = grid_y + row * cell_h
-
-			# Build bond fragment ops
-			fragment_ops = _build_bond_fragment(bond_type, color)
-
-			# Transform ops into cell position
-			cx = x + cell_w / 2
-			cy = y + cell_h / 2
-			panel_ops = _transform_ops(fragment_ops, cx - 15, cy, scale=1.0)
-
-			all_ops.extend(panel_ops)
-
-	return all_ops
+def _build_alpha_d_glucopyranose_ops():
+	return _build_molecule_ops(_build_alpha_d_glucopyranose_mol(), _mol_render_options())
 
 
 #============================================
-def _render_cairo_vignette_images(context, row1_result, row2_result):
-	for entry in row1_result + row2_result:
-		surface = entry["surface"]
-		context.save()
-		context.translate(entry["x"], entry["y"])
-		context.scale(entry["scale"], entry["scale"])
-		context.set_source_surface(surface, 0, 0)
-		context.paint()
-		context.restore()
-
-
-#============================================
-def _add_cairo_labels(context, width, height, row1_result, row2_result):
-	"""Add text labels to cairo context.
-
-	Args:
-		context: Cairo context
-		width: Page width
-		height: Page height
-		row1_result: Layout entries for row 1 vignettes
-		row2_result: Layout entries for row 2 vignettes
-	"""
-	import cairo
-
-	# Title
-	context.select_font_face("sans-serif", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-	context.set_font_size(20)
-	context.set_source_rgb(0, 0, 0)
-	text = "OASA Renderer Capabilities"
-	extents = context.text_extents(text)
-	context.move_to((width - extents.width) / 2, 30)
-	context.show_text(text)
-
-	# Bond type column headers
-	bond_types = ['Normal', 'Bold', 'Wedge', 'Hatch', 'Wide rect', 'Wavy (sine)', 'Wavy (tri)', 'Wavy (box)']
-	context.select_font_face("sans-serif", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-	context.set_font_size(9)
-	grid_x = 50
-	grid_y = 60
-	cell_w = 70
-	for col, name in enumerate(bond_types):
-		x = grid_x + col * cell_w + cell_w / 2
-		y = grid_y - 5
-		extents = context.text_extents(name)
-		context.move_to(x - extents.width / 2, y)
-		context.show_text(name)
-
-	# Color row headers
-	colors = [('#000', 'Black'), ('#f00', 'Red'), ('#00f', 'Blue'), ('#0a0', 'Green'), ('#a0a', 'Purple'), ('#f80', 'Orange')]
-	cell_h = 35
-	label_offset = 15
-	for row, (color_hex, color_name) in enumerate(colors):
-		# Parse hex color (handle both #RGB and #RRGGBB formats)
-		if len(color_hex) == 4:  # #RGB
-			r = int(color_hex[1] * 2, 16) / 255
-			g = int(color_hex[2] * 2, 16) / 255
-			b = int(color_hex[3] * 2, 16) / 255
-		else:  # #RRGGBB
-			r = int(color_hex[1:3], 16) / 255
-			g = int(color_hex[3:5], 16) / 255
-			b = int(color_hex[5:7], 16) / 255
-		context.set_source_rgb(r, g, b)
-		x = grid_x - 10
-		y = grid_y + label_offset + row * cell_h + cell_h / 2
-		extents = context.text_extents(color_name)
-		context.move_to(x - extents.width, y + extents.height / 2)
-		context.show_text(color_name)
-
-	params = _vignette_layout_params()
-
-	context.set_source_rgb(0, 0, 0)
-	context.set_font_size(11)
-	context.select_font_face("sans-serif", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-
-	for entry in row1_result:
-		title = entry["title"]
-		x_center = entry["x_center"]
-		title_y = params["row1_y"] - 10
-		extents = context.text_extents(title)
-		context.move_to(x_center - extents.width / 2, title_y)
-		context.show_text(title)
-
-	# Bottom row vignettes
-	for entry in row2_result:
-		title = entry["title"]
-		x_center = entry["x_center"]
-		title_y = params["row2_y"] - 10
-		extents = context.text_extents(title)
-		context.move_to(x_center - extents.width / 2, title_y)
-		context.show_text(title)
-
-	# Footer
-	context.set_font_size(10)
-	context.set_source_rgb(0.4, 0.4, 0.4)
-	text = "Generated by OASA selftest_sheet.py"
-	extents = context.text_extents(text)
-	context.move_to((width - extents.width) / 2, height - 20)
-	context.show_text(text)
-
-
 #============================================
 def main():
 	"""CLI entry point."""
@@ -1569,6 +1312,12 @@ def main():
 		default="letter",
 		choices=["letter", "a4"],
 		help="Page size (default: letter, always portrait)"
+	)
+	parser.add_argument(
+		"--dpi",
+		type=float,
+		default=600,
+		help="PNG DPI (default: 600)"
 	)
 
 	args = parser.parse_args()
@@ -1604,7 +1353,8 @@ def main():
 			page=args.page,
 			backend="cairo",
 			output_path=args.output,
-			cairo_format=args.format
+			cairo_format=args.format,
+			png_dpi=args.dpi
 		)
 
 		import os

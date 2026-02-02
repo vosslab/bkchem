@@ -14,6 +14,7 @@ conftest.add_oasa_to_sys_path()
 
 import oasa
 from oasa import haworth
+from oasa import render_geometry
 from oasa import render_ops
 from oasa import render_out
 
@@ -259,7 +260,7 @@ def _add_substituent(mol, ring_atom, symbol):
 
 #============================================
 def _assert_substituent_direction(ring_atom, sub_atom, bond, expect):
-	context = render_ops.BondRenderContext(
+	context = render_geometry.BondRenderContext(
 		molecule=None,
 		line_width=2.0,
 		bond_width=6.0,
@@ -275,7 +276,7 @@ def _assert_substituent_direction(ring_atom, sub_atom, bond, expect):
 	)
 	start = (ring_atom.x, ring_atom.y)
 	end = (sub_atom.x, sub_atom.y)
-	ops = render_ops.build_bond_ops(bond, start, end, context)
+	ops = render_geometry.build_bond_ops(bond, start, end, context)
 	line_ops = [op for op in ops if isinstance(op, render_ops.LineOp)]
 	if not line_ops:
 		raise AssertionError("Expected LineOp for substituent bond")

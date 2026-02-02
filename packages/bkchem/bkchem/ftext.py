@@ -149,18 +149,15 @@ class ftext(object):
       _collect_chunks_from_element( root, chunks, [])
     else:
       chunks.append( text_chunk( text))
-    for ch in chunks[:]:
-      parts = ch.text.split("\n")
+    split_chunks = []
+    for ch in chunks:
+      parts = ch.text.split( "\n")
       if len( parts) > 1:
-        for i,part in enumerate( parts):
-          if i < len( parts)-1:
-            new_ch = text_chunk( text=part, attrs=ch.attrs, newline_after=True)
-          else:
-            new_ch = text_chunk( text=part, attrs=ch.attrs)
-          chunks.append( new_ch)
+        for i, part in enumerate( parts):
+          split_chunks.append( text_chunk( text=part, attrs=ch.attrs, newline_after=i < len( parts) - 1))
       else:
-        chunks.append( ch)
-    return chunks
+        split_chunks.append( ch)
+    return split_chunks
 
 
   def bbox( self, complete=False):

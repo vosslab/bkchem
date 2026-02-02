@@ -23,6 +23,7 @@ import defusedxml.minidom as safe_minidom
 
 from . import atom_colors
 from . import dom_extensions
+from . import render_geometry
 from . import render_ops
 from . import transform
 
@@ -86,7 +87,7 @@ class svg_out(object):
     self.molecule = mol
     self._shown_vertices = set( [v for v in mol.vertices if self._vertex_is_shown( v)])
     self._bond_coords = {}
-    self._bond_context = render_ops.BondRenderContext(
+    self._bond_context = render_geometry.BondRenderContext(
       molecule=self.molecule,
       line_width=self.line_width,
       bond_width=self.bond_width,
@@ -141,7 +142,7 @@ class svg_out(object):
       return
     start, end = coords
     parent = self._create_parent( e, self.top)
-    ops = render_ops.build_bond_ops( e, start, end, self._bond_context)
+    ops = render_geometry.build_bond_ops( e, start, end, self._bond_context)
     render_ops.ops_to_svg( parent, ops)
 
 
@@ -168,39 +169,17 @@ class svg_out(object):
   def _draw_vertex( self, v):
     parent = self._create_parent( v, self.top)
 
-    if v.symbol != "C" or v.charge != 0 or v.multiplicity != 1:
-      text = v.symbol
-      if self.show_hydrogens_on_hetero:
-        if v.free_valency == 1:
-          text += "H"
-        elif v.free_valency > 1:
-          text += "H%d" % v.free_valency
-      # charge
-      if v.charge == 1:
-        text += "+"
-      elif v.charge == -1:
-        text += "-"
-      elif v.charge > 1:
-        text += str( v.charge) + "+"
-      elif v.charge < -1:
-        text += str( v.charge)
-      x = v.x - 5
-      y = v.y + 6
-      x1 = x
-      x2 = x + 12
-      y1 = y - 12
-      y2 = y + 2
-      # radicals
-      if v.multiplicity in (2,3):
-        self._draw_circle( parent, self.transformer.transform_xy((x2+x1)/2,y-17), fill_color="#000", opacity=1, radius=3)
-        if v.multiplicity == 3:
-          self._draw_circle( parent, self.transformer.transform_xy((x2+x1)/2,y+5), fill_color="#000", opacity=1, radius=3)
-      self._draw_rectangle( parent, self.transformer.transform_4( (x1, y1, x2, y2)), fill_color="#fff")
-      if self.color_atoms and self.atom_colors:
-        color = render_ops.color_to_hex( self.atom_colors.get( v.symbol, (0, 0, 0))) or "#000"
-      else:
-        color = "#000"
-      self._draw_text( parent, self.transformer.transform_xy(x,y), text, color=color)
+    ops = render_geometry.build_vertex_ops(
+      v,
+      transform_xy=self.transformer.transform_xy,
+      show_hydrogens_on_hetero=self.show_hydrogens_on_hetero,
+      color_atoms=self.color_atoms,
+      atom_colors=self.atom_colors,
+      font_name="Arial",
+      font_size=16,
+    )
+    if ops:
+      render_ops.ops_to_svg( parent, ops)
 
 
   def _draw_text( self, parent, xy, text, font_name="Arial", font_size=16, color="#000"):
@@ -210,7 +189,8 @@ class svg_out(object):
                                           ( "y", str( y)),
                                           ( "font-family", font_name),
                                           ( "font-size", str( font_size)),
-                                          ( 'fill', color)))
+                                          ( 'fill', color),
+                                          ( 'stroke', 'none')))
 
 
   def _draw_rectangle( self, parent, coords, fill_color="#fff", stroke_color="#fff"):

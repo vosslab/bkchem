@@ -24,6 +24,7 @@ import cairo
 from . import atom_colors
 from . import geometry
 from . import misc
+from . import render_geometry
 from . import render_ops
 from . import safe_xml
 from . import transform3d
@@ -59,6 +60,10 @@ class cairo_out(object):
   # when scaling is 1.0
   default_options = {
     'scaling': 2.0,
+    # target DPI for PNG output when scaling is not explicitly set
+    'dpi': 600,
+    # target PNG width in pixels when scaling is not explicitly set (set to None to disable)
+    'target_width_px': 1500,
     # should atom coordinates be rounded to whole pixels before rendering?
     # This improves image sharpness but might slightly change the geometry
     'align_coords': True,
@@ -73,6 +78,7 @@ class cairo_out(object):
     'wedge_width': 6.0,
     'font_name': "Arial",
     'font_size': 16,
+    'font_weight': "bold",
     # background color in RGBA
     'background_color': (1,1,1,1),
     'color_atoms': True,
@@ -97,6 +103,7 @@ class cairo_out(object):
 
 
   def __init__( self, **kw):
+    self._scaling_overridden = False
     for k, v in list(self.__class__.default_options.items()):
       setattr( self, k, v)
     # list of paths that contribute to the bounding box (probably no edges)
@@ -105,6 +112,8 @@ class cairo_out(object):
     for k,v in list(kw.items()):
       if k in self.__class__.default_options:
         setattr( self, k, v)
+        if k == 'scaling':
+          self._scaling_overridden = True
       else:
         raise Exception( "unknown attribute '%s' passed to constructor" % k)
 
@@ -184,6 +193,17 @@ class cairo_out(object):
     x1, y1, x2, y2 = self._get_bbox()
     x1, y1 = self.context.user_to_device( x1, y1)
     x2, y2 = self.context.user_to_device( x2, y2)
+    if format == "png" and not self._scaling_overridden:
+      base_width = (x2 - x1) + 2 * self.margin
+      if self.target_width_px:
+        if self.target_width_px <= 0:
+          raise ValueError( "target_width_px must be > 0")
+        if base_width:
+          self.scaling = float( self.target_width_px) / float( base_width)
+      elif self.dpi:
+        if self.dpi <= 0:
+          raise ValueError( "dpi must be > 0")
+        self.scaling = float( self.dpi) / 72.0
     width = int( self.scaling*(x2-x1) + 2*self.margin*self.scaling)
     height = int( self.scaling*(y2-y1) + 2*self.margin*self.scaling)
 
@@ -248,7 +268,7 @@ class cairo_out(object):
     if coords:
       start = coords[:2]
       end = coords[2:]
-      context = render_ops.BondRenderContext(
+      context = render_geometry.BondRenderContext(
         molecule=self.molecule,
         line_width=self.line_width,
         bond_width=self.bond_width,
@@ -262,7 +282,7 @@ class cairo_out(object):
         bond_coords_provider=self._bond_coords_for_edge,
         point_for_atom=self._point_for_atom,
       )
-      ops = render_ops.build_bond_ops( e, start, end, context)
+      ops = render_geometry.build_bond_ops( e, start, end, context)
       render_ops.ops_to_cairo( self.context, ops)
 
     if transform:
@@ -475,7 +495,13 @@ class cairo_out(object):
       font_size = self.font_size
 
     # font properties
-    self.context.select_font_face( font_name)
+    if self.font_weight == "bold":
+      weight = cairo.FONT_WEIGHT_BOLD
+    elif self.font_weight == "normal":
+      weight = cairo.FONT_WEIGHT_NORMAL
+    else:
+      raise ValueError( "unknown font_weight '%s'" % self.font_weight)
+    self.context.select_font_face( font_name, cairo.FONT_SLANT_NORMAL, weight)
     self.context.set_font_size( font_size)
     asc, desc, letter_height, _a, _b = self.context.font_extents()
     x, y = xy

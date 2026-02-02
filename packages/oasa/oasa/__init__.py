@@ -71,6 +71,7 @@ from .chem_vertex import chem_vertex
 from . import oasa_exceptions
 from . import subsearch
 from . import svg_out
+from . import render_geometry
 from . import render_ops
 from . import render_out
 from . import wedge_geometry
@@ -105,6 +106,7 @@ _EXPORTED_MODULES = [
 	oasa_exceptions,
 	subsearch,
 	svg_out,
+	render_geometry,
 	render_ops,
 	render_out,
 	wedge_geometry,
@@ -127,6 +129,7 @@ allNames.extend([
 	"cdml_bond_io",
 	"codec_registry",
 	"safe_xml",
+	"render_geometry",
 	"render_ops",
 	"render_out",
 	"wedge_geometry",
