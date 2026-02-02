@@ -1,8 +1,80 @@
 # Changelog
 
+## 2026-02-02
+- Update [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md) with "Vignette
+  Contract (Hard Requirements)" section defining bbox invariant (finite, non-zero
+  width/height required, raises ValueError on violation) and projection-specific
+  invariants (Haworth must have in-ring O vertex and semantic front edge, raises
+  AssertionError on violation). Selftest now treats broken rendering as a hard
+  failure that aborts generation, preventing misleading output.
+- Add defensive bbox validation in `packages/oasa/oasa/selftest_sheet.py`:
+  `ops_bbox()` now raises ValueError on empty ops, NaN coordinates, zero-sized
+  bbox, or invalid bbox; `normalize_to_height()` raises ValueError on empty ops,
+  NaN/invalid target height, or NaN/invalid current height. Selftest now fails
+  fast on rendering errors instead of silently producing broken output.
+- Add `source_me.sh` at repo root for testing and development (not installation):
+  configures PYTHONPATH for BKChem/OASA packages, sets Python 3.12 interpreter,
+  and enables clean Python execution (no .pyc files, unbuffered output). Use with
+  `source source_me.sh` before running tests or development scripts.
+- Implement Option 3 canonical Haworth renderer in `packages/oasa/oasa/selftest_sheet.py`:
+  add `_build_haworth_svg()` using canonical renderer path (svg_out.mol_to_svg,
+  same as test_haworth_layout.py), add `_assert_haworth_invariants()` to verify
+  exactly one in-ring oxygen vertex and at least one semantically tagged front
+  bond before rendering. Haworth now renders via projection grammar (semantic
+  bond tags + layout) instead of hand-assembled primitives. NOTE: Integration
+  incomplete - `_build_haworth_ops()` raises NotImplementedError with explicit
+  message about architectural migration state. Selftest correctly fails hard per
+  SELFTEST_PAGE_SPEC.md requirement: "prefer failure over incorrect output."
+- Remove the `use_oasa_cdml_writer` flag and keep OASA CDML serialization as the
+  only BKChem path, updating the serializer smoke test in
+  `tests/test_bkchem_cdml_writer_flag.py`.
+- Add `oasa_cli.py` with a Haworth SMILES CLI for SVG/PNG output and a CLI smoke
+  test in `tests/test_oasa_haworth_cli.py`.
+- Document the Haworth CLI in [docs/USAGE.md](docs/USAGE.md) and
+  [packages/oasa/docs/USAGE.md](packages/oasa/docs/USAGE.md).
+- Update [refactor_progress.md](refactor_progress.md) to mark Haworth CLI and
+  CDML/Bond alignment Phase 5 completion.
+- Refresh [docs/BKCHEM_FORMAT_SPEC.md](docs/BKCHEM_FORMAT_SPEC.md),
+  [docs/CUSTOM_PLUGINS.md](docs/CUSTOM_PLUGINS.md),
+  [docs/TODO_CODE.md](docs/TODO_CODE.md),
+  [docs/CDML_ARCHITECTURE_PLAN.md](docs/CDML_ARCHITECTURE_PLAN.md), and
+  [docs/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/BOND_BACKEND_ALIGNMENT_PLAN.md)
+  to reflect current semantics and registry guidance.
+- Replace OASA-generated atom nodes with BKChem atom/group/text/query CDML
+  elements in `packages/bkchem/bkchem/molecule.py` to preserve vertex-specific
+  serialization details.
+- Extend `tests/test_bkchem_cdml_writer_flag.py` dummy helpers with real-coordinate
+  passthrough and unique IDs for atom replacement coverage.
+- Add `tests/test_bkchem_cdml_vertex_tags.py` to ensure group/text/query tags
+  are preserved in CDML output.
+
 ## 2026-02-01
+- Update [docs/SELFTEST_PAGE_SPEC.md](docs/SELFTEST_PAGE_SPEC.md) to establish
+  molecule-level rendering as the architectural foundation: add canonical
+  rendering rule requiring molecule graphs (not hand-assembled ops), define
+  Haworth canonical invariants (in-ring O vertex, semantic front edge marking),
+  add anti-patterns section prohibiting manual atom labels, reframe implementation
+  guidelines to emphasize full renderer pipeline, and prioritize projection
+  canonicalization over adding new features.
+- Fix missing atom labels in Cairo/PNG output by adding `_render_cairo_atom_labels()`
+  to `packages/oasa/oasa/selftest_sheet.py` and capturing label data for both
+  row 1 and row 2 vignettes in `_add_cairo_labels()`. Previously, Cairo backend
+  discarded atom labels returned by molecule builders, causing oxygen atoms to
+  be invisible in PNG output while appearing correctly in SVG.
+- Make Haworth ring ordering oxygen-anchored in `packages/oasa/oasa/haworth.py`
+  by starting traversal at the oxygen atom when exactly one O is present in the
+  ring, ensuring canonical layout independent of SMILES atom order.
+- Add oxygen placement tests for non-first oxygen positions in
+  `tests/test_haworth_layout.py` to verify canonical ordering stability.
+- Update Haworth SMILES scaffolds in `packages/oasa/oasa/selftest_sheet.py` to
+  oxygen-first format (O1CCCCC1 for pyranose, O1CCCC1 for furanose) for
+  consistent canonical rendering.
 - Replace hatch terminology with hashed in docs and Python code, remove legacy
   hatch-side handling, and update hashed labels in BKChem UI mode lists.
+- Add explicit hydrogen rendering for Fischer projections in
+  `packages/oasa/oasa/selftest_sheet.py` with `show_explicit_hydrogens` parameter
+  that adds H labels for implicit substituents on stereocenters, matching OH label
+  styling (font-size 9, proper text-anchor).
 - Fix the Fischer explicit hydrogen test import path, remove the shebang, and
   avoid returning values from pytest tests in `tests/test_fischer_explicit_h.py`.
 - Route BKChem conversion helpers through the OASA codec registry in

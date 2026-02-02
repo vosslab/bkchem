@@ -20,6 +20,16 @@ bkchem
 - Install and import instructions are in
   [packages/oasa/README.md](packages/oasa/README.md).
 
+## OASA CLI
+- Render Haworth projections from SMILES using
+  [oasa_cli.py](oasa_cli.py).
+
+Examples:
+```sh
+python3 oasa_cli.py haworth -s "C1CCOCC1" -o haworth.svg
+python3 oasa_cli.py haworth -s "C1CCOCC1" -o haworth.png
+```
+
 ## Terminology
 - Plugin: BKChem GUI extension that adds a menu action or drawing mode.
 - Addon: filesystem plugin loaded from the addons folders and described by an
@@ -33,4 +43,4 @@ bkchem
   See [docs/REFERENCE_OUTPUTS.md](docs/REFERENCE_OUTPUTS.md).
 
 ## Known gaps
-- Add CLI examples for format conversion once the public CLI surface is finalized.
+- Add format-conversion CLI examples once the public CLI surface is finalized.

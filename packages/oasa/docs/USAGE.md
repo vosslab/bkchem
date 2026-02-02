@@ -12,6 +12,14 @@ Examples:
 - `python3 chemical_convert.py -c is -i input.inchi -o output.smi`
 - `python3 chemical_convert.py -c ms -i input.mol -o output.smi`
 
+## Haworth CLI
+- Render Haworth projections from SMILES using
+  [oasa_cli.py](../../oasa_cli.py).
+
+Examples:
+- `python3 oasa_cli.py haworth -s "C1CCOCC1" -o haworth.svg`
+- `python3 oasa_cli.py haworth -s "C1CCOCC1" -o haworth.png`
+
 ## Smoke rendering test
 - Requires `pycairo` in the active environment.
 - Renders alpha-d-glucopyranose by default:

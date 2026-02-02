@@ -47,10 +47,6 @@ current_BKChem_version = _read_repo_version( "bkchem", "26.02")
 
 
 
-# Enable OASA molecule writer for CDML output (default True).
-use_oasa_cdml_writer = True
-
-
 # border width for all components of interface
 border_width = 1
 

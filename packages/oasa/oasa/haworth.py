@@ -124,7 +124,12 @@ def _find_ring_atoms(mol, ring_size):
 def _order_ring_atoms(mol, ring_atoms):
 	ring_set = set(ring_atoms)
 	ordered = []
-	start = min(ring_atoms, key=lambda a: mol.vertices.index(a))
+	# Prefer starting at oxygen if exactly one O is in the ring
+	oxygen_atoms = [a for a in ring_atoms if getattr(a, "symbol", None) == "O"]
+	if len(oxygen_atoms) == 1:
+		start = oxygen_atoms[0]
+	else:
+		start = min(ring_atoms, key=lambda a: mol.vertices.index(a))
 	neighbors = [n for n in start.neighbors if n in ring_set]
 	if len(neighbors) < 2:
 		raise ValueError("Ring atom does not have two ring neighbors")

@@ -146,15 +146,15 @@ def read_cdml(text, *, normalize_fn=None):
 1. Implement `oasa.cdml.write_cdml_molecule_element()`
 2. BKChem `molecule.get_package()` delegates atoms/bonds to OASA
 3. Keep all non-molecule objects in BKChem
-4. Feature-flag for gradual rollout
+4. Remove legacy writer path once OASA output is stable
 
 **Deliverables:**
 - `oasa/cdml_writer.py` module
 - Unit tests for molecule round-trip
 - BKChem integration behind flag
 
-**Status:** Complete. The writer exists and `use_oasa_cdml_writer` now defaults
-to True.
+**Status:** Complete. The writer exists and BKChem always routes molecule
+serialization through OASA.
 
 ### Phase 2: Round-Trip Invariants (SAFER)
 
@@ -257,7 +257,7 @@ def get_package(self, doc):
 ```
 
 Feature flag must live in BKChem config or preferences (no environment
-variables). Example: `config.use_oasa_cdml_writer`.
+  variables).
 
 ### Step 3: Golden Corpus Tests
 ```

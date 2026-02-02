@@ -51,6 +51,10 @@ Plugins should rely on `oasa_bridge` for format import and export instead of
 calling OASA modules directly. `oasa_bridge` routes conversions through the
 OASA codec registry so formats stay centralized and consistent.
 
+Registry-backed import/export is now the default path. New plugins and addons
+should call `bkchem.oasa_bridge` helpers rather than instantiating codec
+plugins directly or reimplementing conversion logic.
+
 If you need a new format:
 - Add or extend the codec in OASA.
 - Update the registry in `packages/oasa/oasa/codec_registry.py`.

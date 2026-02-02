@@ -406,6 +406,23 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
       coord_to_text=Screen.px_to_text_with_unit,
       width_to_text=_bond_width_to_text,
     )
+    atom_elements = {}
+    for atom_el in mol.getElementsByTagName( "atom"):
+      atom_id = atom_el.getAttribute( "id")
+      if atom_id:
+        atom_elements[atom_id] = atom_el
+    for vertex in export_mol.vertices:
+      if not hasattr( vertex, "get_package"):
+        continue
+      vertex_id = getattr( vertex, "id", None)
+      if vertex_id is None:
+        continue
+      new_el = vertex.get_package( doc)
+      old_el = atom_elements.get( str( vertex_id))
+      if old_el:
+        mol.replaceChild( new_el, old_el)
+      else:
+        mol.appendChild( new_el)
     if self.display_form:
       mol.appendChild( safe_xml.parse_dom_from_string( '<display-form>%s</display-form>' % self.display_form).childNodes[0])
     if self.t_atom:

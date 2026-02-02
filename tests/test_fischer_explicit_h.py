@@ -5,9 +5,9 @@
 import os
 import sys
 
-PACKAGES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "packages")
-if PACKAGES_DIR not in sys.path:
-	sys.path.insert(0, PACKAGES_DIR)
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "packages", "oasa"))
+if ROOT_DIR not in sys.path:
+	sys.path.insert(0, ROOT_DIR)
 
 # local repo modules
 from oasa import selftest_sheet

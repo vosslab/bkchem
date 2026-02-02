@@ -99,6 +99,32 @@ def test_haworth_places_furanose_oxygen_at_top():
 
 
 #============================================
+def test_haworth_pyranose_oxygen_not_first():
+	"""Test oxygen placement when oxygen is not at index 0."""
+	mol = build_ring(6, oxygen_index=2)
+	result = haworth.build_haworth(mol, mode="pyranose")
+	oxygen_atoms = [a for a in result["ring_atoms"] if a.symbol == 'O']
+	assert len(oxygen_atoms) == 1
+	oxygen = oxygen_atoms[0]
+	# Oxygen should still be at the top (minimum y)
+	min_y = min(a.y for a in result["ring_atoms"])
+	assert abs(oxygen.y - min_y) < 0.0001
+
+
+#============================================
+def test_haworth_furanose_oxygen_not_first():
+	"""Test oxygen placement when oxygen is not at index 0."""
+	mol = build_ring(5, oxygen_index=3)
+	result = haworth.build_haworth(mol, mode="furanose")
+	oxygen_atoms = [a for a in result["ring_atoms"] if a.symbol == 'O']
+	assert len(oxygen_atoms) == 1
+	oxygen = oxygen_atoms[0]
+	# Oxygen should still be at the top (minimum y)
+	min_y = min(a.y for a in result["ring_atoms"])
+	assert abs(oxygen.y - min_y) < 0.0001
+
+
+#============================================
 def test_haworth_svg_smoke(output_dir):
 	from oasa import svg_out
 	renderer = svg_out.svg_out()

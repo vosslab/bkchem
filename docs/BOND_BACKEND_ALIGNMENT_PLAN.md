@@ -104,11 +104,9 @@ This phase is explicitly optional and can be scheduled after Phase 3.
 ### Phase 5: Flip default and delete legacy paths
 
 Deliverables:
-- Feature flag exists: `BKCHEM_USE_OASA_CDML`.
-- CI runs both modes for a limited period.
+- OASA-backed CDML path is the only supported serializer.
 
 Pass criteria:
-- New path becomes default.
 - Old BKChem CDML parsing and normalization code removed.
 
 ## Maintainability expansion beyond bonds
@@ -154,9 +152,9 @@ Tests should enforce "thin BKChem" without pixel diffs:
 ### Deletion gate
 
 Maintainability only improves when legacy paths are removed:
-- Add a feature flag `BKCHEM_USE_OASA_CDML`.
-- Once tests pass, flip default.
-- Then remove old CDML parsing and normalization code in BKChem.
+- Keep OASA-backed CDML serialization as the only supported path.
+- Remove legacy BKChem CDML parsing and normalization code once coverage is
+  sufficient.
 
 ## Risks
 

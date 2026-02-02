@@ -4,6 +4,51 @@
 
 The capabilities sheet (`selftest_sheet.py`) generates a single-page visual reference demonstrating all OASA rendering features. It serves as both a regression test and documentation.
 
+**Critical Constraint**: The selftest exists to validate **chemical correctness and renderer fidelity**, not just stroke styles. Every vignette must originate from a molecule graph, never from hand-assembled render primitives.
+
+**Invariant**: The selftest must exercise the same molecule → layout → renderer pipeline used by real users. This explicitly disallows manual bond ops + label hacks.
+
+## Canonical Rendering Rule
+
+**For all molecule vignettes** (Haworth, Fischer, Cholesterol, future biomolecules):
+
+- The input is a **molecule graph** (from SMILES or CDML)
+- Atoms and bonds are rendered **together** by the renderer
+- Atom labels must **never be added manually** after bond rendering
+- Heteroatoms must be **vertices**, not text decorations
+- Projection semantics must be **encoded in the graph**, not inferred from coordinates
+
+**Haworth-specific**: A Haworth projection is defined by semantic bond and atom annotations on a molecule graph, not by drawing tricks. Any implementation that violates Haworth's canonical invariants (see below) is invalid, regardless of visual quality.
+
+## Vignette Contract (Hard Requirements)
+
+Every molecule vignette **MUST** satisfy these invariants. Violations abort selftest generation immediately.
+
+### Bbox Invariant
+
+**MUST**: Every vignette render must return a **finite, non-zero bounding box**.
+
+- Width **MUST** be > 0
+- Height **MUST** be > 0
+- All coordinates (minx, miny, maxx, maxy) **MUST** be finite (not NaN, not ±Infinity)
+
+**Why**: A missing or degenerate bbox indicates a renderer or integration bug. Silent fallback produces misleading output (e.g., "everything collapses into the left margin"). The selftest is a capability sheet - broken rendering must stop the run so it gets fixed immediately.
+
+**Implementation**: `ops_bbox()` and `normalize_to_height()` raise `ValueError` on invalid bbox.
+
+### Projection-Specific Invariants
+
+Each projection type has semantic invariants that **MUST** be verified before rendering:
+
+**Haworth** (checked by `_assert_haworth_invariants()`):
+- Ring **MUST** contain exactly one in-ring oxygen vertex (not a label)
+- At least one bond **MUST** be semantically marked as `haworth_position='front'`
+- Front bonds **MUST** have semantic types (w/h/q), not inferred from stroke width
+
+**Failure mode**: If invariants fail, raise `AssertionError` and abort before attempting layout.
+
+**Why**: The selftest validates projection grammar, not visual approximations. If Haworth doesn't have an in-ring oxygen or semantic front edge, it's not Haworth - it's a broken drawing that will mislead users.
+
 ## Design Principles
 
 ### 1. Measure, Don't Guess
@@ -121,8 +166,18 @@ These test different chemical projection conventions:
    - Target: Clean hexagon with alternating interior bonds
 
 2. **Haworth** - Sugar ring projections (pyranose + furanose)
-   - Tests: Wedge, hashed, wide-rectangle bonds
+   - Tests: Wedge, hashed, wide-rectangle bonds, in-ring heteroatoms
    - Target: Side-by-side rings with proper 3D perspective
+
+**Haworth Canonical Invariants** (non-negotiable):
+
+- The ring contains exactly **one in-ring oxygen as a vertex** (not a label)
+- Exactly **one bond is semantically marked** as the "front" bond (`haworth_position='front'`)
+- Front/back is **semantic**, not inferred from stroke width
+- Substituent up/down orientation is **stored on bonds or atoms**, not implied by coordinates
+- Visual appearance is **derived from semantics**, not vice versa
+
+**Any Haworth vignette that violates these invariants is invalid**, regardless of visual quality.
 
 3. **Fischer** - D-glucose vertical projection
    - Tests: Straight bonds, left/right positioning, no stereochem
@@ -134,38 +189,60 @@ These test different chemical projection conventions:
    - Tests: Many bonds, connectivity, real-world molecule
    - Target: Readable structure without distortion
 
+## Anti-Patterns (Disallowed)
+
+The following patterns violate canonical rendering and must not be used:
+
+- ❌ Manually constructing render_ops for bonds and adding atom labels separately
+- ❌ Adding atom labels as a post-processing pass after bond rendering
+- ❌ Using white rectangles to "fake" atom backgrounds
+- ❌ Encoding projection semantics (Haworth front edge, Fischer stereochem) in coordinates
+- ❌ Hand-assembling primitives instead of using the molecule renderer
+
+**Rule**: If you're building bonds manually and then adding labels, you're doing it wrong.
+
 ## Implementation Guidelines
 
-### Adding a New Vignette
+### Bond Grid vs. Molecule Vignettes
 
-1. **Write a builder function** that returns ops (not a molecule):
+**Bond Grid** (style demonstration): Primitive render_ops are acceptable. The grid explicitly tests stroke styles, not molecular correctness.
+
+**Molecule Vignettes** (Haworth, Fischer, Cholesterol): Must use the full molecule rendering pipeline. Builder functions return **rendered molecules**, not raw ops.
+
+### Adding a New Molecule Vignette
+
+1. **Write a builder function** that returns a rendered molecule (not manual ops):
 
 ```python
-def _build_my_molecule_ops():
-    """Build molecule and return render ops."""
-    mol = create_molecule()
+def _build_my_molecule_vignette():
+    """Build molecule from graph and render via svg_out.
 
-    # Build rendering context
-    context = render_ops.BondRenderContext(
-        molecule=mol,
-        line_width=1.0,
-        bond_width=3.0,
-        wedge_width=6.0,
-        ...
-    )
+    Returns:
+        SVG fragment (or render ops extracted from full renderer)
+    """
+    # Build molecule graph (SMILES, CDML, or manual construction)
+    mol = smiles.text_to_mol("CC(O)C", calc_coords=1)
 
-    # Generate ops for all bonds
-    all_ops = []
-    for bond in mol.edges:
-        v1, v2 = bond.vertices
-        start = (v1.x, v1.y)
-        end = (v2.x, v2.y)
-        context.bond_coords[bond] = (start, end)
-        ops = render_ops.build_bond_ops(bond, start, end, context)
-        all_ops.extend(ops)
+    # Apply any layout transformations (optional)
+    # e.g., haworth.build_haworth(mol, mode="pyranose")
 
-    return all_ops
+    # Render using the same path as tests
+    renderer = svg_out.svg_out()
+    renderer.line_width = 1.0
+    renderer.bond_width = 3.0
+    renderer.wedge_width = 6.0
+
+    # Get properly rendered output (atoms + bonds together)
+    svg_doc = renderer.mol_to_svg(mol)
+
+    # Return rendered result (implementation detail may vary)
+    return svg_doc  # or extract ops if needed
 ```
+
+**Key differences from old pattern**:
+- Input is a **molecule graph**, not manual coordinates
+- Rendering uses **svg_out** (or cairo_out), not manual op construction
+- Atoms and bonds are **rendered together**, not as separate passes
 
 2. **Add to appropriate row**:
 
@@ -306,17 +383,28 @@ row1_height = 70      # Reduce size
 
 ## Future Enhancements
 
-### Priority 1: More Projections
+### Priority 1: Canonicalize Existing Projections
+
+**Must be completed before adding new features:**
+
+- Fix Haworth to meet canonical invariants (in-ring O vertex, semantic front edge)
+- Fix Fischer to use proper atom rendering (not manual labels)
+- Ensure round-trip stability: SMILES/CDML → layout → render → verify invariants
+- Add molecule-level invariant checks before rendering
+
+**Principle**: Walk before running. One correct projection beats three broken ones.
+
+### Priority 2: More Projections (after canonicalization)
 - Newman projection
 - Sawhorse projection
 - Cyclohexane chair/boat conformations
 
-### Priority 2: Advanced Stereochemistry
+### Priority 3: Advanced Stereochemistry
 - Cahn-Ingold-Prelog (CIP) labels
 - Axial chirality (allenes, biphenyls)
 - E/Z double bond notation
 
-### Priority 3: Dynamic Layout
+### Priority 4: Dynamic Layout
 - Auto-select row/column count based on vignette count
 - Responsive to page size changes
 - Optional vertical stacking for narrow pages

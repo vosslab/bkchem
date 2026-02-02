@@ -1,8 +1,8 @@
 # Todo code
 
-- Add Haworth projection support (pyranose and furanose) using
-  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
 - Mirror OASA modernization for BKChem (pyflakes cleanup and globals refactors).
+- Expand `oasa_cli.py` beyond Haworth once the CLI surface is finalized
+  (format conversion, batch reference output generation).
 - Decide whether to remove the legacy PostScript builtin exporter once Cairo is
   required.
 - Evaluate optional RDKit/Open Babel integration for expanded import/export

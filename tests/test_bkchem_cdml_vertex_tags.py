@@ -1,7 +1,3 @@
-# SPDX-License-Identifier: LGPL-3.0-or-later
-
-"""BKChem molecule serialization using the OASA CDML writer."""
-
 # Standard Library
 import os
 import sys
@@ -25,11 +21,14 @@ if OASA_DIR not in sys.path:
 if "oasa" in sys.modules:
 	del sys.modules["oasa"]
 
+
 # local repo modules
 import bkchem.atom
-import bkchem.bond
 import bkchem.classes
+import bkchem.group
 import bkchem.molecule
+import bkchem.queryatom
+import bkchem.textatom
 import singleton_store
 
 
@@ -64,7 +63,7 @@ class _DummyIdManager(object):
 
 
 #============================================
-def test_bkchem_oasa_cdml_writer():
+def test_bkchem_cdml_vertex_tags():
 	original_manager = singleton_store.Store.id_manager
 	singleton_store.Store.id_manager = _DummyIdManager()
 	try:
@@ -72,19 +71,28 @@ def test_bkchem_oasa_cdml_writer():
 		singleton_store.Screen.dpi = 72
 		paper = _DummyPaper(standard)
 		mol = bkchem.molecule.molecule(paper=paper)
-		a1 = bkchem.atom.atom(standard=standard, xy=(0, 0), molecule=mol)
-		a2 = bkchem.atom.atom(standard=standard, xy=(20, 0), molecule=mol)
-		mol.add_vertex(a1)
-		mol.add_vertex(a2)
-		bond = bkchem.bond.bond(standard=standard, atoms=(a1, a2), molecule=mol, type="n", order=1)
-		bond.line_width = 1.0
-		bond.wedge_width = 6.0
-		mol.add_edge(a1, a2, bond)
+
+		atom = bkchem.atom.atom(standard=standard, xy=(0, 0), molecule=mol)
+		mol.insert_atom(atom)
+
+		group = bkchem.group.group(standard=standard, xy=(20, 0), molecule=mol)
+		group.group_type = "builtin"
+		group.symbol = "Me"
+		mol.insert_atom(group)
+
+		text = bkchem.textatom.textatom(standard=standard, xy=(40, 0), molecule=mol)
+		text.symbol = "Label"
+		mol.insert_atom(text)
+
+		query = bkchem.queryatom.queryatom(standard=standard, xy=(60, 0), molecule=mol)
+		query.set_name("R")
+		mol.insert_atom(query)
 
 		doc = xml.dom.minidom.Document()
 		element = mol.get_package(doc)
-		assert element.tagName == "molecule"
 		assert element.getElementsByTagName("atom")
-		assert element.getElementsByTagName("bond")
+		assert element.getElementsByTagName("group")
+		assert element.getElementsByTagName("text")
+		assert element.getElementsByTagName("query")
 	finally:
 		singleton_store.Store.id_manager = original_manager

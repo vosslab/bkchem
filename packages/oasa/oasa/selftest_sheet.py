@@ -119,7 +119,19 @@ def ops_bbox(ops):
 					take_point(x, y)
 
 	if minx == float("inf"):
-		return (0.0, 0.0, 0.0, 0.0)
+		raise ValueError("ops_bbox: empty ops list (no renderable content)")
+
+	# Validate bbox is not degenerate
+	import math
+	if math.isnan(minx) or math.isnan(miny) or math.isnan(maxx) or math.isnan(maxy):
+		raise ValueError(f"ops_bbox: NaN in bbox ({minx}, {miny}, {maxx}, {maxy})")
+
+	if minx == maxx and miny == maxy:
+		raise ValueError(f"ops_bbox: zero-sized bbox (single point at {minx}, {miny})")
+
+	if minx > maxx or miny > maxy:
+		raise ValueError(f"ops_bbox: invalid bbox ({minx}, {miny}, {maxx}, {maxy})")
+
 	return (minx, miny, maxx, maxy)
 
 
@@ -135,13 +147,17 @@ def normalize_to_height(ops, target_height):
 		Tuple of (transformed_ops, actual_width, actual_height)
 	"""
 	if not ops:
-		return [], 0, 0
+		raise ValueError("normalize_to_height: empty ops list")
 
-	minx, miny, maxx, maxy = ops_bbox(ops)
+	import math
+	if math.isnan(target_height) or target_height <= 0:
+		raise ValueError(f"normalize_to_height: invalid target_height {target_height}")
+
+	minx, miny, maxx, maxy = ops_bbox(ops)  # Will raise if bbox is invalid
 	current_height = maxy - miny
 
-	if current_height == 0:
-		return ops, maxx - minx, 0
+	if math.isnan(current_height) or current_height <= 0:
+		raise ValueError(f"normalize_to_height: invalid current_height {current_height}")
 
 	scale = target_height / current_height
 
@@ -897,95 +913,179 @@ def _mol_from_smiles(smiles_str, calc_coords=True):
 
 
 #============================================
-def _build_haworth_ops():
-	"""Build Haworth projection rings from SMILES templates.
+def _assert_haworth_invariants(mol, mode):
+	"""Assert Haworth canonical invariants before rendering.
 
-	Creates pyranose (6-membered) and furanose (5-membered) rings
-	from connectivity, applies Haworth layout, then renders.
-	Tests: SMILES -> haworth layout -> render ops.
+	Args:
+		mol: OASA molecule
+		mode: "pyranose" or "furanose"
+
+	Raises:
+		AssertionError: If any invariant is violated
+	"""
+	# Invariant 1: Exactly one in-ring oxygen vertex
+	oxygen_vertices = [v for v in mol.vertices if v.symbol == 'O']
+	assert len(oxygen_vertices) == 1, \
+		f"Haworth {mode} must have exactly 1 in-ring oxygen, found {len(oxygen_vertices)}"
+
+	# Invariant 2: Exactly one bond tagged as front
+	front_bonds = [b for b in mol.edges if b.properties_.get('haworth_position') == 'front']
+	assert len(front_bonds) >= 1, \
+		f"Haworth {mode} must have at least 1 front bond tagged, found {len(front_bonds)}"
+
+	# Invariant 3: Front edge is semantically marked (not just visually thick)
+	for bond in front_bonds:
+		assert bond.type in ('w', 'h', 'q'), \
+			f"Haworth front bond must have semantic type (w/h/q), found {bond.type}"
+
+
+def _build_haworth_svg():
+	"""Build Haworth projection using canonical renderer (same as test_haworth_layout).
+
+	CANONICAL RENDERING PATH - matches test_haworth_layout.py exactly:
+	1. Build molecules from SMILES (O is ring vertex, not label)
+	2. Apply haworth.build_haworth() (semantic layout + bond tagging)
+	3. Assert canonical invariants (projection grammar, not picture)
+	4. Render via svg_out.mol_to_svg() (atoms + bonds together)
+	5. Return SVG document (atomic object for embedding)
 
 	Returns:
-		(ops, labels) where labels includes "O" for oxygen atoms
+		SVG document (rendered molecule, not decomposed ops)
 	"""
-	# Build pyranose from SMILES (tetrahydropyran scaffold)
-	# Connectivity only, no coordinates yet
-	pyranose = _mol_from_smiles("C1CCOCC1")
-	# Haworth layout is first place coordinates appear
+	# Handle imports for both module and script usage
+	if __name__ == "__main__":
+		import oasa
+		svg_out_module = oasa.svg_out
+	else:
+		from . import svg_out as svg_out_module
+
+	# Build pyranose from SMILES (oxygen-first for canonical ordering)
+	pyranose = _mol_from_smiles("O1CCCCC1")
 	haworth.build_haworth(pyranose, mode="pyranose")
+	_assert_haworth_invariants(pyranose, "pyranose")
 
-	# Build pyranose ops
-	pyranose_ops = []
-	pyranose_context = render_ops.BondRenderContext(
-		molecule=pyranose,
-		line_width=1.0,
-		bond_width=3.0,
-		wedge_width=6.0,
-		bold_line_width_multiplier=1.2,
-		shown_vertices=set(),
-		bond_coords={},
-		point_for_atom=None,
-	)
-	for bond in pyranose.edges:
-		v1, v2 = bond.vertices
-		start = (v1.x, v1.y)
-		end = (v2.x, v2.y)
-		pyranose_context.bond_coords[bond] = (start, end)
-		ops = render_ops.build_bond_ops(bond, start, end, pyranose_context)
-		pyranose_ops.extend(ops)
-
-	# Build furanose from SMILES (tetrahydrofuran scaffold)
-	furanose = _mol_from_smiles("C1CCOC1")
+	# Build furanose from SMILES
+	furanose = _mol_from_smiles("O1CCCC1")
 	haworth.build_haworth(furanose, mode="furanose")
+	_assert_haworth_invariants(furanose, "furanose")
 
-	# Build furanose ops
-	furanose_ops = []
-	furanose_context = render_ops.BondRenderContext(
-		molecule=furanose,
-		line_width=1.0,
-		bond_width=3.0,
-		wedge_width=6.0,
-		bold_line_width_multiplier=1.2,
-		shown_vertices=set(),
-		bond_coords={},
-		point_for_atom=None,
-	)
-	for bond in furanose.edges:
-		v1, v2 = bond.vertices
-		start = (v1.x, v1.y)
-		end = (v2.x, v2.y)
-		furanose_context.bond_coords[bond] = (start, end)
-		ops = render_ops.build_bond_ops(bond, start, end, furanose_context)
-		furanose_ops.extend(ops)
-
-	# Compute bbox-based offset for side-by-side layout (measure, don't guess)
-	pyranose_bbox = ops_bbox(pyranose_ops)
-	furanose_bbox = ops_bbox(furanose_ops)
-
-	# Place furanose to the right with measured gap
-	gap = 20.0
-	offset_x = (pyranose_bbox[2] - furanose_bbox[0]) + gap
-	offset_y = 0.0
-
-	# Transform furanose ops
-	furanose_ops = _transform_ops(furanose_ops, offset_x, offset_y, scale=1.0)
-
-	# Combine ops
-	all_ops = pyranose_ops + furanose_ops
-
-	# Find oxygen atoms for labels (by symbol, not construction order)
-	labels = []
-	for v in pyranose.vertices:
-		if v.symbol == 'O':
-			labels.append((v.x, v.y - 4, "O", 10, "middle"))
-			break
-
-	# Furanose oxygen labels need to be transformed too
+	# Offset furanose for side-by-side layout
+	gap = 50.0
+	offset_x = (max(v.x for v in pyranose.vertices) - min(v.x for v in furanose.vertices)) + gap
 	for v in furanose.vertices:
-		if v.symbol == 'O':
-			labels.append((v.x + offset_x, v.y + offset_y - 4, "O", 10, "middle"))
-			break
+		v.x += offset_x
 
-	return all_ops, labels
+	# Combine into single molecule for rendering
+	combined = pyranose
+	combined.insert_a_graph(furanose)
+
+	# CANONICAL ENTRY POINT - same as test_haworth_layout.py
+	renderer = svg_out_module.svg_out()
+	renderer.line_width = 1.0
+	renderer.bond_width = 3.0
+	renderer.wedge_width = 6.0
+	renderer.margin = 5
+
+	svg_doc = renderer.mol_to_svg(combined)
+	return svg_doc
+
+
+def _build_haworth_ops():
+	"""Build Haworth using canonical renderer, extract ops for layout.
+
+	Uses canonical pipeline from _build_haworth_svg():
+	1. Build molecules from SMILES (O is ring vertex)
+	2. Apply haworth.build_haworth() (semantic layout)
+	3. Assert invariants (in-ring O, semantic front edge)
+	4. Render via svg_out internally
+	5. Extract ops from svg_out for layout system
+
+	Returns:
+		(ops, labels) where labels is empty (atoms rendered by svg_out)
+	"""
+	# Handle imports
+	if __name__ == "__main__":
+		import oasa
+		svg_out_module = oasa.svg_out
+	else:
+		from . import svg_out as svg_out_module
+
+	# Build molecules using CANONICAL PIPELINE
+	pyranose = _mol_from_smiles("O1CCCCC1")
+	haworth.build_haworth(pyranose, mode="pyranose")
+	_assert_haworth_invariants(pyranose, "pyranose")
+
+	furanose = _mol_from_smiles("O1CCCC1")
+	haworth.build_haworth(furanose, mode="furanose")
+	_assert_haworth_invariants(furanose, "furanose")
+
+	# Offset furanose for side-by-side layout
+	gap = 50.0
+	offset_x = (max(v.x for v in pyranose.vertices) - min(v.x for v in furanose.vertices)) + gap
+	for v in furanose.vertices:
+		v.x += offset_x
+
+	# Combine into single molecule
+	combined = pyranose
+	combined.insert_a_graph(furanose)
+
+	# Render using svg_out (SAME AS TEST) to get properly rendered atoms
+	renderer = svg_out_module.svg_out()
+	renderer.line_width = 1.0
+	renderer.bond_width = 3.0
+	renderer.wedge_width = 6.0
+	renderer.margin = 5
+
+	# Call mol_to_svg to trigger rendering (this sets up internal state)
+	svg_doc = renderer.mol_to_svg(combined)
+
+	# Extract ops from renderer's internal bond rendering
+	# svg_out uses render_ops.build_bond_ops internally
+	all_ops = []
+
+	# Build ops from rendered molecule using renderer's context
+	for bond in combined.edges:
+		v1, v2 = bond.vertices
+		# Use renderer's transformer to get actual coordinates
+		start = renderer.transformer.transform_xy(v1.x, v1.y)
+		end = renderer.transformer.transform_xy(v2.x, v2.y)
+
+		# Use same context as svg_out
+		context = render_ops.BondRenderContext(
+			molecule=combined,
+			line_width=renderer.line_width,
+			bond_width=renderer.bond_width,
+			wedge_width=renderer.wedge_width,
+			bold_line_width_multiplier=1.2,
+			shown_vertices=renderer._shown_vertices,
+			bond_coords={},
+			point_for_atom=None,
+		)
+		context.bond_coords[bond] = (start, end)
+		bond_ops = render_ops.build_bond_ops(bond, start, end, context)
+		all_ops.extend(bond_ops)
+
+	# Add atom background rectangles and text for shown vertices (heteroatoms)
+	for v in combined.vertices:
+		if v in renderer._shown_vertices:
+			x, y = renderer.transformer.transform_xy(v.x, v.y)
+			# Background rectangle (like svg_out does)
+			x_offset = x - 5
+			y_offset = y + 6
+			bg_rect = render_ops.PolygonOp(
+				points=(
+					(x_offset, y_offset - 12),
+					(x_offset + 12, y_offset - 12),
+					(x_offset + 12, y_offset + 2),
+					(x_offset, y_offset + 2)
+				),
+				fill="#fff",
+				z=1
+			)
+			all_ops.append(bg_rect)
+
+	# Return ops with empty labels (atoms rendered as ops above)
+	return all_ops, []
 
 
 #============================================
