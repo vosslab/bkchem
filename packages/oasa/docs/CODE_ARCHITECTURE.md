@@ -35,7 +35,7 @@
 - `oasa/stereochemistry.py` handles limited stereochemical rules.
 
 ## Search and chemistry utilities
-- `oasa/query_atom.py` and `oasa/subsearch.py` support substructure search.
+- `oasa/query_atom.py` handles query atom helpers.
 - `oasa/known_groups.py` stores common functional group definitions.
 
 ## Output backends
@@ -44,8 +44,6 @@
 
 ## Optional integrations
 - `oasa/pybel_bridge.py` integrates with OpenBabel if installed.
-- `oasa/name_database.py` and `oasa/structure_database.py` add name and
-  structure lookups when optional dependencies are present.
 
 ## Public API surface
 - `oasa/__init__.py` imports and re-exports major modules and classes.

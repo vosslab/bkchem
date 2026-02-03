@@ -69,7 +69,6 @@ from . import config
 from .query_atom import query_atom
 from .chem_vertex import chem_vertex
 from . import oasa_exceptions
-from . import subsearch
 from . import svg_out
 from . import render_geometry
 from . import render_ops
@@ -104,7 +103,6 @@ _EXPORTED_MODULES = [
 	query_atom,
 	chem_vertex,
 	oasa_exceptions,
-	subsearch,
 	svg_out,
 	render_geometry,
 	render_ops,
@@ -120,9 +118,9 @@ _EXPORTED_MODULES = [
 
 allNames = ['atom', 'bond', 'chem_vertex', 'coords_generator', 'config',
 	'coords_optimizer', 'geometry', 'graph', 'inchi', 'known_groups',
-	'linear_formula', 'molecule', 'molfile', 'name_database',
+	'linear_formula', 'molecule', 'molfile',
 	'oasa_exceptions', 'periodic_table', 'query_atom', 'smiles',
-	'stereochemistry', 'subsearch', 'svg_out', 'transform',
+	'stereochemistry', 'svg_out', 'transform',
 	'transform3d']
 allNames.extend([
 	"bond_semantics",
@@ -155,26 +153,6 @@ else:
 	allNames.append("inchi_key")
 	_EXPORTED_MODULES.append(inchi_key)
 	INCHI_KEY_AVAILABLE = True
-
-# name_database (requires inchi_key which requires mhash in Python 2.4)
-try:
-	from . import name_database
-except Exception:
-	NAME_DATABASE_AVAILABLE = False
-else:
-	allNames.append("name_database")
-	_EXPORTED_MODULES.append(name_database)
-	NAME_DATABASE_AVAILABLE = True
-
-# structure_database requires sqlite
-try:
-	from . import structure_database
-except Exception:
-	STRUCTURE_DATABASE_AVAILABLE = False
-else:
-	allNames.append("structure_database")
-	_EXPORTED_MODULES.append(structure_database)
-	STRUCTURE_DATABASE_AVAILABLE = True
 
 # pybel
 try:

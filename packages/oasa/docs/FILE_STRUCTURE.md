@@ -2,6 +2,7 @@
 
 ## Top level
 - `oasa/` package source code.
+- `oasa_data/` packaged data assets for OASA.
 - `docs/` documentation set for repo-wide conventions and guides.
 - `tests/` lightweight test scripts and static check runners.
 - `README.md` project overview and usage notes.
@@ -21,10 +22,10 @@
 - `oasa/geometry.py`, `oasa/transform.py`, `oasa/transform3d.py` geometry tools.
 - `oasa/stereochemistry.py` stereochemistry helpers.
 - `oasa/svg_out.py`, `oasa/cairo_out.py` rendering backends.
-- `oasa/subsearch.py`, `oasa/query_atom.py`, `oasa/known_groups.py` search utilities.
+- `oasa/query_atom.py`, `oasa/known_groups.py` search utilities.
 - `oasa/oasa_exceptions.py` custom exception types.
 - `oasa/periodic_table.py`, `oasa/linear_formula.py` chemistry references.
-- `oasa/*.txt`, `oasa/*.txt.gz`, `oasa/*.db` bundled data assets.
+- `oasa_data/*.json` bundled data assets.
 
 ## Documentation (`docs/`)
 - `docs/REPO_STYLE.md` repo structure and file placement rules.

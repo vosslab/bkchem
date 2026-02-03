@@ -1,6 +1,49 @@
 # Changelog
 
+## 2026-02-03
+- Add `packages/oasa/oasa_data/` and store isotopes as compact JSON in
+  `packages/oasa/oasa_data/isotopes.json`, generated from the NIST ascii2 output
+  source.
+- Replace the inline isotopes dict in `packages/oasa/oasa/isotope_database.py`
+  with a JSON loader pointing at the new data file and document the source URL.
+- Add `tools/convert_isotope_data.py` to download NIST isotope data and
+  regenerate JSON, plus packaging updates to ship the new JSON data via
+  `packages/oasa/pyproject.toml` and `packages/oasa/MANIFEST.in`.
+- Remove legacy OASA data sources `packages/oasa/oasa/names.db`,
+  `packages/oasa/oasa/structures.txt.gz`, `packages/oasa/oasa/synonyms.txt.gz`,
+  `packages/oasa/oasa/subsearch_data.txt`, and
+  `packages/oasa/oasa/subsearch_rings.txt`.
+- Remove unused OASA modules `packages/oasa/oasa/name_database.py`,
+  `packages/oasa/oasa/structure_database.py`, and
+  `packages/oasa/oasa/subsearch.py`.
+- Update `packages/oasa/oasa/__init__.py` and OASA docs to drop removed module
+  references and keep the OASA import path working.
+- Harden `tools/convert_isotope_data.py` URL handling with scheme/host checks
+  and a Bandit-annotated urlopen call.
+- Add `docs/PUBCHEM_API_PLAN.md` with the planned PubChem lookup integration
+  scope and rollout steps.
+- Add the PubChem API plan to [docs/TODO_REPO.md](docs/TODO_REPO.md).
+
 ## 2026-02-02
+- Add [tests/test_bkchem_gui_benzene.py](../tests/test_bkchem_gui_benzene.py)
+  to build a benzene ring (hexagon with alternating double bonds) and include
+  it in [tests/run_smoke.sh](../tests/run_smoke.sh).
+- Replace deprecated inspect.getargspec with getfullargspec in
+  [packages/bkchem/bkchem/undo.py](../packages/bkchem/bkchem/undo.py) to
+  restore undo/redo under Python 3.12.
+- Deiconify the GUI and add event-loop flush delays in
+  [tests/test_bkchem_gui_events.py](../tests/test_bkchem_gui_events.py) so
+  in-process event simulation works reliably on real Tk windows.
+- Make [tests/test_bkchem_gui_events.py](../tests/test_bkchem_gui_events.py)
+  drag simulation more robust with multi-step motions and a click fallback.
+- Expand [tests/test_bkchem_gui_events.py](../tests/test_bkchem_gui_events.py)
+  with draw-drag, chain extension, mode switching, and undo/redo event coverage,
+  and add it to [tests/run_smoke.sh](../tests/run_smoke.sh).
+- Set PYTHONPATH in [tests/run_smoke.sh](../tests/run_smoke.sh) to prefer local
+  BKChem and OASA packages, matching the GUI launch script.
+- Add [tests/test_bkchem_gui_events.py](../tests/test_bkchem_gui_events.py) to
+  simulate in-process GUI events (draw click, edit selection, delete key) for
+  BKChem smoke coverage.
 - Add [docs/MENU_REFACTOR_SUMMARY.md](docs/MENU_REFACTOR_SUMMARY.md) as executive
   summary tying together all menu refactor documentation: 6 core decisions (eliminate
   exec-based plugins, adopt YAML + Dataclass Hybrid menus, complete platform abstraction,

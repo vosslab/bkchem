@@ -25,3 +25,4 @@ version = {attr = "oasa.__version__"}
 
 [tool.setuptools.package-data]
 oasa = ["*.txt", "*.txt.gz", "*.db"]
+oasa_data = ["*.json"]

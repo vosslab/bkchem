@@ -3,6 +3,8 @@
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${REPO_ROOT}"
 
+export PYTHONPATH="${REPO_ROOT}/packages/bkchem:${REPO_ROOT}/packages/bkchem/bkchem:${REPO_ROOT}/packages/oasa:${REPO_ROOT}/packages/oasa/oasa:${REPO_ROOT}:${PYTHONPATH:-}"
+
 run_filtered() {
 	local output status
 	output="$("$@" 2>&1)"
@@ -13,7 +15,7 @@ run_filtered() {
 	return "${status}"
 }
 
-TESTS_TOTAL=4
+TESTS_TOTAL=6
 TEST_INDEX=1
 FAILURES=0
 
@@ -43,6 +45,8 @@ run_oasa_smoke() {
 }
 
 run_step "BKChem GUI smoke test" run_filtered python3 tests/bkchem_gui_smoke.py
+run_step "BKChem GUI event simulation" run_filtered python3 tests/test_bkchem_gui_events.py
+run_step "BKChem GUI benzene smoke" run_filtered python3 tests/test_bkchem_gui_benzene.py
 run_step "BKChem batch examples" run_filtered python3 tests/bkchem_batch_examples.py
 run_step "OASA smoke render (PNG)" run_oasa_smoke
 run_step "OASA smoke render (SVG/PDF/PNG)" python3 tests/oasa_smoke_formats.py

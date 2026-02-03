@@ -293,7 +293,7 @@ class state_record(object):
     for o in deleted:
       if o.object_type not in ( 'molecule','mark') and hasattr( o, 'draw'):
         # no_automatic where possible
-        if 'automatic' in inspect.getargspec( o.draw)[0]:
+        if 'automatic' in inspect.getfullargspec( o.draw).args:
           o.draw( automatic = "none")
         else:
           o.draw()
@@ -398,4 +398,3 @@ def _redraw_sorting( o1, o2):
       return 1
 
   return -1
-
