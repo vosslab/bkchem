@@ -1,6 +1,16 @@
 # Changelog
 
 ## 2026-02-03
+- Reorganize [refactor_progress.md](../refactor_progress.md) into master
+  Not started, In progress, and Completed sections with updates for menu
+  refactor docs, PubChem planning, and OASA data reorganization.
+- Update [refactor_progress.md](../refactor_progress.md) to mark the Haworth
+  plan as still in progress (Stage 4 OH placement), call out menu refactor
+  documentation as completed, and align in-progress notes with TODO updates.
+- Add [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md) to the
+  refactor progress plan as a not-started automated installer tooling item.
+- Update [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md) to add
+  automated build tooling for macOS dmg, Windows installer, and Linux Flatpak.
 - Add `packages/oasa/oasa_data/` and store isotopes as compact JSON in
   `packages/oasa/oasa_data/isotopes.json`, generated from the NIST ascii2 output
   source.

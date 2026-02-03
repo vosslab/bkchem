@@ -19,9 +19,13 @@ Planned approach:
 
 - Ship binary installers for end users.
 - Target formats:
-  - macOS: dmg
-  - Linux: Flatpak (or similar)
-  - Windows: installer built from `packages/bkchem/bkchem.iss`
+-  - macOS: `bkchem.dmg`
+-  - Linux: Flatpak (or similar)
+-  - Windows: installer built from `packages/bkchem/bkchem.iss`
+- Develop automated tooling to build:
+  - macOS `bkchem.dmg`
+  - Windows installer
+  - Linux Flatpak
 
 ## GitHub releases
 
