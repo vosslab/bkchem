@@ -3,11 +3,11 @@ import shutil
 import subprocess
 
 import git_file_utils
-import conftest
+from get_repo_root import get_repo_root
 
 
 SKIP_ENV = "SKIP_REPO_HYGIENE"
-REPO_ROOT = conftest.repo_root()
+REPO_ROOT = get_repo_root()
 SKIP_DIRS = [".git", ".venv", "old_shell_folder"]
 
 

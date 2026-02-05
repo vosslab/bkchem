@@ -2,13 +2,13 @@ import os
 import subprocess
 
 import git_file_utils
-import conftest
+from get_repo_root import get_repo_root
 
 
 SCOPE_ENV = "REPO_HYGIENE_SCOPE"
 FAST_ENV = "FAST_REPO_HYGIENE"
 SKIP_ENV = "SKIP_REPO_HYGIENE"
-REPO_ROOT = conftest.repo_root()
+REPO_ROOT = get_repo_root()
 
 EXTENSIONS = {
 	".md",
@@ -131,7 +131,9 @@ def check_whitespace(path: str) -> list[str]:
 #============================================
 def run_fixer(path: str) -> None:
 	"""Run fix_whitespace.py on a file."""
-	script_path = conftest.tests_path("fix_whitespace.py")
+	script_path = os.path.join(REPO_ROOT, "tests", "fix_whitespace.py")
+	if not os.path.isfile(script_path):
+		script_path = os.path.join(os.path.dirname(__file__), "fix_whitespace.py")
 	result = subprocess.run(
 		["python3", script_path, "-i", path],
 		capture_output=True,
