@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-02-05 (continued)
+- Fix benzene rendering to use Kekule SMILES (`C1=CC=CC=C1`) for proper alternating
+  single/double bond display.
+- Fix `tools/selftest_sheet.py` import system to work when imported as a module by
+  removing relative imports and always using absolute `oasa.*` imports.
+- Fix `tests/test_fischer_explicit_h.py` to import selftest_sheet from tools/ directory.
+- Improve Haworth projection clarity by labeling OH groups as "OH" text labels instead
+  of showing separate O and H atoms, reducing connectivity ambiguity.
+- Position ring H atoms opposite from substituents for clearer stereochemistry display.
+
+## 2026-02-05
+- Create missing CDML fixture files in `tests/fixtures/cdml/` (benzene, stereochem,
+  haworth, cholesterol, legacy_v0.11, embedded_cdml) to fix test failures.
+- Move `packages/oasa/oasa/selftest_sheet.py` to `tools/selftest_sheet.py` and update
+  import paths to use git-based repo root detection.
+- Fix `tools/generate_biomolecule_templates.py` to look for `biomolecule_smiles.yaml`
+  in `docs/` directory instead of repo root.
+- Fix `tools/check_translation.py` to use git-based repo root detection and locate
+  locale directory correctly.
+- Update all tools to use `git rev-parse --show-toplevel` for repo root detection
+  per [docs/REPO_STYLE.md](docs/REPO_STYLE.md) guidance.
+- Generate missing reference output files using `tools/render_reference_outputs.py`.
+- Fix all failing tests: `test_cdml_fixture_loads.py`, `test_cdml_versioning.py`,
+  and `test_reference_outputs.py` now pass.
+- Replace alpha-D-glucopyranose CDML template with SMILES-based builder in
+  `tools/selftest_sheet.py` to fix poor substituent placement in Haworth projection.
+- Add beta-D-fructofuranose vignette to capabilities sheet (5-membered furanose ring).
+- Add `beta-D-fructofuranose` SMILES to [docs/biomolecule_smiles.yaml](biomolecule_smiles.yaml).
+- Add explicit hydrogen atoms to Haworth projections for both alpha-D-glucopyranose
+  and beta-D-fructofuranose by adding H atoms to complete ring carbon valences.
+- Fix benzene rendering to use aromatic bond type ('a') instead of alternating
+  single/double bonds for proper display.
+- Fix layout_row scaling bug when vignettes don't fit by iterating over normalized
+  tuples instead of original vignettes.
+- Note: Haworth projections are simplified 2D representations that show stereochemistry
+  but do not accurately depict 3D geometry or all bond angles. The planar representation
+  is a projection for clarity, not a reflection of the actual chair/envelope conformations.
+
 ## 2026-02-03
 - Reorganize [refactor_progress.md](../refactor_progress.md) into master
   Not started, In progress, and Completed sections with updates for menu

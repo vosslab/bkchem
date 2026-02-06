@@ -1,9 +1,27 @@
+#!/usr/bin/env python3
 
+"""Check translation files for formatting consistency."""
 
-
+# Standard Library
 import os
+import subprocess
 
-locale_dir = "../locale"
+
+#============================================
+def get_repo_root():
+	"""Get repository root using git."""
+	result = subprocess.run(
+		["git", "rev-parse", "--show-toplevel"],
+		capture_output=True,
+		text=True,
+	)
+	if result.returncode == 0:
+		return result.stdout.strip()
+	return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+
+repo_root = get_repo_root()
+locale_dir = os.path.join(repo_root, "packages", "bkchem", "bkchem_data", "locale")
 
 for lang in os.listdir( locale_dir):
     print("-- language:", lang)

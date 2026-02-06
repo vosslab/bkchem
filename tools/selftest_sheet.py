@@ -25,36 +25,41 @@ import importlib
 import math
 import os
 import statistics
+import subprocess
 import sys
 import xml.dom.minidom as xml_minidom
 
+
+#============================================
+def get_repo_root():
+	"""Get repository root using git."""
+	result = subprocess.run(
+		["git", "rev-parse", "--show-toplevel"],
+		capture_output=True,
+		text=True,
+	)
+	if result.returncode == 0:
+		return result.stdout.strip()
+	return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+
 # Handle imports for both module and script usage
-if __name__ == "__main__":
-	# When run as script: python selftest_sheet.py
-	# Add packages directory to path so we can import oasa
-	packages_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-	if packages_dir not in sys.path:
-		sys.path.insert(0, packages_dir)
-	# Import the oasa package - classes are exported directly
-	import oasa
-	atom = importlib.import_module("oasa.atom")
-	bond_module = importlib.import_module("oasa.bond")
-	molecule = importlib.import_module("oasa.molecule")
-	atom_colors = oasa.atom_colors
-	dom_extensions = oasa.dom_extensions
-	render_geometry = oasa.render_geometry
-	render_ops = oasa.render_ops
-	haworth = oasa.haworth
-else:
-	# When used as module: from oasa import selftest_sheet
-	atom = importlib.import_module(".atom", __package__)
-	bond_module = importlib.import_module(".bond", __package__)
-	molecule = importlib.import_module(".molecule", __package__)
-	from . import atom_colors
-	from . import dom_extensions
-	from . import render_geometry
-	from . import render_ops
-	from . import haworth
+# Always add oasa to path and import directly
+repo_root = get_repo_root()
+oasa_dir = os.path.join(repo_root, "packages", "oasa")
+if oasa_dir not in sys.path:
+	sys.path.insert(0, oasa_dir)
+
+# Import the oasa package - classes are exported directly
+import oasa
+atom = importlib.import_module("oasa.atom")
+bond_module = importlib.import_module("oasa.bond")
+molecule = importlib.import_module("oasa.molecule")
+atom_colors = oasa.atom_colors
+dom_extensions = oasa.dom_extensions
+render_geometry = oasa.render_geometry
+render_ops = oasa.render_ops
+haworth = oasa.haworth
 
 #============================================
 # Page dimensions at 72 DPI
@@ -218,10 +223,11 @@ def layout_row(vignettes, y_top, page_width, row_height, gutter=20, margin=40):
 		scale_factor = available_width / (total_content_width + total_gap_width)
 		# Re-normalize with adjusted height
 		adjusted_height = row_height * scale_factor
-		normalized = []
-		for title, ops, _, _ in vignettes:
+		renormalized = []
+		for title, ops, _, _ in normalized:
 			norm_ops, width, height = normalize_to_height(ops, adjusted_height)
-			normalized.append((title, norm_ops, width, height))
+			renormalized.append((title, norm_ops, width, height))
+		normalized = renormalized
 		total_content_width = sum(w for _, _, w, _ in normalized)
 
 	# Position vignettes with equal gutters
@@ -390,7 +396,7 @@ def build_renderer_capabilities_sheet(page="letter", backend="svg", seed=0, outp
 			import oasa
 			svg_out = oasa.svg_out
 		else:
-			from . import svg_out
+			import oasa.svg_out as svg_out
 		return svg_out.pretty_print_svg(doc.toxml("utf-8"))
 
 	if backend != "cairo":
@@ -765,16 +771,14 @@ def _build_cholesterol_mol():
 		import oasa
 		cdml_module = oasa.cdml
 	else:
-		from . import cdml as cdml_module
+		import oasa.cdml as cdml_module
 
 	# CDML file lives in bkchem templates
-	here = os.path.dirname(os.path.abspath(__file__))
-	# Navigate from packages/oasa/oasa/ to packages/bkchem/bkchem_data/templates/
+	repo_root = get_repo_root()
 	path = os.path.join(
-		here, "..", "..", "bkchem", "bkchem_data", "templates",
+		repo_root, "packages", "bkchem", "bkchem_data", "templates",
 		"biomolecules", "lipids", "steroids", "cholesterol.cdml"
 	)
-	path = os.path.normpath(path)
 
 	if not os.path.exists(path):
 		raise FileNotFoundError(f"Cholesterol template not found: {path}")
@@ -809,87 +813,123 @@ def _build_cholesterol_mol():
 
 
 #============================================
+def _add_explicit_h_to_haworth(mol, ring_atoms, bond_length=30):
+	"""Add explicit H atoms and label OH groups for clear Haworth representation."""
+	# Handle imports
+	if __name__ == "__main__":
+		import oasa
+	else:
+		pass
+
+	ring_set = set(ring_atoms)
+
+	# First pass: Add explicit H to ring carbons and convert OH groups to labels
+	for ring_atom in ring_atoms:
+		if ring_atom.symbol != "C":
+			continue  # Skip oxygen
+
+		ring_neighbors = [n for n in ring_atom.neighbors if n in ring_set]
+		all_neighbors = list(ring_atom.neighbors)
+
+		# Find substituents (non-ring neighbors)
+		substituents = [n for n in all_neighbors if n not in ring_set]
+
+		# Check if this carbon has an OH group (O neighbor that has an H)
+		for sub in substituents:
+			if sub.symbol == "O":
+				# Check if this O has an H attached
+				o_neighbors = list(sub.neighbors)
+				h_on_oxygen = [n for n in o_neighbors if n.symbol == "H" and n not in all_neighbors]
+
+				if h_on_oxygen:
+					# This is an OH group - label the O as "OH" and remove the H
+					sub.properties_["label"] = "OH"
+					# Remove the H atom from the molecule
+					for h in h_on_oxygen:
+						mol.remove_vertex(h)
+
+		# Add H to ring carbon if it needs one (3 bonds -> needs 1 H to reach 4)
+		current_bonds = len(list(ring_atom.neighbors))  # Recount after removing H from OH
+		if current_bonds == 3:
+			# Calculate position for H (opposite from substituent if present)
+			subs_after = [n for n in ring_atom.neighbors if n not in ring_set]
+
+			if subs_after:
+				avg_dx = sum(n.x - ring_atom.x for n in subs_after) / len(subs_after)
+				avg_dy = sum(n.y - ring_atom.y for n in subs_after) / len(subs_after)
+				h_dx = -avg_dx * 0.5  # Shorter, opposite direction
+				h_dy = -avg_dy * 0.5
+			else:
+				h_dx = 0
+				h_dy = bond_length * 0.5
+
+			# Add H with label
+			if __name__ == "__main__":
+				import oasa
+				h_atom = oasa.atom(symbol="H")
+				h_bond = oasa.bond(order=1, type="n")
+			else:
+				import oasa.atom as atom_cls
+				import oasa.bond as bond_cls
+				h_atom = atom_cls(symbol="H")
+				h_bond = bond_cls(order=1, type="n")
+
+			h_atom.x = ring_atom.x + h_dx
+			h_atom.y = ring_atom.y + h_dy
+			mol.add_vertex(h_atom)
+
+			h_bond.vertices = (ring_atom, h_atom)
+			mol.add_edge(ring_atom, h_atom, h_bond)
+
+
+#============================================
 def _build_alpha_d_glucopyranose_mol():
-	"""Build alpha-D-glucopyranose molecule from CDML template."""
+	"""Build alpha-D-glucopyranose molecule from SMILES."""
 
 	# Handle imports for both module and script usage
 	if __name__ == "__main__":
 		import oasa
-		cdml_module = oasa.cdml
+		smiles_module = oasa.smiles
 	else:
-		from . import cdml as cdml_module
+		import oasa.smiles as smiles_module
 
-	here = os.path.dirname(os.path.abspath(__file__))
-	path = os.path.join(
-		here, "..", "..", "bkchem", "bkchem_data", "templates",
-		"biomolecules", "carbs", "monosaccharides",
-		"alpha_d_glucopyranose.cdml"
-	)
-	path = os.path.normpath(path)
-
-	if not os.path.exists(path):
-		raise FileNotFoundError(f"Alpha-D-glucopyranose template not found: {path}")
-
-	with open(path, 'r') as f:
-		result = cdml_module.read_cdml(f.read())
-
-	try:
-		mol = next(iter(result))
-	except (StopIteration, TypeError):
-		raise ValueError("Alpha-D-glucopyranose CDML did not yield any molecules.")
-
+	# Alpha-D-glucopyranose SMILES
+	smiles = "OC[C@H]1O[C@H](O)[C@H](O)[C@@H](O)[C@@H]1O"
+	mol = smiles_module.text_to_mol(smiles)
 	if mol is None:
-		raise ValueError("Alpha-D-glucopyranose CDML returned an empty molecule.")
+		raise ValueError("Failed to parse alpha-D-glucopyranose SMILES")
 
-	layout = haworth.build_haworth(mol, mode="pyranose")
-	ring_atoms = layout["ring_atoms"]
-	ring_set = set(ring_atoms)
+	# Apply Haworth layout with D-series alpha configuration
+	layout = haworth.build_haworth(mol, mode="pyranose", series="D", stereo="alpha")
 
-	oxygen = next((a for a in ring_atoms if a.symbol == "O"), None)
-	if oxygen is None:
-		raise ValueError("Alpha-D-glucopyranose ring oxygen was not found.")
-	oxygen_neighbors = [n for n in oxygen.neighbors if n in ring_set]
-	if len(oxygen_neighbors) != 2:
-		raise ValueError("Alpha-D-glucopyranose ring oxygen does not have two ring neighbors.")
+	# Add explicit H atoms
+	_add_explicit_h_to_haworth(mol, layout["ring_atoms"], bond_length=30)
 
-	def has_exocyclic_carbon(atom_node):
-		return any(n.symbol == "C" and n not in ring_set for n in atom_node.neighbors)
+	return mol
 
-	c5 = None
-	for candidate in oxygen_neighbors:
-		if has_exocyclic_carbon(candidate):
-			c5 = candidate
-			break
-	if c5 is None:
-		c5 = max(oxygen_neighbors, key=lambda atom_node: sum(1 for n in atom_node.neighbors if n not in ring_set))
-	c1 = oxygen_neighbors[0] if oxygen_neighbors[1] is c5 else oxygen_neighbors[1]
 
-	ordered = [oxygen, c1]
-	prev = oxygen
-	curr = c1
-	while True:
-		choices = [n for n in curr.neighbors if n in ring_set and n is not prev]
-		if not choices:
-			break
-		nxt = choices[0]
-		if nxt is oxygen:
-			break
-		ordered.append(nxt)
-		prev, curr = curr, nxt
-		if len(ordered) > len(ring_atoms):
-			break
-	if len(ordered) != len(ring_atoms):
-		raise ValueError("Failed to order glucopyranose ring atoms.")
+#============================================
+def _build_beta_d_fructofuranose_mol():
+	"""Build beta-D-fructofuranose molecule from SMILES."""
 
-	c2, c3, c4, c5 = ordered[2], ordered[3], ordered[4], ordered[5]
-	substituent_map = {
-		c1: "down",
-		c2: "down",
-		c3: "up",
-		c4: "down",
-		c5: "up",
-	}
-	haworth.place_substituents(mol, ring_atoms, substituent_map=substituent_map)
+	# Handle imports for both module and script usage
+	if __name__ == "__main__":
+		import oasa
+		smiles_module = oasa.smiles
+	else:
+		import oasa.smiles as smiles_module
+
+	# Beta-D-fructofuranose SMILES
+	smiles = "OCC1(O)OCC(O)C1O"
+	mol = smiles_module.text_to_mol(smiles)
+	if mol is None:
+		raise ValueError("Failed to parse beta-D-fructofuranose SMILES")
+
+	# Apply Haworth layout with D-series beta configuration (furanose is 5-membered)
+	layout = haworth.build_haworth(mol, mode="furanose", series="D", stereo="beta")
+
+	# Add explicit H atoms
+	_add_explicit_h_to_haworth(mol, layout["ring_atoms"], bond_length=30)
 
 	return mol
 
@@ -918,6 +958,7 @@ def _build_vignettes_ops(page_width, include_text):
 	row2_vignettes = [
 		("Cholesterol", _build_cholesterol_ops()),
 		("alpha-D-Glucopyranose", _build_alpha_d_glucopyranose_ops()),
+		("beta-D-Fructofuranose", _build_beta_d_fructofuranose_ops()),
 	]
 	row1_result = layout_row(
 		row1_vignettes,
@@ -969,31 +1010,16 @@ def _build_vignettes_ops(page_width, include_text):
 #============================================
 def _build_benzene_mol():
 	"""Build benzene ring with alternating double bonds."""
-	mol = molecule.molecule()
+	# Use SMILES with explicit single/double bonds (Kekule structure)
+	mol = _mol_from_smiles("C1=CC=CC=C1", calc_coords=False)
 
-	# Hexagon vertices
+	# Arrange in hexagon
 	radius = 20
-	atoms = []
-	for i in range(6):
+	atoms = list(mol.vertices)
+	for i, a in enumerate(atoms):
 		angle = i * math.pi / 3 + math.pi / 6
-		x = radius * math.cos(angle)
-		y = radius * math.sin(angle)
-		a = atom.atom(symbol='C')
-		a.x = x
-		a.y = y
-		mol.add_vertex(a)
-		atoms.append(a)
-
-	# First, add all ring bonds to molecule (alternating single/double)
-	bonds = []
-	for i in range(6):
-		a1 = atoms[i]
-		a2 = atoms[(i + 1) % 6]
-		order = 2 if i % 2 == 0 else 1  # Alternating
-		b = bond_module.bond(order=order, type='n')
-		b.vertices = (a1, a2)
-		mol.add_edge(a1, a2, b)
-		bonds.append(b)
+		a.x = radius * math.cos(angle)
+		a.y = radius * math.sin(angle)
 
 	return mol
 
@@ -1014,7 +1040,7 @@ def _mol_from_smiles(smiles_str, calc_coords=True):
 		import oasa
 		smiles_module = oasa.smiles
 	else:
-		from . import smiles as smiles_module
+		import oasa.smiles as smiles_module
 
 	# Parse SMILES
 	# calc_coords=1 generates initial 2D layout (required for haworth.build_haworth)
@@ -1284,6 +1310,11 @@ def _build_cholesterol_ops():
 #============================================
 def _build_alpha_d_glucopyranose_ops():
 	return _build_molecule_ops(_build_alpha_d_glucopyranose_mol(), _mol_render_options())
+
+
+#============================================
+def _build_beta_d_fructofuranose_ops():
+	return _build_molecule_ops(_build_beta_d_fructofuranose_mol(), _mol_render_options())
 
 
 #============================================

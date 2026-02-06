@@ -2,15 +2,23 @@
 """Test Fischer projection explicit hydrogen rendering."""
 
 # Standard Library
+import os
+import sys
+
 # Local repo modules
 import conftest
 
+# Add tools directory to path for selftest_sheet
+repo_root = conftest.repo_root()
+tools_dir = os.path.join(repo_root, "tools")
+if tools_dir not in sys.path:
+	sys.path.insert(0, tools_dir)
 
 conftest.add_oasa_to_sys_path()
 
 # local repo modules
 from oasa import render_ops
-from oasa import selftest_sheet
+import selftest_sheet
 
 
 #============================================

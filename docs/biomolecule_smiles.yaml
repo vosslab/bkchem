@@ -7,6 +7,8 @@ carbs:
   monosaccharides:
     alpha-D-glucopyranose:
       smiles: "OC[C@H]1O[C@H](O)[C@H](O)[C@@H](O)[C@@H]1O"
+    beta-D-fructofuranose:
+      smiles: "OCC1(O)OCC(O)C1O"
 
 nucleic_acids:
   bases:

@@ -25,8 +25,8 @@ TEMPLATE_ROOT = os.path.join(
 	"templates",
 	"biomolecules",
 )
-DEFAULT_SMILES_YAML = os.path.join(REPO_ROOT, "biomolecule_smiles.yaml")
-DEFAULT_SMILES_TXT = os.path.join(REPO_ROOT, "biomolecule_smiles.txt")
+DEFAULT_SMILES_YAML = os.path.join(REPO_ROOT, "docs", "biomolecule_smiles.yaml")
+DEFAULT_SMILES_TXT = os.path.join(REPO_ROOT, "docs", "biomolecule_smiles.txt")
 
 LEGACY_NAME_MAP = {
 	"carbs/rings/furanose_scaffold": ("carbs", None, "furanose"),
