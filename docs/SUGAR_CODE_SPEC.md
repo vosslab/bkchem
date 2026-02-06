@@ -2,13 +2,18 @@
 
 ## Overview
 
-Sugar codes provide a compact notation for representing carbohydrate structures, including both standard and modified sugars. This specification extends the original sugar code format to support chemical modifications using numeric position markers.
+Sugar codes provide a compact notation for representing carbohydrate structures,
+including both standard and modified sugars. This specification extends the original
+sugar code format to support chemical modifications using lowercase letter codes
+and numeric footnote markers.
+
+**Key rule**: `len(sugar_code) == num_carbons` (triose=3, tetrose=4, pentose=5, hexose=6, heptose=7).
+
+**Source of truth**: `sugar_codes.yml` from the biology-problems repository.
 
 ## Basic Format
 
 ### Standard Sugar Code
-
-A sugar code consists of:
 
 ```
 <PREFIX><STEREOCENTERS><CONFIG><TERMINAL>
@@ -24,249 +29,187 @@ A sugar code consists of:
 2. **STEREOCENTERS** (0+ characters): Interior chiral carbons
    - `R` = OH on right (in Fischer projection)
    - `L` = OH on left (in Fischer projection)
-   - Can be replaced with numeric modifiers (see below)
+   - Can be replaced with lowercase letter codes or numeric footnote modifiers (see below)
 
 3. **CONFIG** (1 character): Series configuration
    - `D` = D-series (penultimate carbon has OH on right)
    - `L` = L-series (penultimate carbon has OH on left)
 
 4. **TERMINAL** (1 character): Terminal group
-   - `M` = hydroxymethyl (CH₂OH)
+   - `M` = hydroxymethyl (CH2OH)
 
-### Examples
+### Position Mapping
 
+Each character maps to a carbon. For aldoses (`A` prefix):
 ```
-ARRDM   = D-glucose (aldohexose)
-ARDM    = D-ribose (aldopentose)
-MKDM    = D-fructose (2-ketohexose)
-ARLDM   = D-galactose (C4 epimer of glucose)
-ALLDM   = L-glucose (enantiomer of D-glucose)
+A      R      L      R      D      M
+C1     C2     C3     C4     C5     C6
+(CHO)  (OH-R) (OH-L) (OH-R) (D-cfg)(CH2OH)
+```
+
+For 2-ketoses (`MK` prefix):
+```
+M      K      L      R      D      M
+C1     C2     C3     C4     C5     C6
+(CH2OH)(keto) (OH-L) (OH-R) (D-cfg)(CH2OH)
+```
+
+### Examples (from sugar_codes.yml)
+
+**Trioses** (3 carbons):
+```
+ADM    = D-glyceraldehyde
+MKM    = dihydroxyacetone (meso)
+```
+
+**Pentoses** (5 carbons):
+```
+ARRDM  = D-ribose
+ALRDM  = D-arabinose
+ARLDM  = D-xylose
+ALLDM  = D-lyxose
+```
+
+**D-aldohexoses** (6 carbons):
+```
+ARLRDM = D-glucose
+ARLLDM = D-galactose
+ALLRDM = D-mannose
+ARRRDM = D-allose
+```
+
+**D-ketohexoses** (6 carbons):
+```
+MKLRDM = D-fructose
+MKRRDM = D-tagatose
+MKRLDM = D-sorbose
+```
+
+**D-aldoheptoses** (7 carbons):
+```
+ARLRRDM = D-glycero-D-gluco-heptose
 ```
 
 ## Extended Format: Chemical Modifications
 
-### Footnote-Based Modifiers
+Two systems for modifications: **letter codes** (common, no footnotes needed)
+and **numeric footnotes** (rare/custom, must be defined).
 
-Chemical modifications are indicated using numeric footnote markers that must be defined explicitly.
+### Letter Codes (Common Modifications)
+
+Lowercase letters replace `R` or `L` at stereocenter positions. No footnote
+definition needed - the meaning is built into the letter.
+
+| Letter | Modification | Description | Replaces |
+|--------|-------------|-------------|----------|
+| `d` | deoxy | No oxygen | OH -> H,H |
+| `a` | amino | Amino group | OH -> NH2 |
+| `n` | N-acetyl | N-acetyl amino group | OH -> NHAc |
+| `p` | phosphate | Phosphate group | OH -> OPO3 |
+| `f` | fluoro | Fluorine | OH -> F |
+| `c` | carboxyl | Carboxyl (terminal) | CH2OH -> COOH |
+
+**Examples using letter codes** (no footnotes needed):
+```
+AdRDM   = 2-deoxy-D-ribose (deoxyribose, DNA sugar)
+AdLRDM  = 2-deoxy-D-glucose
+AaLRDM  = glucosamine (2-amino-2-deoxy-D-glucose)
+AnLRDM  = N-acetylglucosamine (GlcNAc)
+ARLRDc  = D-glucuronic acid (C6 is COOH)
+ARLRDp  = glucose-6-phosphate
+```
+
+### Numeric Footnotes (Rare/Custom Modifications)
+
+Numbers (`1`-`9`) are *variable placeholders* for modifications not covered
+by letter codes. Each number must be defined in a `[...]` section.
 
 **Format**:
 ```
 <SUGAR_CODE>[<DEFINITIONS>]
 ```
 
-Where:
-- **SUGAR_CODE**: Contains numeric markers (1-9) replacing stereocenter letters
-- **DEFINITIONS**: Comma-separated list defining what each number means
-
-**Design Philosophy**:
-- Numbers are *variable placeholders*, not pre-assigned meanings
-- Each number must be defined in the definitions section
-- Same number can represent different modifications in different contexts
-- Trades readability for flexibility (similar to SMILES)
-
-**Position Numbering**:
-- Positions are numbered sequentially through the sugar code
-- Position indices refer to carbon atoms in order from C1 to Cn
-- The PREFIX defines C1 (and possibly C2)
-- Each subsequent character defines the next carbon
-
-### Position Mapping
-
-For a sugar code, positions map to carbons as follows:
-
-**Aldoses** (`A` prefix):
+**Examples using numeric footnotes**:
 ```
-A    R    R    D    M
-C1   C2   C3   C4   C5
+A1LRDM[1=methyl]                 2-O-methyl-D-glucose (OCH3)
+A1LRD2[1=sulfate, 2=phosphate]   C2 sulfate + C6 phosphate
 ```
 
-**2-Ketoses** (`MK` prefix):
-```
-MK   R    D    M
-C1   C3   C4   C5
-C2   (keto carbon, no stereocenter)
-```
+### Mixing Letters and Numbers
 
-**3-Ketoses** (`MRK` or `MLK` prefix):
+Letter codes and numeric footnotes can be combined:
 ```
-M R  K    D    M
-C1 C2 C3  C4   C5
+AdLRDp  = 2-deoxy-glucose-6-phosphate (all common, no footnotes)
+AdLRD1[1=sulfate]   = 2-deoxy-glucose-6-sulfate (deoxy=common, sulfate=rare)
 ```
 
-### Common Modification Types
+### Rules
 
-While numbers are variable, common modifications include:
-
-| Modification | Description | Example Usage |
-|-------------|-------------|---------------|
-| deoxy | No oxygen (H replaces OH) | `[1=deoxy]` |
-| amino | Amino group (NH₂ replaces OH) | `[2=amino]` |
-| acetyl | N-acetyl on amino (NHCOCH₃) | `[3=acetyl]` (requires amino) |
-| phosphate | Phosphate group (OPO₃²⁻) | `[4=phosphate]` |
-| methyl | Methyl ether (OCH₃) | `[5=methyl]` |
-| sulfate | Sulfate group (OSO₃⁻) | `[6=sulfate]` |
-| fluoro | Fluorine (F replaces OH) | `[7=fluoro]` |
-| carboxyl | Carboxyl (COOH replaces CH₂OH) | `[8=carboxyl]` |
-
-### Examples of Modified Sugars
-
-**Single modifications**:
-```
-A1DM[1=deoxy]              = 2-deoxy-D-ribose (deoxyribose, DNA)
-A1RDM[1=deoxy]             = 2-deoxy-D-glucose
-AR1DM[1=deoxy]             = 3-deoxy-D-glucose
-A2RDM[2=amino]             = 2-amino-2-deoxy-D-glucose (glucosamine)
-ARRD8[8=carboxyl]          = D-glucuronic acid (C6 is COOH)
-ARRD4[4=phosphate]         = glucose-6-phosphate
-```
-
-### Multiple Modifications
-
-**At different positions**:
-```
-A23RDM[2=amino, 3=acetyl]  = N-acetyl-glucosamine (GlcNAc)
-A1R4DM[1=deoxy, 4=phosphate] = 2-deoxy-glucose-6-phosphate
-```
-
-**At the same position** (concatenate numbers):
-```
-A12DM[1=amino, 2=phosphate]    = 2-amino-2-phospho-D-ribose
-A12RDM[1=deoxy, 2=fluoro]      = 2-deoxy-2-fluoro-D-glucose
-```
-
-**Rule**: When multiple numbers appear consecutively, they modify the same position. Modifications are applied in the order defined.
+- Lowercase letters and digits replace `R` or `L` at stereocenter positions
+- Lowercase letters and digits also replace `M` at terminal position (`c` for carboxyl, `p` for phosphate, `1` for a custom footnote)
+- Each position is exactly one character; for multiple modifications on one carbon, use a numeric footnote with a compound definition (e.g., `1=amino-phosphate`)
+- All digits must be defined in `[...]`; letters need no definition
+- Letters take priority: if a modification has a letter code, prefer it over a number
 
 ## Validation Rules
 
-1. **Prefix**: Must match regex `^(A|MK|M[RL]K)`
-
-2. **Suffix**: Must end in `[DL]M` or `[DL]<modifier>` (for terminal modifications)
-   - Exception: Meso compounds (`MKM`, `MRKRM`) have no D/L designation
-
-3. **Configuration letter**: `D` may only appear in penultimate position (immediately before terminal)
-
-4. **Valid characters in sugar code**:
-   - Letters: `A`, `M`, `K`, `R`, `L`, `D`
-   - Digits: `1`-`9` (footnote markers in stereocenter positions)
-
-5. **Stereocenter positions**: May contain `R`, `L`, or digit sequences
-
-6. **Definitions section**: Required if any numeric markers are used
-   - Format: `[<number>=<modification>, ...]`
-   - All numbers in the sugar code must be defined
-
-7. **Length**: Minimum 3 characters (`ADM` = D-glyceraldehyde)
-
-## Full Regular Expression
-
-**Sugar code only**:
-```regex
-^(A|MK|M[RL]K)([RL]|[1-9]+)*[DL](M|[1-9]+)$
-```
-
-**With definitions**:
-```regex
-^(A|MK|M[RL]K)([RL]|[1-9]+)*[DL](M|[1-9]+)\[([1-9]=[a-z]+)(,\s*[1-9]=[a-z]+)*\]$
-```
-
-Special cases (meso compounds):
-```regex
-^(MKM|MRKRM)$
-```
+1. **Prefix**: Must match `^(A|MK|M[RL]K)`
+2. **Suffix**: Must end in `[DL]M` or `[DL]<modifier>`
+   - Exception: Meso compounds (`MKM`, `MRKRM`)
+3. **D** may only appear in penultimate position
+4. **Length** = number of carbons in the sugar
+5. **Valid stereocenter characters**: `R`, `L`, lowercase letter codes (`d`, `a`, `n`, `p`, `f`, `c`), or digits (`1`-`9`)
+6. All numeric footnotes must be defined; letter codes need no definition
 
 ## Conversion to Haworth Projection
 
 ### Algorithm
 
-1. **Parse sugar code** to extract:
-   - Carbonyl type (aldose/ketose)
-   - Stereocenter configurations or modifications
-   - Terminal group
-
-2. **Determine ring type**:
-   - Pyranose: 6-membered ring (5 carbons + 1 oxygen)
-   - Furanose: 5-membered ring (4 carbons + 1 oxygen)
-
-3. **Generate substituent dictionary**:
-   - For each carbon in the ring, determine up/down substituents
-   - `R` → down=H, up=OH (or HO for flipped positions)
-   - `L` → down=OH (or HO), up=H
-   - `1` (deoxy) → both positions are H
-   - `2` (amino) → NH₂ and H
-   - `4` (phosphate) → OPO₃²⁻ and H
-   - etc.
-
+1. **Parse sugar code** -> prefix, stereocenters, config, terminal
+2. **Determine ring type**: pyranose (6-membered) or furanose (5-membered)
+3. **Map stereocenters to substituents**:
+   - `R` -> OH down, H up (Fischer right -> Haworth down)
+   - `L` -> OH up, H down
+   - Modifications replace OH with specified group
 4. **Apply anomeric configuration**:
-   - Alpha/beta determines orientation at C1
-   - D-series alpha = OH down, H up
-   - D-series beta = OH up, H down
-   - L-series reversed
+   - D-alpha: anomeric OH down
+   - D-beta: anomeric OH up
+   - L-series: reversed
+5. **Output HaworthSpec** with text labels per position
 
-5. **Generate Haworth spec**:
-```python
-haworth_spec = {
-    "ring_type": "pyranose" | "furanose",
-    "ring_atoms": [atom_ids],
-    "front_edge": [atom_id_1, atom_id_2],
-    "anomeric": "alpha" | "beta",
-    "substituents": {
-        "C1_up": label, "C1_down": label,
-        "C2_up": label, "C2_down": label,
-        # ... etc
-    }
-}
+### Example: alpha-D-Glucopyranose
+
+**Sugar code**: `ARLRDM` + pyranose + alpha
+
+```
+C1_up: "H"       C1_down: "OH"     <- alpha: OH down
+C2_up: "H"       C2_down: "OH"     <- R: OH down
+C3_up: "OH"      C3_down: "H"      <- L: OH up
+C4_up: "H"       C4_down: "OH"     <- R: OH down
+C5_up: "CH2OH"   C5_down: "H"      <- D-series: CH2OH up
 ```
 
-### Example: Deoxyribose
+### Example: beta-D-2-Deoxyribofuranose
 
-**Sugar code**: `A1DM`
-**Anomeric**: `beta`
-**Ring**: furanose
+**Sugar code**: `AdRDM` + furanose + beta
 
-**Parsing**:
-- `A` = aldose (C1 has aldehyde → C1 becomes anomeric)
-- `1` = C2 is deoxy (no OH)
-- `D` = D-series
-- `M` = C4 has CH₂OH attached to C5
-
-**Haworth spec**:
-```python
-{
-    "ring_type": "furanose",
-    "ring_atoms": ["O4", "C1", "C2", "C3", "C4"],
-    "front_edge": ["C2", "C3"],
-    "anomeric": "beta",
-    "substituents": {
-        "C1_up": "OH",      # beta anomer
-        "C1_down": "H",
-        "C2_up": "H",       # DEOXY
-        "C2_down": "H",     # DEOXY
-        "C3_up": "H",
-        "C3_down": "OH",    # D-series
-        "C4_up": "CH2OH",
-        "C4_down": "H",
-    }
-}
+```
+C1_up: "OH"      C1_down: "H"      <- beta: OH up
+C2_up: "H"       C2_down: "H"      <- d (deoxy): both H
+C3_up: "H"       C3_down: "OH"     <- R -> OH down (D-series)
+C4_up: "CH2OH"   C4_down: "H"      <- terminal CH2OH up
 ```
 
 ## Limitations
 
-1. **Non-standard ring sizes**: Oxetose (4-membered) and septanose (7-membered) rings require manual specification
-
-2. **Branched sugars**: Not supported in this notation
-
-3. **Multiple ring forms**: Must specify pyranose vs furanose separately
-
-4. **Anomeric position**: Alpha/beta must be specified as a parameter, not encoded in the sugar code itself
-
-5. **Absolute stereochemistry**: For mixed modifications, complex stereochemistry may require full Haworth spec
+1. **Non-standard ring sizes**: Oxetose (4-membered) and septanose (7-membered)
+   rings require manual specification
+2. **Branched sugars**: Not supported
+3. **Multiple ring forms**: Pyranose vs furanose specified separately
+4. **Anomeric position**: Alpha/beta is a parameter, not encoded in the sugar code
 
 ## References
 
-- Original sugar code implementation: `/Users/vosslab/nsh/PROBLEM/biology-problems/problems/biochemistry-problems/carbohydrates_classification/sugarlib.py`
-- Haworth projection rendering: `packages/oasa/oasa/haworth.py`
-- Sugar code data: Biology problems repository `sugar_codes.yml`
-
-## Version History
-
-- v1.0 (2026-02-05): Initial specification with numeric modifier support
+- Original sugar code system: `sugarlib.py` (biology-problems repo)
+- Vetted sugar codes: `sugar_codes.yml` (biology-problems repo)
+- Haworth projection layout: `packages/oasa/oasa/haworth.py`

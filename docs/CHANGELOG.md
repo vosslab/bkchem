@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-02-06
+- Create `docs/SUGAR_CODE_SPEC.md` defining sugar code notation for carbohydrate
+  structures: prefix (A/MK) + stereocenters (R/L) + config (D/L) + terminal (M),
+  with lowercase letter codes (d=deoxy, a=amino, n=N-acetyl, p=phosphate, f=fluoro,
+  c=carboxyl) and numeric footnotes for rare modifications. Key invariant:
+  `len(sugar_code) == num_carbons`.
+- Rename `docs/HAWORTH_IMPLEMENTATION_PLAN.md` to
+  `docs/HAWORTH_IMPLEMENTATION_PLAN_attempt1.md` (via `git mv`) to preserve history
+  and distinguish the SMILES-based approach (failed at stage 4 substituent rendering)
+  from the new sugar-code-based approach.
+- Create `docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md` with a schematic-only renderer
+  architecture: sugar code parser -> Haworth spec generator -> render_ops output
+  (TextOp + LineOp + PolygonOp), bypassing the molecular graph entirely.
+  - Phase 1: sugar code parser with validation matrix (prefix + ring_type -> carbon
+    count and ring closure)
+  - Phase 2: Haworth spec generator with general ring-closure rules, ring vs exocyclic
+    carbon classification, and substituent assignment algorithm
+  - Phase 3: schematic renderer with filled polygon ring edges, explicit front-edge
+    template metadata, per-ring-type label configs, bg_color parameter, and
+    multi-carbon exocyclic chain rendering
+  - Phase 4: selftest_sheet.py integration
+  - Phase 5: verification
+  - Phase 6: sugar code to SMILES conversion (Fischer-to-CIP mapping)
+  - Phase 7: SMILES to sugar code (lookup table + best-effort structural inference)
+- Address two rounds of review findings (P1a-P3c, R2-P1a-R2-new) documented in the
+  plan's Review Response Log.
+
 ## 2026-02-05 (continued)
 - Fix benzene rendering to use Kekule SMILES (`C1=CC=CC=C1`) for proper alternating
   single/double bond display.
