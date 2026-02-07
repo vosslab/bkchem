@@ -44,6 +44,32 @@ Sugar Code String          e.g. "ARLRDM" + "alpha" + "pyranose"
 
 No molecular graph. No atom/bond rendering. No `_build_molecule_ops()`.
 
+## Phase 0: Definition of Done
+
+Phase 0 is complete only when the following are true:
+
+- Parser, spec generator, and schematic renderer (Phases 1-5) are implemented.
+- Conversion supports all Haworth-cyclizable prefixes in the matrix: `A`, `MK`.
+- Both ring families are supported: `furanose` and `pyranose`.
+- Meso trioses are accepted as parseable sugar codes but rejected for Haworth
+  conversion with explicit ring-capacity `ValueError`.
+- All tests listed in Phases 1-5 pass.
+- Selftest integration renders non-empty outputs for required examples.
+- No molecule graph/CDML editing semantics are introduced.
+
+Phase 0 non-goals:
+
+- Sugar code to SMILES conversion.
+- SMILES to sugar code conversion.
+- Editable Haworth molecules in BKChem.
+
+Phase 0 acceptance gates:
+
+- Unit gate: parser/spec/renderer tests pass.
+- Integration gate: `tools/selftest_sheet.py --format svg` runs and outputs expected vignettes.
+- Regression gate: full repository tests pass.
+- Determinism gate: repeated runs with same input produce identical slot mapping and label placement.
+
 ## Phase 1: Sugar Code Parser
 
 **New file**: `packages/oasa/oasa/sugar_code.py`
@@ -51,12 +77,13 @@ No molecular graph. No atom/bond rendering. No `_build_molecule_ops()`.
 ```python
 @dataclasses.dataclass(frozen=True)
 class ParsedSugarCode:
-    prefix: str                          # "A", "MK", "MRK", "MLK"
+    prefix: str                          # "ALDO", "KETO", or "3-KETO" (normalized kind)
     positions: list[tuple[str, tuple]]   # [("R", ()), ("d", ("deoxy",)), ...]
-    config: str                          # "D" or "L"
+    config: str                          # "DEXTER", "LAEVUS", or "MESO" (internal parser value)
     terminal: tuple[str, tuple]          # ("M", ()) or ("c", ("carboxyl",))
     footnotes: dict[str, str]            # {"1": "deoxy", ...}
-    raw: str                             # original input
+    sugar_code: str                      # body only (no footnote block), includes literal prefix token
+    sugar_code_raw: str                  # exact original input (includes footnote block if present)
 
 def parse(code_string: str) -> ParsedSugarCode
 def _extract_footnotes(s: str) -> tuple[str, dict[str, str]]
@@ -65,16 +92,64 @@ def _parse_config_and_terminal(remainder: str, footnotes: dict) -> tuple[list, s
 ```
 
 **Key parsing logic**:
-- Split `"A1LRDM[1=methyl]"` into body `"A1LRDM"` + footnotes `{"1": "methyl"}`
+- Split `"A2LRDM[2R=CH3]"` into body `"A2LRDM"` + footnotes `{"2R": "CH3"}`
 - Extract prefix by matching `^(A|MK|M[RL]K)`
+- Accept `MRK`/`MLK` as valid prefix tokens.
+- Reject bare prefix-only codes (for example `MRK`, `MLK`) because they do not
+  satisfy `<PREFIX><STEREOCENTERS><CONFIG><C_TERMINAL_STATE>`.
+- Normalize prefix token to internal kind:
+  - `A` -> `ALDO`
+  - `MK` -> `KETO`
+  - `MRK`/`MLK` -> `3-KETO`
+- Store both sugar-code forms (no separate `prefix_token` field):
+  - `sugar_code`: body before footnotes, includes literal prefix token
+  - `sugar_code_raw`: exact original input string
+- Enforce split invariants:
+  - no footnotes: `sugar_code_raw == sugar_code`
+  - with footnotes: `sugar_code_raw.startswith(sugar_code)` and the suffix is
+    the bracket footnote block
 - Scan remaining characters left-to-right: each character is one carbon position
-- Config is always `D` or `L` in the penultimate position
+- Config token is `D` or `L` in the penultimate position, except meso form `MKM`
+- Parser normalizes config tokens to internal values:
+  - `D` -> `DEXTER`
+  - `L` -> `LAEVUS`
+  - meso forms -> `MESO`
 - Terminal is the last character (`M`, or a letter code like `c`/`p`, or a digit)
 - Letter codes (`d`, `a`, `n`, `p`, `f`, `c`) are resolved to their built-in meanings
 - Digit markers are resolved via the footnotes dict
-- Validate: all digits must have definitions; `len(body) == num_carbons`
+- Side-qualified digit footnotes (`nL`, `nR`) are parsed as explicit
+  Fischer-left/Fischer-right substituent overrides for backbone position `n`
+- Carbon-state keys (`nC`) are parsed as properties of backbone position `n` itself
+  (for example `3C=CH2`)
+- Numeric overrides use backbone-index-matched body digits in all modes
+  (for example `c23[2C=C3(EPO3),3C=CH2]`, `A2LRDM[2R=CH3]`)
+- Compound carbon-state plus attachments use a single key:
+  `nC=<state>(<attachment1>,...)` (for example `2C=C3(EPO3)`); this is the
+  only valid way to combine carbon-state and attached-group data for one
+  backbone position
+- Validate parser-level syntax per [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md):
+  - all digits must have definitions
+  - numeric definitions must reference only digits present in the body
+  - definitions are emitted in ascending digit order
+  - body digits must match backbone position indices
+  - plain `n=` is invalid at chiral stereocenters (must use `nL`/`nR`, or `nC`)
+  - if only `nL` or only `nR` appears, missing side defaults to `H`
+  - `nC` keys are allowed only for indices present in the body
+  - for one backbone position index:
+    - plain `n` and `nC` are mutually exclusive
+    - `nL` and `nR` may co-occur
+    - plain `n`/`nC` must not co-occur with `nL`/`nR`
+  - one backbone position index cannot appear more than once as plain `n` or
+    `nC` in the same footnote block
+  - minimum sugar code body length is 3 (`len(body) >= 3`)
+  - one- and two-character codes are invalid
+  - `len(body) == backbone_carbons`
+  - for unbranched sugars, `backbone_carbons == total_carbons`
+  - suffix is `[DL]<terminal-or-modifier>`, except meso ketotriose forms
+    `MK<terminal-or-modifier>`
+  - `D` appears only in the penultimate position (token-level rule)
 
-**Validation matrix** (prefix + ring_type -> minimum carbon count and ring closure):
+**Haworth conversion matrix** (used by `haworth_spec.generate`):
 
 | Prefix | Ring Type | Min Carbons | Ring Closure | Ring Carbons | Exocyclic |
 |--------|-----------|-------------|--------------|--------------|-----------|
@@ -88,19 +163,54 @@ aldohexose (6 carbons) + furanose closes C1-O-C4 with C5 and C6 hanging off C4.
 This is fully deterministic: one carbonyl = one anomeric center = one possible ring
 closure per ring size.
 
-The parser validates `len(body)` matches the sugar's carbon count. The spec generator
+The parser validates `len(body)` matches backbone carbon count. The spec generator
 validates that the prefix + ring_type combination is in the matrix above and that the
-carbon count meets the minimum. Mismatches raise `ValueError` with a descriptive message.
+required carbon count constraints are met. Mismatches raise `ValueError` with a
+descriptive message.
+This is the final handling path for supported prefixes and ring closures; non-cyclizable
+inputs fail fast with explicit minimum-carbon and closure diagnostics.
 
 **New test file**: `tests/test_sugar_code.py`
 - `test_parse_simple_aldose`: ARLRDM (D-glucose, 6 chars)
 - `test_parse_pentose`: ARRDM (D-ribose, 5 chars)
 - `test_parse_ketose`: MKLRDM (D-fructose, 6 chars)
 - `test_parse_letter_code`: AdRDM (deoxyribose, 5 chars)
-- `test_parse_with_footnotes`: A1LRDM[1=methyl] (6 chars)
-- `test_parse_mixed`: AdLRD1[1=sulfate] (6 chars, letter + footnote)
+- `test_parse_with_footnotes`: A2LRDM[2R=CH3] (6 chars)
+- `test_parse_raw_and_body_split`: `A2LRDM[2R=CH3]` stores
+  `sugar_code="A2LRDM"` and `sugar_code_raw="A2LRDM[2R=CH3]"`
+- `test_parse_mixed`: AdLRD6[6=sulfate] (6 chars, letter + footnote)
+- `test_parse_meso_forms`: MKM parses with `config="MESO"`
+- `test_parse_meso_modified_triose`: MKp parses with `config="MESO"`
+- `test_parse_config_normalization`: `D`/`L` tokens normalize to
+  `DEXTER`/`LAEVUS`
+- `test_parse_numeric_pathway_override`: `c23[2C=C3(EPO3),3C=CH2]`
+  parses with backbone-index-matched numeric overrides
+- `test_parse_numeric_pathway_carbon_state`: `c23[2C=C3(EPO3),3C=CH2]`
+  parses with explicit carbon-state keys
+- `test_parse_numeric_pathway_duplicate_index_invalid`: reject multiple plain/nC
+  entries for the same backbone position index in one block
+- `test_parse_invalid_key_mix_same_index`: reject mixed key families for one
+  position index (for example `2C=...` with `2L=...`, or `2=...` with `2C=...`)
+- `test_parse_compound_carbon_state_single_key`: accept `nC=<state>(...)` as
+  the combined form and reject split multi-key alternatives for the same
+  position
+- `test_parse_side_qualified_footnotes`: `A2M[2L=COOH,2R=CH3]` parses with explicit
+  left/right override entries for backbone position 2
+- `test_parse_side_qualified_footnotes_single_defaults_h`: `A2M[2L=OH]`
+  defaults `2R` to `H` (equivalent to `ALM`)
+- `test_parse_side_qualified_footnotes_single_defaults_h_right`: `A2M[2R=OH]`
+  defaults `2L` to `H` (equivalent to `ADM`)
 - `test_parse_invalid_raises`: missing config, undefined footnotes, wrong length
+- `test_parse_invalid_digit_position`: reject `A1LRDM[1=CH3]` (backbone-index mismatch)
+- `test_parse_invalid_chiral_plain_key`: reject `A2LRDM[2=CH3]` (chiral side unspecified)
+- `test_parse_too_short_invalid`: one- and two-character codes raise `ValueError`
+- `test_parse_mrk_mlk_prefix_supported`: accept `MRK` and `MLK` as prefixes in full codes
+- `test_parse_prefix_only_invalid`: reject bare prefix-only codes like `MRK`/`MLK`
 - `test_parse_prefix_ring_mismatch`: pentose + pyranose aldose raises ValueError
+- `test_generate_meso_ring_capacity_error`: MKM/MKp + furanose/pyranose raises ValueError
+- `test_parse_pathway_profile_haworth_ineligible_marker`: parse pathway-style
+  carbon-state chemistry (for example `c23[2C=C3(EPO3),3C=CH2]`) without
+  auto-qualifying it as Haworth-eligible
 
 ## Phase 2: Haworth Spec Generator
 
@@ -111,12 +221,15 @@ carbon count meets the minimum. Mismatches raise `ValueError` with a descriptive
 class HaworthSpec:
     ring_type: str                  # "pyranose" or "furanose"
     anomeric: str                   # "alpha" or "beta"
-    config: str                     # "D" or "L"
     substituents: dict[str, str]    # {"C1_up": "OH", "C1_down": "H", ...}
     carbon_count: int               # 5 (pyranose) or 4 (furanose) ring carbons
     title: str                      # "alpha-D-Glucopyranose"
 
-def generate(parsed: ParsedSugarCode, ring_type: str, anomeric: str) -> HaworthSpec
+def generate(
+    parsed: ParsedSugarCode,
+    ring_type: str,
+    anomeric: str,
+) -> HaworthSpec
 ```
 
 ### Ring closure rules
@@ -129,6 +242,31 @@ One carbonyl = one anomeric center = one possible ring closure per ring size.
 | `A` | C1 | C1-O-C4 | C1-O-C5 |
 | `MK` | C2 | C2-O-C5 | C2-O-C6 |
 
+Both supported prefixes are handled by the same ring-closure logic. If a sugar does not
+have enough carbons for the requested ring closure, `generate()` raises `ValueError`.
+
+### Phase 0 Haworth-eligible subset gate
+
+`haworth_spec.generate()` in Phase 0 accepts only Haworth-eligible sugar-code
+inputs that map directly to up/down substituent labels on ring carbons and
+simple exocyclic chain positions. Pathway-profile carbon-state chemistry is not
+Haworth-eligible in Phase 0.
+
+Must reject with clear `ValueError` (prefix, ring type, and reason):
+- any `nC=` carbon-state entries
+- alkene/enol descriptors (for example `C=<index>(E)`, `C=<index>(Z)`,
+  `C=C...`, `EPO3`)
+- pathway-specific non-Haworth carbon-state compounds (for example
+  `C(=O)OPO3`, `C(=O)SCoA`)
+
+### Series resolution for generation
+
+- Parsed `DEXTER` and `LAEVUS` are consumed during substituent-direction generation.
+- Parsed `MESO` is parseable (`MKM`, `MKp`) but not cyclizable for Haworth conversion.
+- `HaworthSpec` stores resolved up/down substituent labels and does not carry a
+  separate `config` field.
+- Haworth conversion for meso trioses fails at ring-capacity validation.
+
 **General formula**: closure_carbon = anomeric + (ring_members - 2), where
 ring_members = 4 (furanose) or 5 (pyranose) carbon atoms in the ring.
 
@@ -137,10 +275,11 @@ ring_members = 4 (furanose) or 5 (pyranose) carbon atoms in the ring.
 Given a sugar code with `n` total carbons and a ring closing at Cx:
 
 - **Ring carbons**: anomeric through Cx (inclusive)
-- **Pre-anomeric exocyclic**: carbons before the anomeric (for `MK`: C1 hangs off C2)
+- **Pre-anomeric exocyclic**: carbons before the anomeric (A: none, MK: C1)
 - **Post-closure exocyclic**: carbons after Cx (Cx+1 through Cn hang off Cx)
-- **Exocyclic chain length**: `n - closure_carbon` (post-closure) plus prefix
-  exocyclic (1 for `MK`, 0 for `A`)
+- **Exocyclic chain lengths**:
+  - `pre_chain_len = anomeric - 1`
+  - `post_chain_len = n - closure_carbon`
 
 **Worked examples**:
 
@@ -162,15 +301,17 @@ For each ring carbon Ci, assign up/down labels:
    - D-alpha -> OH down, H up
    - D-beta -> OH up, H down
    - L-series: reversed
+   - This alpha/beta orientation rule is applied at the anomeric carbon for both
+     supported prefixes (`A`, `MK`).
 2. **Interior ring stereocenters** (from sugar code R/L or letter codes):
    - `R` -> OH down, H up (Fischer right -> Haworth down)
    - `L` -> OH up, H down
    - `d` -> H down, H up (deoxy: both H)
    - Other letter codes: replace OH with the modification label
-3. **Config carbon** (D or L, always penultimate in sugar code):
+3. **Config carbon** (`DEXTER` or `LAEVUS`, resolved from config token):
    - If in the ring: determines which direction the exocyclic chain points
-   - D-series: exocyclic chain up; L-series: exocyclic chain down
-   - If exocyclic: its own OH follows its R/L equivalent (D=right, L=left)
+   - DEXTER: exocyclic chain up; LAEVUS: exocyclic chain down
+   - If exocyclic: its own OH follows its R/L equivalent (DEXTER=right, LAEVUS=left)
 4. **Post-closure exocyclic chain** (off the last ring carbon):
    - 0 extra carbons: no exocyclic substituent (H on that side)
    - 1 extra carbon with `M` terminal: label = "CH2OH"
@@ -180,8 +321,8 @@ For each ring carbon Ci, assign up/down labels:
 5. **Pre-anomeric exocyclic** (for `MK` prefix: C1 hangs off anomeric C2):
    - C1 is always CH2OH (from the `M` in `MK`)
    - Placed opposite to the anomeric OH
-   - D-alpha: C2_up=OH, C2_down=CH2OH
-   - D-beta: C2_up=CH2OH, C2_down=OH
+   - D-alpha: C2_up=CH2OH, C2_down=OH
+   - D-beta: C2_up=OH, C2_down=CH2OH
    - **Collision note**: both visible labels are wide text. Renderer should
      increase `sub_length` for carbons where neither label is "H".
 
@@ -192,7 +333,8 @@ For each ring carbon Ci, assign up/down labels:
 | `d` | deoxy | H (both up and down) |
 | `a` | amino | NH2 |
 | `n` | N-acetyl | NHAc |
-| `p` | phosphate | OPO3 |
+| `p` | phosphate-right/terminal phosphate | OPO3 |
+| `P` | phosphate-left | OPO3 |
 | `f` | fluoro | F |
 | `c` | carboxyl | COOH |
 
@@ -203,15 +345,21 @@ Standard cases:
 - `test_glucose_beta_pyranose`: C1_up=OH (only change from alpha)
 - `test_galactose_alpha`: ARLLDM + pyranose -> C4 epimer differs from glucose
 - `test_deoxyribose_furanose`: AdRDM + furanose + beta -> C2 both H, C4_up=CH2OH
-- `test_fructose_beta_furanose`: MKLRDM + furanose + beta -> C2_up=CH2OH, C2_down=OH
-- `test_fructose_alpha_furanose`: MKLRDM + furanose + alpha -> C2_up=OH, C2_down=CH2OH
+- `test_fructose_beta_furanose`: MKLRDM + furanose + beta -> C2_up=OH, C2_down=CH2OH
+- `test_fructose_alpha_furanose`: MKLRDM + furanose + alpha -> C2_up=CH2OH, C2_down=OH
 - `test_fructose_anomeric_both_wide`: verify both C2 labels are non-trivial (not "H")
+- `test_triose_haworth_not_cyclizable`: ADM and MKM raise ring-capacity `ValueError`
 
 Ring closure edge cases:
 - `test_glucose_furanose`: ARLRDM + furanose -> ring C1-C4, exocyclic C5+C6 off C4
 - `test_ribose_pyranose`: ARRDM + pyranose -> ring C1-C5, no exocyclic chain
 - `test_erythrose_furanose`: ARDM + furanose -> ring C1-C4, no exocyclic chain
 - `test_fructose_pyranose`: MKLRDM + pyranose -> ring C2-C6, C1 off C2, no post-exo
+- `test_triose_ring_capacity_error`: MKM + furanose/pyranose raises ValueError
+- `test_haworth_rejects_pathway_carbon_state`: parser accepts
+  `c23[2C=C3(EPO3),3C=CH2]`, `haworth_spec.generate()` raises `ValueError`
+- `test_haworth_rejects_acyl_state_tokens`: parser accepts pathway-style
+  `nC` chemistry tokens, `haworth_spec.generate()` rejects as non-Haworth
 
 Exocyclic chain length:
 - `test_exocyclic_0`: aldopentose pyranose has no exocyclic carbons
@@ -245,27 +393,44 @@ o_index = haworth.PYRANOSE_O_INDEX    # or FURANOSE_O_INDEX
 scaled = haworth._ring_template(ring_size, bond_length)
 ```
 
-### Step 2: Template index to carbon number mapping
+### Step 2: Template slots and carbon mapping
 
 Confirmed from HTML templates in biology-problems repo
 (`haworth_pyranose_table.html`, `haworth_furanose_table.html`):
 
 ```python
-PYRANOSE_INDEX_TO_CARBON = {
-    0: "C4",   # (-1.25, 0.00)  far left
-    1: "C5",   # (-0.45, -0.75) top left
-    2: None,   # (0.45, -0.75)  OXYGEN (O_INDEX=2)
-    3: "C1",   # (1.25, 0.00)   far right (anomeric)
-    4: "C2",   # (0.55, 0.70)   bottom right
-    5: "C3",   # (-0.55, 0.70)  bottom left
+# Slot names are semantic and ordered around the ring in template traversal order.
+# This keeps the representation stable and readable without exposing arbitrary indices.
+# Two-letter slots are abbreviations of explicit position names:
+# ML=MIDDLE_LEFT, TL=TOP_LEFT, TO=TOP_OXYGEN,
+# MR=MIDDLE_RIGHT, BR=BOTTOM_RIGHT, BL=BOTTOM_LEFT
+PYRANOSE_SLOTS = ("ML", "TL", "TO", "MR", "BR", "BL")
+FURANOSE_SLOTS = ("ML", "BL", "BR", "MR", "TO")
+
+PYRANOSE_SLOT_INDEX = {
+    "ML": 0,
+    "TL": 1,
+    "TO": 2,
+    "MR": 3,     # anomeric slot for prefix A
+    "BR": 4,
+    "BL": 5,
 }
 
-FURANOSE_INDEX_TO_CARBON = {
-    0: "C4",   # (-1.05, 0.00)  far left
-    1: "C3",   # (-0.55, 0.70)  bottom left
-    2: "C2",   # (0.55, 0.70)   bottom right
-    3: "C1",   # (1.05, 0.00)   far right (anomeric)
-    4: None,   # (0.00, -0.85)  OXYGEN (O_INDEX=4)
+FURANOSE_SLOT_INDEX = {
+    "ML": 0,
+    "BL": 1,
+    "BR": 2,
+    "MR": 3,     # anomeric slot for prefix A
+    "TO": 4,
+}
+
+def carbon_slot_map(spec: HaworthSpec) -> dict[str, str]:
+    # Dynamic carbon->slot mapping handles both supported prefix families.
+    # A-furanose:  C1->MR, C2->BR, C3->BL, C4->ML
+    # MK-furanose: C2->MR, C3->BR, C4->BL, C5->ML
+    # A-pyranose:  C1->MR, C2->BR, C3->BL, C4->ML, C5->TL
+    # MK-pyranose: C2->MR, C3->BR, C4->BL, C5->ML, C6->TL
+    ...
 }
 ```
 
@@ -298,10 +463,12 @@ def _edge_polygon(p1, p2, thickness_at_p1, thickness_at_p2):
 **Edge classification** via explicit template metadata (not inferred from coordinates):
 
 ```python
-# Front edge index = the edge starting at this vertex index.
-# Canonical per template -- stable regardless of coordinate system orientation.
-PYRANOSE_FRONT_EDGE_INDEX = 4   # edge from vertex 4 (C2) to vertex 5 (C3)
-FURANOSE_FRONT_EDGE_INDEX = 1   # edge from vertex 1 (C3) to vertex 2 (C2)
+# Front edge is keyed by slot for readability, then resolved to index.
+PYRANOSE_FRONT_EDGE_SLOT = "BR"  # edge BR -> BL
+FURANOSE_FRONT_EDGE_SLOT = "BL"  # edge BL -> BR
+
+PYRANOSE_FRONT_EDGE_INDEX = PYRANOSE_SLOT_INDEX[PYRANOSE_FRONT_EDGE_SLOT]
+FURANOSE_FRONT_EDGE_INDEX = FURANOSE_SLOT_INDEX[FURANOSE_FRONT_EDGE_SLOT]
 ```
 
 Wedge edges are the two edges adjacent to the front edge (indices +/-1 mod ring_size).
@@ -322,29 +489,27 @@ No bonds. No molecular graph objects. Just:
 - A short connector `LineOp` from the ring vertex outward
 - A `TextOp("OH", x, y)` at the end of the connector
 
-Per-carbon label directions (from HTML template analysis):
+Per-slot label directions (from HTML template analysis):
 
 ```python
-PYRANOSE_LABEL_CONFIG = {
-    "C1": {"up_dir": (1, -1),  "down_dir": (1, 1),  "anchor": "start"},   # far right
-    "C2": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "end"},     # bottom right
-    "C3": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "start"},   # bottom left
-    "C4": {"up_dir": (-1, -1), "down_dir": (-1, 1), "anchor": "end"},     # far left
-    "C5": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "middle"},  # top left
+PYRANOSE_SLOT_LABEL_CONFIG = {
+    "MR": {"up_dir": (1, -1),  "down_dir": (1, 1),  "anchor": "start"},
+    "BR": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "end"},
+    "BL": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "start"},
+    "ML": {"up_dir": (-1, -1), "down_dir": (-1, 1), "anchor": "end"},
+    "TL": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "middle"},
 }
 
-FURANOSE_LABEL_CONFIG = {
-    "C1": {"up_dir": (1, -1),  "down_dir": (1, 1),  "anchor": "start"},   # far right
-    "C2": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "end"},     # bottom right
-    "C3": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "start"},   # bottom left
-    "C4": {"up_dir": (-1, -1), "down_dir": (-1, 1), "anchor": "end"},     # far left
+FURANOSE_SLOT_LABEL_CONFIG = {
+    "MR": {"up_dir": (1, -1),  "down_dir": (1, 1),  "anchor": "start"},
+    "BR": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "end"},
+    "BL": {"up_dir": (0, -1),  "down_dir": (0, 1),  "anchor": "start"},
+    "ML": {"up_dir": (-1, -1), "down_dir": (-1, 1), "anchor": "end"},
 }
 ```
 
-Note: furanose has the same spatial positions as pyranose C1-C4. The furanose
-config omits C5 because in a furanose the number of ring carbons depends on
-the sugar type: aldopentose furanose has C1-C4 in the ring with C5 exocyclic;
-aldotetrose furanose has C1-C4 all in the ring with nothing exocyclic.
+Direction selection is slot-based, then labels are attached using the dynamic
+carbon-to-slot map for the current prefix and ring type.
 
 **Simple substituents** (0 or 1 exocyclic carbons):
 
@@ -405,7 +570,7 @@ LineOp for connectors). Zero molecule/atom/bond objects.
 - `test_render_ribose_pyranose`: ARRDM + pyranose has no exocyclic chain
 - `test_render_erythrose_furanose`: ARDM + furanose has no exocyclic chain
 - `test_render_front_edge_stable`: verify front edge index matches template metadata
-- `test_render_furanose_labels`: furanose label directions match FURANOSE_LABEL_CONFIG
+- `test_render_furanose_labels`: furanose label directions match `FURANOSE_SLOT_LABEL_CONFIG`
 - `test_render_bbox_sub_tags`: bbox for "CH<sub>2</sub>OH" matches visible width (5 chars)
 - `test_render_fructose_anomeric_no_overlap`: both wide labels on C2 don't collide
 
@@ -442,7 +607,21 @@ Register new modules in imports and `_EXPORTED_MODULES`.
 - `python tools/selftest_sheet.py --format svg` -> visually inspect output
 - `python -m pytest tests/` -> full regression (existing tests still pass)
 
+## Phase 0 Exit Checklist
+
+- Implemented files from Phases 1-4 exist and are imported where required.
+- All Phase 1-5 tests pass with Python 3.12.
+- Ring-capacity validation errors include prefix, ring type, minimum carbons, and provided carbons.
+- Triose Haworth conversion errors include ring-capacity guidance.
+- Haworth generator rejects pathway-profile carbon-state chemistry (`nC`/alkene/enol/acyl tokens) with clear eligibility errors.
+- Renderer uses slot keys (`ML`, `TL`, `TO`, `MR`, `BR`, `BL`) consistently.
+- `docs/SUGAR_CODE_SPEC.md` and this plan agree on prefix/ring closure matrix.
+- `docs/SUGAR_CODE_SPEC.md` includes canonical glycolysis/CAC pathway-profile
+  sugar codes before Phase 0 sign-off.
+
 ## Phase 6: Sugar Code to SMILES
+
+This phase is intentionally out of Phase 0 scope. Keep as future work only.
 
 **New file**: `packages/oasa/oasa/sugar_code_smiles.py`
 
@@ -487,6 +666,8 @@ direction and ring oxygen create fixed priority orderings.
 - `test_round_trip`: sugar code -> SMILES -> (Phase 7) -> sugar code matches original
 
 ## Phase 7: SMILES to Sugar Code (Best-Effort)
+
+This phase is intentionally out of Phase 0 scope. Keep as future work only.
 
 **New file**: `packages/oasa/oasa/smiles_to_sugar_code.py`
 
@@ -603,7 +784,7 @@ Findings from code review and how each was addressed:
 | P2a | Ketose 3-substituent anomeric underspecified | Clarified: only 2 visible labels (OH + CH2OH), H is implicit. Added collision avoidance note and `test_fructose_anomeric_no_overlap`. |
 | P2b | Hard-coded Arial font | Changed defaults to match `render_ops.TextOp` (sans-serif, 12.0). All style params are caller-configurable. |
 | P2c | White O-mask assumes white background | Added `bg_color` parameter (default "#fff") to `render()`. Documented that callers must pass their background color. |
-| P3a | Missing FURANOSE_LABEL_CONFIG | Added explicit config. Same spatial directions as pyranose C1-C4, omits C5 (exocyclic). Added `test_render_furanose_labels`. |
+| P3a | Missing FURANOSE_LABEL_CONFIG | Added explicit furanose label config and moved to slot-based direction keys (`MR`, `BR`, `BL`, `ML`) so A/MK furanose closures share the same geometry without arbitrary index numbering. Added `test_render_furanose_labels`. |
 | P3b | `<sub>` tag bbox inflation | Added `_visible_text_length()` with `re.sub(r"<[^>]+>", "", text)`. Added `test_render_bbox_sub_tags`. |
 | P3c | num_carbons validation undefined | Added validation matrix (prefix + ring_type -> expected carbon count). Added `test_parse_prefix_ring_mismatch`. |
 | R2-P1a | Plan hardcodes "terminal M = CH2OH at C5" | Replaced with general ring-closure rule table and exocyclic chain derivation algorithm. Ring vs exocyclic is computed from num_carbons + ring type, not hardcoded. |

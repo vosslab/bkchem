@@ -1,6 +1,213 @@
 # Changelog
 
 ## 2026-02-06
+- Tighten Attempt 2 Phase 0 parser/generator gating in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  standardize parser terminology to "backbone position index", require explicit
+  per-index key-family exclusivity (`n` vs `nC`; no `n`/`nC` mixed with
+  `nL`/`nR`), define `nC=<state>(<attachments...>)` as the only combined
+  carbon-state+attachment form, and add explicit test/contract language that
+  pathway-profile `nC` chemistry remains parseable but is rejected by
+  `haworth_spec.generate()` in Phase 0 as non-Haworth-eligible.
+- Finalize backbone-index terminology and side-qualified example validity in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  replace undefined example token `m` with canonical `CH3`, switch index wording
+  from "carbon index" to "backbone index" for digit semantics, add explicit
+  "not IUPAC numbering" clarification, change invalid example rationale to
+  "digit must equal the backbone position it occupies", and state that plain
+  `n=` is permitted only at non-chiral positions.
+- Enforce global positional digit semantics in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  digits now always match carbon index positions (not placeholder IDs), add
+  explicit invalid examples (`A1LRDM[1=methyl]`, `A2LRDM[2=CH3]`), require
+  side-qualified keys at chiral stereocenters (`nL`/`nR`, or `nC` for carbon
+  state), add parser-test requirements for these invalid cases, and update mixed
+  example/test notation from `AdLRD1[1=sulfate]` to index-matched
+  `AdLRD6[6=sulfate]`.
+- Correct index/side footnote examples in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  replace stale `A1LRDM[1=methyl]` examples with `A2LRDM[2R=CH3]`, and align
+  related parser example/test strings to the same index-based side-qualified form.
+- Tighten digit/footnote rule consistency in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md): change minimum-length
+  wording to "3 total characters", explicitly separate digit semantics by mode
+  (monosaccharide placeholder IDs vs pathway positional indices), make `n`/`nC`
+  mutually exclusive with `nL`/`nR` per index, remove contradictory key-ordering
+  language, and add a citrate-class note that side-qualified CAC attachment
+  notation is bookkeeping rather than stereochemical chirality.
+- Align pathway/CAC consistency in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  change isocitrate canonical code to `c23cc[2L=OH,2R=H,3C=COO-]` (carbon-state
+  form), clarify that branching is supported in pathway mode but rejected in
+  Haworth conversion mode, and add `P` (`phosphate-left`) to the Haworth plan's
+  letter-code label mapping so it matches the spec.
+- Tighten canonical carbon-state consistency in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md): update pyruvate to
+  `cK3[3C=CH3]`, update 1,3-bisphosphoglycerate to
+  `1Rp[1C=C(=O)OPO3]`, update succinyl-CoA to
+  `c234[2C=CH2,3C=CH2,4C=C(=O)SCoA]`, and add `C(=O)OPO3` to preferred
+  canonical value tokens.
+- Tighten pathway footnote disambiguation in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  require single plain/`nC` assignment per carbon index per bracket block,
+  define `nC=<state>(<attachment...>)` parenthesis semantics, and set canonical
+  PEP encoding to `c23[2C=C3(EPO3),3C=CH2]`.
+- Tighten backbone-count wording in [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md)
+  to state explicitly that prefix characters are part of the backbone position
+  count (not separate metadata), preventing mis-parsing of forms like `MKLRDM`.
+- Clarify mode semantics and terminal naming in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md): rename `TERMINAL` to
+  `C_TERMINAL_STATE`, separate validation into Monosaccharide mode vs Pathway
+  mode for the penultimate config slot behavior, and note that the upstream YAML
+  `dihydroxacetone` spelling is a known typo while spec text uses
+  `dihydroxyacetone`.
+- Simplify canonical PEP notation in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  from `c23[2=EPO3,2C=C3,3C=CH2]` to `c23[2C=CPO3,3C=CH2]` to avoid mixed
+  duplicate C2 keys and keep carbon-state encoding compact.
+- Replace provisional branch-word notation in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) with explicit substituent
+  encoding guidance (for example `3R=COO-`) to keep pathway forms symbolic and
+  avoid word-style branch labels.
+- Align parser-plan wording in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  with symbolic pathway notation (`c23[2=EPO3,2C=C3,3C=CH2]`) and backbone-length
+  validation language.
+- Convert pathway codebook notation in [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md)
+  and parser-plan examples in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  from word labels to symbolic group/carbon-state tokens, add `nC` key support
+  (for example `3C=CH2`), update PEP to `c23[2=EPO3,2C=C3,3C=CH2]`, and revise
+  CAC canonical codes to use `nL`/`nR` where relevant and symbolic chemistry forms.
+- Revise backbone-length semantics in [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md)
+  and [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  define sugar-code length as backbone carbon count (not always total carbons),
+  allow branched pathway compounds to exceed body length via `branch-to-<k>`, and
+  update citrate/cis-aconitate/isocitrate canonical codes to 5-character bodies.
+- Normalize pyruvate canonical token in [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md)
+  from `cK3[3=methyl]` to `cK3[3=CH3]` to match preferred canonical substituent
+  tokens.
+- Refine side-qualified footnote behavior in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  single-sided `nL`/`nR` now implies missing side `H`, add equivalence examples
+  (`A2M[2L=OH]` -> `ALM`, `A2M[2R=OH]` -> `ADM`), and define preferred canonical
+  substituent tokens for parser normalization.
+- Extend numeric footnote grammar in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  with built-in side-qualified chiral keys (`nL`/`nR`), add ordering/validation
+  rules, and document parser tests with example `A2M[2L=c,2R=m]`.
+- Expand pathway-profile completeness in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  make digit placeholders location-matched (`digit == carbon index`) and ordered,
+  update pyruvate to `cK3[3=CH3]`, add canonical glycolysis/CAC code tables
+  (including citrate/isocitrate branch notation), and require this codebook before
+  Phase 0 sign-off.
+- Update [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) to keep pathway
+  extensions single-character-per-carbon: add `p`/`P` stereochemical phosphate
+  semantics, remove `C<n>=...` footnote keys in favor of numeric placeholders,
+  add canonical digit-order guidance, and include examples such as `pKLRDp`,
+  `pRLRDp`, `cK3[3=CH3]`, and `c23[2=phosphoenol,3=methylene]`.
+- Refine `HaworthSpec` contract in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  and [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md): remove `config` from
+  `HaworthSpec`, document that `DEXTER`/`LAEVUS` are consumed during spec generation,
+  and keep render-stage output as resolved up/down substituent labels only.
+- Expand [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  for pathway-oriented coverage and meso clarity: add `MKp` as a valid meso triose
+  derivative example, define pathway footnote extension rules, document
+  validation constraints for those forms, and state that series orientation is
+  resolved during spec generation before Haworth output.
+- Update parser schema details in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  and [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) to split former `raw`
+  language into `sugar_code` (body without footnotes) and `sugar_code_raw`
+  (exact original input), with explicit split invariants and a parser test for
+  footnote/body separation.
+- Update parser schema language in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  and [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md): internal `prefix` is now
+  documented as normalized kind (`ALDO`/`KETO`/`3-KETO`) while literal prefix tokens
+  remain in raw input text.
+- Add an explicit uronic-acid note to [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md)
+  with terminal oxidation mapping examples:
+  `ARLRDc` from `ARLRDM`, `ARLLDc` from `ARLLDM`, and `ALLRDc` from `ALLRDM`.
+- Correct sugar-prefix and Haworth scope assumptions in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  treat canonical prefix set as `A`/`MK` only, remove `MRK`/`MLK` references,
+  and define trioses (for example `ADM`, `MKM`) as valid sugar-code forms that are
+  non-cyclizable in Haworth conversion (must raise ring-capacity `ValueError`).
+- Clarify prefix handling in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  `MRK`/`MLK` are valid PREFIX tokens for parsing, while bare prefix-only strings
+  (for example `MRK`, `MLK`) are invalid full sugar codes because config/terminal
+  fields are missing.
+- Superseding note: where older 2026-02-06 bullets mention `MRK`/`MLK` support,
+  the final decision for this repo is to reject those prefixes and keep canonical
+  parsing/conversion on `A` and `MK` only.
+- Make minimum sugar length explicit in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  sugar code bodies must be at least 3 characters long, and one-/two-character
+  codes are parser-invalid.
+- Add explicit invalid-prefix rationale in
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) and parser requirements in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  `MRK`/`MLK` are rejected as non-canonical ambiguous/redundant aliases in this
+  project, with a dedicated parser test case.
+- Improve visual clarity in the PREFIX subsection of
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) by adding aligned star-fill
+  examples (`A*****`, `MK****`) and an explicit note that `*` is visual-only and
+  not part of literal sugar codes.
+- Update [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  to resolve remaining implementation blockers before coding.
+- Clarify parser vs renderer scope for sugar prefixes: parser remains spec-aligned
+  (`A`, `MK`, `MRK`, `MLK`, meso handling), with Haworth conversion constraints
+  defined explicitly by the ring-closure/capacity matrix.
+- Remove provisional "v1" wording from
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  so the support matrix and NotImplemented constraints read as the intended final form.
+- Resolve `MK` furanose mapping ambiguity by replacing fixed carbon-number template
+  maps with role-based template maps plus dynamic carbon-to-slot mapping derived
+  from prefix and ring type.
+- Make alpha/beta orientation rules internally consistent for `MK` anomeric handling
+  and align the fructose test expectations with those rules.
+- Refine meso representation in the Haworth attempt-2 parser plan: replace
+  `config=None` with explicit internal `config="MESO"` to avoid ambiguity with
+  sugar-code `M` symbols while keeping meso forms (`MKM`, `MRKRM`) parseable.
+- Refine Haworth attempt-2 internal config naming to use explicit words
+  `DEXTER`/`LAEVUS`/`MESO` in parsed/spec dataclasses, while preserving sugar-code
+  input tokens `D`/`L` and documenting token-to-internal normalization.
+- Refine Haworth attempt-2 ring position naming by replacing numeric vertex-key
+  label configs with semantic slot keys (`ML`, `TL`, `TO`, `MR`, `BR`, `BL`) and
+  documenting dynamic carbon-to-slot mapping to keep position logic readable and
+  stable across `A`/`MK` mappings.
+- Finalize upfront scope in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  remove deferred "handled later" language, add `MRK`/`MLK` support to the
+  conversion matrix and ring-closure rules, define meso series resolution via
+  `series_override`/inference, and replace not-implemented tests with explicit
+  support and ring-capacity validation tests.
+- Update [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) to add a Haworth ring
+  closure matrix covering `A`, `MK`, `MRK`, and `MLK`, require ring-capacity
+  validation during conversion, and define meso series-orientation handling for
+  Haworth mapping.
+- Expand Phase 0 documentation in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  and [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) with explicit
+  definition-of-done criteria, acceptance gates, deterministic/error contracts,
+  and a clear scope boundary that keeps SMILES conversion work out of Phase 0.
 - Create `docs/SUGAR_CODE_SPEC.md` defining sugar code notation for carbohydrate
   structures: prefix (A/MK) + stereocenters (R/L) + config (D/L) + terminal (M),
   with lowercase letter codes (d=deoxy, a=amino, n=N-acetyl, p=phosphate, f=fluoro,
