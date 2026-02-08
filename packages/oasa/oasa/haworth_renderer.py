@@ -41,6 +41,11 @@ FURANOSE_FRONT_EDGE_SLOT = "BL"
 PYRANOSE_FRONT_EDGE_INDEX = PYRANOSE_SLOT_INDEX[PYRANOSE_FRONT_EDGE_SLOT]
 FURANOSE_FRONT_EDGE_INDEX = FURANOSE_SLOT_INDEX[FURANOSE_FRONT_EDGE_SLOT]
 
+RING_SLOT_SEQUENCE = {
+	"pyranose": ("MR", "BR", "BL", "ML", "TL"),
+	"furanose": ("MR", "BR", "BL", "ML"),
+}
+
 PYRANOSE_SLOT_LABEL_CONFIG = {
 	"MR": {"up_dir": (0, -1), "down_dir": (0, 1), "anchor": "start"},
 	"BR": {"up_dir": (0, -1), "down_dir": (0, 1), "anchor": "start"},
@@ -54,6 +59,23 @@ FURANOSE_SLOT_LABEL_CONFIG = {
 	"BR": {"up_dir": (0, -1), "down_dir": (0, 1), "anchor": "start"},
 	"BL": {"up_dir": (0, -1), "down_dir": (0, 1), "anchor": "end"},
 	"ML": {"up_dir": (0, -1), "down_dir": (0, 1), "anchor": "end"},
+}
+
+RING_RENDER_CONFIG = {
+	"pyranose": {
+		"ring_size": 6,
+		"slot_index": PYRANOSE_SLOT_INDEX,
+		"slot_label_cfg": PYRANOSE_SLOT_LABEL_CONFIG,
+		"front_edge_index": PYRANOSE_FRONT_EDGE_INDEX,
+		"oxygen_index": haworth.PYRANOSE_O_INDEX,
+	},
+	"furanose": {
+		"ring_size": 5,
+		"slot_index": FURANOSE_SLOT_INDEX,
+		"slot_label_cfg": FURANOSE_SLOT_LABEL_CONFIG,
+		"front_edge_index": FURANOSE_FRONT_EDGE_INDEX,
+		"oxygen_index": haworth.FURANOSE_O_INDEX,
+	},
 }
 
 CARBON_NUMBER_VERTEX_WEIGHT = 0.68
@@ -73,6 +95,41 @@ INTERNAL_PAIR_LANE_Y_TOLERANCE_FACTOR = 0.12
 INTERNAL_PAIR_MIN_H_GAP_FACTOR = 0.75
 FURANOSE_TOP_UP_CLEARANCE_FACTOR = 0.08
 FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR = 0.12
+VALID_DIRECTIONS = ("up", "down")
+VALID_ANCHORS = ("start", "middle", "end")
+REQUIRED_SIMPLE_JOB_KEYS = (
+	"carbon",
+	"direction",
+	"vertex",
+	"dx",
+	"dy",
+	"length",
+	"label",
+	"connector_width",
+	"font_size",
+	"font_name",
+	"anchor",
+	"line_color",
+	"label_color",
+)
+
+
+#============================================
+def _ring_slot_sequence(ring_type: str) -> tuple[str, ...]:
+	"""Return canonical carbon-slot order for one ring type."""
+	try:
+		return RING_SLOT_SEQUENCE[ring_type]
+	except KeyError as error:
+		raise ValueError("Unsupported ring_type '%s'" % ring_type) from error
+
+
+#============================================
+def _ring_render_config(ring_type: str) -> dict:
+	"""Return renderer geometry config for one ring type."""
+	try:
+		return RING_RENDER_CONFIG[ring_type]
+	except KeyError as error:
+		raise ValueError("Unsupported ring_type '%s'" % ring_type) from error
 
 
 #============================================
@@ -80,12 +137,7 @@ def carbon_slot_map(spec: HaworthSpec) -> dict[str, str]:
 	"""Map ring carbons from HaworthSpec to stable slot identifiers."""
 	carbons = _ring_carbons(spec)
 	anomeric = min(carbons)
-	if spec.ring_type == "pyranose":
-		slot_sequence = ("MR", "BR", "BL", "ML", "TL")
-	elif spec.ring_type == "furanose":
-		slot_sequence = ("MR", "BR", "BL", "ML")
-	else:
-		raise ValueError("Unsupported ring_type '%s'" % spec.ring_type)
+	slot_sequence = _ring_slot_sequence(spec.ring_type)
 	if len(carbons) != len(slot_sequence):
 		raise ValueError(
 			"HaworthSpec carbon count mismatch for ring_type=%s: expected %d, got %d"
@@ -113,20 +165,12 @@ def render(
 		bg_color: str = "#fff",
 		oxygen_color: str = OXYGEN_COLOR) -> list:
 	"""Render HaworthSpec into ring/substituent ops."""
-	if spec.ring_type == "pyranose":
-		ring_size = 6
-		slot_index = PYRANOSE_SLOT_INDEX
-		slot_label_cfg = PYRANOSE_SLOT_LABEL_CONFIG
-		front_edge_index = PYRANOSE_FRONT_EDGE_INDEX
-		o_index = haworth.PYRANOSE_O_INDEX
-	elif spec.ring_type == "furanose":
-		ring_size = 5
-		slot_index = FURANOSE_SLOT_INDEX
-		slot_label_cfg = FURANOSE_SLOT_LABEL_CONFIG
-		front_edge_index = FURANOSE_FRONT_EDGE_INDEX
-		o_index = haworth.FURANOSE_O_INDEX
-	else:
-		raise ValueError("Unsupported ring_type '%s'" % spec.ring_type)
+	ring_cfg = _ring_render_config(spec.ring_type)
+	ring_size = ring_cfg["ring_size"]
+	slot_index = ring_cfg["slot_index"]
+	slot_label_cfg = ring_cfg["slot_label_cfg"]
+	front_edge_index = ring_cfg["front_edge_index"]
+	o_index = ring_cfg["oxygen_index"]
 
 	coords = haworth._ring_template(ring_size, bond_length=bond_length)
 	ops = []
@@ -262,6 +306,27 @@ def render(
 				min_length = max(0.0, vertex[1] - target_y)
 				if min_length > effective_length:
 					effective_length = min_length
+			if (
+					spec.ring_type == "furanose"
+					and str(label) == "CH(OH)CH2OH"
+					and slot in ("ML", "MR")
+			):
+				_add_furanose_two_carbon_tail_ops(
+					ops=ops,
+					carbon=carbon,
+					direction=direction,
+					vertex=vertex,
+					dx=dx,
+					dy=dy,
+					segment_length=effective_length,
+					connector_width=connector_width,
+					font_size=font_size,
+					font_name=font_name,
+					anchor=anchor,
+					line_color=line_color,
+					label_color=label_color,
+				)
+				continue
 			chain_labels = _chain_labels(label)
 			if chain_labels:
 				_add_chain_ops(
@@ -399,12 +464,36 @@ def _edge_polygon(
 	)
 
 
+#============================================
+def _validate_simple_job(job: dict) -> None:
+	"""Validate one simple-label layout job for deterministic processing."""
+	missing = [key for key in REQUIRED_SIMPLE_JOB_KEYS if key not in job]
+	if missing:
+		raise ValueError("Simple label job missing required keys: %s" % ", ".join(missing))
+	if job["direction"] not in VALID_DIRECTIONS:
+		raise ValueError("Simple label job has invalid direction '%s'" % job["direction"])
+	if job["anchor"] not in VALID_ANCHORS:
+		raise ValueError("Simple label job has invalid anchor '%s'" % job["anchor"])
+	if "ring_type" in job or "slot" in job:
+		if "ring_type" not in job or "slot" not in job:
+			raise ValueError("Simple label job must include both ring_type and slot together")
+		ring_type = job["ring_type"]
+		slot = job["slot"]
+		slot_sequence = _ring_slot_sequence(ring_type)
+		if slot not in slot_sequence:
+			raise ValueError(
+				"Simple label job has slot '%s' not valid for ring_type '%s'" % (slot, ring_type)
+			)
+
+
 def _resolve_hydroxyl_layout_jobs(
 		jobs: list[dict],
 		blocked_polygons: list[tuple[tuple[float, float], ...]] | None = None) -> list[dict]:
 	"""Two-pass placement for OH/HO labels using a tiny candidate slot set."""
 	if not jobs:
 		return []
+	for job in jobs:
+		_validate_simple_job(job)
 	min_gap = jobs[0]["font_size"] * HYDROXYL_LAYOUT_MIN_GAP_FACTOR
 	blocked = list(blocked_polygons or [])
 	occupied = []
@@ -860,9 +949,12 @@ def _add_simple_label_ops(
 	connector_end = end_point
 	c_center = _leading_carbon_center(text, anchor, text_x, text_y, draw_font_size)
 	if direction == "down" and c_center is not None:
-		# For downward CH* labels, terminate exactly at the leading-carbon center
-		# so the bond does not overshoot into the glyph body.
-		connector_end = c_center
+		# For downward CH* labels, keep x centered on the leading carbon but
+		# stop just above the top glyph boundary so the bond cap touches the text
+		# without running through the "C" character.
+		label_top = text_y - draw_font_size
+		max_tip_y = label_top - (draw_font_size * 0.10)
+		connector_end = (c_center[0], min(c_center[1], max_tip_y))
 	ops.append(
 		render_ops.LineOp(
 			p1=vertex,
@@ -940,6 +1032,105 @@ def _add_chain_ops(
 			)
 		)
 		start = end
+
+
+#============================================
+def _add_furanose_two_carbon_tail_ops(
+		ops: list,
+		carbon: int,
+		direction: str,
+		vertex: tuple[float, float],
+		dx: float,
+		dy: float,
+		segment_length: float,
+		connector_width: float,
+		font_size: float,
+		font_name: str,
+		anchor: str,
+		line_color: str,
+		label_color: str) -> None:
+	"""Render CH(OH)CH2OH as a branched furanose sidechain."""
+	branch_point = (vertex[0] + dx * segment_length, vertex[1] + dy * segment_length)
+	ops.append(
+		render_ops.LineOp(
+			p1=vertex,
+			p2=branch_point,
+			width=connector_width,
+			cap="round",
+			color=line_color,
+			z=4,
+			op_id=f"C{carbon}_{direction}_chain1_connector",
+		)
+	)
+	lateral = -1.0 if anchor == "end" else 1.0
+	ho_dx, ho_dy = _normalize_vector(lateral, -0.55)
+	ch2_dx, ch2_dy = _normalize_vector(lateral, 0.72)
+	ho_length = segment_length * 0.78
+	ch2_length = segment_length * 0.95
+	ho_end = (
+		branch_point[0] + (ho_dx * ho_length),
+		branch_point[1] + (ho_dy * ho_length),
+	)
+	ch2_end = (
+		branch_point[0] + (ch2_dx * ch2_length),
+		branch_point[1] + (ch2_dy * ch2_length),
+	)
+	ops.append(
+		render_ops.LineOp(
+			p1=branch_point,
+			p2=ho_end,
+			width=connector_width,
+			cap="round",
+			color=line_color,
+			z=4,
+			op_id=f"C{carbon}_{direction}_chain1_oh_connector",
+		)
+	)
+	ops.append(
+		render_ops.LineOp(
+			p1=branch_point,
+			p2=ch2_end,
+			width=connector_width,
+			cap="round",
+			color=line_color,
+			z=4,
+			op_id=f"C{carbon}_{direction}_chain2_connector",
+		)
+	)
+	ho_text = _format_label_text("OH", anchor=anchor)
+	ho_x = ho_end[0] + _anchor_x_offset(ho_text, anchor, font_size)
+	ho_y = ho_end[1] + _baseline_shift("up", font_size, ho_text)
+	ops.append(
+		render_ops.TextOp(
+			x=ho_x,
+			y=ho_y,
+			text=ho_text,
+			font_size=font_size,
+			font_name=font_name,
+			anchor=anchor,
+			weight="normal",
+			color=label_color,
+			z=5,
+			op_id=f"C{carbon}_{direction}_chain1_oh_label",
+		)
+	)
+	ch2_text = _format_chain_label_text("CH2OH", anchor=anchor)
+	ch2_x = ch2_end[0] + _anchor_x_offset(ch2_text, anchor, font_size)
+	ch2_y = ch2_end[1] + _baseline_shift("down", font_size, ch2_text)
+	ops.append(
+		render_ops.TextOp(
+			x=ch2_x,
+			y=ch2_y,
+			text=ch2_text,
+			font_size=font_size,
+			font_name=font_name,
+			anchor=anchor,
+			weight="normal",
+			color=label_color,
+			z=5,
+			op_id=f"C{carbon}_{direction}_chain2_label",
+		)
+	)
 
 
 #============================================
@@ -1094,7 +1285,7 @@ def _anchor_x_offset(text: str, anchor: str, font_size: float) -> float:
 def _leading_carbon_anchor_offset(text: str, anchor: str, font_size: float) -> float | None:
 	"""Return text-x offset for labels that should connect at leading-carbon center."""
 	visible = re.sub(r"<[^>]+>", "", text or "")
-	if not visible.startswith("CH"):
+	if not visible.startswith("C"):
 		return None
 	text_width = len(visible) * font_size * HYDROXYL_GLYPH_WIDTH_FACTOR
 	c_center = font_size * LEADING_C_X_CENTER_FACTOR
@@ -1137,9 +1328,9 @@ def _leading_carbon_center(
 		text_x: float,
 		text_y: float,
 		font_size: float) -> tuple[float, float] | None:
-	"""Approximate leading-carbon glyph center for CH* labels."""
+	"""Approximate leading-carbon glyph center for C* labels."""
 	visible = re.sub(r"<[^>]+>", "", text or "")
-	if not visible.startswith("CH"):
+	if not visible.startswith("C"):
 		return None
 	text_width = len(visible) * font_size * HYDROXYL_GLYPH_WIDTH_FACTOR
 	if anchor == "start":

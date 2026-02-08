@@ -16,6 +16,7 @@ from xml.dom import minidom as xml_minidom
 import defusedxml.ElementTree as ET
 
 GENERATED_PREVIEW_SCALE = 0.80
+GENERATED_PREVIEW_BG_COLOR = "#fafafa"
 
 
 #============================================
@@ -106,7 +107,11 @@ def _render_generated_preview_svg(
 	dom_extensions, haworth_renderer, haworth_spec, render_ops, sugar_code = _load_oasa_modules(repo_root)
 	parsed = sugar_code.parse(code)
 	spec = haworth_spec.generate(parsed, ring_type=ring_type, anomeric=anomeric)
-	ops = haworth_renderer.render(spec, show_hydrogens=False)
+	ops = haworth_renderer.render(
+		spec,
+		show_hydrogens=False,
+		bg_color=GENERATED_PREVIEW_BG_COLOR,
+	)
 
 	try:
 		impl = xml_minidom.getDOMImplementation()

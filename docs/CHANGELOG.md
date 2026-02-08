@@ -1,6 +1,46 @@
 # Changelog
 
 ## 2026-02-08
+- Align generated preview oxygen-mask fill with summary frame background in
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) by
+  rendering regenerated Haworth SVG previews with `bg_color="#fafafa"` so the
+  in-ring oxygen whiteout mask no longer appears as a mismatched box.
+- Harden Haworth renderer maintainability without visual-output changes in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  centralize ring-type geometry lookup through shared config helpers
+  (`_ring_slot_sequence`, `_ring_render_config`) and add explicit simple-job
+  validation (`_validate_simple_job`) so malformed layout jobs fail early with
+  targeted errors instead of scattered `KeyError`/branch failures. Extend smoke
+  invariants in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  to assert unique `op_id`s, finite geometry, non-degenerate lines/polygons,
+  and non-empty text across the full archive matrix, plus unit validation
+  checks in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py).
+- Fix leading-carbon connector anchoring for `COOH` labels in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  extend leading-carbon center detection from `CH*` to all `C*` labels so
+  pyranose uronic-acid substituents (e.g., `ARLLDc` D-galacturonic acid) attach
+  to the carbon glyph center instead of drifting into the `OO` span. Add a
+  dedicated regression in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for
+  `C5_up_label=COOH` connector alignment.
+- Rework furanose two-carbon exocyclic tail rendering in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  for `CH(OH)CH2OH` on top-left/top-right furanose slots, replace the old
+  collinear mini-chain (`HOHC`, `HOH<sub>2</sub>C`) with a branched layout
+  (ring-to-branch trunk plus separate `HO` and `HOH<sub>2</sub>C` branches)
+  so upper-left tails match NEUROtiker-style geometry and avoid stacked text.
+  Update regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for
+  aldohexose/gulose furanose branch connectors and labels.
+- Refine downward `CH<sub>2</sub>OH` connector termination in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  keep x aligned to the leading carbon center but stop connector tips just above
+  the label top boundary so round caps touch the glyph without entering the
+  `C` interior (eliminates bond-through-carbon overlap on bottom anomeric
+  `CH<sub>2</sub>OH` placements). Tighten regression checks in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for
+  ketopentose furanose beta cases.
 - Fix down-facing `CH<sub>2</sub>OH` connector overshoot in
   [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
   for simple downward `CH*` labels, terminate connector lines at the leading

@@ -335,9 +335,8 @@ def test_render_carbon_numbers_closer_to_ring_vertices():
 #============================================
 def test_render_aldohexose_furanose():
 	_, ops = _render("ARLRDM", "furanose", "alpha")
-	text_values = [op.text for op in _texts(ops)]
-	assert "HOHC" in text_values
-	assert "HOH<sub>2</sub>C" in text_values
+	assert _text_by_id(ops, "C4_up_chain1_oh_label").text == "HO"
+	assert _text_by_id(ops, "C4_up_chain2_label").text == "HOH<sub>2</sub>C"
 
 
 #============================================
@@ -611,6 +610,54 @@ def test_internal_pair_adjustment_flips_then_scales_once():
 
 
 #============================================
+def test_validate_simple_job_rejects_invalid_anchor():
+	job = {
+		"carbon": 3,
+		"ring_type": "furanose",
+		"slot": "BL",
+		"direction": "up",
+		"vertex": (-2.0, 0.0),
+		"dx": 0.0,
+		"dy": -1.0,
+		"length": 10.0,
+		"label": "OH",
+		"connector_width": 1.0,
+		"font_size": 12.0,
+		"font_name": "sans-serif",
+		"anchor": "leftward",
+		"text_scale": 1.0,
+		"line_color": "#000",
+		"label_color": "#000",
+	}
+	with pytest.raises(ValueError, match="invalid anchor"):
+		haworth_renderer._validate_simple_job(job)
+
+
+#============================================
+def test_validate_simple_job_rejects_invalid_slot_for_ring_type():
+	job = {
+		"carbon": 3,
+		"ring_type": "furanose",
+		"slot": "TL",
+		"direction": "up",
+		"vertex": (-2.0, 0.0),
+		"dx": 0.0,
+		"dy": -1.0,
+		"length": 10.0,
+		"label": "OH",
+		"connector_width": 1.0,
+		"font_size": 12.0,
+		"font_name": "sans-serif",
+		"anchor": "start",
+		"text_scale": 1.0,
+		"line_color": "#000",
+		"label_color": "#000",
+	}
+	with pytest.raises(ValueError, match="not valid for ring_type"):
+		haworth_renderer._validate_simple_job(job)
+
+
+#============================================
 def test_render_mannose_furanose_internal_pair_uses_oh_ho_scaled():
 	_, ops = _render("ALLRDM", "furanose", "alpha", show_hydrogens=False)
 	left = _text_by_id(ops, "C3_up_label")
@@ -671,6 +718,19 @@ def test_render_ch2oh_connector_hits_leading_carbon_center():
 
 
 #============================================
+def test_render_cooh_connector_hits_leading_carbon_center():
+	_, ops = _render("ARLLDc", "pyranose", "alpha", show_hydrogens=False)
+	label = _text_by_id(ops, "C5_up_label")
+	line = _line_by_id(ops, "C5_up_connector")
+	assert label.text == "COOH"
+	c_center = haworth_renderer._leading_carbon_center(
+		label.text, label.anchor, label.x, label.y, label.font_size
+	)
+	assert c_center is not None
+	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
+
+
+#============================================
 def test_render_arabinose_furanose_ch2oh_connector_hits_leading_carbon_center():
 	_, ops = _render("ALRDM", "furanose", "alpha", show_hydrogens=False)
 	label = _text_by_id(ops, "C4_up_label")
@@ -695,7 +755,8 @@ def test_render_ketopentose_furanose_down_ch2oh_connector_hits_leading_carbon_ce
 	)
 	assert c_center is not None
 	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
-	assert line.p2[1] == pytest.approx(c_center[1], abs=0.05)
+	label_box = _label_bbox(label)
+	assert line.p2[1] <= label_box[1]
 
 
 #============================================
@@ -910,34 +971,53 @@ def test_render_o_mask_is_polygon_not_rect():
 
 #============================================
 def test_render_exocyclic_2_chain_direction():
-	spec, ops = _render("ARLRDM", "furanose", "alpha", bond_length=30.0)
-	_ = spec
-	line1 = _line_by_id(ops, "C4_up_chain1_connector")
-	line2 = _line_by_id(ops, "C4_up_chain2_connector")
-	v1 = (line1.p2[0] - line1.p1[0], line1.p2[1] - line1.p1[1])
-	v2 = (line2.p2[0] - line2.p1[0], line2.p2[1] - line2.p1[1])
-	n1 = haworth_renderer._normalize_vector(v1[0], v1[1])
-	n2 = haworth_renderer._normalize_vector(v2[0], v2[1])
-	assert n1[0] == pytest.approx(n2[0], rel=1e-3)
-	assert n1[1] == pytest.approx(n2[1], rel=1e-3)
+	_, ops = _render("ARLRDM", "furanose", "alpha", bond_length=30.0)
+	trunk = _line_by_id(ops, "C4_up_chain1_connector")
+	ho_branch = _line_by_id(ops, "C4_up_chain1_oh_connector")
+	ch2_branch = _line_by_id(ops, "C4_up_chain2_connector")
+	assert ho_branch.p1 == pytest.approx(trunk.p2)
+	assert ch2_branch.p1 == pytest.approx(trunk.p2)
+	assert ho_branch.p2[0] < ho_branch.p1[0]
+	assert ch2_branch.p2[0] < ch2_branch.p1[0]
+	assert ho_branch.p2[1] < ho_branch.p1[1]
+	assert ch2_branch.p2[1] > ch2_branch.p1[1]
 
 
 #============================================
 def test_render_exocyclic_2_chain_labels():
 	_, ops = _render("ARLRDM", "furanose", "alpha")
-	l1 = _text_by_id(ops, "C4_up_chain1_label")
-	l2 = _text_by_id(ops, "C4_up_chain2_label")
-	assert l1.text == "HOHC"
-	assert l2.text == "HOH<sub>2</sub>C"
-	assert _distance((l2.x, l2.y), (l1.x, l1.y)) > 5.0
+	ho = _text_by_id(ops, "C4_up_chain1_oh_label")
+	ch2 = _text_by_id(ops, "C4_up_chain2_label")
+	assert ho.text == "HO"
+	assert ch2.text == "HOH<sub>2</sub>C"
+	assert _distance((ch2.x, ch2.y), (ho.x, ho.y)) > 5.0
 
 
 #============================================
 def test_render_gulose_furanose_chain_labels_flip_leftward_alpha_beta():
 	for anomeric in ("alpha", "beta"):
 		_, ops = _render("ARRLDM", "furanose", anomeric, show_hydrogens=False)
-		assert _text_by_id(ops, "C4_down_chain1_label").text == "HOHC"
+		assert _text_by_id(ops, "C4_down_chain1_oh_label").text == "HO"
 		assert _text_by_id(ops, "C4_down_chain2_label").text == "HOH<sub>2</sub>C"
+
+
+#============================================
+@pytest.mark.parametrize(
+	"code,direction",
+	[
+		("ALLLDM", "down"),
+		("ARLLDM", "down"),
+		("ALRLDM", "down"),
+		("ALLRDM", "up"),
+		("ARLRDM", "up"),
+	],
+)
+def test_render_furanose_two_carbon_tail_uses_branched_labels(code, direction):
+	_, ops = _render(code, "furanose", "alpha", show_hydrogens=False)
+	assert _text_by_id(ops, f"C4_{direction}_chain1_oh_label").text == "HO"
+	assert _text_by_id(ops, f"C4_{direction}_chain2_label").text == "HOH<sub>2</sub>C"
+	chain_texts = [op.text for op in _texts(ops) if "chain" in (op.op_id or "")]
+	assert "HOHC" not in chain_texts
 
 
 #============================================
