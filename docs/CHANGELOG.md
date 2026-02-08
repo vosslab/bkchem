@@ -1,6 +1,15 @@
 # Changelog
 
 ## 2026-02-08
+- Simplify reference-output policy to Haworth-only artifacts: update
+  [tests/test_reference_outputs.py](tests/test_reference_outputs.py),
+  [tools/render_reference_outputs.py](tools/render_reference_outputs.py), and
+  [docs/REFERENCE_OUTPUTS.md](docs/REFERENCE_OUTPUTS.md) to stop expecting or
+  generating `wavy_glucose_reference.svg/png`.
+- Update [tests/test_cdml_fixture_loads.py](tests/test_cdml_fixture_loads.py) to
+  validate tracked fixtures in `tests/fixtures/cdml_roundtrip/` and treat the
+  old `tests/fixtures/cdml/embedded_cdml.svg` check as optional (skip when the
+  legacy fixture directory is intentionally absent).
 - Add per-phase test matrix (deliverable/unit/integration/smoke/system) to
   [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md),
   defining smoke designs for phases 1-3, a Phase 4 unit/integration test around

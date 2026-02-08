@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Render reference SVG/PNG outputs for Haworth and wavy-bond glucose."""
+"""Render reference SVG/PNG outputs for Haworth."""
 
 # Standard Library
 import argparse
@@ -9,14 +9,10 @@ import subprocess
 import sys
 
 
-DEFAULT_SMILES = "C([C@@H]1[C@H]([C@@H]([C@H]([C@H](O1)O)O)O)O)O"
-
-
-#============================================
 def parse_args():
 	"""Parse command-line arguments."""
 	parser = argparse.ArgumentParser(
-		description="Render reference SVG/PNG outputs for Haworth and wavy-bond glucose."
+		description="Render reference SVG/PNG outputs for Haworth."
 	)
 	parser.add_argument(
 		'-o', '--output-dir',
@@ -97,43 +93,6 @@ def _build_haworth_reference():
 
 
 #============================================
-def _build_wavy_glucose():
-	import oasa
-	import oasa.coords_generator
-	import oasa.smiles
-
-	mol = oasa.smiles.text_to_mol(DEFAULT_SMILES, calc_coords=False)
-	if not mol:
-		raise RuntimeError("Failed to parse glucose SMILES.")
-	oasa.coords_generator.calculate_coords(mol, force=1)
-	mol.normalize_bond_length(30)
-	mol.remove_unimportant_hydrogens()
-	_apply_wavy_bond(mol)
-	return mol
-
-
-#============================================
-def _apply_wavy_bond(mol):
-	target = None
-	for bond in mol.bonds:
-		v1, v2 = bond.vertices
-		if _is_terminal_oxygen(v1, v2) or _is_terminal_oxygen(v2, v1):
-			target = bond
-			break
-	if not target and mol.bonds:
-		target = mol.bonds[0]
-	if not target:
-		raise RuntimeError("No bonds available for wavy-bond output.")
-	target.type = 's'
-	target.wavy_style = "sine"
-
-
-#============================================
-def _is_terminal_oxygen(oxygen, neighbor):
-	return oxygen.symbol == "O" and len(oxygen.neighbors) == 1 and neighbor.symbol != "H"
-
-
-#============================================
 def _render_svg(mol, path):
 	import oasa.svg_out
 
@@ -166,13 +125,6 @@ def render_reference_outputs(output_dir):
 	haworth_png_mol = _build_haworth_reference()
 	_flip_y(haworth_png_mol)
 	_render_png(haworth_png_mol, haworth_png)
-
-	# Wavy glucose reference output
-	wavy_svg = os.path.join(output_dir, "wavy_glucose_reference.svg")
-	wavy_png = os.path.join(output_dir, "wavy_glucose_reference.png")
-	wavy_mol = _build_wavy_glucose()
-	_render_svg(wavy_mol, wavy_svg)
-	_render_png(wavy_mol, wavy_png)
 
 
 #============================================
