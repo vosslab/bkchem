@@ -83,7 +83,6 @@ def _load_oasa_modules(repo_root: pathlib.Path):
 		import oasa.haworth_spec as haworth_spec
 		import oasa.render_ops as render_ops
 		import oasa.sugar_code as sugar_code
-		import oasa.svg_out as svg_out
 	except ImportError:
 		oasa_path = repo_root / "packages" / "oasa"
 		if str(oasa_path) not in sys.path:
@@ -93,8 +92,7 @@ def _load_oasa_modules(repo_root: pathlib.Path):
 		import oasa.haworth_spec as haworth_spec
 		import oasa.render_ops as render_ops
 		import oasa.sugar_code as sugar_code
-		import oasa.svg_out as svg_out
-	return dom_extensions, haworth_renderer, haworth_spec, render_ops, sugar_code, svg_out
+	return dom_extensions, haworth_renderer, haworth_spec, render_ops, sugar_code
 
 
 #============================================
@@ -105,7 +103,7 @@ def _render_generated_preview_svg(
 		anomeric: str,
 		dst_path: pathlib.Path) -> None:
 	"""Render one generated preview SVG with hydrogens disabled."""
-	dom_extensions, haworth_renderer, haworth_spec, render_ops, sugar_code, svg_out = _load_oasa_modules(repo_root)
+	dom_extensions, haworth_renderer, haworth_spec, render_ops, sugar_code = _load_oasa_modules(repo_root)
 	parsed = sugar_code.parse(code)
 	spec = haworth_spec.generate(parsed, ring_type=ring_type, anomeric=anomeric)
 	ops = haworth_renderer.render(spec, show_hydrogens=False)
@@ -127,7 +125,11 @@ def _render_generated_preview_svg(
 		),
 	)
 	render_ops.ops_to_svg(svg, ops)
-	svg_text = svg_out.pretty_print_svg(doc.toxml("utf-8"))
+	svg_xml = doc.toxml("utf-8")
+	if isinstance(svg_xml, bytes):
+		svg_text = svg_xml.decode("utf-8")
+	else:
+		svg_text = str(svg_xml)
 	dst_path.parent.mkdir(parents=True, exist_ok=True)
 	dst_path.write_text(svg_text, encoding="utf-8")
 	_normalize_generated_svg(dst_path, dst_path, scale=GENERATED_PREVIEW_SCALE)

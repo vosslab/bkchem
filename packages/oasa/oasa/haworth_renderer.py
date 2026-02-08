@@ -63,7 +63,9 @@ HYDROXYL_O_X_CENTER_FACTOR = 0.30
 HYDROXYL_O_Y_CENTER_FROM_BASELINE = 0.52
 HYDROXYL_O_RADIUS_FACTOR = 0.30
 HYDROXYL_LAYOUT_CANDIDATE_FACTORS = (1.00, 1.18, 1.34)
+HYDROXYL_LAYOUT_INTERNAL_CANDIDATE_FACTORS = (1.00, 1.18, 1.34, 1.52)
 HYDROXYL_LAYOUT_MIN_GAP_FACTOR = 0.18
+FURANOSE_TOP_UP_CLEARANCE_FACTOR = 0.08
 
 
 #============================================
@@ -125,6 +127,7 @@ def render(
 	back_thickness = bond_length * 0.04
 	front_vertices = {front_edge_index, (front_edge_index + 1) % ring_size}
 	adjacent = {(front_edge_index - 1) % ring_size, (front_edge_index + 1) % ring_size}
+	ring_block_boxes = []
 
 	for edge_index in range(ring_size):
 		start_index = edge_index
@@ -146,14 +149,17 @@ def render(
 			t2 = back_thickness
 		touches_oxygen = (start_index == o_index or end_index == o_index)
 		if touches_oxygen and oxygen_color != line_color:
-			_add_gradient_edge_ops(
+			gradient_polygons = _add_gradient_edge_ops(
 				ops, p1, p2, t1, t2, edge_index,
 				o_end=(start_index == o_index),
 				oxygen_color=oxygen_color,
 				line_color=line_color,
 			)
+			for polygon in gradient_polygons:
+				ring_block_boxes.append(_polygon_bbox(polygon))
 		else:
 			polygon = _edge_polygon(p1, p2, t1, t2)
+			ring_block_boxes.append(_polygon_bbox(polygon))
 			ops.append(
 				render_ops.PolygonOp(
 					points=tuple(polygon),
@@ -219,6 +225,13 @@ def render(
 			raw_dx, raw_dy = slot_label_cfg[slot][dir_key]
 			dx, dy = _normalize_vector(raw_dx, raw_dy)
 			anchor = slot_label_cfg[slot]["anchor"]
+			effective_length = sub_length
+			if spec.ring_type == "furanose" and direction == "up" and slot in ("ML", "MR"):
+				oxygen_top = oy - (font_size * 0.65)
+				target_y = oxygen_top - (font_size * FURANOSE_TOP_UP_CLEARANCE_FACTOR)
+				min_length = max(0.0, vertex[1] - target_y)
+				if min_length > effective_length:
+					effective_length = min_length
 			chain_labels = _chain_labels(label)
 			if chain_labels:
 				_add_chain_ops(
@@ -228,7 +241,7 @@ def render(
 					vertex=vertex,
 					dx=dx,
 					dy=dy,
-					segment_length=sub_length,
+					segment_length=effective_length,
 					labels=chain_labels,
 					connector_width=connector_width,
 					font_size=font_size,
@@ -241,11 +254,13 @@ def render(
 			simple_jobs.append(
 				{
 					"carbon": carbon,
+					"ring_type": spec.ring_type,
+					"slot": slot,
 					"direction": direction,
 					"vertex": vertex,
 					"dx": dx,
 					"dy": dy,
-					"length": sub_length,
+					"length": effective_length,
 					"label": label,
 					"connector_width": connector_width,
 					"font_size": font_size,
@@ -256,7 +271,7 @@ def render(
 				}
 			)
 
-	for job in _resolve_hydroxyl_layout_jobs(simple_jobs):
+	for job in _resolve_hydroxyl_layout_jobs(simple_jobs, blocked_boxes=ring_block_boxes):
 		_add_simple_label_ops(
 			ops=ops,
 			carbon=job["carbon"],
@@ -353,13 +368,25 @@ def _edge_polygon(
 
 
 #============================================
-def _resolve_hydroxyl_layout_jobs(jobs: list[dict]) -> list[dict]:
+def _polygon_bbox(points: tuple[tuple[float, float], ...]) -> tuple[float, float, float, float]:
+	"""Return axis-aligned bbox for one polygon point tuple."""
+	x_values = [point[0] for point in points]
+	y_values = [point[1] for point in points]
+	return (min(x_values), min(y_values), max(x_values), max(y_values))
+
+
+#============================================
+def _resolve_hydroxyl_layout_jobs(
+		jobs: list[dict],
+		blocked_boxes: list[tuple[float, float, float, float]] | None = None) -> list[dict]:
 	"""Two-pass placement for OH/HO labels using a tiny candidate slot set."""
 	if not jobs:
 		return []
 	min_gap = jobs[0]["font_size"] * HYDROXYL_LAYOUT_MIN_GAP_FACTOR
+	blocked = list(blocked_boxes or [])
 	occupied = []
 	resolved = []
+	internal_hydroxyl_up_indices = []
 
 	for job in jobs:
 		if _job_is_hydroxyl(job):
@@ -371,12 +398,12 @@ def _resolve_hydroxyl_layout_jobs(jobs: list[dict]) -> list[dict]:
 			resolved.append(job)
 			continue
 		best_job = dict(job)
-		best_penalty = _overlap_penalty(_job_text_bbox(best_job, best_job["length"]), occupied, min_gap)
-		for factor in HYDROXYL_LAYOUT_CANDIDATE_FACTORS:
-			candidate_job = dict(job)
-			candidate_job["length"] = job["length"] * factor
-			candidate_box = _job_text_bbox(candidate_job, candidate_job["length"])
-			penalty = _overlap_penalty(candidate_box, occupied, min_gap)
+		best_penalty = _hydroxyl_job_penalty(best_job, occupied, blocked, min_gap)
+		for candidate_job in _hydroxyl_candidate_jobs(
+				job,
+				allow_anchor_flip=_job_is_internal_hydroxyl(job),
+		):
+			penalty = _hydroxyl_job_penalty(candidate_job, occupied, blocked, min_gap)
 			if penalty <= 0.0:
 				best_job = candidate_job
 				best_penalty = penalty
@@ -385,7 +412,26 @@ def _resolve_hydroxyl_layout_jobs(jobs: list[dict]) -> list[dict]:
 				best_job = candidate_job
 				best_penalty = penalty
 		resolved.append(best_job)
+		if _job_is_internal_hydroxyl(best_job) and best_job["direction"] == "up":
+			internal_hydroxyl_up_indices.append(len(resolved) - 1)
 		occupied.append(_job_text_bbox(best_job, best_job["length"]))
+
+	if len(internal_hydroxyl_up_indices) >= 2:
+		internal_index_set = set(internal_hydroxyl_up_indices)
+		fixed_occupied = []
+		for index, fixed_job in enumerate(resolved):
+			if index in internal_index_set:
+				continue
+			fixed_occupied.append(_job_text_bbox(fixed_job, fixed_job["length"]))
+		internal_jobs = [resolved[index] for index in internal_hydroxyl_up_indices]
+		equal_length = _best_equal_internal_hydroxyl_length(
+			internal_jobs=internal_jobs,
+			occupied=fixed_occupied,
+			blocked=blocked,
+			min_gap=min_gap,
+		)
+		for index in internal_hydroxyl_up_indices:
+			resolved[index]["length"] = equal_length
 	return resolved
 
 
@@ -394,6 +440,74 @@ def _job_is_hydroxyl(job: dict) -> bool:
 	"""Return True when one simple-label job renders as OH/HO."""
 	text = _format_label_text(job["label"], anchor=job["anchor"])
 	return text in ("OH", "HO")
+
+
+#============================================
+def _job_is_internal_hydroxyl(job: dict) -> bool:
+	"""Return True for hydroxyl labels drawn into the ring interior."""
+	if job.get("direction") != "up":
+		return False
+	ring_type = job.get("ring_type")
+	slot = job.get("slot")
+	if ring_type == "pyranose":
+		return slot in ("BR", "BL")
+	if ring_type == "furanose":
+		return slot in ("BR", "BL")
+	return False
+
+
+#============================================
+def _best_equal_internal_hydroxyl_length(
+		internal_jobs: list[dict],
+		occupied: list[tuple[float, float, float, float]],
+		blocked: list[tuple[float, float, float, float]],
+		min_gap: float) -> float:
+	"""Select one shared internal hydroxyl length with minimal overlap penalty."""
+	base_lengths = [job["length"] for job in internal_jobs]
+	candidate_lengths = set(base_lengths)
+	base_max = max(base_lengths)
+	for factor in HYDROXYL_LAYOUT_INTERNAL_CANDIDATE_FACTORS:
+		candidate_lengths.add(base_max * factor)
+	ordered_candidates = sorted(candidate_lengths)
+	best_length = ordered_candidates[0]
+	best_penalty = float("inf")
+	for length in ordered_candidates:
+		candidate_occupied = list(occupied)
+		total_penalty = 0.0
+		for job in internal_jobs:
+			candidate = dict(job)
+			candidate["length"] = length
+			total_penalty += _hydroxyl_job_penalty(candidate, candidate_occupied, blocked, min_gap)
+			candidate_occupied.append(_job_text_bbox(candidate, candidate["length"]))
+		if total_penalty < best_penalty:
+			best_penalty = total_penalty
+			best_length = length
+		if total_penalty <= 0.0:
+			break
+	return best_length
+
+
+#============================================
+def _hydroxyl_candidate_jobs(job: dict, allow_anchor_flip: bool = False) -> list[dict]:
+	"""Build a tiny candidate set for hydroxyl placement search."""
+	candidates = []
+	anchor_candidates = [job["anchor"]]
+	if allow_anchor_flip:
+		if job["anchor"] == "start":
+			anchor_candidates.append("end")
+		elif job["anchor"] == "end":
+			anchor_candidates.append("start")
+	if allow_anchor_flip:
+		factors = HYDROXYL_LAYOUT_INTERNAL_CANDIDATE_FACTORS
+	else:
+		factors = HYDROXYL_LAYOUT_CANDIDATE_FACTORS
+	for anchor in anchor_candidates:
+		for factor in factors:
+			candidate = dict(job)
+			candidate["anchor"] = anchor
+			candidate["length"] = job["length"] * factor
+			candidates.append(candidate)
+	return candidates
 
 
 #============================================
@@ -446,6 +560,20 @@ def _overlap_penalty(
 		if area > 0.0:
 			total += area
 	return total
+
+
+#============================================
+def _hydroxyl_job_penalty(
+		job: dict,
+		occupied: list[tuple[float, float, float, float]],
+		blocked: list[tuple[float, float, float, float]],
+		min_gap: float) -> float:
+	"""Return overlap penalty for one hydroxyl job against occupied boxes."""
+	box = _job_text_bbox(job, job["length"])
+	penalty = _overlap_penalty(box, occupied, min_gap)
+	if _job_is_internal_hydroxyl(job):
+		penalty += _overlap_penalty(box, blocked, 0.0)
+	return penalty
 
 
 #============================================
@@ -599,7 +727,7 @@ def _add_gradient_edge_ops(
 		edge_index: int,
 		o_end: bool,
 		oxygen_color: str,
-		line_color: str) -> None:
+		line_color: str) -> list[tuple[tuple[float, float], ...]]:
 	"""Split one ring edge into two colored halves (gradient near oxygen)."""
 	mx = (p1[0] + p2[0]) / 2.0
 	my = (p1[1] + p2[1]) / 2.0
@@ -632,6 +760,7 @@ def _add_gradient_edge_ops(
 			op_id=f"ring_edge_{edge_index}_c",
 		)
 	)
+	return [tuple(poly_o), tuple(poly_c)]
 
 
 #============================================
@@ -675,6 +804,9 @@ def _anchor_x_offset(text: str, anchor: str, font_size: float) -> float:
 			return -font_size * 0.90
 		if anchor == "end":
 			return font_size * 0.30
+	carbon_offset = _leading_carbon_anchor_offset(text, anchor, font_size)
+	if carbon_offset is not None:
+		return carbon_offset
 	if anchor == "start":
 		return font_size * 0.12
 	if anchor == "end":
@@ -683,9 +815,51 @@ def _anchor_x_offset(text: str, anchor: str, font_size: float) -> float:
 
 
 #============================================
+def _leading_carbon_anchor_offset(text: str, anchor: str, font_size: float) -> float | None:
+	"""Return text-x offset for labels that should connect at leading-carbon center."""
+	visible = re.sub(r"<[^>]+>", "", text or "")
+	if not visible.startswith("CH"):
+		return None
+	text_width = len(visible) * font_size * HYDROXYL_GLYPH_WIDTH_FACTOR
+	c_center = font_size * HYDROXYL_O_X_CENTER_FACTOR
+	if anchor == "start":
+		return -c_center
+	if anchor == "middle":
+		return (text_width / 2.0) - c_center
+	if anchor == "end":
+		return text_width - c_center
+	return None
+
+
+#============================================
 def _hydroxyl_oxygen_radius(font_size: float) -> float:
 	"""Approximate oxygen glyph radius for OH/HO overlap checks."""
 	return font_size * HYDROXYL_O_RADIUS_FACTOR
+
+
+#============================================
+def _leading_carbon_center(
+		text: str,
+		anchor: str,
+		text_x: float,
+		text_y: float,
+		font_size: float) -> tuple[float, float] | None:
+	"""Approximate leading-carbon glyph center for CH* labels."""
+	visible = re.sub(r"<[^>]+>", "", text or "")
+	if not visible.startswith("CH"):
+		return None
+	text_width = len(visible) * font_size * HYDROXYL_GLYPH_WIDTH_FACTOR
+	if anchor == "start":
+		start_x = text_x
+	elif anchor == "end":
+		start_x = text_x - text_width
+	elif anchor == "middle":
+		start_x = text_x - (text_width / 2.0)
+	else:
+		start_x = text_x
+	c_center_x = start_x + (font_size * HYDROXYL_O_X_CENTER_FACTOR)
+	c_center_y = text_y - (font_size * HYDROXYL_O_Y_CENTER_FROM_BASELINE)
+	return (c_center_x, c_center_y)
 
 
 #============================================

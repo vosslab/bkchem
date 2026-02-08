@@ -170,6 +170,99 @@ def _label_bbox(label: render_ops.TextOp) -> tuple[float, float, float, float]:
 
 
 #============================================
+def _point_in_box(point: tuple[float, float], box: tuple[float, float, float, float]) -> bool:
+	return box[0] <= point[0] <= box[2] and box[1] <= point[1] <= box[3]
+
+
+#============================================
+def _rect_corners(box: tuple[float, float, float, float]) -> list[tuple[float, float]]:
+	return [
+		(box[0], box[1]),
+		(box[2], box[1]),
+		(box[2], box[3]),
+		(box[0], box[3]),
+	]
+
+
+#============================================
+def _point_in_polygon(point: tuple[float, float], polygon: tuple[tuple[float, float], ...]) -> bool:
+	x_value, y_value = point
+	inside = False
+	count = len(polygon)
+	for index in range(count):
+		x1, y1 = polygon[index]
+		x2, y2 = polygon[(index + 1) % count]
+		intersects = ((y1 > y_value) != (y2 > y_value))
+		if not intersects:
+			continue
+		denominator = y2 - y1
+		if abs(denominator) < 1e-9:
+			continue
+		x_intersect = x1 + ((y_value - y1) * (x2 - x1) / denominator)
+		if x_intersect >= x_value:
+			inside = not inside
+	return inside
+
+
+#============================================
+def _segments_intersect(
+		a1: tuple[float, float],
+		a2: tuple[float, float],
+		b1: tuple[float, float],
+		b2: tuple[float, float]) -> bool:
+	def _cross(p1, p2, p3):
+		return ((p2[0] - p1[0]) * (p3[1] - p1[1])) - ((p2[1] - p1[1]) * (p3[0] - p1[0]))
+
+	def _on_segment(p1, p2, p3):
+		return (
+			min(p1[0], p2[0]) - 1e-9 <= p3[0] <= max(p1[0], p2[0]) + 1e-9
+			and min(p1[1], p2[1]) - 1e-9 <= p3[1] <= max(p1[1], p2[1]) + 1e-9
+		)
+
+	d1 = _cross(a1, a2, b1)
+	d2 = _cross(a1, a2, b2)
+	d3 = _cross(b1, b2, a1)
+	d4 = _cross(b1, b2, a2)
+	if ((d1 > 0 > d2) or (d1 < 0 < d2)) and ((d3 > 0 > d4) or (d3 < 0 < d4)):
+		return True
+	if abs(d1) < 1e-9 and _on_segment(a1, a2, b1):
+		return True
+	if abs(d2) < 1e-9 and _on_segment(a1, a2, b2):
+		return True
+	if abs(d3) < 1e-9 and _on_segment(b1, b2, a1):
+		return True
+	if abs(d4) < 1e-9 and _on_segment(b1, b2, a2):
+		return True
+	return False
+
+
+#============================================
+def _box_overlaps_polygon(
+		box: tuple[float, float, float, float],
+		polygon: tuple[tuple[float, float], ...]) -> bool:
+	for point in polygon:
+		if _point_in_box(point, box):
+			return True
+	for corner in _rect_corners(box):
+		if _point_in_polygon(corner, polygon):
+			return True
+	rect_points = _rect_corners(box)
+	rect_edges = [
+		(rect_points[0], rect_points[1]),
+		(rect_points[1], rect_points[2]),
+		(rect_points[2], rect_points[3]),
+		(rect_points[3], rect_points[0]),
+	]
+	for index in range(len(polygon)):
+		edge_start = polygon[index]
+		edge_end = polygon[(index + 1) % len(polygon)]
+		for rect_start, rect_end in rect_edges:
+			if _segments_intersect(edge_start, edge_end, rect_start, rect_end):
+				return True
+	return False
+
+
+#============================================
 def test_render_returns_ops():
 	_, ops = _render("ARLRDM", "pyranose", "alpha")
 	assert isinstance(ops, list)
@@ -365,7 +458,7 @@ def test_render_hydroxyl_two_pass_increases_spacing_for_aldm_furanose_alpha():
 	c1_down = _text_by_id(ops, "C1_down_label")
 	c2_up = _text_by_id(ops, "C2_up_label")
 	assert c1_down.text == "OH"
-	assert c2_up.text == "OH"
+	assert c2_up.text in ("OH", "HO")
 	gap = c1_down.font_size * haworth_renderer.HYDROXYL_LAYOUT_MIN_GAP_FACTOR
 	intersection = haworth_renderer._intersection_area(_label_bbox(c1_down), _label_bbox(c2_up), gap=gap)
 	assert intersection == pytest.approx(0.0, abs=1e-6)
@@ -373,6 +466,79 @@ def test_render_hydroxyl_two_pass_increases_spacing_for_aldm_furanose_alpha():
 	c1_down_line = _line_by_id(ops, "C1_down_connector")
 	c2_up_line = _line_by_id(ops, "C2_up_connector")
 	assert max(_line_length(c1_down_line), _line_length(c2_up_line)) > default_length
+
+
+#============================================
+def test_render_arabinose_furanose_labels_do_not_overlap_ring_bonds():
+	_, ops = _render("ALRDM", "furanose", "alpha", show_hydrogens=False)
+	ring_polys = [op for op in _polygons(ops) if (op.op_id or "").startswith("ring_edge_")]
+	for label in _texts(ops):
+		op_id = label.op_id or ""
+		if not op_id.endswith("_label"):
+			continue
+		if op_id == "oxygen_label":
+			continue
+		label_box = _label_bbox(label)
+		for polygon in ring_polys:
+				assert not _box_overlaps_polygon(label_box, polygon.points), (
+					f"{op_id} overlaps {polygon.op_id}"
+				)
+
+
+#============================================
+def test_render_allose_pyranose_internal_labels_do_not_overlap_ring_bonds():
+	_, ops = _render("ARRRDM", "pyranose", "alpha", show_hydrogens=False)
+	ring_polys = [op for op in _polygons(ops) if (op.op_id or "").startswith("ring_edge_")]
+	for op_id in ("C2_up_label", "C3_up_label"):
+		label_box = _label_bbox(_text_by_id(ops, op_id))
+		for polygon in ring_polys:
+			assert not _box_overlaps_polygon(label_box, polygon.points), (
+				f"{op_id} overlaps {polygon.op_id}"
+			)
+
+
+#============================================
+def test_render_allose_pyranose_internal_connectors_equal_length():
+	_, ops = _render("ARRRDM", "pyranose", "alpha", show_hydrogens=False)
+	c2_up_line = _line_by_id(ops, "C2_up_connector")
+	c3_up_line = _line_by_id(ops, "C3_up_connector")
+	assert _line_length(c2_up_line) == pytest.approx(_line_length(c3_up_line), abs=1e-6)
+
+
+#============================================
+def test_render_ch2oh_connector_hits_leading_carbon_center():
+	_, ops = _render("ARRRDM", "pyranose", "alpha", show_hydrogens=False)
+	label = _text_by_id(ops, "C5_up_label")
+	line = _line_by_id(ops, "C5_up_connector")
+	assert label.text == "CH<sub>2</sub>OH"
+	c_center = haworth_renderer._leading_carbon_center(
+		label.text, label.anchor, label.x, label.y, label.font_size
+	)
+	assert c_center is not None
+	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
+
+
+#============================================
+def test_render_arabinose_furanose_ch2oh_connector_hits_leading_carbon_center():
+	_, ops = _render("ALRDM", "furanose", "alpha", show_hydrogens=False)
+	label = _text_by_id(ops, "C4_up_label")
+	line = _line_by_id(ops, "C4_up_connector")
+	assert label.text == "CH<sub>2</sub>OH"
+	c_center = haworth_renderer._leading_carbon_center(
+		label.text, label.anchor, label.x, label.y, label.font_size
+	)
+	assert c_center is not None
+	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
+
+
+#============================================
+def test_render_furanose_top_up_connectors_above_oxygen_label():
+	_, ops = _render("MKLRDM", "furanose", "beta", show_hydrogens=False)
+	oxygen = _text_by_id(ops, "oxygen_label")
+	oxygen_top = oxygen.y - oxygen.font_size
+	for op_id in ("C2_up_connector", "C5_up_connector"):
+		line = _line_by_id(ops, op_id)
+		assert line.p2[1] < (oxygen_top - 0.05)
 
 
 #============================================

@@ -1,6 +1,18 @@
 # Changelog
 
 ## 2026-02-08
+- Extend furanose top-side `up` connector lengths in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  for top-left/top-right slots (`ML`/`MR`) so endpoints clear above the ring
+  oxygen glyph, improving match to reference top geometry; add regression coverage
+  in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for
+  `MKLRDM` furanose-beta (`C2_up_connector`, `C5_up_connector`).
+- Fix exocyclic `CH<sub>2</sub>OH` connector anchoring in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  so ring connectors terminate at the leading carbon (`C`) glyph center instead
+  of the text midpoint/subscript region; add regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for
+  `ARRRDM` pyranose-alpha (`C5_up_label`).
 - Fix generated-preview scaling inconsistency in
   [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) by normalizing
   whitespace when estimating SVG text bbox widths; this prevents inflated widths
