@@ -159,6 +159,17 @@ def _edge_thicknesses(poly: render_ops.PolygonOp) -> tuple[float, float]:
 
 
 #============================================
+def _label_bbox(label: render_ops.TextOp) -> tuple[float, float, float, float]:
+	return haworth_renderer._text_bbox(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+	)
+
+
+#============================================
 def test_render_returns_ops():
 	_, ops = _render("ARLRDM", "pyranose", "alpha")
 	assert isinstance(ops, list)
@@ -197,6 +208,15 @@ def test_render_furanose():
 	ring_polys = [op for op in _polygons(ops) if (op.op_id or "").startswith("ring_edge_")]
 	# 5 edges: 3 non-oxygen + 2 oxygen-adjacent (each split into 2 halves) = 7
 	assert len(ring_polys) == 7
+
+
+#============================================
+def test_furanose_template_calibrated_to_neurotiker_means():
+	assert haworth.FURANOSE_TEMPLATE[0] == pytest.approx((-0.97, -0.26))
+	assert haworth.FURANOSE_TEMPLATE[1] == pytest.approx((-0.49, 0.58))
+	assert haworth.FURANOSE_TEMPLATE[2] == pytest.approx((0.49, 0.58))
+	assert haworth.FURANOSE_TEMPLATE[3] == pytest.approx((0.97, -0.26))
+	assert haworth.FURANOSE_TEMPLATE[4] == pytest.approx((0.00, -0.65))
 
 
 #============================================
@@ -287,6 +307,112 @@ def test_render_right_anchor_hydroxyl_keeps_oh_order():
 	_, ops = _render("ARLRDM", "pyranose", "alpha")
 	assert _text_by_id(ops, "C1_down_label").text == "OH"
 	assert _text_by_id(ops, "C2_down_label").text == "OH"
+
+
+#============================================
+def test_render_right_anchor_hydroxyl_connector_hits_o_center():
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
+	label = _text_by_id(ops, "C2_down_label")
+	line = _line_by_id(ops, "C2_down_connector")
+	assert label.text == "OH"
+	assert label.anchor == "start"
+	o_center = haworth_renderer._hydroxyl_oxygen_center(
+		label.text, label.anchor, label.x, label.y, label.font_size
+	)
+	assert o_center is not None
+	assert line.p2[0] == pytest.approx(o_center[0], abs=0.05)
+
+
+#============================================
+def test_render_left_anchor_hydroxyl_connector_hits_o_center():
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
+	label = _text_by_id(ops, "C3_up_label")
+	line = _line_by_id(ops, "C3_up_connector")
+	assert label.text == "HO"
+	assert label.anchor == "end"
+	o_center = haworth_renderer._hydroxyl_oxygen_center(
+		label.text, label.anchor, label.x, label.y, label.font_size
+	)
+	assert o_center is not None
+	assert line.p2[0] == pytest.approx(o_center[0], abs=0.05)
+
+
+#============================================
+def test_render_hydroxyl_connectors_do_not_overlap_oxygen_glyph():
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
+	for label in _texts(ops):
+		op_id = label.op_id or ""
+		if not op_id.endswith("_label"):
+			continue
+		if label.text not in ("OH", "HO"):
+			continue
+		line = _line_by_id(ops, op_id.replace("_label", "_connector"))
+		o_center = haworth_renderer._hydroxyl_oxygen_center(
+			label.text, label.anchor, label.x, label.y, label.font_size
+		)
+		assert o_center is not None
+		o_radius = haworth_renderer._hydroxyl_oxygen_radius(label.font_size)
+		assert line.p2[0] == pytest.approx(o_center[0], abs=0.05)
+		if "_down_label" in op_id:
+			assert line.p2[1] <= (o_center[1] - o_radius + 0.05)
+		elif "_up_label" in op_id:
+			assert line.p2[1] >= (o_center[1] + o_radius - 0.05)
+
+
+#============================================
+def test_render_hydroxyl_two_pass_increases_spacing_for_aldm_furanose_alpha():
+	_, ops = _render("ALDM", "furanose", "alpha", show_hydrogens=False)
+	c1_down = _text_by_id(ops, "C1_down_label")
+	c2_up = _text_by_id(ops, "C2_up_label")
+	assert c1_down.text == "OH"
+	assert c2_up.text == "OH"
+	gap = c1_down.font_size * haworth_renderer.HYDROXYL_LAYOUT_MIN_GAP_FACTOR
+	intersection = haworth_renderer._intersection_area(_label_bbox(c1_down), _label_bbox(c2_up), gap=gap)
+	assert intersection == pytest.approx(0.0, abs=1e-6)
+	default_length = 30.0 * 0.45
+	c1_down_line = _line_by_id(ops, "C1_down_connector")
+	c2_up_line = _line_by_id(ops, "C2_up_connector")
+	assert max(_line_length(c1_down_line), _line_length(c2_up_line)) > default_length
+
+
+#============================================
+def test_resolve_hydroxyl_layout_jobs_uses_candidate_slots():
+	jobs = [
+		{
+			"carbon": 1,
+			"direction": "down",
+			"vertex": (0.0, 0.0),
+			"dx": 0.0,
+			"dy": 1.0,
+			"length": 10.0,
+			"label": "OH",
+			"connector_width": 1.0,
+			"font_size": 12.0,
+			"font_name": "sans-serif",
+			"anchor": "start",
+			"line_color": "#000",
+			"label_color": "#000",
+		},
+		{
+			"carbon": 2,
+			"direction": "down",
+			"vertex": (0.0, 2.0),
+			"dx": 0.0,
+			"dy": 1.0,
+			"length": 10.0,
+			"label": "OH",
+			"connector_width": 1.0,
+			"font_size": 12.0,
+			"font_name": "sans-serif",
+			"anchor": "start",
+			"line_color": "#000",
+			"label_color": "#000",
+		},
+	]
+	resolved = haworth_renderer._resolve_hydroxyl_layout_jobs(jobs)
+	assert len(resolved) == 2
+	assert resolved[0]["length"] == pytest.approx(10.0)
+	assert resolved[1]["length"] > 10.0
 
 
 #============================================

@@ -78,6 +78,7 @@ from . import render_out
 from . import wedge_geometry
 from . import haworth
 from . import sugar_code
+from . import sugar_code_smiles
 from . import haworth_spec
 from . import haworth_renderer
 from . import stereochemistry
@@ -117,6 +118,7 @@ _EXPORTED_MODULES = [
 	wedge_geometry,
 	haworth,
 	sugar_code,
+	sugar_code_smiles,
 	haworth_spec,
 	haworth_renderer,
 	stereochemistry,
@@ -144,6 +146,7 @@ allNames.extend([
 	"render_out",
 	"wedge_geometry",
 	"sugar_code",
+	"sugar_code_smiles",
 	"haworth_spec",
 	"haworth_renderer",
 ])

@@ -1,6 +1,84 @@
 # Changelog
 
 ## 2026-02-08
+- Fix generated-preview scaling inconsistency in
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) by normalizing
+  whitespace when estimating SVG text bbox widths; this prevents inflated widths
+  from pretty-printed `<tspan>` indentation/newlines (notably `CH<sub>2</sub>OH`)
+  that previously produced oversized viewBoxes and tiny rendered sugars.
+- Add two-pass hydroxyl label layout in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  using a tiny candidate slot set (`1.00x`, `1.18x`, `1.34x` connector lengths)
+  and minimum-gap collision scoring for `OH`/`HO` text boxes; this reduces crowded
+  furanose-side hydroxyl collisions while preserving deterministic connector
+  placement. Add regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for ALDM
+  furanose-alpha spacing and direct candidate-slot selection behavior.
+- Add CLI argument parsing to
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) with
+  `--regenerate-haworth-svgs` (default off) so generated Haworth preview SVGs are
+  only re-rendered on demand; default behavior now reuses existing previews and
+  falls back to existing matrix SVG outputs when available.
+- Calibrate furanose ring geometry from NEUROtiker archive references by adding
+  [tools/neurotiker_furanose_geometry.py](tools/neurotiker_furanose_geometry.py)
+  extraction/normalization of 40 furanose SVGs (mean slot coordinates, edge
+  lengths, and internal angles), then adopt the measured mean template in
+  [packages/oasa/oasa/haworth.py](packages/oasa/oasa/haworth.py) and update
+  regression expectations in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py).
+- Refine furanose ring geometry in [packages/oasa/oasa/haworth.py](packages/oasa/oasa/haworth.py)
+  by shifting the middle left/right pentagon vertices inward/upward to better
+  match NEUROtiker reference proportions.
+- Improve hydroxyl connector/text separation in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  by keeping oxygen-centered horizontal alignment while increasing downward
+  hydroxyl baseline offset to prevent bond-to-glyph overlap; add helper geometry
+  functions plus regression tests in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to assert
+  hydroxyl connector endpoints align with oxygen centers and do not overlap the
+  oxygen glyph region.
+- Harden [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) XML
+  parsing by switching from stdlib `xml.etree.ElementTree.parse` to
+  `defusedxml.ElementTree.parse`, resolving Bandit B314 in full-suite security
+  checks.
+- Update [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) so
+  generated comparison previews are re-rendered with
+  `show_hydrogens=False` (no explicit H labels/connectors) and displayed at
+  80% scale via expanded normalized viewBox framing for easier side-by-side
+  visual comparison against NEUROtiker references.
+- Adjust hydroxyl label x-offset geometry in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  so connector endpoints align with the oxygen glyph center for both right-
+  anchored `OH` labels and left-anchored `HO` labels; add regression tests in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) covering each
+  anchor direction.
+- Improve summary-page centering/scaling in
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) by generating
+  normalized generated-preview SVGs with tight content-fitted viewBoxes under
+  `output_smoke/archive_matrix_previews/generated/`, and updating HTML/CSS preview
+  frames to center content with non-distorting `max-width`/`max-height` scaling.
+- Add [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) to build
+  a single human-review HTML page at
+  `output_smoke/archive_matrix_summary.html`, showing all 78 Phase 5b archive
+  cases with side-by-side generated and reference SVG previews plus missing-file
+  summary counts.
+- Start Phase 6 sugar-code-to-SMILES implementation with a bootstrap converter
+  in [packages/oasa/oasa/sugar_code_smiles.py](packages/oasa/oasa/sugar_code_smiles.py),
+  export it from [packages/oasa/oasa/__init__.py](packages/oasa/oasa/__init__.py),
+  and add unit coverage in
+  [tests/test_sugar_code_smiles.py](tests/test_sugar_code_smiles.py) for
+  validated reference cases (`ARLRDM` pyranose alpha and `MKLRDM` furanose beta),
+  input validation, and unsupported-combination errors.
+- Update [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  Phase 6 section with bootstrap implementation status and remaining scope.
+- Close Phase 0 in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  by marking the phase tracker checkbox complete and recording release-gate
+  validation results: full test suite (`333 passed, 6 skipped`) plus successful
+  selftest sheet SVG generation using `source source_me.sh` with Python 3.12.
+- Add a phase-status checklist at the top of
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  to track completion across Phases 1-7 and Phase 0 exit closure.
 - Update [AGENTS.md](AGENTS.md) environment instructions to require
   `source source_me.sh` before running Python commands.
 - Expand NEUROtiker archive reference fixtures by adding

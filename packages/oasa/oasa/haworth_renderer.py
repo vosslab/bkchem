@@ -58,6 +58,12 @@ FURANOSE_SLOT_LABEL_CONFIG = {
 
 CARBON_NUMBER_VERTEX_WEIGHT = 0.68
 OXYGEN_COLOR = "#8b0000"
+HYDROXYL_GLYPH_WIDTH_FACTOR = 0.60
+HYDROXYL_O_X_CENTER_FACTOR = 0.30
+HYDROXYL_O_Y_CENTER_FROM_BASELINE = 0.52
+HYDROXYL_O_RADIUS_FACTOR = 0.30
+HYDROXYL_LAYOUT_CANDIDATE_FACTORS = (1.00, 1.18, 1.34)
+HYDROXYL_LAYOUT_MIN_GAP_FACTOR = 0.18
 
 
 #============================================
@@ -196,6 +202,7 @@ def render(
 	slot_map = carbon_slot_map(spec)
 	default_sub_length = bond_length * 0.45
 	connector_width = back_thickness
+	simple_jobs = []
 
 	for carbon in sorted(_ring_carbons(spec)):
 		carbon_key = f"C{carbon}"
@@ -231,22 +238,41 @@ def render(
 					label_color=label_color,
 				)
 				continue
-			_add_simple_label_ops(
-				ops=ops,
-				carbon=carbon,
-				direction=direction,
-				vertex=vertex,
-				dx=dx,
-				dy=dy,
-				length=sub_length,
-				label=label,
-				connector_width=connector_width,
-				font_size=font_size,
-				font_name=font_name,
-				anchor=anchor,
-				line_color=line_color,
-				label_color=label_color,
+			simple_jobs.append(
+				{
+					"carbon": carbon,
+					"direction": direction,
+					"vertex": vertex,
+					"dx": dx,
+					"dy": dy,
+					"length": sub_length,
+					"label": label,
+					"connector_width": connector_width,
+					"font_size": font_size,
+					"font_name": font_name,
+					"anchor": anchor,
+					"line_color": line_color,
+					"label_color": label_color,
+				}
 			)
+
+	for job in _resolve_hydroxyl_layout_jobs(simple_jobs):
+		_add_simple_label_ops(
+			ops=ops,
+			carbon=job["carbon"],
+			direction=job["direction"],
+			vertex=job["vertex"],
+			dx=job["dx"],
+			dy=job["dy"],
+			length=job["length"],
+			label=job["label"],
+			connector_width=job["connector_width"],
+			font_size=job["font_size"],
+			font_name=job["font_name"],
+			anchor=job["anchor"],
+			line_color=job["line_color"],
+			label_color=job["label_color"],
+		)
 
 	if show_carbon_numbers:
 		center_x = sum(point[0] for point in coords) / len(coords)
@@ -327,6 +353,124 @@ def _edge_polygon(
 
 
 #============================================
+def _resolve_hydroxyl_layout_jobs(jobs: list[dict]) -> list[dict]:
+	"""Two-pass placement for OH/HO labels using a tiny candidate slot set."""
+	if not jobs:
+		return []
+	min_gap = jobs[0]["font_size"] * HYDROXYL_LAYOUT_MIN_GAP_FACTOR
+	occupied = []
+	resolved = []
+
+	for job in jobs:
+		if _job_is_hydroxyl(job):
+			continue
+		occupied.append(_job_text_bbox(job, job["length"]))
+
+	for job in jobs:
+		if not _job_is_hydroxyl(job):
+			resolved.append(job)
+			continue
+		best_job = dict(job)
+		best_penalty = _overlap_penalty(_job_text_bbox(best_job, best_job["length"]), occupied, min_gap)
+		for factor in HYDROXYL_LAYOUT_CANDIDATE_FACTORS:
+			candidate_job = dict(job)
+			candidate_job["length"] = job["length"] * factor
+			candidate_box = _job_text_bbox(candidate_job, candidate_job["length"])
+			penalty = _overlap_penalty(candidate_box, occupied, min_gap)
+			if penalty <= 0.0:
+				best_job = candidate_job
+				best_penalty = penalty
+				break
+			if penalty < best_penalty:
+				best_job = candidate_job
+				best_penalty = penalty
+		resolved.append(best_job)
+		occupied.append(_job_text_bbox(best_job, best_job["length"]))
+	return resolved
+
+
+#============================================
+def _job_is_hydroxyl(job: dict) -> bool:
+	"""Return True when one simple-label job renders as OH/HO."""
+	text = _format_label_text(job["label"], anchor=job["anchor"])
+	return text in ("OH", "HO")
+
+
+#============================================
+def _job_text_bbox(job: dict, length: float) -> tuple[float, float, float, float]:
+	"""Approximate text bbox for one simple-label placement job."""
+	vertex = job["vertex"]
+	end_x = vertex[0] + (job["dx"] * length)
+	end_y = vertex[1] + (job["dy"] * length)
+	text = _format_label_text(job["label"], anchor=job["anchor"])
+	text_x = end_x + _anchor_x_offset(text, job["anchor"], job["font_size"])
+	text_y = end_y + _baseline_shift(job["direction"], job["font_size"], text)
+	return _text_bbox(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=job["anchor"],
+		font_size=job["font_size"],
+	)
+
+
+#============================================
+def _text_bbox(
+		text_x: float,
+		text_y: float,
+		text: str,
+		anchor: str,
+		font_size: float) -> tuple[float, float, float, float]:
+	"""Approximate text bounding box from text geometry fields."""
+	visible = _visible_text_length(text)
+	width = visible * font_size * 0.60
+	height = font_size
+	if anchor == "middle":
+		x_left = text_x - (width / 2.0)
+	elif anchor == "end":
+		x_left = text_x - width
+	else:
+		x_left = text_x
+	return (x_left, text_y - height, x_left + width, text_y)
+
+
+#============================================
+def _overlap_penalty(
+		box: tuple[float, float, float, float],
+		occupied_boxes: list[tuple[float, float, float, float]],
+		gap: float) -> float:
+	"""Return summed overlap area against occupied boxes with required minimum gap."""
+	total = 0.0
+	for other in occupied_boxes:
+		area = _intersection_area(box, other, gap)
+		if area > 0.0:
+			total += area
+	return total
+
+
+#============================================
+def _intersection_area(
+		box_a: tuple[float, float, float, float],
+		box_b: tuple[float, float, float, float],
+		gap: float = 0.0) -> float:
+	"""Return intersection area after expanding each box by half the required gap."""
+	half_gap = gap / 2.0
+	ax0 = box_a[0] - half_gap
+	ay0 = box_a[1] - half_gap
+	ax1 = box_a[2] + half_gap
+	ay1 = box_a[3] + half_gap
+	bx0 = box_b[0] - half_gap
+	by0 = box_b[1] - half_gap
+	bx1 = box_b[2] + half_gap
+	by1 = box_b[3] + half_gap
+	overlap_w = min(ax1, bx1) - max(ax0, bx0)
+	overlap_h = min(ay1, by1) - max(ay0, by0)
+	if overlap_w <= 0.0 or overlap_h <= 0.0:
+		return 0.0
+	return overlap_w * overlap_h
+
+
+#============================================
 def _add_simple_label_ops(
 		ops: list,
 		carbon: int,
@@ -356,9 +500,9 @@ def _add_simple_label_ops(
 		)
 	)
 	text = _format_label_text(label, anchor=anchor)
-	anchor_x = _anchor_x_offset(anchor, font_size)
+	anchor_x = _anchor_x_offset(text, anchor, font_size)
 	text_x = end_point[0] + anchor_x
-	text_y = end_point[1] + _baseline_shift(direction, font_size)
+	text_y = end_point[1] + _baseline_shift(direction, font_size, text)
 	ops.append(
 		render_ops.TextOp(
 			x=text_x,
@@ -393,7 +537,6 @@ def _add_chain_ops(
 		label_color: str) -> None:
 	"""Add multi-segment exocyclic-chain connector + labels."""
 	start = vertex
-	anchor_x = _anchor_x_offset(anchor, font_size)
 	for index, raw_label in enumerate(labels, start=1):
 		end = (start[0] + dx * segment_length, start[1] + dy * segment_length)
 		ops.append(
@@ -407,13 +550,15 @@ def _add_chain_ops(
 				op_id=f"C{carbon}_{direction}_chain{index}_connector",
 			)
 		)
+		text = _format_label_text(raw_label, anchor=anchor)
+		anchor_x = _anchor_x_offset(text, anchor, font_size)
 		text_x = end[0] + anchor_x
-		text_y = end[1] + _baseline_shift(direction, font_size)
+		text_y = end[1] + _baseline_shift(direction, font_size, text)
 		ops.append(
 			render_ops.TextOp(
 				x=text_x,
 				y=text_y,
-				text=_format_label_text(raw_label, anchor=anchor),
+				text=text,
 				font_size=font_size,
 				font_name=font_name,
 				anchor=anchor,
@@ -427,13 +572,18 @@ def _add_chain_ops(
 
 
 #============================================
-def _baseline_shift(direction: str, font_size: float) -> float:
+def _baseline_shift(direction: str, font_size: float, text: str = "") -> float:
 	"""Compute vertical baseline correction for label text.
 
 	For downward labels the text baseline needs to shift down so the top
 	of the glyphs aligns with the connector endpoint.  For upward labels
 	the baseline shift is near zero (text hangs below the endpoint).
 	"""
+	if text in ("OH", "HO"):
+		# Keep connector endpoints clear of hydroxyl oxygen glyphs.
+		if direction == "down":
+			return font_size * 0.90
+		return -font_size * 0.10
 	if direction == "down":
 		return font_size * 0.35
 	return -font_size * 0.10
@@ -513,13 +663,57 @@ def _format_label_text(label: str, anchor: str = "middle") -> str:
 
 
 #============================================
-def _anchor_x_offset(anchor: str, font_size: float) -> float:
-	"""Shift text slightly away from vertical connector ends."""
+def _anchor_x_offset(text: str, anchor: str, font_size: float) -> float:
+	"""Shift text so hydroxyl connectors terminate at oxygen glyph center."""
+	if text == "OH":
+		if anchor == "start":
+			return -font_size * 0.30
+		if anchor == "end":
+			return font_size * 0.90
+	if text == "HO":
+		if anchor == "start":
+			return -font_size * 0.90
+		if anchor == "end":
+			return font_size * 0.30
 	if anchor == "start":
 		return font_size * 0.12
 	if anchor == "end":
 		return -font_size * 0.12
 	return 0.0
+
+
+#============================================
+def _hydroxyl_oxygen_radius(font_size: float) -> float:
+	"""Approximate oxygen glyph radius for OH/HO overlap checks."""
+	return font_size * HYDROXYL_O_RADIUS_FACTOR
+
+
+#============================================
+def _hydroxyl_oxygen_center(
+		text: str,
+		anchor: str,
+		text_x: float,
+		text_y: float,
+		font_size: float) -> tuple[float, float] | None:
+	"""Approximate oxygen glyph center in OH/HO label coordinates."""
+	if text not in ("OH", "HO"):
+		return None
+	visible = _visible_text_length(text)
+	text_width = visible * font_size * HYDROXYL_GLYPH_WIDTH_FACTOR
+	if anchor == "start":
+		start_x = text_x
+	elif anchor == "end":
+		start_x = text_x - text_width
+	elif anchor == "middle":
+		start_x = text_x - (text_width / 2.0)
+	else:
+		start_x = text_x
+	o_index = text.find("O")
+	if o_index < 0:
+		return None
+	o_center_x = start_x + ((o_index * HYDROXYL_GLYPH_WIDTH_FACTOR) + HYDROXYL_O_X_CENTER_FACTOR) * font_size
+	o_center_y = text_y - (font_size * HYDROXYL_O_Y_CENTER_FROM_BASELINE)
+	return (o_center_x, o_center_y)
 
 
 #============================================

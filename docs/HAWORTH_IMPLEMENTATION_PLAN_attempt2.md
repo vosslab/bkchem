@@ -1,5 +1,21 @@
 # Haworth Schematic Renderer - Implementation Plan (Attempt 2)
 
+## Phase Status Tracker
+
+Use this checklist to track implementation progress against this plan.
+
+- [x] Phase 1: Sugar Code Parser
+- [x] Phase 2: Haworth Spec Generator
+- [x] Phase 3: Haworth Schematic Renderer
+- [x] Phase 4: Integration
+- [x] Phase 5: Verify
+- [x] Phase 5b: NEUROtiker Archive Reference Testing
+- [x] Phase 5c: Rendering Polish and Documentation
+- [x] Phase 0 Exit Checklist fully closed
+- [ ] Phase 6b: Stretch Goals (Future Work)
+- [ ] Phase 6: Sugar Code to SMILES
+- [ ] Phase 7: SMILES to Sugar Code (Best-Effort)
+
 ## Background
 
 Attempt 1 (`docs/HAWORTH_IMPLEMENTATION_PLAN_attempt1.md`) used SMILES to build a
@@ -844,6 +860,12 @@ regardless of side, but the "HO" convention has chemical advantages and was reta
 
 ## Phase 0 Exit Checklist
 
+Status: complete as of 2026-02-08 after running
+`source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/ -q`
+(333 passed, 6 skipped) and
+`source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/selftest_sheet.py --format svg`
+(generated `oasa_capabilities_sheet.svg`).
+
 - Implemented files from Phases 1-4 exist and are imported where required.
 - All Phase 1-5 tests pass with Python 3.12.
 - Ring-capacity validation errors include prefix, ring type, minimum carbons, and provided carbons.
@@ -907,6 +929,11 @@ bounding box computation. A future improvement could add:
 ## Phase 6: Sugar Code to SMILES
 
 This phase is intentionally out of Phase 0 scope. Keep as future work only.
+
+Implementation status (2026-02-08): initial bootstrap landed with
+`sugar_code_to_smiles()` support for two validated reference cases
+(`ARLRDM` + pyranose + alpha, and `MKLRDM` + furanose + beta), with unit tests;
+full matrix conversion remains pending.
 
 **New file**: `packages/oasa/oasa/sugar_code_smiles.py`
 
