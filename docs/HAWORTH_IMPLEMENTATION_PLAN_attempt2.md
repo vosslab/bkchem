@@ -112,7 +112,7 @@ Phase 0 acceptance gates:
   - Deliverable: all prior phases green.
   - System/E2E: run `python -m pytest tests/` plus `python tools/selftest_sheet.py --format svg` as release gate; no new tests authored in this phase.
 
-- Phases 6–7 (SMILES conversion, future scope)
+- Phases 6-7 (SMILES conversion, future scope)
   - Deliverables: `sugar_code_smiles.py`, `smiles_to_sugar_code.py` and their unit tests (already listed).
   - Integration: parser/spec + SMILES conversion round-trip (`sugar_code -> smiles -> sugar_code`).
   - Smoke/E2E: `tests/smoke/test_sugar_code_smiles_roundtrip.py` (initially `@pytest.mark.skip` until Phase 6 lands) covering canonical sugars; rejects pathway-only carbon-state inputs.

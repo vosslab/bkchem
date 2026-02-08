@@ -3,9 +3,19 @@
 ## 2026-02-08
 - Add per-phase test matrix (deliverable/unit/integration/smoke/system) to
   [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md),
-  defining smoke designs for phases 1–3, a Phase 4 unit/integration test around
+  defining smoke designs for phases 1-3, a Phase 4 unit/integration test around
   Haworth selftest builders, and a future SMILES round-trip smoke. Document test
   taxonomy angles (property-based, snapshot, fuzz, performance) for later use.
+- Implement Phase 1 sugar-code parser in
+  [packages/oasa/oasa/sugar_code.py](packages/oasa/oasa/sugar_code.py) with
+  `ParsedSugarCode`, `parse()`, footnote/body split invariants, positional digit
+  validation, side-qualified default hydrogen fill, unknown lowercase letter-code
+  rejection, and parser-level key-family exclusivity checks (`n`, `nC`, `nL`, `nR`).
+- Add Phase 1 parser tests in
+  [tests/test_sugar_code.py](tests/test_sugar_code.py) (28 unit cases) and
+  [tests/smoke/test_sugar_code_smoke.py](tests/smoke/test_sugar_code_smoke.py)
+  using [tests/fixtures/smoke_sugar_codes.txt](tests/fixtures/smoke_sugar_codes.txt)
+  for curated valid/invalid smoke coverage and `sugar_code_raw` round-trip checks.
 
 ## 2026-02-07
 - Expand renderer test coverage in
