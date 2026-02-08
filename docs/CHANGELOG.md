@@ -1,6 +1,10 @@
 # Changelog
 
 ## 2026-02-08
+- Add [docs/SUGAR_CODE_GUIDE.md](docs/SUGAR_CODE_GUIDE.md) to document sugar
+  code syntax, token meanings, prefix/config parsing, digit footnote rules,
+  and how to read
+  [packages/oasa/oasa_data/sugar_codes.yml](packages/oasa/oasa_data/sugar_codes.yml).
 - Align generated preview oxygen-mask fill with summary frame background in
   [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) by
   rendering regenerated Haworth SVG previews with `bg_color="#fafafa"` so the
