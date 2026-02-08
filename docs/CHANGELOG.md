@@ -1,6 +1,13 @@
 # Changelog
 
 ## 2026-02-08
+- Fix test/lint regressions after fixture cleanup:
+  [tests/test_cdml_versioning.py](tests/test_cdml_versioning.py) now skips the
+  legacy fixture check when `tests/fixtures/cdml/legacy_v0.11.cdml` is absent;
+  [tools/check_translation.py](tools/check_translation.py) now uses consistent
+  tab indentation and a `main()` guard to satisfy shebang/indentation checks;
+  and [tools/selftest_sheet.py](tools/selftest_sheet.py) drops two pyflakes
+  issues in `_add_explicit_h_to_haworth` (unused local and duplicate import).
 - Simplify reference-output policy to Haworth-only artifacts: update
   [tests/test_reference_outputs.py](tests/test_reference_outputs.py),
   [tools/render_reference_outputs.py](tools/render_reference_outputs.py), and

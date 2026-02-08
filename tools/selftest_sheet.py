@@ -815,12 +815,6 @@ def _build_cholesterol_mol():
 #============================================
 def _add_explicit_h_to_haworth(mol, ring_atoms, bond_length=30):
 	"""Add explicit H atoms and label OH groups for clear Haworth representation."""
-	# Handle imports
-	if __name__ == "__main__":
-		import oasa
-	else:
-		pass
-
 	ring_set = set(ring_atoms)
 
 	# First pass: Add explicit H to ring carbons and convert OH groups to labels
@@ -828,7 +822,6 @@ def _add_explicit_h_to_haworth(mol, ring_atoms, bond_length=30):
 		if ring_atom.symbol != "C":
 			continue  # Skip oxygen
 
-		ring_neighbors = [n for n in ring_atom.neighbors if n in ring_set]
 		all_neighbors = list(ring_atom.neighbors)
 
 		# Find substituents (non-ring neighbors)
@@ -864,15 +857,8 @@ def _add_explicit_h_to_haworth(mol, ring_atoms, bond_length=30):
 				h_dy = bond_length * 0.5
 
 			# Add H with label
-			if __name__ == "__main__":
-				import oasa
-				h_atom = oasa.atom(symbol="H")
-				h_bond = oasa.bond(order=1, type="n")
-			else:
-				import oasa.atom as atom_cls
-				import oasa.bond as bond_cls
-				h_atom = atom_cls(symbol="H")
-				h_bond = bond_cls(order=1, type="n")
+			h_atom = atom.atom(symbol="H")
+			h_bond = bond_module.bond(order=1, type="n")
 
 			h_atom.x = ring_atom.x + h_dx
 			h_atom.y = ring_atom.y + h_dy
