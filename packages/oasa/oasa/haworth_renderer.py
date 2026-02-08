@@ -63,8 +63,9 @@ HYDROXYL_O_X_CENTER_FACTOR = 0.30
 HYDROXYL_O_Y_CENTER_FROM_BASELINE = 0.52
 HYDROXYL_O_RADIUS_FACTOR = 0.30
 HYDROXYL_LAYOUT_CANDIDATE_FACTORS = (1.00, 1.18, 1.34)
-HYDROXYL_LAYOUT_INTERNAL_CANDIDATE_FACTORS = (1.00, 1.18, 1.34, 1.52)
+HYDROXYL_LAYOUT_INTERNAL_CANDIDATE_FACTORS = (0.88, 1.00, 1.12, 1.26, 1.42)
 HYDROXYL_LAYOUT_MIN_GAP_FACTOR = 0.18
+HYDROXYL_RING_COLLISION_PENALTY = 1000000.0
 FURANOSE_TOP_UP_CLEARANCE_FACTOR = 0.08
 
 
@@ -127,7 +128,7 @@ def render(
 	back_thickness = bond_length * 0.04
 	front_vertices = {front_edge_index, (front_edge_index + 1) % ring_size}
 	adjacent = {(front_edge_index - 1) % ring_size, (front_edge_index + 1) % ring_size}
-	ring_block_boxes = []
+	ring_block_polygons = []
 
 	for edge_index in range(ring_size):
 		start_index = edge_index
@@ -156,10 +157,10 @@ def render(
 				line_color=line_color,
 			)
 			for polygon in gradient_polygons:
-				ring_block_boxes.append(_polygon_bbox(polygon))
+				ring_block_polygons.append(tuple(polygon))
 		else:
 			polygon = _edge_polygon(p1, p2, t1, t2)
-			ring_block_boxes.append(_polygon_bbox(polygon))
+			ring_block_polygons.append(tuple(polygon))
 			ops.append(
 				render_ops.PolygonOp(
 					points=tuple(polygon),
@@ -271,7 +272,7 @@ def render(
 				}
 			)
 
-	for job in _resolve_hydroxyl_layout_jobs(simple_jobs, blocked_boxes=ring_block_boxes):
+	for job in _resolve_hydroxyl_layout_jobs(simple_jobs, blocked_polygons=ring_block_polygons):
 		_add_simple_label_ops(
 			ops=ops,
 			carbon=job["carbon"],
@@ -367,23 +368,14 @@ def _edge_polygon(
 	)
 
 
-#============================================
-def _polygon_bbox(points: tuple[tuple[float, float], ...]) -> tuple[float, float, float, float]:
-	"""Return axis-aligned bbox for one polygon point tuple."""
-	x_values = [point[0] for point in points]
-	y_values = [point[1] for point in points]
-	return (min(x_values), min(y_values), max(x_values), max(y_values))
-
-
-#============================================
 def _resolve_hydroxyl_layout_jobs(
 		jobs: list[dict],
-		blocked_boxes: list[tuple[float, float, float, float]] | None = None) -> list[dict]:
+		blocked_polygons: list[tuple[tuple[float, float], ...]] | None = None) -> list[dict]:
 	"""Two-pass placement for OH/HO labels using a tiny candidate slot set."""
 	if not jobs:
 		return []
 	min_gap = jobs[0]["font_size"] * HYDROXYL_LAYOUT_MIN_GAP_FACTOR
-	blocked = list(blocked_boxes or [])
+	blocked = list(blocked_polygons or [])
 	occupied = []
 	resolved = []
 	internal_hydroxyl_up_indices = []
@@ -401,7 +393,7 @@ def _resolve_hydroxyl_layout_jobs(
 		best_penalty = _hydroxyl_job_penalty(best_job, occupied, blocked, min_gap)
 		for candidate_job in _hydroxyl_candidate_jobs(
 				job,
-				allow_anchor_flip=_job_is_internal_hydroxyl(job),
+				allow_anchor_flip=_job_can_flip_internal_anchor(job),
 		):
 			penalty = _hydroxyl_job_penalty(candidate_job, occupied, blocked, min_gap)
 			if penalty <= 0.0:
@@ -427,7 +419,7 @@ def _resolve_hydroxyl_layout_jobs(
 		equal_length = _best_equal_internal_hydroxyl_length(
 			internal_jobs=internal_jobs,
 			occupied=fixed_occupied,
-			blocked=blocked,
+			blocked_polygons=blocked,
 			min_gap=min_gap,
 		)
 		for index in internal_hydroxyl_up_indices:
@@ -457,10 +449,18 @@ def _job_is_internal_hydroxyl(job: dict) -> bool:
 
 
 #============================================
+def _job_can_flip_internal_anchor(job: dict) -> bool:
+	"""Return True when internal hydroxyl candidates may flip HO/OH anchor side."""
+	if not _job_is_internal_hydroxyl(job):
+		return False
+	return job.get("ring_type") == "furanose"
+
+
+#============================================
 def _best_equal_internal_hydroxyl_length(
 		internal_jobs: list[dict],
 		occupied: list[tuple[float, float, float, float]],
-		blocked: list[tuple[float, float, float, float]],
+		blocked_polygons: list[tuple[tuple[float, float], ...]],
 		min_gap: float) -> float:
 	"""Select one shared internal hydroxyl length with minimal overlap penalty."""
 	base_lengths = [job["length"] for job in internal_jobs]
@@ -477,7 +477,12 @@ def _best_equal_internal_hydroxyl_length(
 		for job in internal_jobs:
 			candidate = dict(job)
 			candidate["length"] = length
-			total_penalty += _hydroxyl_job_penalty(candidate, candidate_occupied, blocked, min_gap)
+			total_penalty += _hydroxyl_job_penalty(
+				candidate,
+				candidate_occupied,
+				blocked_polygons,
+				min_gap,
+			)
 			candidate_occupied.append(_job_text_bbox(candidate, candidate["length"]))
 		if total_penalty < best_penalty:
 			best_penalty = total_penalty
@@ -566,13 +571,15 @@ def _overlap_penalty(
 def _hydroxyl_job_penalty(
 		job: dict,
 		occupied: list[tuple[float, float, float, float]],
-		blocked: list[tuple[float, float, float, float]],
+		blocked_polygons: list[tuple[tuple[float, float], ...]],
 		min_gap: float) -> float:
 	"""Return overlap penalty for one hydroxyl job against occupied boxes."""
 	box = _job_text_bbox(job, job["length"])
 	penalty = _overlap_penalty(box, occupied, min_gap)
 	if _job_is_internal_hydroxyl(job):
-		penalty += _overlap_penalty(box, blocked, 0.0)
+		for polygon in blocked_polygons:
+			if _box_overlaps_polygon(box, polygon):
+				penalty += HYDROXYL_RING_COLLISION_PENALTY
 	return penalty
 
 
@@ -596,6 +603,108 @@ def _intersection_area(
 	if overlap_w <= 0.0 or overlap_h <= 0.0:
 		return 0.0
 	return overlap_w * overlap_h
+
+
+#============================================
+def _point_in_box(
+		point: tuple[float, float],
+		box: tuple[float, float, float, float]) -> bool:
+	"""Return True when one point lies inside one bbox."""
+	return box[0] <= point[0] <= box[2] and box[1] <= point[1] <= box[3]
+
+
+#============================================
+def _rect_corners(box: tuple[float, float, float, float]) -> list[tuple[float, float]]:
+	"""Return rectangle corners in clockwise order."""
+	return [
+		(box[0], box[1]),
+		(box[2], box[1]),
+		(box[2], box[3]),
+		(box[0], box[3]),
+	]
+
+
+#============================================
+def _point_in_polygon(
+		point: tuple[float, float],
+		polygon: tuple[tuple[float, float], ...]) -> bool:
+	"""Return True when point is inside polygon using ray-casting."""
+	x_value, y_value = point
+	inside = False
+	count = len(polygon)
+	for index in range(count):
+		x1, y1 = polygon[index]
+		x2, y2 = polygon[(index + 1) % count]
+		intersects = ((y1 > y_value) != (y2 > y_value))
+		if not intersects:
+			continue
+		denominator = y2 - y1
+		if abs(denominator) < 1e-9:
+			continue
+		x_intersect = x1 + ((y_value - y1) * (x2 - x1) / denominator)
+		if x_intersect >= x_value:
+			inside = not inside
+	return inside
+
+
+#============================================
+def _segments_intersect(
+		a1: tuple[float, float],
+		a2: tuple[float, float],
+		b1: tuple[float, float],
+		b2: tuple[float, float]) -> bool:
+	"""Return True when two closed line segments intersect."""
+	def _cross(p1, p2, p3):
+		return ((p2[0] - p1[0]) * (p3[1] - p1[1])) - ((p2[1] - p1[1]) * (p3[0] - p1[0]))
+
+	def _on_segment(p1, p2, p3):
+		return (
+			min(p1[0], p2[0]) - 1e-9 <= p3[0] <= max(p1[0], p2[0]) + 1e-9
+			and min(p1[1], p2[1]) - 1e-9 <= p3[1] <= max(p1[1], p2[1]) + 1e-9
+		)
+
+	d1 = _cross(a1, a2, b1)
+	d2 = _cross(a1, a2, b2)
+	d3 = _cross(b1, b2, a1)
+	d4 = _cross(b1, b2, a2)
+	if ((d1 > 0 > d2) or (d1 < 0 < d2)) and ((d3 > 0 > d4) or (d3 < 0 < d4)):
+		return True
+	if abs(d1) < 1e-9 and _on_segment(a1, a2, b1):
+		return True
+	if abs(d2) < 1e-9 and _on_segment(a1, a2, b2):
+		return True
+	if abs(d3) < 1e-9 and _on_segment(b1, b2, a1):
+		return True
+	if abs(d4) < 1e-9 and _on_segment(b1, b2, a2):
+		return True
+	return False
+
+
+#============================================
+def _box_overlaps_polygon(
+		box: tuple[float, float, float, float],
+		polygon: tuple[tuple[float, float], ...]) -> bool:
+	"""Return True when one bbox intersects one polygon."""
+	for point in polygon:
+		if _point_in_box(point, box):
+			return True
+	for corner in _rect_corners(box):
+		if _point_in_polygon(corner, polygon):
+			return True
+	rect_points = _rect_corners(box)
+	rect_edges = [
+		(rect_points[0], rect_points[1]),
+		(rect_points[1], rect_points[2]),
+		(rect_points[2], rect_points[3]),
+		(rect_points[3], rect_points[0]),
+	]
+	for index in range(len(polygon)):
+		edge_start = polygon[index]
+		edge_end = polygon[(index + 1) % len(polygon)]
+		for rect_start, rect_end in rect_edges:
+			if _segments_intersect(edge_start, edge_end, rect_start, rect_end):
+				return True
+	return False
 
 
 #============================================

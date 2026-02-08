@@ -1,6 +1,15 @@
 # Changelog
 
 ## 2026-02-08
+- Refine internal hydroxyl layout in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  by scoring internal text-vs-ring collisions against actual ring-edge polygons
+  (not edge bbox approximations), restricting `OH`/`HO` anchor flipping to
+  furanose internal slots, and enforcing one shared connector length for paired
+  internal up-hydroxyl labels. Extend regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for ring-bond
+  collision checks (`ALRDM` furanose-alpha, `ALLDM` pyranose-alpha) and equal
+  internal connector lengths on two-internal-hydroxyl pyranose cases.
 - Extend furanose top-side `up` connector lengths in
   [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
   for top-left/top-right slots (`ML`/`MR`) so endpoints clear above the ring

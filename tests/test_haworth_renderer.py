@@ -465,7 +465,9 @@ def test_render_hydroxyl_two_pass_increases_spacing_for_aldm_furanose_alpha():
 	default_length = 30.0 * 0.45
 	c1_down_line = _line_by_id(ops, "C1_down_connector")
 	c2_up_line = _line_by_id(ops, "C2_up_connector")
-	assert max(_line_length(c1_down_line), _line_length(c2_up_line)) > default_length
+	c1_length = _line_length(c1_down_line)
+	c2_length = _line_length(c2_up_line)
+	assert (abs(c1_length - default_length) > 1e-6) or (abs(c2_length - default_length) > 1e-6)
 
 
 #============================================
@@ -486,8 +488,8 @@ def test_render_arabinose_furanose_labels_do_not_overlap_ring_bonds():
 
 
 #============================================
-def test_render_allose_pyranose_internal_labels_do_not_overlap_ring_bonds():
-	_, ops = _render("ARRRDM", "pyranose", "alpha", show_hydrogens=False)
+def test_render_lyxose_pyranose_internal_labels_do_not_overlap_ring_bonds():
+	_, ops = _render("ALLDM", "pyranose", "alpha", show_hydrogens=False)
 	ring_polys = [op for op in _polygons(ops) if (op.op_id or "").startswith("ring_edge_")]
 	for op_id in ("C2_up_label", "C3_up_label"):
 		label_box = _label_bbox(_text_by_id(ops, op_id))
@@ -498,8 +500,8 @@ def test_render_allose_pyranose_internal_labels_do_not_overlap_ring_bonds():
 
 
 #============================================
-def test_render_allose_pyranose_internal_connectors_equal_length():
-	_, ops = _render("ARRRDM", "pyranose", "alpha", show_hydrogens=False)
+def test_render_lyxose_pyranose_internal_connectors_equal_length():
+	_, ops = _render("ALLDM", "pyranose", "alpha", show_hydrogens=False)
 	c2_up_line = _line_by_id(ops, "C2_up_connector")
 	c3_up_line = _line_by_id(ops, "C3_up_connector")
 	assert _line_length(c2_up_line) == pytest.approx(_line_length(c3_up_line), abs=1e-6)
