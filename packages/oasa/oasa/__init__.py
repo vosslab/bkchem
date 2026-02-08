@@ -69,6 +69,8 @@ from . import config
 from .query_atom import query_atom
 from .chem_vertex import chem_vertex
 from . import oasa_exceptions
+from . import atom_colors
+from . import dom_extensions
 from . import svg_out
 from . import render_geometry
 from . import render_ops
@@ -103,6 +105,8 @@ _EXPORTED_MODULES = [
 	query_atom,
 	chem_vertex,
 	oasa_exceptions,
+	atom_colors,
+	dom_extensions,
 	svg_out,
 	render_geometry,
 	render_ops,
@@ -123,9 +127,11 @@ allNames = ['atom', 'bond', 'chem_vertex', 'coords_generator', 'config',
 	'stereochemistry', 'svg_out', 'transform',
 	'transform3d']
 allNames.extend([
+	"atom_colors",
 	"bond_semantics",
 	"cdml_bond_io",
 	"codec_registry",
+	"dom_extensions",
 	"safe_xml",
 	"render_geometry",
 	"render_ops",

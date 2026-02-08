@@ -16,6 +16,11 @@
   [tests/smoke/test_sugar_code_smoke.py](tests/smoke/test_sugar_code_smoke.py)
   using [tests/fixtures/smoke_sugar_codes.txt](tests/fixtures/smoke_sugar_codes.txt)
   for curated valid/invalid smoke coverage and `sugar_code_raw` round-trip checks.
+- Export `atom_colors` and `dom_extensions` from
+  [packages/oasa/oasa/__init__.py](packages/oasa/oasa/__init__.py) so
+  `tools/selftest_sheet.py` can access `oasa.atom_colors` and
+  `oasa.dom_extensions` during test import, fixing collection-time
+  `AttributeError` in [tests/test_fischer_explicit_h.py](tests/test_fischer_explicit_h.py).
 
 ## 2026-02-07
 - Expand renderer test coverage in

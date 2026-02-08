@@ -160,7 +160,7 @@ Phosphate side semantics:
 - At terminal position, use `p`; `P` is invalid at terminal position.
 
 **Examples using letter codes** (no footnotes needed):
-``` 
+```
 AdRDM   = 2-deoxy-D-ribose (deoxyribose, DNA sugar)
 AdLRDM  = 2-deoxy-D-glucose
 AaLRDM  = glucosamine (2-amino-2-deoxy-D-glucose)
