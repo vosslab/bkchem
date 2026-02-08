@@ -185,6 +185,30 @@ def test_exocyclic_2():
 
 
 #============================================
+@pytest.mark.parametrize("anomeric", ("alpha", "beta"))
+def test_galactose_furanose_two_carbon_tail_points_down(anomeric):
+	spec = _generate("ARLLDM", "furanose", anomeric)
+	assert spec.substituents["C4_up"] == "H"
+	assert spec.substituents["C4_down"] == "CH(OH)CH2OH"
+
+
+#============================================
+@pytest.mark.parametrize(
+	"code,expected_up,expected_down",
+	[
+		("ARLRDM", "CH(OH)CH2OH", "H"),
+		("ALLRDM", "CH(OH)CH2OH", "H"),
+		("ARRLDM", "H", "CH(OH)CH2OH"),
+		("ALRLDM", "H", "CH(OH)CH2OH"),
+	],
+)
+def test_furanose_two_carbon_tail_tracks_closure_stereocenter(code, expected_up, expected_down):
+	spec = _generate(code, "furanose", "alpha")
+	assert spec.substituents["C4_up"] == expected_up
+	assert spec.substituents["C4_down"] == expected_down
+
+
+#============================================
 def test_prefix_ring_mismatch():
 	with pytest.raises(ValueError) as error:
 		_generate("ARDM", "pyranose", "alpha")

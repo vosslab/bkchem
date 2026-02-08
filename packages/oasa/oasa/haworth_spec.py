@@ -129,9 +129,16 @@ def generate(
 		up_label, down_label = _labels_for_ring_token(token, carbon, parsed.footnotes)
 		_set_pair(substituents, carbon, up_label=up_label, down_label=down_label)
 
-	# 3/4/5) closure carbon gets post-closure chain (or no chain) in config direction.
+	# 3/4/5) closure carbon gets post-closure chain (or no chain).
+	# For furanose two-carbon tails, use closure-carbon stereochemistry
+	# (not anomeric state and not global D/L alone) to pick face.
 	post_chain_len = num_carbons - closure_carbon
-	chain_dir = "up" if parsed.config == "DEXTER" else "down"
+	chain_dir = _post_chain_direction(
+		parsed,
+		ring_type=ring_type,
+		closure_carbon=closure_carbon,
+		post_chain_len=post_chain_len,
+	)
 	chain_label = _post_chain_label(parsed, closure_carbon, post_chain_len)
 	if chain_label is not None:
 		if chain_dir == "up":
@@ -268,6 +275,28 @@ def _post_chain_label(parsed: ParsedSugarCode, closure_carbon: int, post_chain_l
 	if post_chain_len == 2:
 		return "CH(OH)CH2OH"
 	return f"CHAIN{post_chain_len}"
+
+
+#============================================
+def _post_chain_direction(
+		parsed: ParsedSugarCode,
+		ring_type: str,
+		closure_carbon: int,
+		post_chain_len: int) -> str:
+	"""Return up/down direction for post-closure exocyclic chain."""
+	default_dir = "up" if parsed.config == "DEXTER" else "down"
+	if ring_type != "furanose" or post_chain_len != 2:
+		return default_dir
+	if not (1 <= closure_carbon <= len(parsed.positions)):
+		return default_dir
+	closure_token = parsed.positions[closure_carbon - 1][0]
+	up_label, down_label = _labels_for_ring_token(closure_token, closure_carbon, parsed.footnotes)
+	# Exocyclic chain replaces closure-carbon hydroxyl; use opposite face.
+	if up_label != "H" and down_label == "H":
+		return "down"
+	if down_label != "H" and up_label == "H":
+		return "up"
+	return default_dir
 
 
 #============================================

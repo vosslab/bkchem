@@ -62,11 +62,17 @@ HYDROXYL_GLYPH_WIDTH_FACTOR = 0.60
 HYDROXYL_O_X_CENTER_FACTOR = 0.30
 HYDROXYL_O_Y_CENTER_FROM_BASELINE = 0.52
 HYDROXYL_O_RADIUS_FACTOR = 0.30
+LEADING_C_X_CENTER_FACTOR = 0.24
 HYDROXYL_LAYOUT_CANDIDATE_FACTORS = (1.00, 1.18, 1.34)
 HYDROXYL_LAYOUT_INTERNAL_CANDIDATE_FACTORS = (0.88, 1.00, 1.12, 1.26, 1.42)
 HYDROXYL_LAYOUT_MIN_GAP_FACTOR = 0.18
 HYDROXYL_RING_COLLISION_PENALTY = 1000000.0
+INTERNAL_PAIR_OVERLAP_AREA_THRESHOLD = 0.50
+INTERNAL_PAIR_LABEL_SCALE = 0.90
+INTERNAL_PAIR_LANE_Y_TOLERANCE_FACTOR = 0.12
+INTERNAL_PAIR_MIN_H_GAP_FACTOR = 0.75
 FURANOSE_TOP_UP_CLEARANCE_FACTOR = 0.08
+FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR = 0.12
 
 
 #============================================
@@ -207,6 +213,12 @@ def render(
 	)
 
 	slot_map = carbon_slot_map(spec)
+	slot_to_carbon = {slot: int(carbon_key[1:]) for carbon_key, slot in slot_map.items()}
+	left_top_carbon = slot_to_carbon.get("ML")
+	left_top_up_label = "H"
+	if left_top_carbon is not None:
+		left_top_up_label = spec.substituents.get(f"C{left_top_carbon}_up", "H")
+	left_top_is_chain_like = _is_chain_like_label(left_top_up_label)
 	default_sub_length = bond_length * 0.45
 	connector_width = back_thickness
 	simple_jobs = []
@@ -226,10 +238,27 @@ def render(
 			raw_dx, raw_dy = slot_label_cfg[slot][dir_key]
 			dx, dy = _normalize_vector(raw_dx, raw_dy)
 			anchor = slot_label_cfg[slot]["anchor"]
+			if (
+					spec.ring_type == "pyranose"
+					and direction == "up"
+					and str(label) == "OH"
+					and slot in ("BL", "BR")
+			):
+				# Interior pyranose hydroxyl labels should face ring center.
+				anchor = "start" if slot == "BL" else "end"
 			effective_length = sub_length
 			if spec.ring_type == "furanose" and direction == "up" and slot in ("ML", "MR"):
 				oxygen_top = oy - (font_size * 0.65)
 				target_y = oxygen_top - (font_size * FURANOSE_TOP_UP_CLEARANCE_FACTOR)
+				if (
+						slot == "MR"
+						and left_top_is_chain_like
+						and str(label) == "OH"
+						and down_label == "H"
+				):
+					# Keep right-top OH visually separate from left CH2OH
+					# by nudging it down toward ring center (not on one header line).
+					target_y += font_size * FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR
 				min_length = max(0.0, vertex[1] - target_y)
 				if min_length > effective_length:
 					effective_length = min_length
@@ -267,6 +296,7 @@ def render(
 					"font_size": font_size,
 					"font_name": font_name,
 					"anchor": anchor,
+					"text_scale": 1.0,
 					"line_color": line_color,
 					"label_color": label_color,
 				}
@@ -282,11 +312,12 @@ def render(
 			dy=job["dy"],
 			length=job["length"],
 			label=job["label"],
-			connector_width=job["connector_width"],
-			font_size=job["font_size"],
-			font_name=job["font_name"],
-			anchor=job["anchor"],
-			line_color=job["line_color"],
+				connector_width=job["connector_width"],
+				font_size=job["font_size"],
+				text_scale=job.get("text_scale", 1.0),
+				font_name=job["font_name"],
+				anchor=job["anchor"],
+				line_color=job["line_color"],
 			label_color=job["label_color"],
 		)
 
@@ -424,6 +455,7 @@ def _resolve_hydroxyl_layout_jobs(
 		)
 		for index in internal_hydroxyl_up_indices:
 			resolved[index]["length"] = equal_length
+	_resolve_internal_hydroxyl_pair_overlap(resolved)
 	return resolved
 
 
@@ -516,20 +548,114 @@ def _hydroxyl_candidate_jobs(job: dict, allow_anchor_flip: bool = False) -> list
 
 
 #============================================
+def _job_end_point(job: dict, length: float | None = None) -> tuple[float, float]:
+	"""Return connector endpoint for one job."""
+	if length is None:
+		length = job["length"]
+	return (
+		job["vertex"][0] + (job["dx"] * length),
+		job["vertex"][1] + (job["dy"] * length),
+	)
+
+
+#============================================
+def _internal_pair_overlap_area(left_job: dict, right_job: dict) -> float:
+	"""Compute overlap area between two internal hydroxyl label boxes."""
+	left_box = _job_text_bbox(left_job, left_job["length"])
+	right_box = _job_text_bbox(right_job, right_job["length"])
+	return _intersection_area(left_box, right_box, gap=0.0)
+
+
+#============================================
+def _internal_pair_horizontal_gap(left_job: dict, right_job: dict) -> float:
+	"""Return horizontal box gap between left/right internal pair labels."""
+	left_box = _job_text_bbox(left_job, left_job["length"])
+	right_box = _job_text_bbox(right_job, right_job["length"])
+	return right_box[0] - left_box[2]
+
+
+#============================================
+def _resolve_internal_hydroxyl_pair_overlap(jobs: list[dict]) -> None:
+	"""Apply one deterministic local fix for overlapping internal OH/HO pairs."""
+	internal_indices = [
+		index
+		for index, job in enumerate(jobs)
+		if _job_is_internal_hydroxyl(job) and _job_is_hydroxyl(job)
+	]
+	if len(internal_indices) < 2:
+		return
+	lane_tolerance = jobs[internal_indices[0]]["font_size"] * INTERNAL_PAIR_LANE_Y_TOLERANCE_FACTOR
+	sorted_indices = sorted(
+		internal_indices,
+		key=lambda index: _job_end_point(jobs[index])[1],
+	)
+	groups = []
+	current_group = []
+	current_lane = None
+	for index in sorted_indices:
+		lane_y = _job_end_point(jobs[index])[1]
+		if not current_group:
+			current_group = [index]
+			current_lane = lane_y
+			continue
+		if abs(lane_y - current_lane) <= lane_tolerance:
+			current_group.append(index)
+			continue
+		groups.append(current_group)
+		current_group = [index]
+		current_lane = lane_y
+	if current_group:
+		groups.append(current_group)
+	for group in groups:
+		if len(group) != 2:
+			continue
+		left_index, right_index = sorted(
+			group,
+			key=lambda index: _job_end_point(jobs[index])[0],
+		)
+		left_job = dict(jobs[left_index])
+		right_job = dict(jobs[right_index])
+		ring_type = left_job.get("ring_type")
+		if ring_type == "pyranose" and right_job.get("ring_type") == "pyranose":
+			# Keep interior pyranose hydroxyls center-facing: OH ... HO.
+			left_job["anchor"] = "start"
+			right_job["anchor"] = "end"
+		elif ring_type == "furanose" and right_job.get("ring_type") == "furanose":
+			# Keep classic interior reading order (OH ... HO) and use
+			# small local label scaling instead of widening the pair.
+			left_job["anchor"] = "start"
+			right_job["anchor"] = "end"
+			left_job["text_scale"] = INTERNAL_PAIR_LABEL_SCALE
+			right_job["text_scale"] = INTERNAL_PAIR_LABEL_SCALE
+		else:
+			left_job["anchor"] = "end"
+			right_job["anchor"] = "start"
+		if ring_type != "furanose" or right_job.get("ring_type") != "furanose":
+			overlap = _internal_pair_overlap_area(left_job, right_job)
+			min_gap = left_job["font_size"] * INTERNAL_PAIR_MIN_H_GAP_FACTOR
+			h_gap = _internal_pair_horizontal_gap(left_job, right_job)
+			if overlap > INTERNAL_PAIR_OVERLAP_AREA_THRESHOLD or h_gap < min_gap:
+				left_job["text_scale"] = INTERNAL_PAIR_LABEL_SCALE
+				right_job["text_scale"] = INTERNAL_PAIR_LABEL_SCALE
+		jobs[left_index] = left_job
+		jobs[right_index] = right_job
+
+
+#============================================
 def _job_text_bbox(job: dict, length: float) -> tuple[float, float, float, float]:
 	"""Approximate text bbox for one simple-label placement job."""
-	vertex = job["vertex"]
-	end_x = vertex[0] + (job["dx"] * length)
-	end_y = vertex[1] + (job["dy"] * length)
+	end_x, end_y = _job_end_point(job, length)
 	text = _format_label_text(job["label"], anchor=job["anchor"])
-	text_x = end_x + _anchor_x_offset(text, job["anchor"], job["font_size"])
-	text_y = end_y + _baseline_shift(job["direction"], job["font_size"], text)
+	layout_font_size = job["font_size"]
+	draw_font_size = layout_font_size * float(job.get("text_scale", 1.0))
+	text_x = end_x + _anchor_x_offset(text, job["anchor"], layout_font_size)
+	text_y = end_y + _baseline_shift(job["direction"], layout_font_size, text)
 	return _text_bbox(
 		text_x=text_x,
 		text_y=text_y,
 		text=text,
 		anchor=job["anchor"],
-		font_size=job["font_size"],
+		font_size=draw_font_size,
 	)
 
 
@@ -719,16 +845,28 @@ def _add_simple_label_ops(
 		label: str,
 		connector_width: float,
 		font_size: float,
+		text_scale: float,
 		font_name: str,
 		anchor: str,
 		line_color: str,
 		label_color: str) -> None:
 	"""Add one connector line + one label."""
 	end_point = (vertex[0] + dx * length, vertex[1] + dy * length)
+	text = _format_label_text(label, anchor=anchor)
+	anchor_x = _anchor_x_offset(text, anchor, font_size)
+	text_x = end_point[0] + anchor_x
+	text_y = end_point[1] + _baseline_shift(direction, font_size, text)
+	draw_font_size = font_size * text_scale
+	connector_end = end_point
+	c_center = _leading_carbon_center(text, anchor, text_x, text_y, draw_font_size)
+	if direction == "down" and c_center is not None:
+		# For downward CH* labels, terminate exactly at the leading-carbon center
+		# so the bond does not overshoot into the glyph body.
+		connector_end = c_center
 	ops.append(
 		render_ops.LineOp(
 			p1=vertex,
-			p2=end_point,
+			p2=connector_end,
 			width=connector_width,
 			cap="round",
 			color=line_color,
@@ -736,16 +874,12 @@ def _add_simple_label_ops(
 			op_id=f"C{carbon}_{direction}_connector",
 		)
 	)
-	text = _format_label_text(label, anchor=anchor)
-	anchor_x = _anchor_x_offset(text, anchor, font_size)
-	text_x = end_point[0] + anchor_x
-	text_y = end_point[1] + _baseline_shift(direction, font_size, text)
 	ops.append(
 		render_ops.TextOp(
 			x=text_x,
 			y=text_y,
 			text=text,
-			font_size=font_size,
+			font_size=draw_font_size,
 			font_name=font_name,
 			anchor=anchor,
 			weight="normal",
@@ -787,7 +921,7 @@ def _add_chain_ops(
 				op_id=f"C{carbon}_{direction}_chain{index}_connector",
 			)
 		)
-		text = _format_label_text(raw_label, anchor=anchor)
+		text = _format_chain_label_text(raw_label, anchor=anchor)
 		anchor_x = _anchor_x_offset(text, anchor, font_size)
 		text_x = end[0] + anchor_x
 		text_y = end[1] + _baseline_shift(direction, font_size, text)
@@ -891,12 +1025,42 @@ def _chain_labels(label: str) -> list[str] | None:
 
 
 #============================================
+def _is_chain_like_label(label: str) -> bool:
+	"""Return True for compact CH* labels that render as chain-like substituents."""
+	text = str(label or "")
+	if text.startswith("CH"):
+		return True
+	return _chain_labels(text) is not None
+
+
+#============================================
 def _format_label_text(label: str, anchor: str = "middle") -> str:
 	"""Convert plain labels to display text with side-aware hydroxyl ordering."""
 	text = str(label)
 	if text == "OH" and anchor == "end":
 		text = "HO"
+	text = _apply_subscript_markup(text)
+	return text
+
+
+#============================================
+def _format_chain_label_text(label: str, anchor: str = "middle") -> str:
+	"""Format exocyclic-chain segment labels with side-aware left-end flipping."""
+	text = str(label)
+	if anchor == "end":
+		if text == "CH2OH":
+			text = "HOH2C"
+		elif text == "CHOH":
+			text = "HOHC"
+	text = _apply_subscript_markup(text)
+	return text
+
+
+#============================================
+def _apply_subscript_markup(text: str) -> str:
+	"""Apply subscript markup for compact numeric label fragments."""
 	text = text.replace("CH2OH", "CH<sub>2</sub>OH")
+	text = text.replace("HOH2C", "HOH<sub>2</sub>C")
 	return text
 
 
@@ -916,6 +1080,9 @@ def _anchor_x_offset(text: str, anchor: str, font_size: float) -> float:
 	carbon_offset = _leading_carbon_anchor_offset(text, anchor, font_size)
 	if carbon_offset is not None:
 		return carbon_offset
+	trailing_carbon_offset = _trailing_carbon_anchor_offset(text, anchor, font_size)
+	if trailing_carbon_offset is not None:
+		return trailing_carbon_offset
 	if anchor == "start":
 		return font_size * 0.12
 	if anchor == "end":
@@ -930,13 +1097,30 @@ def _leading_carbon_anchor_offset(text: str, anchor: str, font_size: float) -> f
 	if not visible.startswith("CH"):
 		return None
 	text_width = len(visible) * font_size * HYDROXYL_GLYPH_WIDTH_FACTOR
-	c_center = font_size * HYDROXYL_O_X_CENTER_FACTOR
+	c_center = font_size * LEADING_C_X_CENTER_FACTOR
 	if anchor == "start":
 		return -c_center
 	if anchor == "middle":
 		return (text_width / 2.0) - c_center
 	if anchor == "end":
 		return text_width - c_center
+	return None
+
+
+#============================================
+def _trailing_carbon_anchor_offset(text: str, anchor: str, font_size: float) -> float | None:
+	"""Return text-x offset for labels that connect at trailing-carbon center."""
+	visible = re.sub(r"<[^>]+>", "", text or "")
+	if not visible.endswith("C"):
+		return None
+	text_width = len(visible) * font_size * HYDROXYL_GLYPH_WIDTH_FACTOR
+	c_center = font_size * LEADING_C_X_CENTER_FACTOR
+	if anchor == "start":
+		return -(text_width - c_center)
+	if anchor == "middle":
+		return -((text_width / 2.0) - c_center)
+	if anchor == "end":
+		return c_center
 	return None
 
 
@@ -966,7 +1150,7 @@ def _leading_carbon_center(
 		start_x = text_x - (text_width / 2.0)
 	else:
 		start_x = text_x
-	c_center_x = start_x + (font_size * HYDROXYL_O_X_CENTER_FACTOR)
+	c_center_x = start_x + (font_size * LEADING_C_X_CENTER_FACTOR)
 	c_center_y = text_y - (font_size * HYDROXYL_O_Y_CENTER_FROM_BASELINE)
 	return (c_center_x, c_center_y)
 

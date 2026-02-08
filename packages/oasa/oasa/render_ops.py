@@ -116,6 +116,48 @@ def _text_segments(text):
 
 
 #============================================
+def _segment_baseline_state(tags):
+	if "sub" in tags:
+		return "sub"
+	if "sup" in tags:
+		return "sup"
+	return "base"
+
+
+#============================================
+SCRIPT_FONT_SCALE = 0.65
+SUBSCRIPT_OFFSET_EM = 0.40
+SUPERSCRIPT_OFFSET_EM = 0.45
+
+
+#============================================
+def _segment_font_size(font_size, baseline_state):
+	if baseline_state in ("sub", "sup"):
+		return font_size * SCRIPT_FONT_SCALE
+	return font_size
+
+
+#============================================
+def _baseline_offset_em(baseline_state):
+	if baseline_state == "sub":
+		return SUBSCRIPT_OFFSET_EM
+	if baseline_state == "sup":
+		return -SUPERSCRIPT_OFFSET_EM
+	return 0.0
+
+
+#============================================
+def _baseline_transition_dy_em(previous_state, next_state):
+	return _baseline_offset_em(next_state) - _baseline_offset_em(previous_state)
+
+
+#============================================
+def _baseline_transition_dy_px(font_size, previous_state, next_state):
+	"""Return absolute SVG dy in user units for one baseline-state change."""
+	return font_size * _baseline_transition_dy_em(previous_state, next_state)
+
+
+#============================================
 def _normalize_hex_color(text):
 	if text.lower() == "none":
 		return "none"
@@ -413,15 +455,17 @@ def ops_to_svg(parent, ops):
 				dom_extensions.textOnlyElementUnder(parent, "text", op.text, attrs)
 				continue
 			text_el = dom_extensions.elementUnder(parent, "text", attrs)
+			baseline_state = "base"
 			for chunk, tags in segments:
 				span_attrs = ()
-				if "sub" in tags:
-					span_attrs += (("baseline-shift", "sub"),
-						("font-size", str(op.font_size * 0.7)),)
-				elif "sup" in tags:
-					span_attrs += (("baseline-shift", "super"),
-						("font-size", str(op.font_size * 0.7)),)
+				segment_state = _segment_baseline_state(tags)
+				if segment_state in ("sub", "sup"):
+					span_attrs += (("font-size", str(_segment_font_size(op.font_size, segment_state))),)
+				dy_px = _baseline_transition_dy_px(op.font_size, baseline_state, segment_state)
+				if abs(dy_px) > 1e-9:
+					span_attrs += (("dy", f"{dy_px:.2f}"),)
 				dom_extensions.textOnlyElementUnder(text_el, "tspan", chunk, span_attrs)
+				baseline_state = segment_state
 			continue
 
 
@@ -535,14 +579,10 @@ def ops_to_cairo(context, ops):
 			weight = 1 if op.weight == "bold" else 0
 			segments = _text_segments(op.text)
 			context.select_font_face(op.font_name, 0, weight)
-			context.set_font_size(op.font_size)
-			asc, _desc, _height, _ax, _ay = context.font_extents()
 			total_width = 0.0
 			for chunk, tags in segments:
-				if "sub" in tags or "sup" in tags:
-					context.set_font_size(op.font_size * 0.7)
-				else:
-					context.set_font_size(op.font_size)
+				segment_state = _segment_baseline_state(tags)
+				context.set_font_size(_segment_font_size(op.font_size, segment_state))
 				extents = context.text_extents(chunk)
 				total_width += extents.x_advance
 			x = op.x
@@ -551,15 +591,9 @@ def ops_to_cairo(context, ops):
 			elif op.anchor == "end":
 				x -= total_width
 			for chunk, tags in segments:
-				if "sub" in tags:
-					y = op.y + asc / 2.0
-					context.set_font_size(op.font_size * 0.7)
-				elif "sup" in tags:
-					y = op.y - asc / 2.0
-					context.set_font_size(op.font_size * 0.7)
-				else:
-					y = op.y
-					context.set_font_size(op.font_size)
+				segment_state = _segment_baseline_state(tags)
+				context.set_font_size(_segment_font_size(op.font_size, segment_state))
+				y = op.y + (op.font_size * _baseline_offset_em(segment_state))
 				extents = context.text_extents(chunk)
 				context.move_to(x, y)
 				context.show_text(chunk)

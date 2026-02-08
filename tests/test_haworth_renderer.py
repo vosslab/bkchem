@@ -2,6 +2,7 @@
 
 # Standard Library
 import math
+from xml.dom import minidom as xml_minidom
 
 # Third Party
 import pytest
@@ -12,6 +13,7 @@ import conftest
 
 conftest.add_oasa_to_sys_path()
 
+import oasa.dom_extensions as dom_extensions
 import oasa.haworth as haworth
 import oasa.haworth_renderer as haworth_renderer
 import oasa.haworth_spec as haworth_spec
@@ -334,8 +336,8 @@ def test_render_carbon_numbers_closer_to_ring_vertices():
 def test_render_aldohexose_furanose():
 	_, ops = _render("ARLRDM", "furanose", "alpha")
 	text_values = [op.text for op in _texts(ops)]
-	assert "CHOH" in text_values
-	assert "CH<sub>2</sub>OH" in text_values
+	assert "HOHC" in text_values
+	assert "HOH<sub>2</sub>C" in text_values
 
 
 #============================================
@@ -389,9 +391,14 @@ def test_render_furanose_side_connectors_vertical():
 
 
 #============================================
-def test_render_left_anchor_hydroxyl_uses_ho_order():
+def test_render_internal_left_hydroxyl_uses_oh_order():
 	_, ops = _render("ARLRDM", "pyranose", "alpha")
-	assert _text_by_id(ops, "C3_up_label").text == "HO"
+	assert _text_by_id(ops, "C3_up_label").text == "OH"
+
+
+#============================================
+def test_render_left_anchor_down_hydroxyl_uses_ho_order():
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
 	assert _text_by_id(ops, "C4_down_label").text == "HO"
 
 
@@ -419,8 +426,8 @@ def test_render_right_anchor_hydroxyl_connector_hits_o_center():
 #============================================
 def test_render_left_anchor_hydroxyl_connector_hits_o_center():
 	_, ops = _render("ARLRDM", "pyranose", "alpha")
-	label = _text_by_id(ops, "C3_up_label")
-	line = _line_by_id(ops, "C3_up_connector")
+	label = _text_by_id(ops, "C4_down_label")
+	line = _line_by_id(ops, "C4_down_connector")
 	assert label.text == "HO"
 	assert label.anchor == "end"
 	o_center = haworth_renderer._hydroxyl_oxygen_center(
@@ -508,6 +515,149 @@ def test_render_lyxose_pyranose_internal_connectors_equal_length():
 
 
 #============================================
+def test_render_mannose_pyranose_internal_pair_renders_oh_ho():
+	_, ops = _render("ALLRDM", "pyranose", "alpha", show_hydrogens=False)
+	assert _text_by_id(ops, "C2_up_label").text == "HO"
+	assert _text_by_id(ops, "C3_up_label").text == "OH"
+
+
+#============================================
+@pytest.mark.parametrize("anomeric", ("alpha", "beta"))
+def test_render_arabinose_pyranose_internal_right_is_ho(anomeric):
+	_, ops = _render("ALRDM", "pyranose", anomeric, show_hydrogens=False)
+	assert _text_by_id(ops, "C2_up_label").text == "HO"
+
+
+#============================================
+@pytest.mark.parametrize("anomeric", ("alpha", "beta"))
+def test_render_xylose_pyranose_internal_left_is_oh(anomeric):
+	_, ops = _render("ARLDM", "pyranose", anomeric, show_hydrogens=False)
+	assert _text_by_id(ops, "C3_up_label").text == "OH"
+
+
+#============================================
+def test_render_lyxose_furanose_internal_pair_has_no_ohho_overlap():
+	_, ops = _render("ALLDM", "furanose", "alpha", show_hydrogens=False)
+	left = _text_by_id(ops, "C3_up_label")
+	right = _text_by_id(ops, "C2_up_label")
+	overlap = haworth_renderer._intersection_area(_label_bbox(left), _label_bbox(right), gap=0.0)
+	assert overlap <= haworth_renderer.INTERNAL_PAIR_OVERLAP_AREA_THRESHOLD
+
+
+#============================================
+def test_render_lyxose_furanose_internal_pair_uses_spacing_rule():
+	_, ops = _render("ALLDM", "furanose", "alpha", show_hydrogens=False)
+	left = _text_by_id(ops, "C3_up_label")
+	right = _text_by_id(ops, "C2_up_label")
+	assert left.text == "OH"
+	assert right.text == "HO"
+	left_box = _label_bbox(left)
+	right_box = _label_bbox(right)
+	h_gap = right_box[0] - left_box[2]
+	min_gap = 12.0 * haworth_renderer.INTERNAL_PAIR_MIN_H_GAP_FACTOR
+	scaled_size = 12.0 * haworth_renderer.INTERNAL_PAIR_LABEL_SCALE
+	is_scaled = (
+		left.font_size == pytest.approx(scaled_size)
+		and right.font_size == pytest.approx(scaled_size)
+	)
+	assert is_scaled or (h_gap >= min_gap)
+
+
+#============================================
+def test_internal_pair_adjustment_flips_then_scales_once():
+	jobs = [
+		{
+			"carbon": 3,
+			"ring_type": "furanose",
+			"slot": "BL",
+			"direction": "up",
+			"vertex": (-2.0, 0.0),
+			"dx": 0.0,
+			"dy": -1.0,
+			"length": 10.0,
+			"label": "OH",
+			"connector_width": 1.0,
+			"font_size": 12.0,
+			"font_name": "sans-serif",
+			"anchor": "start",
+			"text_scale": 1.0,
+			"line_color": "#000",
+			"label_color": "#000",
+		},
+		{
+			"carbon": 2,
+			"ring_type": "furanose",
+			"slot": "BR",
+			"direction": "up",
+			"vertex": (2.0, 0.0),
+			"dx": 0.0,
+			"dy": -1.0,
+			"length": 10.0,
+			"label": "OH",
+			"connector_width": 1.0,
+			"font_size": 12.0,
+			"font_name": "sans-serif",
+			"anchor": "end",
+			"text_scale": 1.0,
+			"line_color": "#000",
+			"label_color": "#000",
+		},
+	]
+	haworth_renderer._resolve_internal_hydroxyl_pair_overlap(jobs)
+	assert jobs[0]["anchor"] == "start"
+	assert jobs[1]["anchor"] == "end"
+	assert jobs[0]["text_scale"] == pytest.approx(haworth_renderer.INTERNAL_PAIR_LABEL_SCALE)
+	assert jobs[1]["text_scale"] == pytest.approx(haworth_renderer.INTERNAL_PAIR_LABEL_SCALE)
+
+
+#============================================
+def test_render_mannose_furanose_internal_pair_uses_oh_ho_scaled():
+	_, ops = _render("ALLRDM", "furanose", "alpha", show_hydrogens=False)
+	left = _text_by_id(ops, "C3_up_label")
+	right = _text_by_id(ops, "C2_up_label")
+	assert left.text == "OH"
+	assert right.text == "HO"
+	scaled_size = 12.0 * haworth_renderer.INTERNAL_PAIR_LABEL_SCALE
+	assert left.font_size == pytest.approx(scaled_size)
+	assert right.font_size == pytest.approx(scaled_size)
+
+
+#============================================
+def test_furanose_internal_dual_hydroxyl_never_uses_ho_oh_order():
+	codes = (
+		"ARDM", "ALDM", "ARRDM", "ALRDM", "ARLDM", "ALLDM",
+		"ARRRDM", "ALRRDM", "ARLRDM", "ALLRDM", "ARRLDM", "ALRLDM", "ARLLDM", "ALLLDM",
+		"MKRDM", "MKLDM", "MKLRDM", "MKLLDM", "MKRRDM", "MKRLDM",
+	)
+	checked_pairs = 0
+	for code in codes:
+		for anomeric in ("alpha", "beta"):
+			spec, ops = _render(code, "furanose", anomeric, show_hydrogens=False)
+			slot_map = haworth_renderer.carbon_slot_map(spec)
+			slot_to_carbon = {slot: int(carbon_key[1:]) for carbon_key, slot in slot_map.items()}
+			left_carbon = slot_to_carbon.get("BL")
+			right_carbon = slot_to_carbon.get("BR")
+			if left_carbon is None or right_carbon is None:
+				continue
+			left_label = next(
+				(op for op in ops if getattr(op, "op_id", None) == f"C{left_carbon}_up_label"),
+				None,
+			)
+			right_label = next(
+				(op for op in ops if getattr(op, "op_id", None) == f"C{right_carbon}_up_label"),
+				None,
+			)
+			if not left_label or not right_label:
+				continue
+			if left_label.text in ("OH", "HO") and right_label.text in ("OH", "HO"):
+				checked_pairs += 1
+				assert (left_label.text, right_label.text) == ("OH", "HO"), (
+					f"{code} {anomeric}: internal pair rendered {left_label.text} {right_label.text}"
+				)
+	assert checked_pairs > 0
+
+
+#============================================
 def test_render_ch2oh_connector_hits_leading_carbon_center():
 	_, ops = _render("ARRRDM", "pyranose", "alpha", show_hydrogens=False)
 	label = _text_by_id(ops, "C5_up_label")
@@ -534,6 +684,21 @@ def test_render_arabinose_furanose_ch2oh_connector_hits_leading_carbon_center():
 
 
 #============================================
+@pytest.mark.parametrize("code", ("MKRDM", "MKLDM"))
+def test_render_ketopentose_furanose_down_ch2oh_connector_hits_leading_carbon_center(code):
+	_, ops = _render(code, "furanose", "beta", show_hydrogens=False)
+	label = _text_by_id(ops, "C2_down_label")
+	line = _line_by_id(ops, "C2_down_connector")
+	assert label.text == "CH<sub>2</sub>OH"
+	c_center = haworth_renderer._leading_carbon_center(
+		label.text, label.anchor, label.x, label.y, label.font_size
+	)
+	assert c_center is not None
+	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
+	assert line.p2[1] == pytest.approx(c_center[1], abs=0.05)
+
+
+#============================================
 def test_render_furanose_top_up_connectors_above_oxygen_label():
 	_, ops = _render("MKLRDM", "furanose", "beta", show_hydrogens=False)
 	oxygen = _text_by_id(ops, "oxygen_label")
@@ -541,6 +706,17 @@ def test_render_furanose_top_up_connectors_above_oxygen_label():
 	for op_id in ("C2_up_connector", "C5_up_connector"):
 		line = _line_by_id(ops, op_id)
 		assert line.p2[1] < (oxygen_top - 0.05)
+
+
+#============================================
+def test_render_arabinose_furanose_beta_top_labels_are_not_flat_aligned():
+	_, ops = _render("ALRDM", "furanose", "beta", show_hydrogens=False)
+	right_oh = _text_by_id(ops, "C1_up_label")
+	left_chain = _text_by_id(ops, "C4_up_label")
+	assert right_oh.text == "OH"
+	assert left_chain.text == "CH<sub>2</sub>OH"
+	assert right_oh.y > left_chain.y
+	assert (right_oh.y - left_chain.y) >= (right_oh.font_size * 0.09)
 
 
 #============================================
@@ -589,6 +765,34 @@ def test_render_bbox_sub_tags():
 
 
 #============================================
+def test_render_subscript_svg_uses_lowered_tspan_dy():
+	_, ops = _render("ALRDM", "furanose", "alpha", show_hydrogens=False)
+	try:
+		impl = xml_minidom.getDOMImplementation()
+		doc = impl.createDocument(None, None, None)
+	except Exception:
+		doc = xml_minidom.Document()
+	svg = dom_extensions.elementUnder(
+		doc,
+		"svg",
+		attributes=(
+			("xmlns", "http://www.w3.org/2000/svg"),
+			("version", "1.1"),
+			("width", "220"),
+			("height", "220"),
+			("viewBox", "0 0 220 220"),
+		),
+	)
+	render_ops.ops_to_svg(svg, ops)
+	svg_text = doc.toxml("utf-8")
+	if isinstance(svg_text, bytes):
+		svg_text = svg_text.decode("utf-8")
+	assert 'dy="4.80"' in svg_text
+	assert 'dy="-4.80"' in svg_text
+	assert 'baseline-shift=' not in svg_text
+
+
+#============================================
 def test_render_fructose_anomeric_no_overlap():
 	_, ops = _render("MKLRDM", "furanose", "beta")
 	up = _text_by_id(ops, "C2_up_label")
@@ -610,7 +814,7 @@ def test_render_alpha_glucose_c3_oh_above():
 	spec, ops = _render("ARLRDM", "pyranose", "alpha")
 	vertex = _ring_vertex(spec, 3)
 	oh_label = _text_by_id(ops, "C3_up_label")
-	assert oh_label.text == "HO"
+	assert oh_label.text == "OH"
 	assert oh_label.y < vertex[1]
 
 
@@ -723,9 +927,17 @@ def test_render_exocyclic_2_chain_labels():
 	_, ops = _render("ARLRDM", "furanose", "alpha")
 	l1 = _text_by_id(ops, "C4_up_chain1_label")
 	l2 = _text_by_id(ops, "C4_up_chain2_label")
-	assert l1.text == "CHOH"
-	assert l2.text == "CH<sub>2</sub>OH"
+	assert l1.text == "HOHC"
+	assert l2.text == "HOH<sub>2</sub>C"
 	assert _distance((l2.x, l2.y), (l1.x, l1.y)) > 5.0
+
+
+#============================================
+def test_render_gulose_furanose_chain_labels_flip_leftward_alpha_beta():
+	for anomeric in ("alpha", "beta"):
+		_, ops = _render("ARRLDM", "furanose", anomeric, show_hydrogens=False)
+		assert _text_by_id(ops, "C4_down_chain1_label").text == "HOHC"
+		assert _text_by_id(ops, "C4_down_chain2_label").text == "HOH<sub>2</sub>C"
 
 
 #============================================

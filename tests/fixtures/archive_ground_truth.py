@@ -7,6 +7,8 @@ Convention: R = OH on Fischer right = OH down in Haworth
             L = OH on Fischer left = OH up in Haworth
             D-series: exocyclic chain goes UP from config carbon
             L-series: exocyclic chain goes DOWN from config carbon
+            Furanose with 2-carbon post-closure tail: chain face is
+            opposite the closure-carbon OH face (closure stereocenter rule).
 
 For alpha-D: anomeric OH goes DOWN
 For beta-D:  anomeric OH goes UP
@@ -170,7 +172,7 @@ _galactose_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
 	"C3_up": "OH", "C3_down": "H",
-	"C4_up": "CH(OH)CH2OH", "C4_down": "H",
+	"C4_up": "H", "C4_down": "CH(OH)CH2OH",
 }
 
 _mannose_alpha_pyr = {
@@ -234,7 +236,7 @@ _gulose_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
 	"C3_up": "H", "C3_down": "OH",
-	"C4_up": "CH(OH)CH2OH", "C4_down": "H",
+	"C4_up": "H", "C4_down": "CH(OH)CH2OH",
 }
 
 _idose_alpha_pyr = {
@@ -250,7 +252,7 @@ _idose_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
 	"C3_up": "H", "C3_down": "OH",
-	"C4_up": "CH(OH)CH2OH", "C4_down": "H",
+	"C4_up": "H", "C4_down": "CH(OH)CH2OH",
 }
 
 _talose_alpha_pyr = {
@@ -266,7 +268,7 @@ _talose_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
 	"C3_up": "OH", "C3_down": "H",
-	"C4_up": "CH(OH)CH2OH", "C4_down": "H",
+	"C4_up": "H", "C4_down": "CH(OH)CH2OH",
 }
 
 # ============================================================================

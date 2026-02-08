@@ -1,6 +1,105 @@
 # Changelog
 
 ## 2026-02-08
+- Fix down-facing `CH<sub>2</sub>OH` connector overshoot in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  for simple downward `CH*` labels, terminate connector lines at the leading
+  carbon glyph center (x/y) to prevent bond overlap through the `C` character
+  on right-side ketopentose furanose cases (e.g., D-ribulose, D-xylulose beta).
+  Add regression tests in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for
+  `MKRDM`/`MKLDM` furanose-beta (`C2_down_label` vs `C2_down_connector`).
+- Fix pyranose internal hydroxyl text-order regression in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  make internal up-hydroxyl labels center-facing (`C3_up` on left -> `OH`,
+  `C2_up` on right -> `HO`) for single and paired internal cases, matching
+  NEUROtiker references (e.g., D-arabinose and D-xylose). Add explicit
+  regressions in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  for arabinose/xylose alpha+beta and updated mannose pyranose expectations.
+- Fix ALRDM top-label regression in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  and [packages/oasa/oasa/render_ops.py](packages/oasa/oasa/render_ops.py):
+  avoid `CH<sub>2</sub>OH` rendering as `CH2^OH` by emitting absolute SVG `dy`
+  transitions for subscript tspans (font-size independent), and nudge the
+  furanose top-right `OH` downward (toward ring center) for chain-like left-top
+  cases so top substituents are no longer visually snapped to the same y line.
+  Update regression checks in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py).
+- Add a dedicated furanose internal-hydroxyl ordering guard in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py):
+  scan the furanose matrix and fail if any dual internal up-hydroxyl pair
+  renders as `HO ... OH`; required ordering is now enforced as `OH ... HO`.
+- Fix furanose two-carbon exocyclic tail face selection in
+  [packages/oasa/oasa/haworth_spec.py](packages/oasa/oasa/haworth_spec.py):
+  keep alpha/beta affecting only the anomeric substituent, and for
+  `post_chain_len == 2` derive closure-carbon chain up/down from the closure
+  stereocenter (opposite the closure-carbon OH face) instead of global D/L
+  config-only direction. This corrects D-galactofuranose-like cases (`ARLLDM`)
+  where the left two-carbon tail must project below the ring in both alpha/beta.
+  Update expected archive ground truth in
+  [tests/fixtures/archive_ground_truth.py](tests/fixtures/archive_ground_truth.py)
+  and add regression coverage in
+  [tests/test_haworth_spec.py](tests/test_haworth_spec.py) plus
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py).
+- Fix furanose dual-internal hydroxyl label regression in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  for same-lane internal `OH` pairs, restore deterministic interior reading as
+  `OH ... HO` (left/right) and apply local one-pass `0.90` text scaling to the
+  pair instead of widening labels into `HO ... OH` spacing. Add/update
+  regressions in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  for `ALLDM` and `ALLRDM` furanose-alpha internal pair orientation and scale.
+- Refine furanose beta top-substituent placement in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  preserve the lifted left-top `CH<sub>2</sub>OH` oxygen-clearance fix while
+  de-coupling right-top `OH` from the same forced y level when the left top is
+  chain-like (`CH*`), so the two top labels are no longer rendered as a flat
+  row. Add regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for
+  `ALRDM` furanose-beta top-label separation.
+- Improve chemical subscript readability in
+  [packages/oasa/oasa/render_ops.py](packages/oasa/oasa/render_ops.py) by
+  rendering script text with a deterministic font scale and explicit `dy`
+  baseline transitions (now visibly lowered like `CH<sub>2</sub>OH`), and fix
+  a Cairo text-loop indentation bug that could redraw multi-segment labels
+  multiple times. Update regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to assert
+  `dy`-based SVG subscript shifts and no `baseline-shift` attributes.
+- Refine furanose interior pair spacing rule in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  after deterministic `HO`/`OH` interior-up anchor assignment, evaluate a
+  minimum horizontal label-gap threshold (in addition to overlap area) and apply
+  one-time local `0.90` text scaling only when spacing is still too tight.
+  Update coverage in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  to assert the rule outcome (`HO`/`OH` ordering plus either scaled labels or
+  gap >= threshold) for `ALLDM` furanose-alpha.
+- Fix left-end 2-carbon exocyclic chain direction labeling for furanose
+  aldohexose cases (including `ARRLDM` D-gulose) in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  when chain labels are left-anchored (`anchor='end'`), flip `CHOH` -> `HOHC`
+  and `CH2OH` -> `HOH2C` (with subscript markup), and align connector text
+  offsets to trailing-carbon center for these flipped labels. Add regression
+  coverage in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  for `ARRLDM` furanose alpha/beta and update exocyclic-chain expectations.
+- Fix interior `OH/HO` direction regression for D-mannose-style pyranose
+  interior-up pairs in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  by making the pair rule deterministic for pyranose: force both interior-up
+  labels to `HO` (anchor `end`) and apply one-time local `0.90` text scaling
+  only if overlap remains. Add dedicated regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for
+  `ALLRDM` pyranose-alpha (`C2_up_label`, `C3_up_label` both `HO`).
+- Tune exocyclic `CH<sub>2</sub>OH` connector anchoring and internal-label polish:
+  in [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py),
+  shift leading-carbon center anchoring for `CH*` labels to better hit the `C`
+  glyph center, add a deterministic two-label internal hydroxyl cleanup step
+  (detect same-lane internal `OH/HO` overlap above threshold, force left=`HO`/
+  right=`OH`, then apply one-time local `0.90` text scale if needed, without
+  cascading), and keep lane y-position fixed while scaling via anchor-preserving
+  text size. In [packages/oasa/oasa/render_ops.py](packages/oasa/oasa/render_ops.py),
+  lower subscript rendering by emitting SVG tspans with explicit
+  `baseline-shift="-0.30em"` and matching Cairo offsets. Add regressions in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for the
+  deterministic internal pair adjustment and subscript SVG baseline-shift output.
 - Refine internal hydroxyl layout in
   [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
   by scoring internal text-vs-ring collisions against actual ring-edge polygons
