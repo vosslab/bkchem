@@ -77,6 +77,9 @@ from . import render_ops
 from . import render_out
 from . import wedge_geometry
 from . import haworth
+from . import sugar_code
+from . import haworth_spec
+from . import haworth_renderer
 from . import stereochemistry
 from . import geometry
 from . import transform3d
@@ -113,6 +116,9 @@ _EXPORTED_MODULES = [
 	render_out,
 	wedge_geometry,
 	haworth,
+	sugar_code,
+	haworth_spec,
+	haworth_renderer,
 	stereochemistry,
 	geometry,
 	transform3d,
@@ -137,6 +143,9 @@ allNames.extend([
 	"render_ops",
 	"render_out",
 	"wedge_geometry",
+	"sugar_code",
+	"haworth_spec",
+	"haworth_renderer",
 ])
 allNames.append("cdml_writer")
 allNames.append("__version__")

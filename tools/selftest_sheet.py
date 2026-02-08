@@ -60,6 +60,9 @@ dom_extensions = oasa.dom_extensions
 render_geometry = oasa.render_geometry
 render_ops = oasa.render_ops
 haworth = oasa.haworth
+sugar_code = oasa.sugar_code
+haworth_spec = oasa.haworth_spec
+haworth_renderer = oasa.haworth_renderer
 
 #============================================
 # Page dimensions at 72 DPI
@@ -813,113 +816,6 @@ def _build_cholesterol_mol():
 
 
 #============================================
-def _add_explicit_h_to_haworth(mol, ring_atoms, bond_length=30):
-	"""Add explicit H atoms and label OH groups for clear Haworth representation."""
-	ring_set = set(ring_atoms)
-
-	# First pass: Add explicit H to ring carbons and convert OH groups to labels
-	for ring_atom in ring_atoms:
-		if ring_atom.symbol != "C":
-			continue  # Skip oxygen
-
-		all_neighbors = list(ring_atom.neighbors)
-
-		# Find substituents (non-ring neighbors)
-		substituents = [n for n in all_neighbors if n not in ring_set]
-
-		# Check if this carbon has an OH group (O neighbor that has an H)
-		for sub in substituents:
-			if sub.symbol == "O":
-				# Check if this O has an H attached
-				o_neighbors = list(sub.neighbors)
-				h_on_oxygen = [n for n in o_neighbors if n.symbol == "H" and n not in all_neighbors]
-
-				if h_on_oxygen:
-					# This is an OH group - label the O as "OH" and remove the H
-					sub.properties_["label"] = "OH"
-					# Remove the H atom from the molecule
-					for h in h_on_oxygen:
-						mol.remove_vertex(h)
-
-		# Add H to ring carbon if it needs one (3 bonds -> needs 1 H to reach 4)
-		current_bonds = len(list(ring_atom.neighbors))  # Recount after removing H from OH
-		if current_bonds == 3:
-			# Calculate position for H (opposite from substituent if present)
-			subs_after = [n for n in ring_atom.neighbors if n not in ring_set]
-
-			if subs_after:
-				avg_dx = sum(n.x - ring_atom.x for n in subs_after) / len(subs_after)
-				avg_dy = sum(n.y - ring_atom.y for n in subs_after) / len(subs_after)
-				h_dx = -avg_dx * 0.5  # Shorter, opposite direction
-				h_dy = -avg_dy * 0.5
-			else:
-				h_dx = 0
-				h_dy = bond_length * 0.5
-
-			# Add H with label
-			h_atom = atom.atom(symbol="H")
-			h_bond = bond_module.bond(order=1, type="n")
-
-			h_atom.x = ring_atom.x + h_dx
-			h_atom.y = ring_atom.y + h_dy
-			mol.add_vertex(h_atom)
-
-			h_bond.vertices = (ring_atom, h_atom)
-			mol.add_edge(ring_atom, h_atom, h_bond)
-
-
-#============================================
-def _build_alpha_d_glucopyranose_mol():
-	"""Build alpha-D-glucopyranose molecule from SMILES."""
-
-	# Handle imports for both module and script usage
-	if __name__ == "__main__":
-		import oasa
-		smiles_module = oasa.smiles
-	else:
-		import oasa.smiles as smiles_module
-
-	# Alpha-D-glucopyranose SMILES
-	smiles = "OC[C@H]1O[C@H](O)[C@H](O)[C@@H](O)[C@@H]1O"
-	mol = smiles_module.text_to_mol(smiles)
-	if mol is None:
-		raise ValueError("Failed to parse alpha-D-glucopyranose SMILES")
-
-	# Apply Haworth layout with D-series alpha configuration
-	layout = haworth.build_haworth(mol, mode="pyranose", series="D", stereo="alpha")
-
-	# Add explicit H atoms
-	_add_explicit_h_to_haworth(mol, layout["ring_atoms"], bond_length=30)
-
-	return mol
-
-
-#============================================
-def _build_beta_d_fructofuranose_mol():
-	"""Build beta-D-fructofuranose molecule from SMILES."""
-
-	# Handle imports for both module and script usage
-	if __name__ == "__main__":
-		import oasa
-		smiles_module = oasa.smiles
-	else:
-		import oasa.smiles as smiles_module
-
-	# Beta-D-fructofuranose SMILES
-	smiles = "OCC1(O)OCC(O)C1O"
-	mol = smiles_module.text_to_mol(smiles)
-	if mol is None:
-		raise ValueError("Failed to parse beta-D-fructofuranose SMILES")
-
-	# Apply Haworth layout with D-series beta configuration (furanose is 5-membered)
-	layout = haworth.build_haworth(mol, mode="furanose", series="D", stereo="beta")
-
-	# Add explicit H atoms
-	_add_explicit_h_to_haworth(mol, layout["ring_atoms"], bond_length=30)
-
-	return mol
-
-
 #============================================
 def _vignette_layout_params():
 	return {
@@ -1295,12 +1191,16 @@ def _build_cholesterol_ops():
 
 #============================================
 def _build_alpha_d_glucopyranose_ops():
-	return _build_molecule_ops(_build_alpha_d_glucopyranose_mol(), _mol_render_options())
+	parsed = sugar_code.parse("ARLRDM")
+	spec = haworth_spec.generate(parsed, ring_type="pyranose", anomeric="alpha")
+	return haworth_renderer.render(spec, bond_length=30)
 
 
 #============================================
 def _build_beta_d_fructofuranose_ops():
-	return _build_molecule_ops(_build_beta_d_fructofuranose_mol(), _mol_render_options())
+	parsed = sugar_code.parse("MKLRDM")
+	spec = haworth_spec.generate(parsed, ring_type="furanose", anomeric="beta")
+	return haworth_renderer.render(spec, bond_length=30)
 
 
 #============================================

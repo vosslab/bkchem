@@ -1,6 +1,116 @@
 # Changelog
 
 ## 2026-02-08
+- Add a focused Wikimedia downloader script at
+  [tools/fetch_neurotiker_haworth_archives.py](tools/fetch_neurotiker_haworth_archives.py)
+  that only accepts `User:NEUROtiker/gallery/archive1`, filters `File:` links by
+  case-insensitive `haworth`, resolves original image URLs via Commons API, and
+  writes a manifest JSON with source file page, URL, SHA1, MIME type, and local path.
+- Harden Wikimedia fetch behavior in
+  [tools/fetch_neurotiker_haworth_archives.py](tools/fetch_neurotiker_haworth_archives.py):
+  keep requests strictly sequential with `time.sleep(delay_base + random.random())`
+  before each request, add retry/backoff for transient HTTP/network failures
+  including `429`, and continue per-file with manifest error records instead of
+  aborting the entire run on first failure.
+- Improve NEUROtiker archive filtering in
+  [tools/fetch_neurotiker_haworth_archives.py](tools/fetch_neurotiker_haworth_archives.py)
+  to parse archive wikitext (`action=raw`) and match keyword on each `File:` line
+  (including caption/description text), so Haworth entries are discovered even
+  when filenames do not contain the word "haworth".
+- Expand NEUROtiker archive matching in
+  [tools/fetch_neurotiker_haworth_archives.py](tools/fetch_neurotiker_haworth_archives.py)
+  to accept any `User:NEUROtiker/gallery/archive#` URL and support
+  comma-separated keyword terms (default `haworth,pyranose,furanose`) for caption/line
+  matching, so pyranose/furanose Haworth entries in archive2+ are included even
+  without explicit "haworth" in filenames.
+- Simplify downloader CLI in
+  [tools/fetch_neurotiker_haworth_archives.py](tools/fetch_neurotiker_haworth_archives.py)
+  to avoid argparse creep: keep only positional archive URLs plus `--dry-run`
+  and `--limit`, default archive targets to `archive1` + `archive2` + `archive3`
+  + `archive4`, and derive
+  per-archive output folders/manifest paths automatically.
+- Fix raw-page URL construction in
+  [tools/fetch_neurotiker_haworth_archives.py](tools/fetch_neurotiker_haworth_archives.py)
+  by deriving MediaWiki `title` as `User:...` from `/wiki/...` paths (instead of
+  `wiki/User:...`), resolving `HTTPError 404` on `--dry-run` archive fetches.
+- Adjust Haworth substituent connector geometry in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  so side-carbon (`MR`/`ML`) up/down bonds are vertical (not diagonal) for both
+  pyranose and furanose renderings, matching expected Haworth line direction for
+  OH/H annotations.
+- Add regression checks in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to assert
+  side connectors stay vertical on representative pyranose and furanose cases.
+- Improve hydroxyl label readability in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  by rendering side labels with oxygen nearest the bond endpoint: keep `OH` for
+  right-anchored labels and use `HO` for left-anchored labels. Add regression
+  checks in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  for `HO` on left-anchor slots and `OH` on right-anchor slots.
+- Reduce bond/text collisions for crowded Haworth bottoms in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  flip BR/BL anchors to point outward from the ring center and apply a small
+  anchor-based horizontal text nudge so label glyphs are placed at the bond end
+  without the connector line crossing through letter strokes.
+- Add a reusable visual-check generator script at
+  [tools/haworth_visual_check_pdf.py](tools/haworth_visual_check_pdf.py)
+  to render a fixed Haworth Phase 3 review sheet PDF from
+  `sugar_code`/`haworth_spec`/`haworth_renderer` cases (including MKLRDM
+  alpha/beta furanose and non-white `bg_color` panel), with optional
+  `--show-carbon-numbers` for disambiguating substituent positions in manual QA.
+- Implement Phase 4 Haworth selftest integration in
+  [tools/selftest_sheet.py](tools/selftest_sheet.py): route
+  `_build_alpha_d_glucopyranose_ops()` and
+  `_build_beta_d_fructofuranose_ops()` through
+  `sugar_code.parse()` -> `haworth_spec.generate()` ->
+  `haworth_renderer.render()` (bond_length 30), and remove the older
+  SMILES+`build_haworth`+explicit-H helper path so selftest sugar panels reflect
+  the same renderer contract covered by Phase 2/3 tests.
+- Add Phase 4 integration test coverage in
+  [tests/test_selftest_haworth_builders.py](tests/test_selftest_haworth_builders.py)
+  to assert both selftest sugar builders return non-empty ops with `PolygonOp`
+  and `TextOp` content plus positive bounding boxes, matching the plan's
+  direct in-process verification gate.
+- Implement Phase 3 Haworth schematic renderer in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  with slot-stable carbon mapping (`MR/BR/BL/ML/TL`), ring-edge polygon
+  thickness classes (front/wedge/back), oxygen mask + label ops, substituent
+  connector/label placement, optional carbon numbers, and exocyclic mini-chain
+  rendering for `CH(OH)CH2OH` plus generic `CHAIN<n>` labels.
+- Add Phase 3 unit coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) (31 tests)
+  for geometry placement, front-edge stability, subscript-visible-length
+  handling, dual-wide label spacing multiplier, oxygen mask behavior, and
+  exocyclic-chain direction/collinearity checks.
+- Add Phase 3 smoke coverage in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py),
+  generating SVG files from render ops across an A/MK sugar matrix (alpha/beta,
+  pyranose/furanose), asserting non-empty `<svg` output with `PolygonOp` +
+  `TextOp`, and including a non-white `bg_color` render path.
+- Export `haworth_renderer` from
+  [packages/oasa/oasa/__init__.py](packages/oasa/oasa/__init__.py) for direct
+  `oasa.haworth_renderer` access in integration points and tests.
+- Extend exocyclic-chain labeling in
+  [packages/oasa/oasa/haworth_spec.py](packages/oasa/oasa/haworth_spec.py):
+  keep 2-carbon post-closure chains as `CH(OH)CH2OH` and emit `CHAIN<n>` for
+  longer chains so Phase 3 renderer chain logic can scale past hexose cases.
+- Implement Phase 2 Haworth spec generation in
+  [packages/oasa/oasa/haworth_spec.py](packages/oasa/oasa/haworth_spec.py) with
+  `HaworthSpec`, ring-closure matrix validation (`A`/`MK` x pyranose/furanose),
+  alpha/beta substituent assignment, exocyclic-chain labeling, and Phase 0
+  Haworth-eligibility gating for pathway carbon-state chemistry.
+- Add Phase 2 unit/smoke coverage in
+  [tests/test_haworth_spec.py](tests/test_haworth_spec.py) and
+  [tests/smoke/test_haworth_spec_smoke.py](tests/smoke/test_haworth_spec_smoke.py),
+  including alpha/beta anomeric flips, ring-capacity errors, meso non-cyclizable
+  checks, and pathway-profile rejection cases.
+- Add a compact standard sanity-matrix test in
+  [tests/test_haworth_spec.py](tests/test_haworth_spec.py) for quick human-check
+  expectations: ARLRDM pyranose alpha/beta C1 flip and MKLRDM furanose alpha/beta
+  C2 OH/CH2OH swap.
+- Export `sugar_code` and `haworth_spec` from
+  [packages/oasa/oasa/__init__.py](packages/oasa/oasa/__init__.py) for direct
+  `oasa` module access in downstream integration/tests.
 - Fix test/lint regressions after fixture cleanup:
   [tests/test_cdml_versioning.py](tests/test_cdml_versioning.py) now skips the
   legacy fixture check when `tests/fixtures/cdml/legacy_v0.11.cdml` is absent;
