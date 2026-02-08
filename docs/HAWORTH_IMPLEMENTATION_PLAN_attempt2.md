@@ -62,13 +62,63 @@ Phase 0 non-goals:
 - Sugar code to SMILES conversion.
 - SMILES to sugar code conversion.
 - Editable Haworth molecules in BKChem.
+- Transparent/alpha-channel background masking for the oxygen label (solid
+  `bg_color` polygon is the only masking strategy; callers using transparent
+  backgrounds will see a visible mask rectangle).
+- Pixel-accurate text width measurement (character-count heuristic via
+  `_visible_text_length` is sufficient for Phase 0; font-metric-aware width
+  measurement is deferred).
+- Exocyclic chain rendering beyond 2 carbons (common sugars have at most 2
+  exocyclic carbons; heptose/octose chains will render collinearly, which is
+  acceptable for Phase 0).
 
 Phase 0 acceptance gates:
 
 - Unit gate: parser/spec/renderer tests pass.
+- Geometry gate: substituent up/down placement tests verify y-coordinates
+  relative to ring vertices for alpha-D-glucopyranose and beta-D-glucopyranose
+  (wrong placement must fail, not silently render).
 - Integration gate: `tools/selftest_sheet.py --format svg` runs and outputs expected vignettes.
 - Regression gate: full repository tests pass.
 - Determinism gate: repeated runs with same input produce identical slot mapping and label placement.
+
+## Per-Phase Test Matrix (deliverable + unit + integration + smoke/system/E2E)
+
+- Phase 1 (parser)
+  - Deliverable: `packages/oasa/oasa/sugar_code.py` with `ParsedSugarCode` and `parse()`.
+  - Unit: `tests/test_sugar_code.py` (28 cases listed) isolated parser behaviors.
+  - Integration: none (parser is leaf); keep units fast.
+  - Smoke/System: `tests/smoke/test_sugar_code_smoke.py` runs a curated batch from `tests/fixtures/smoke_sugar_codes.txt`, asserting Haworth-eligible codes parse without exceptions, invalids raise `ValueError`, and `sugar_code_raw` round-trips.
+  - Additional angles: add Hypothesis-based property test (parser idempotence on whitespace/footnote ordering) if time permits.
+
+- Phase 2 (spec generator)
+  - Deliverable: `packages/oasa/oasa/haworth_spec.py` with `HaworthSpec` and `generate()`.
+  - Unit: `tests/test_haworth_spec.py` (16 cases) for substituent logic and ring-capacity errors.
+  - Integration: parser + spec happy-path matrix test (`parse()` then `generate()` for common sugars) to ensure token handoff remains compatible.
+  - Smoke/System: `tests/smoke/test_haworth_spec_smoke.py` iterates sugar fixtures across `ring_type` `{pyranose,furanose}` and `anomeric` `{alpha,beta}` where legal; asserts non-empty `substituents`, alpha/beta flip at anomeric carbon, meso trioses raise ring-capacity `ValueError` with prefix/ring detail.
+
+- Phase 3 (renderer)
+  - Deliverable: `packages/oasa/oasa/haworth_renderer.py` with `render()` returning `render_ops`.
+  - Unit: `tests/test_haworth_renderer.py` (31 cases) geometry, bbox, label placement, bg mask, chain handling.
+  - Integration: parser + spec + renderer pipeline test renders ops and checks slot mapping is stable (no file I/O).
+  - Smoke/System: `tests/smoke/test_haworth_renderer_smoke.py` generates ops for the sugar matrix, writes SVGs via `ops_to_svg` to temp files, asserts file exists, size > 0, contains `<svg`, and ops include `PolygonOp` and `TextOp`; includes one colored `bg_color` render.
+
+- Phase 4 (integration into selftest)
+  - Deliverable: updated `tools/selftest_sheet.py` and `packages/oasa/oasa/__init__.py` wiring.
+  - Unit/Integration: `tests/test_selftest_haworth_builders.py` imports `_build_alpha_d_glucopyranose_ops()` and `_build_beta_d_fructofuranose_ops()`; asserts non-empty ops, presence of `PolygonOp` and `TextOp`, and positive bbox. This is faster and more direct than invoking the CLI.
+  - Smoke/System: existing acceptance gate `python tools/selftest_sheet.py --format svg` remains for visual/manual check; could be automated later with a golden SVG snapshot once outputs stabilize.
+
+- Phase 5 (verify)
+  - Deliverable: all prior phases green.
+  - System/E2E: run `python -m pytest tests/` plus `python tools/selftest_sheet.py --format svg` as release gate; no new tests authored in this phase.
+
+- Phases 6–7 (SMILES conversion, future scope)
+  - Deliverables: `sugar_code_smiles.py`, `smiles_to_sugar_code.py` and their unit tests (already listed).
+  - Integration: parser/spec + SMILES conversion round-trip (`sugar_code -> smiles -> sugar_code`).
+  - Smoke/E2E: `tests/smoke/test_sugar_code_smiles_roundtrip.py` (initially `@pytest.mark.skip` until Phase 6 lands) covering canonical sugars; rejects pathway-only carbon-state inputs.
+  - Additional angle: golden/snapshot tests for canonical SMILES strings to catch drift.
+
+Test taxonomy guidance: unit (single function), integration (multiple components in-process), system/E2E (CLI/real I/O), smoke (minimal happy-path batch), regression (bug fixes), property-based (Hypothesis), performance/load (later if renderer speed becomes a concern), snapshot/golden (SVG output once stable), fuzz (parser input fuzz to guard against crashes).
 
 ## Phase 1: Sugar Code Parser
 
@@ -116,6 +166,8 @@ def _parse_config_and_terminal(remainder: str, footnotes: dict) -> tuple[list, s
   - meso forms -> `MESO`
 - Terminal is the last character (`M`, or a letter code like `c`/`p`, or a digit)
 - Letter codes (`d`, `a`, `n`, `p`, `f`, `c`) are resolved to their built-in meanings
+- Unrecognized lowercase letter codes raise `ValueError` with the unknown
+  character and its position; the parser does not pass through unknown codes
 - Digit markers are resolved via the footnotes dict
 - Side-qualified digit footnotes (`nL`, `nR`) are parsed as explicit
   Fischer-left/Fischer-right substituent overrides for backbone position `n`
@@ -208,6 +260,12 @@ inputs fail fast with explicit minimum-carbon and closure diagnostics.
 - `test_parse_prefix_only_invalid`: reject bare prefix-only codes like `MRK`/`MLK`
 - `test_parse_prefix_ring_mismatch`: pentose + pyranose aldose raises ValueError
 - `test_generate_meso_ring_capacity_error`: MKM/MKp + furanose/pyranose raises ValueError
+- `test_parse_unknown_letter_code_raises`: reject unrecognized lowercase letter
+  code (for example `AzRDM` where `z` is not in the built-in table) with
+  `ValueError` naming the unknown character and its backbone position
+- `test_parse_unknown_letter_code_uppercase_not_affected`: uppercase letters
+  (`R`, `L`, `D`, `M`) are config/terminal tokens, not letter codes; they must
+  not trigger the unknown-letter-code check
 - `test_parse_pathway_profile_haworth_ineligible_marker`: parse pathway-style
   carbon-state chemistry (for example `c23[2C=C3(EPO3),3C=CH2]`) without
   auto-qualifying it as Haworth-eligible
@@ -479,8 +537,14 @@ break under coordinate system flips or template rotations.
 
 `TextOp("O")` at `coords[o_index]`, bold, dark red. A `PolygonOp` filled with
 `bg_color` behind it to mask ring edges at that vertex. Default `bg_color="#fff"`;
-callers rendering on transparent or colored backgrounds must pass their background
-color to avoid halo artifacts.
+callers rendering on colored backgrounds must pass their background color to
+avoid halo artifacts.
+
+**Known limitation (Phase 0 non-goal)**: The solid-polygon mask cannot handle
+transparent/alpha-channel backgrounds. On a transparent PNG, the mask will
+appear as a visible opaque rectangle behind the "O" label. Solving this would
+require clipping the ring-edge paths to exclude the oxygen vertex region, which
+is deferred to a future phase.
 
 ### Step 5: Place substituent labels
 
@@ -521,6 +585,12 @@ For each ring carbon:
 5. For bbox measurement, strip HTML tags before computing text width:
    `_visible_text_length("CH<sub>2</sub>OH")` returns `5` (not `20`).
    Implementation: `re.sub(r"<[^>]+>", "", text)` then `len(result)`
+   **Known limitation (Phase 0 non-goal)**: `_visible_text_length` counts
+   characters, not pixel width. Wide characters like "W" and narrow ones like
+   "I" count equally. This is a rough heuristic that works for typical sugar
+   labels (OH, H, CH2OH, NH2, F, COOH) but will not prevent all overlaps for
+   unusually wide or narrow labels. Font-metric-aware width measurement would
+   require coupling to the rendering backend and is deferred.
 6. For carbons where both labels are non-trivial (neither is "H"), increase
    `sub_length` by 1.5x to avoid label collision
 
@@ -539,6 +609,12 @@ Each segment uses the same direction vector as the parent carbon's up/down
 direction. The intermediate carbon's stereochemistry (R/L at the config position)
 determines whether its OH label goes left or right of the chain. This is the
 same connector+text approach used for simple substituents, just chained.
+
+**Known limitation (Phase 0 non-goal)**: All exocyclic chain segments extend
+collinearly (same direction vector). For sugars with 3+ exocyclic carbons (e.g.
+aldoheptose furanose with C5-C6-C7 off C4), the chain will be a long straight
+line. This is acceptable for Phase 0 because common monosaccharides have at most
+2 exocyclic carbons. Zigzag or angled chain rendering is deferred.
 
 ### Step 6: Optional carbon numbers
 
@@ -573,6 +649,65 @@ LineOp for connectors). Zero molecule/atom/bond objects.
 - `test_render_furanose_labels`: furanose label directions match `FURANOSE_SLOT_LABEL_CONFIG`
 - `test_render_bbox_sub_tags`: bbox for "CH<sub>2</sub>OH" matches visible width (5 chars)
 - `test_render_fructose_anomeric_no_overlap`: both wide labels on C2 don't collide
+
+Substituent geometry verification (concern: renderer tests must verify up/down
+placement, not just presence):
+- `test_render_alpha_glucose_c1_oh_below`: render ARLRDM + pyranose + alpha,
+  find the "OH" TextOp associated with C1 (slot MR), verify its y-coordinate is
+  greater than (below) the C1 ring vertex y-coordinate. This catches a wrong
+  up/down assignment that presence-only tests would miss.
+- `test_render_alpha_glucose_c3_oh_above`: same sugar, find the "OH" TextOp at
+  C3 (slot BL), verify its y-coordinate is less than (above) the C3 ring vertex
+  y-coordinate (L -> OH up).
+- `test_render_beta_glucose_c1_oh_above`: render ARLRDM + pyranose + beta,
+  verify C1 "OH" TextOp y < ring vertex y (beta flips C1 OH from down to up).
+- `test_render_all_substituents_correct_side`: for alpha-D-glucopyranose, iterate
+  over every ring carbon, collect (vertex_y, up_label_y, down_label_y) triples,
+  and assert that every "up" label has y < vertex_y and every "down" label has
+  y > vertex_y. This is a systematic geometry gate that catches any single
+  misplaced label.
+- `test_render_fructose_c2_labels_both_offset`: for MKLRDM + furanose + beta,
+  verify both C2 labels (OH and CH2OH) are offset from the ring vertex by at
+  least `sub_length` distance, and that the up-label y < vertex y < down-label y.
+- `test_render_l_series_reverses_directions`: render ALRLDM + pyranose + alpha
+  (L-glucose), verify that C1 OH is up (opposite of D-alpha), confirming L-series
+  reversal logic.
+
+Visible text length and collision avoidance:
+- `test_visible_text_length_strips_tags`: `_visible_text_length("CH<sub>2</sub>OH")`
+  returns 5
+- `test_visible_text_length_no_tags`: `_visible_text_length("OH")` returns 2
+- `test_visible_text_length_empty`: `_visible_text_length("")` returns 0
+- `test_visible_text_length_nested_tags`: `_visible_text_length("<b>O<sub>2</sub></b>")`
+  returns 2
+- `test_sub_length_multiplier_dual_wide`: for a carbon where both up and down
+  labels are non-"H" (e.g. fructose C2 with OH and CH2OH), verify the connector
+  LineOp length is approximately 1.5x the default `sub_length` (within 5%
+  tolerance)
+- `test_sub_length_default_single_wide`: for a carbon where one label is "H"
+  (e.g. glucose C1 with H up and OH down), verify the connector LineOp length
+  matches the default `sub_length` (no multiplier)
+
+Oxygen mask and background color:
+- `test_render_o_mask_uses_bg_color`: render with `bg_color="#f0f0f0"`, find the
+  PolygonOp behind the "O" TextOp, verify its fill color is "#f0f0f0" (not white)
+- `test_render_o_mask_default_white`: render with default args, verify the O-mask
+  PolygonOp fill is "#fff"
+- `test_render_o_mask_is_polygon_not_rect`: verify the mask is a PolygonOp
+  (not a rectangle), documenting that this is a solid polygon approach
+
+Multi-carbon exocyclic chain geometry:
+- `test_render_exocyclic_2_chain_direction`: render ARLRDM + furanose (2
+  exocyclic carbons C5-C6 off C4), verify the chain extends in the same
+  direction as C4's up/down slot direction, and both segments share the same
+  direction vector
+- `test_render_exocyclic_2_chain_labels`: same sugar, verify the chain contains
+  a "CHOH" TextOp followed by a "CH2OH" TextOp at increasing distance from C4
+- `test_render_exocyclic_0_no_chain`: render ARRDM + pyranose (0 exocyclic
+  carbons), verify no chain connectors extend beyond the ring
+- `test_render_exocyclic_3_collinear`: render a 7-carbon aldose + furanose
+  (ARLRRDM, 3 exocyclic carbons C5-C6-C7 off C4), verify all 3 chain segments
+  use the same direction vector (documenting the collinear Phase 0 behavior)
 
 ## Phase 4: Integration
 
@@ -614,7 +749,11 @@ Register new modules in imports and `_EXPORTED_MODULES`.
 - Ring-capacity validation errors include prefix, ring type, minimum carbons, and provided carbons.
 - Triose Haworth conversion errors include ring-capacity guidance.
 - Haworth generator rejects pathway-profile carbon-state chemistry (`nC`/alkene/enol/acyl tokens) with clear eligibility errors.
+- Parser rejects unrecognized lowercase letter codes with `ValueError`.
 - Renderer uses slot keys (`ML`, `TL`, `TO`, `MR`, `BR`, `BL`) consistently.
+- Renderer geometry tests verify y-coordinate placement of substituent labels
+  relative to ring vertices (not just presence of labels in the ops list).
+- Oxygen mask `bg_color` parameter is tested with non-white colors.
 - `docs/SUGAR_CODE_SPEC.md` and this plan agree on prefix/ring closure matrix.
 - `docs/SUGAR_CODE_SPEC.md` includes canonical glycolysis/CAC pathway-profile
   sugar codes before Phase 0 sign-off.

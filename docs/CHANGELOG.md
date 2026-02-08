@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026-02-08
+- Add per-phase test matrix (deliverable/unit/integration/smoke/system) to
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md),
+  defining smoke designs for phases 1–3, a Phase 4 unit/integration test around
+  Haworth selftest builders, and a future SMILES round-trip smoke. Document test
+  taxonomy angles (property-based, snapshot, fuzz, performance) for later use.
+
+## 2026-02-07
+- Expand renderer test coverage in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  with substituent geometry verification tests that check y-coordinates of
+  up/down labels relative to ring vertices (not just label presence), including
+  `test_render_alpha_glucose_c1_oh_below`, `test_render_beta_glucose_c1_oh_above`,
+  `test_render_all_substituents_correct_side`, and L-series reversal test. Add
+  a geometry gate to the Phase 0 acceptance gates.
+- Add `_visible_text_length` unit tests and `sub_length` multiplier verification
+  tests to
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md),
+  documenting the character-count heuristic limitation as a Phase 0 non-goal.
+- Add unknown letter code rejection rule and parser tests to
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
+  unrecognized lowercase letter codes raise `ValueError` with character and
+  position, with `test_parse_unknown_letter_code_raises` and
+  `test_parse_unknown_letter_code_uppercase_not_affected`.
+- Document transparent background masking as a Phase 0 non-goal in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  and add oxygen mask `bg_color` tests (`test_render_o_mask_uses_bg_color`,
+  `test_render_o_mask_default_white`).
+- Document collinear exocyclic chain rendering as a Phase 0 non-goal in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  and add multi-carbon chain geometry tests including
+  `test_render_exocyclic_3_collinear` for 7-carbon aldose furanose.
+- Update Phase 0 exit checklist in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  to require unknown letter code rejection, geometry verification tests, and
+  oxygen mask `bg_color` testing.
+- Remove time estimates from menu refactor phases in
+  [docs/MENU_REFACTOR_ANALYSIS.md](docs/MENU_REFACTOR_ANALYSIS.md),
+  [docs/MODULAR_MENU_ARCHITECTURE.md](docs/MODULAR_MENU_ARCHITECTURE.md), and
+  [docs/MENU_REFACTOR_SUMMARY.md](docs/MENU_REFACTOR_SUMMARY.md).
+- Add Phase 0 baseline performance measurement requirement to menu refactor
+  plans in
+  [docs/BKCHEM_GUI_MENU_REFACTOR.md](docs/BKCHEM_GUI_MENU_REFACTOR.md),
+  [docs/MENU_REFACTOR_ANALYSIS.md](docs/MENU_REFACTOR_ANALYSIS.md), and
+  [docs/MENU_REFACTOR_SUMMARY.md](docs/MENU_REFACTOR_SUMMARY.md): measure
+  actual `update_menu_after_selection_change()` timing before building
+  PerformanceMonitor infrastructure; if current system is not slow, monitoring
+  framework is premature.
+- Add scope boundary notes to menu refactor plans: format handler migration to
+  OASA is a separate architectural project that should have its own plan
+  document, not be bundled with the menu refactor.
+
 ## 2026-02-06
 - Tighten Attempt 2 Phase 0 parser/generator gating in
   [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):

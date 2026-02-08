@@ -1621,14 +1621,22 @@ def test_menu_appearance():
 
 ## Summary: Prioritized Action Plan
 
-### Phase 0: Analysis and Preparation (1 week)
+### Phase 0: Analysis and Preparation
 - [x] Document current plugin architecture
 - [x] Identify all menu injection points
 - [x] List translation keys used in menus
 - [ ] Survey for existing script/mode plugins
-- [ ] Measure current menu update performance
+- [ ] Measure current menu update performance baseline with a simple
+  `time.perf_counter` wrapper before building any monitoring infrastructure.
+  If the current system is not actually slow (< 5ms), the PerformanceMonitor
+  class and optimization phases are unnecessary. The proposed indexed state
+  updates are the right optimization idea, but the monitoring framework
+  around it is premature until a real performance problem is confirmed.
+- [ ] Scope boundary: confirm that format handler migration to OASA is tracked
+  as a separate project with its own plan document, not bundled into the menu
+  refactor
 
-### Phase 1: Core Architecture (2 weeks)
+### Phase 1: Core Architecture
 1. Create FormatRegistry for import/export handlers
 2. Create ActionRegistry with MenuAction dataclass
 3. Write unit tests for both registries
@@ -1640,7 +1648,7 @@ def test_menu_appearance():
 - Tests passing
 - Old code still works
 
-### Phase 2: YAML Menu Structure (2 weeks)
+### Phase 2: YAML Menu Structure
 1. Create menus.yaml with File menu only
 2. Create CascadeDefinition dataclass
 3. Create MenuBuilder with platform adapter
@@ -1653,7 +1661,7 @@ def test_menu_appearance():
 - macOS compatibility preserved
 - All translations working
 
-### Phase 3: Incremental Migration (3 weeks)
+### Phase 3: Incremental Migration
 1. Migrate Edit menu
 2. Migrate Insert menu
 3. Migrate remaining menus
@@ -1666,7 +1674,7 @@ def test_menu_appearance():
 - Performance equal or better
 - All formats import/export correctly
 
-### Phase 4: Plugin Compatibility (1 week)
+### Phase 4: Plugin Compatibility
 1. Add LegacyMenuShim for old plugin API
 2. Test with any discovered script plugins
 3. Document new PluginMenuAPI
@@ -1677,7 +1685,7 @@ def test_menu_appearance():
 - New plugin API documented
 - Migration guide written
 
-### Phase 5: Optimization (1 week)
+### Phase 5: Optimization
 1. Implement indexed state updates
 2. Add performance monitoring
 3. Optimize hot paths
@@ -1688,13 +1696,11 @@ def test_menu_appearance():
 - No UI sluggishness
 - Metrics documented
 
-### Phase 6: Polish and Documentation (1 week)
+### Phase 6: Polish and Documentation
 1. Remove deprecated code paths
 2. Update developer documentation
 3. Create architecture diagrams
 4. Write migration guide for plugin authors
-
-**Total estimated time: 10 weeks**
 
 **Risk mitigation:**
 - Each phase is independently testable

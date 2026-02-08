@@ -291,50 +291,61 @@ with perf_monitor.measure("update_menu_states"):
 
 ## Implementation Plan
 
-### Phase 0: Analysis and Documentation (COMPLETE)
+### Phase 0: Analysis, Documentation, and Baseline Measurement
 - Document current system
 - Analyze plugins and addons
 - Design new architecture
+- **Measure actual menu update performance**: Use a simple `time.perf_counter`
+  wrapper on `update_menu_after_selection_change()` before building any
+  monitoring infrastructure. If current system is not slow (< 5ms), the
+  PerformanceMonitor class is premature. Indexed state updates are the right
+  optimization idea; the monitoring framework around it is overkill.
+- **Scope boundary**: Format handler migration to OASA is a separate project.
+  Format handlers are tightly coupled to BKChem's CDML document model;
+  extracting them requires solving molecule-to-CDML conversion. That work
+  should have its own plan document.
 - Get stakeholder approval
 
-### Phase 1: Format Handlers to OASA (2 weeks)
+### Phase 1: Format Handlers to OASA
 - Create oasa.formats.FormatRegistry
 - Move CML, molfile, SMILES, InChI codecs to OASA
 - BKChem uses OASA registry
 - Remove format "plugins"
+- **Note**: This is a separate architectural project from the menu refactor
+  itself. Format handlers are tightly coupled to BKChem's CDML document model;
+  extracting them to OASA requires solving the molecule-to-CDML conversion
+  problem. This phase should have its own plan document.
 
-### Phase 2: Menu System Core (3 weeks)
+### Phase 2: Menu System Core
 - Create MenuBackend interface
 - Create platform adapters
 - Create ActionRegistry
 - Create MenuBuilder
 - Migrate File menu (side-by-side with old)
 
-### Phase 3: Menu Migration (3 weeks)
+### Phase 3: Menu Migration
 - Migrate remaining menus
 - Remove old menu_template
 - Add performance monitoring
 - Validate translations
 
-### Phase 4: Tools System (2 weeks)
+### Phase 4: Tools System
 - Create Tool base class and ToolRegistry
 - Migrate 8 addons to Tool classes
 - Extract chemistry logic to OASA
 - Remove XML manifests and exec() loading
 
-### Phase 5: Renderer Unification (3 weeks)
+### Phase 5: Renderer Unification
 - Move renderers to oasa.renderers
 - Create TkRenderer for GUI
 - Update BKChem to use TkRenderer
 - Verify GUI matches export
 
-### Phase 6: Cleanup (1 week)
+### Phase 6: Cleanup
 - Remove plugin_support.py
 - Remove addons directory
 - Update documentation
 - Performance validation
-
-**Total: 14 weeks (3.5 months)**
 
 ## Risk Mitigation
 
@@ -416,7 +427,7 @@ This refactor requires approval for:
 1. Eliminating exec()-based plugin system
 2. Moving format handlers to OASA backend
 3. Adopting YAML + Dataclass menu system
-4. 14-week implementation timeline
+4. Phased implementation plan
 5. Incremental migration strategy
 
 ## Questions and Answers

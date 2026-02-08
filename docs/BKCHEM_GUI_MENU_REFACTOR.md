@@ -1467,11 +1467,23 @@ def test_menu_builder_no_crashes():
 
 ## Implementation phases
 
-### Phase 0: Preparation (no code changes)
+### Phase 0: Preparation and baseline measurement (no refactor code changes)
 - Document current menu structure
 - Map all menu items to their handlers
 - Identify all enablement predicates
 - Create test plan
+- **Measure actual menu update performance baseline**: Before building any
+  performance monitoring infrastructure, measure the current
+  `update_menu_after_selection_change()` timing with a simple `time.perf_counter`
+  wrapper. If the current system is not actually slow (< 5ms), the
+  PerformanceMonitor class and optimization phases are unnecessary. The proposed
+  indexed state updates are the right optimization idea, but the monitoring
+  framework around it is premature until a real performance problem is confirmed.
+- **Scope boundary**: Moving format handlers to OASA is a separate architectural
+  project from the menu refactor. Format handlers are tightly coupled to
+  BKChem's CDML document model; extracting them requires solving the
+  molecule-to-CDML conversion problem. That work should have its own plan
+  document and should not block menu refactor progress.
 
 ### Phase 1: Action registry foundation
 - Create `actions.py` module with `Action` and `ActionRegistry` classes

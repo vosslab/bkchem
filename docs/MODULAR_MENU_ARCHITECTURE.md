@@ -565,13 +565,13 @@ def load_user_extensions(self):
 
 ## Implementation Phases
 
-### Phase 1: Create Tool Framework (1 week)
+### Phase 1: Create Tool Framework
 - Implement Tool base class
 - Implement ToolRegistry
 - Create tool categories
 - Add menu integration
 
-### Phase 2: Migrate Addons (2 weeks)
+### Phase 2: Migrate Addons
 Migrate in order of complexity:
 1. `red_aromates` (simplest - just visual)
 2. `angle_between_bonds` (geometry)
@@ -582,20 +582,18 @@ Migrate in order of complexity:
 7. `fetch_name_from_webbook` (external API)
 8. `animate_undo` (may be removed - niche feature)
 
-### Phase 3: OASA Backend Extraction (2 weeks)
+### Phase 3: OASA Backend Extraction
 Move chemistry logic to OASA:
 - `oasa.analysis.geometry` - bond angles, distances
 - `oasa.analysis.aromaticity` - aromatic detection
 - `oasa.external.nist_webbook` - NIST data fetchers
 - `oasa.search.substructure` - fragment search
 
-### Phase 4: Remove Plugin Infrastructure (1 week)
+### Phase 4: Remove Plugin Infrastructure
 - Delete plugin_support.py
 - Delete XML manifests
 - Delete addons directory
 - Update documentation
-
-**Total: 6 weeks**
 
 ## Summary
 
