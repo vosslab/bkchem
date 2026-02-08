@@ -195,7 +195,8 @@ def test_render_bbox_reasonable():
 def test_render_furanose():
 	_, ops = _render("ARRDM", "furanose", "beta")
 	ring_polys = [op for op in _polygons(ops) if (op.op_id or "").startswith("ring_edge_")]
-	assert len(ring_polys) == 5
+	# 5 edges: 3 non-oxygen + 2 oxygen-adjacent (each split into 2 halves) = 7
+	assert len(ring_polys) == 7
 
 
 #============================================
@@ -378,14 +379,14 @@ def test_visible_text_length_nested_tags():
 def test_sub_length_multiplier_dual_wide():
 	_, ops = _render("MKLRDM", "furanose", "beta", bond_length=40.0)
 	line = _line_by_id(ops, "C2_up_connector")
-	assert _line_length(line) == pytest.approx(40.0 * 0.4 * 1.5, rel=0.05)
+	assert _line_length(line) == pytest.approx(40.0 * 0.45 * 1.3, rel=0.05)
 
 
 #============================================
 def test_sub_length_default_single_wide():
 	_, ops = _render("ARLRDM", "pyranose", "alpha", bond_length=40.0)
 	line = _line_by_id(ops, "C1_down_connector")
-	assert _line_length(line) == pytest.approx(40.0 * 0.4, rel=0.05)
+	assert _line_length(line) == pytest.approx(40.0 * 0.45, rel=0.05)
 
 
 #============================================
@@ -453,3 +454,40 @@ def test_render_exocyclic_3_collinear():
 	assert d1[1] == pytest.approx(d2[1], rel=1e-3)
 	assert d1[0] == pytest.approx(d3[0], rel=1e-3)
 	assert d1[1] == pytest.approx(d3[1], rel=1e-3)
+
+
+#============================================
+def test_show_hydrogens_default_true():
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
+	h_labels = [op for op in _texts(ops) if op.text == "H"]
+	assert len(h_labels) > 0
+
+
+#============================================
+def test_show_hydrogens_false_no_h_labels():
+	_, ops = _render("ARLRDM", "pyranose", "alpha", show_hydrogens=False)
+	h_labels = [op for op in _texts(ops) if op.text == "H"]
+	assert len(h_labels) == 0
+
+
+#============================================
+def test_show_hydrogens_false_no_h_connectors():
+	spec, ops = _render("ARLRDM", "pyranose", "alpha", show_hydrogens=False)
+	# C1_up is "H" for alpha glucose - its connector should be absent
+	h_connector_ids = [
+		op.op_id for op in _lines(ops)
+		if op.op_id and op.op_id.endswith("_connector")
+	]
+	# For alpha-D-glucopyranose: C1_up=H, C2_up=H, C3_down=H, C4_up=H, C5_down=H
+	for carbon, direction in ((1, "up"), (2, "up"), (3, "down"), (4, "up"), (5, "down")):
+		assert f"C{carbon}_{direction}_connector" not in h_connector_ids
+
+
+#============================================
+def test_show_hydrogens_false_preserves_non_h():
+	_, ops = _render("ARLRDM", "pyranose", "alpha", show_hydrogens=False)
+	text_values = [op.text for op in _texts(ops)]
+	assert "OH" in text_values
+	assert "HO" in text_values
+	assert "CH<sub>2</sub>OH" in text_values
+	assert "O" in text_values

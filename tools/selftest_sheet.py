@@ -823,6 +823,8 @@ def _vignette_layout_params():
 		"row1_height": 80,
 		"row2_y": 495,
 		"row2_height": 120,
+		"row3_y": 660,
+		"row3_height": 100,
 		"margin": 40,
 		"gutter": 20,
 	}
@@ -842,6 +844,10 @@ def _build_vignettes_ops(page_width, include_text):
 		("alpha-D-Glucopyranose", _build_alpha_d_glucopyranose_ops()),
 		("beta-D-Fructofuranose", _build_beta_d_fructofuranose_ops()),
 	]
+	row3_vignettes = [
+		("alpha-D-Tagatopyranose", _build_alpha_d_tagatopyranose_ops()),
+		("alpha-D-Psicofuranose", _build_alpha_d_psicofuranose_ops()),
+	]
 	row1_result = layout_row(
 		row1_vignettes,
 		y_top=params["row1_y"],
@@ -855,6 +861,14 @@ def _build_vignettes_ops(page_width, include_text):
 		y_top=params["row2_y"],
 		page_width=page_width,
 		row_height=params["row2_height"],
+		gutter=params["gutter"],
+		margin=params["margin"],
+	)
+	row3_result = layout_row(
+		row3_vignettes,
+		y_top=params["row3_y"],
+		page_width=page_width,
+		row_height=params["row3_height"],
 		gutter=params["gutter"],
 		margin=params["margin"],
 	)
@@ -879,6 +893,19 @@ def _build_vignettes_ops(page_width, include_text):
 			ops.append(render_ops.TextOp(
 				x=x_center,
 				y=params["row2_y"] - 10,
+				text=title,
+				font_size=11,
+				anchor="middle",
+				weight="bold",
+				color="#000",
+			))
+
+	for title, positioned_ops, x_center, _y_center in row3_result:
+		ops.extend(positioned_ops)
+		if include_text:
+			ops.append(render_ops.TextOp(
+				x=x_center,
+				y=params["row3_y"] - 10,
 				text=title,
 				font_size=11,
 				anchor="middle",
@@ -1200,6 +1227,20 @@ def _build_alpha_d_glucopyranose_ops():
 def _build_beta_d_fructofuranose_ops():
 	parsed = sugar_code.parse("MKLRDM")
 	spec = haworth_spec.generate(parsed, ring_type="furanose", anomeric="beta")
+	return haworth_renderer.render(spec, bond_length=30)
+
+
+#============================================
+def _build_alpha_d_tagatopyranose_ops():
+	parsed = sugar_code.parse("MKRRDM")
+	spec = haworth_spec.generate(parsed, ring_type="pyranose", anomeric="alpha")
+	return haworth_renderer.render(spec, bond_length=30)
+
+
+#============================================
+def _build_alpha_d_psicofuranose_ops():
+	parsed = sugar_code.parse("MKLLDM")
+	spec = haworth_spec.generate(parsed, ring_type="furanose", anomeric="alpha")
 	return haworth_renderer.render(spec, bond_length=30)
 
 

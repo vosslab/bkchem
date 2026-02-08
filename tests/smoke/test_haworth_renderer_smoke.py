@@ -1,13 +1,18 @@
 """Smoke tests for Haworth renderer ops and SVG serialization."""
 
 # Standard Library
+import sys
 from xml.dom import minidom as xml_minidom
+
+# Third Party
+import pytest
 
 # Local repo modules
 import conftest
 
 
 conftest.add_oasa_to_sys_path()
+sys.path.insert(0, conftest.tests_path("fixtures"))
 
 import oasa.dom_extensions as dom_extensions
 import oasa.haworth_renderer as haworth_renderer
@@ -15,6 +20,7 @@ import oasa.haworth_spec as haworth_spec
 import oasa.render_ops as render_ops
 import oasa.sugar_code as sugar_code
 import oasa.svg_out as svg_out
+from neurotiker_archive_mapping import all_mappable_entries
 
 
 #============================================
@@ -78,6 +84,46 @@ def test_haworth_renderer_smoke_matrix(tmp_path):
 	assert any(isinstance(op, render_ops.TextOp) for op in ops)
 	svg_text = _ops_to_svg_text(ops)
 	output_path = tmp_path / "ARLRDM_pyranose_alpha_bg.svg"
+	with open(output_path, "w", encoding="utf-8") as handle:
+		handle.write(svg_text)
+	assert output_path.is_file()
+	assert output_path.stat().st_size > 0
+	with open(output_path, "r", encoding="utf-8") as handle:
+		file_text = handle.read()
+	assert "<svg" in file_text
+
+
+#============================================
+# Full archive matrix: all 78 mappable sugars from NEUROtiker archive
+#============================================
+
+_ARCHIVE_CASES = [
+	(code, ring_type, anomeric, filename)
+	for code, ring_type, anomeric, filename, _name in all_mappable_entries()
+]
+
+_ARCHIVE_IDS = [
+	f"{code}_{ring_type}_{anomeric}"
+	for code, ring_type, anomeric, _filename, _name in all_mappable_entries()
+]
+
+
+@pytest.mark.parametrize(
+	"code,ring_type,anomeric,archive_filename",
+	_ARCHIVE_CASES,
+	ids=_ARCHIVE_IDS,
+)
+def test_archive_full_matrix(tmp_path, code, ring_type, anomeric, archive_filename):
+	"""Render every mappable sugar from the NEUROtiker archive and verify output."""
+	ops = _build_ops(code, ring_type, anomeric)
+	assert any(isinstance(op, render_ops.PolygonOp) for op in ops), (
+		f"No PolygonOps for {code} {ring_type} {anomeric}"
+	)
+	assert any(isinstance(op, render_ops.TextOp) for op in ops), (
+		f"No TextOps for {code} {ring_type} {anomeric}"
+	)
+	svg_text = _ops_to_svg_text(ops)
+	output_path = tmp_path / f"{code}_{ring_type}_{anomeric}.svg"
 	with open(output_path, "w", encoding="utf-8") as handle:
 		handle.write(svg_text)
 	assert output_path.is_file()

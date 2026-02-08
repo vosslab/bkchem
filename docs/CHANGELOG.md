@@ -1,6 +1,35 @@
 # Changelog
 
 ## 2026-02-08
+- Update [AGENTS.md](AGENTS.md) environment instructions to require
+  `source source_me.sh` before running Python commands.
+- Expand NEUROtiker archive reference fixtures by adding
+  [tests/fixtures/neurotiker_archive_mapping.py](tests/fixtures/neurotiker_archive_mapping.py)
+  (sugar-code/ring/anomer -> archive filename mapping helpers) and
+  [tests/fixtures/archive_ground_truth.py](tests/fixtures/archive_ground_truth.py)
+  (manually verified substituent ground truth across the mappable archive set).
+- Add archive-wide Haworth validation coverage:
+  [tests/test_haworth_spec.py](tests/test_haworth_spec.py) now parametrizes
+  expected substituents against archive ground truth, and
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  now includes a full mappable archive matrix render smoke test.
+- Improve Haworth renderer configurability and label geometry in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  add `show_hydrogens` and `oxygen_color` render controls, split oxygen-adjacent
+  ring edges into two-color segments, tune connector-length multipliers, and use
+  direction-aware baseline shifts so connector endpoints align more tightly to labels.
+- Extend renderer regression tests in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for oxygen-edge
+  polygon counts, updated connector-length constants, and hydrogen-hide behavior
+  (suppress `H` labels/connectors while preserving non-hydrogen substituents).
+- Expand Haworth selftest visual vignettes in
+  [tools/selftest_sheet.py](tools/selftest_sheet.py) by adding a third row with
+  alpha-D-Tagatopyranose and alpha-D-Psicofuranose builder cases for crowded-label
+  positioning checks.
+- Update design/roadmap notes in
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  with Phase 5b archive-reference testing details, Phase 5c rendering-polish notes,
+  and explicit multi-ring/collision detection stretch-goal documentation.
 - Add a focused Wikimedia downloader script at
   [tools/fetch_neurotiker_haworth_archives.py](tools/fetch_neurotiker_haworth_archives.py)
   that only accepts `User:NEUROtiker/gallery/archive1`, filters `File:` links by

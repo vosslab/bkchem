@@ -57,6 +57,7 @@ FURANOSE_SLOT_LABEL_CONFIG = {
 }
 
 CARBON_NUMBER_VERTEX_WEIGHT = 0.68
+OXYGEN_COLOR = "#8b0000"
 
 
 #============================================
@@ -91,9 +92,11 @@ def render(
 		font_size: float = 12.0,
 		font_name: str = "sans-serif",
 		show_carbon_numbers: bool = False,
+		show_hydrogens: bool = True,
 		line_color: str = "#000",
 		label_color: str = "#000",
-		bg_color: str = "#fff") -> list:
+		bg_color: str = "#fff",
+		oxygen_color: str = OXYGEN_COLOR) -> list:
 	"""Render HaworthSpec into ring/substituent ops."""
 	if spec.ring_type == "pyranose":
 		ring_size = 6
@@ -135,17 +138,26 @@ def render(
 		else:
 			t1 = back_thickness
 			t2 = back_thickness
-		polygon = _edge_polygon(p1, p2, t1, t2)
-		ops.append(
-			render_ops.PolygonOp(
-				points=tuple(polygon),
-				fill=line_color,
-				stroke=None,
-				stroke_width=0.0,
-				z=1,
-				op_id=f"ring_edge_{edge_index}",
+		touches_oxygen = (start_index == o_index or end_index == o_index)
+		if touches_oxygen and oxygen_color != line_color:
+			_add_gradient_edge_ops(
+				ops, p1, p2, t1, t2, edge_index,
+				o_end=(start_index == o_index),
+				oxygen_color=oxygen_color,
+				line_color=line_color,
 			)
-		)
+		else:
+			polygon = _edge_polygon(p1, p2, t1, t2)
+			ops.append(
+				render_ops.PolygonOp(
+					points=tuple(polygon),
+					fill=line_color,
+					stroke=None,
+					stroke_width=0.0,
+					z=1,
+					op_id=f"ring_edge_{edge_index}",
+				)
+			)
 
 	ox, oy = coords[o_index]
 	mask_half_w = font_size * 0.60
@@ -175,14 +187,14 @@ def render(
 			font_name=font_name,
 			anchor="middle",
 			weight="bold",
-			color="#8b0000",
+			color=oxygen_color,
 			z=3,
 			op_id="oxygen_label",
 		)
 	)
 
 	slot_map = carbon_slot_map(spec)
-	default_sub_length = bond_length * 0.40
+	default_sub_length = bond_length * 0.45
 	connector_width = back_thickness
 
 	for carbon in sorted(_ring_carbons(spec)):
@@ -191,9 +203,11 @@ def render(
 		vertex = coords[slot_index[slot]]
 		up_label = spec.substituents.get(f"{carbon_key}_up", "H")
 		down_label = spec.substituents.get(f"{carbon_key}_down", "H")
-		multiplier = 1.5 if up_label != "H" and down_label != "H" else 1.0
+		multiplier = 1.3 if up_label != "H" and down_label != "H" else 1.0
 		sub_length = default_sub_length * multiplier
 		for direction, label in (("up", up_label), ("down", down_label)):
+			if label == "H" and not show_hydrogens:
+				continue
 			dir_key = "up_dir" if direction == "up" else "down_dir"
 			raw_dx, raw_dy = slot_label_cfg[slot][dir_key]
 			dx, dy = _normalize_vector(raw_dx, raw_dy)
@@ -342,12 +356,13 @@ def _add_simple_label_ops(
 		)
 	)
 	text = _format_label_text(label, anchor=anchor)
-	text_offset = font_size * 0.12
 	anchor_x = _anchor_x_offset(anchor, font_size)
+	text_x = end_point[0] + anchor_x
+	text_y = end_point[1] + _baseline_shift(direction, font_size)
 	ops.append(
 		render_ops.TextOp(
-			x=end_point[0] + dx * text_offset + anchor_x,
-			y=end_point[1] + dy * text_offset,
+			x=text_x,
+			y=text_y,
 			text=text,
 			font_size=font_size,
 			font_name=font_name,
@@ -378,7 +393,6 @@ def _add_chain_ops(
 		label_color: str) -> None:
 	"""Add multi-segment exocyclic-chain connector + labels."""
 	start = vertex
-	text_offset = font_size * 0.12
 	anchor_x = _anchor_x_offset(anchor, font_size)
 	for index, raw_label in enumerate(labels, start=1):
 		end = (start[0] + dx * segment_length, start[1] + dy * segment_length)
@@ -393,10 +407,12 @@ def _add_chain_ops(
 				op_id=f"C{carbon}_{direction}_chain{index}_connector",
 			)
 		)
+		text_x = end[0] + anchor_x
+		text_y = end[1] + _baseline_shift(direction, font_size)
 		ops.append(
 			render_ops.TextOp(
-				x=end[0] + dx * text_offset + anchor_x,
-				y=end[1] + dy * text_offset,
+				x=text_x,
+				y=text_y,
 				text=_format_label_text(raw_label, anchor=anchor),
 				font_size=font_size,
 				font_name=font_name,
@@ -408,6 +424,64 @@ def _add_chain_ops(
 			)
 		)
 		start = end
+
+
+#============================================
+def _baseline_shift(direction: str, font_size: float) -> float:
+	"""Compute vertical baseline correction for label text.
+
+	For downward labels the text baseline needs to shift down so the top
+	of the glyphs aligns with the connector endpoint.  For upward labels
+	the baseline shift is near zero (text hangs below the endpoint).
+	"""
+	if direction == "down":
+		return font_size * 0.35
+	return -font_size * 0.10
+
+
+#============================================
+def _add_gradient_edge_ops(
+		ops: list,
+		p1: tuple[float, float],
+		p2: tuple[float, float],
+		t1: float,
+		t2: float,
+		edge_index: int,
+		o_end: bool,
+		oxygen_color: str,
+		line_color: str) -> None:
+	"""Split one ring edge into two colored halves (gradient near oxygen)."""
+	mx = (p1[0] + p2[0]) / 2.0
+	my = (p1[1] + p2[1]) / 2.0
+	tm = (t1 + t2) / 2.0
+	if o_end:
+		# p1 is the oxygen end
+		poly_o = _edge_polygon(p1, (mx, my), t1, tm)
+		poly_c = _edge_polygon((mx, my), p2, tm, t2)
+	else:
+		# p2 is the oxygen end
+		poly_c = _edge_polygon(p1, (mx, my), t1, tm)
+		poly_o = _edge_polygon((mx, my), p2, tm, t2)
+	ops.append(
+		render_ops.PolygonOp(
+			points=tuple(poly_o),
+			fill=oxygen_color,
+			stroke=None,
+			stroke_width=0.0,
+			z=1,
+			op_id=f"ring_edge_{edge_index}_o",
+		)
+	)
+	ops.append(
+		render_ops.PolygonOp(
+			points=tuple(poly_c),
+			fill=line_color,
+			stroke=None,
+			stroke_width=0.0,
+			z=1,
+			op_id=f"ring_edge_{edge_index}_c",
+		)
+	)
 
 
 #============================================

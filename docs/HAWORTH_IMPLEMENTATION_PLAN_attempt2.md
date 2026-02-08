@@ -71,6 +71,11 @@ Phase 0 non-goals:
 - Exocyclic chain rendering beyond 2 carbons (common sugars have at most 2
   exocyclic carbons; heptose/octose chains will render collinearly, which is
   acceptable for Phase 0).
+- Multi-ring layout (disaccharides, polysaccharides) requires a ring-positioning
+  coordinator that does not exist yet. Single monosaccharide rendering only.
+- Text collision detection (post-render bounding box overlap analysis and automatic
+  connector length adjustment). Heuristic spacing multipliers are sufficient for
+  Phase 0.
 
 Phase 0 acceptance gates:
 
@@ -742,6 +747,101 @@ Register new modules in imports and `_EXPORTED_MODULES`.
 - `python tools/selftest_sheet.py --format svg` -> visually inspect output
 - `python -m pytest tests/` -> full regression (existing tests still pass)
 
+## Phase 5b: NEUROtiker Archive Reference Testing
+
+The `neurotiker_haworth_archive/` directory contains 103 high-quality Haworth projection
+SVGs from Wikimedia's NEUROtiker gallery. 78 of these map to specific sugar code +
+ring type + anomeric combinations and serve as visual reference targets.
+
+### Archive Mapping (78 mappable SVGs)
+
+| Sugar Code | Name | Ring Forms |
+|-----------|------|------------|
+| `ARDM` | D-Erythrose | furanose (alpha/beta) |
+| `ALDM` | D-Threose | furanose (alpha/beta) |
+| `ARRDM` | D-Ribose | furanose + pyranose (alpha/beta) |
+| `ALRDM` | D-Arabinose | furanose + pyranose (alpha/beta) |
+| `ARLDM` | D-Xylose | furanose + pyranose (alpha/beta) |
+| `ALLDM` | D-Lyxose | furanose + pyranose (alpha/beta) |
+| `ARRRDM` | D-Allose | furanose + pyranose (alpha/beta) |
+| `ALRRDM` | D-Altrose | furanose + pyranose (alpha/beta) |
+| `ARLRDM` | D-Glucose | furanose + pyranose (alpha/beta) |
+| `ALLRDM` | D-Mannose | furanose + pyranose (alpha/beta) |
+| `ARRLDM` | D-Gulose | furanose + pyranose (alpha/beta) |
+| `ALRLDM` | D-Idose | furanose + pyranose (alpha/beta) |
+| `ARLLDM` | D-Galactose | furanose + pyranose (alpha/beta) |
+| `ALLLDM` | D-Talose | furanose + pyranose (alpha/beta) |
+| `MKRDM` | D-Ribulose | furanose (alpha/beta) |
+| `MKLDM` | D-Xylulose | furanose (alpha/beta) |
+| `MKLRDM` | D-Fructose | furanose + pyranose (alpha/beta) |
+| `MKLLDM` | D-Psicose | furanose + pyranose (alpha/beta) |
+| `MKRRDM` | D-Tagatose | furanose + pyranose (alpha/beta) |
+| `MKRLDM` | D-Sorbose | furanose + pyranose (alpha/beta) |
+| `ALRRLd` | L-Fucose | pyranose (alpha/beta) |
+| `ARRLLd` | L-Rhamnose | pyranose (alpha/beta) |
+| `ARLLDc` | D-Galacturonic acid | pyranose (alpha/beta) |
+
+### Not mappable (25 SVGs)
+
+- 20 generic `D-Sugar_Haworth.svg` (open-chain equilibrium, no specific anomeric form)
+- 3 polysaccharides: Amylopektin, Cellulose, Chitin (stretch goals)
+- 2 disaccharides: Lactose, Maltose (stretch goals)
+
+### Test fixtures
+
+- `tests/fixtures/neurotiker_archive_mapping.py` - sugar code to archive filename mapping
+- `tests/fixtures/archive_ground_truth.py` - manually verified substituent labels for all 78 forms
+
+### Test coverage
+
+- **Parametrized spec tests** (`test_haworth_spec.py::test_archive_ground_truth`): 78 entries
+  validating every substituent label against ground truth derived from Fischer projection
+  stereocenter rules and cross-referenced against archive SVGs.
+- **Full smoke matrix** (`smoke/test_haworth_renderer_smoke.py::test_archive_full_matrix`):
+  78 entries rendering every mappable sugar and verifying SVG output.
+
+### Rendering quality improvements
+
+Applied during Phase 5b to improve visual fidelity relative to NEUROtiker references:
+
+1. **Gradient ring edges near oxygen**: Ring edges touching the oxygen vertex are split
+   into two colored halves (dark red near O, black away from O), matching the molecular
+   renderer's `color_bonds=True` behavior.
+2. **Connector-to-label alignment**: Text positioning uses direction-aware baseline shift
+   instead of directional offset, eliminating gaps between connector endpoints and labels.
+3. **Connector length consistency**: Dual-wide substituent multiplier reduced from 1.5x
+   to 1.2x for more uniform visual spacing.
+
+## Phase 5c: Rendering Polish and Documentation
+
+### Explicit hydrogen toggle
+
+Added `show_hydrogens: bool = True` parameter to `haworth_renderer.render()`. When
+`False`, H labels and their connector lines are suppressed, matching conventions
+used by NEUROtiker archive and most published Haworth projections. Default is `True`
+for backward compatibility.
+
+### Connector spacing tuning
+
+- Default connector length increased from `bond_length * 0.40` to `bond_length * 0.45`
+  for 12.5% more breathing room between ring vertices and labels.
+- Dual-wide multiplier (for carbons with both labels non-H) increased from 1.2x to 1.3x.
+
+### Collision test vignettes
+
+Added two new vignettes to the selftest sheet (row 3):
+- **alpha-D-Tagatopyranose** (MKRRDM): inner ring collision test case (multiple OH
+  groups on same side at adjacent carbons)
+- **alpha-D-Psicofuranose** (MKLLDM): external positioning test case (multiple OH
+  groups extending outward from the same region)
+
+### OH vs HO convention
+
+The renderer uses side-aware hydroxyl ordering: "OH" for right-anchored labels
+(start anchor), "HO" for left-anchored labels (end anchor). This places the oxygen
+closest to the ring/connector in both cases. NEUROtiker archive always uses "OH"
+regardless of side, but the "HO" convention has chemical advantages and was retained.
+
 ## Phase 0 Exit Checklist
 
 - Implemented files from Phases 1-4 exist and are imported where required.
@@ -757,6 +857,52 @@ Register new modules in imports and `_EXPORTED_MODULES`.
 - `docs/SUGAR_CODE_SPEC.md` and this plan agree on prefix/ring closure matrix.
 - `docs/SUGAR_CODE_SPEC.md` includes canonical glycolysis/CAC pathway-profile
   sugar codes before Phase 0 sign-off.
+
+## Phase 6b: Stretch Goals (Future Work)
+
+### Multi-ring rendering architecture
+
+Disaccharides and polysaccharides require positioning multiple Haworth rings relative to
+each other with glycosidic bond connectors between them. This is a fundamentally different
+layout problem from single-ring rendering and needs:
+
+- A `HaworthLayout` coordinator that accepts multiple `HaworthSpec` objects + bond info
+- Relative positioning rules (e.g., "ring B's C4 connects to ring A's C1")
+- Glycosidic bond rendering (the connector between rings)
+- Non-overlapping ring placement algorithm
+
+This architecture does not exist yet and is prerequisite for all multi-ring goals below.
+
+### Disaccharides (requires multi-ring architecture)
+
+Target molecules from NEUROtiker archive:
+- Maltose (`neurotiker_haworth_archive/Maltose_Haworth.svg`) - alpha-1,4 linked glucopyranoses
+- Lactose (`neurotiker_haworth_archive/Lactose_Haworth.svg`) - galactose beta-1,4 glucose
+
+Additional targets (no archive reference):
+- Sucrose (glucose + fructose, alpha-1,2 linkage)
+- Isomaltose (glucose + glucose, alpha-1,6 linkage)
+
+### Polysaccharides (requires multi-ring + repeating unit architecture)
+
+Target molecules from NEUROtiker archive:
+- Amylopektin (`neurotiker_haworth_archive/Amylopektin_Haworth.svg`)
+  - Alpha-1,4 linked glucopyranose with alpha-1,6 branch points
+  - NEUROtiker rendering is exceptionally good visual target
+- Cellulose (`neurotiker_haworth_archive/Cellulose_Haworth.svg`)
+  - Beta-1,4 linked glucopyranose
+- Chitin (`neurotiker_haworth_archive/Chitin_Haworth.svg`)
+  - Beta-1,4 linked N-acetylglucosamine (GlcNAc)
+  - Uses letter code `n` (NHAc) at C2
+
+### Text collision detection (future rendering improvement)
+
+Current Phase 0 uses heuristic spacing (connector length multipliers) without actual
+bounding box computation. A future improvement could add:
+- Approximate text width estimation based on character count and font size
+- Post-render collision detection between TextOp bounding boxes
+- Automatic connector length adjustment to resolve overlaps
+- Test molecules: D-Tagatose (MKRRDM, inner collisions), D-Psicose (MKLLDM, external)
 
 ## Phase 6: Sugar Code to SMILES
 

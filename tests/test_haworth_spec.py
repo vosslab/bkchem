@@ -1,5 +1,8 @@
 """Unit tests for Haworth spec generation."""
 
+# Standard Library
+import sys
+
 # Third Party
 import pytest
 
@@ -8,9 +11,11 @@ import conftest
 
 
 conftest.add_oasa_to_sys_path()
+sys.path.insert(0, conftest.tests_path("fixtures"))
 
 import oasa.haworth_spec as haworth_spec
 import oasa.sugar_code as sugar_code
+from archive_ground_truth import ARCHIVE_GROUND_TRUTH
 
 
 #============================================
@@ -184,3 +189,32 @@ def test_prefix_ring_mismatch():
 	with pytest.raises(ValueError) as error:
 		_generate("ARDM", "pyranose", "alpha")
 	assert "minimum carbons" in str(error.value)
+
+
+#============================================
+# Parametrized ground-truth tests from NEUROtiker archive
+#============================================
+
+_GROUND_TRUTH_IDS = [
+	f"{code}_{ring}_{anom}"
+	for (code, ring, anom) in sorted(ARCHIVE_GROUND_TRUTH.keys())
+]
+
+_GROUND_TRUTH_PARAMS = sorted(ARCHIVE_GROUND_TRUTH.items())
+
+
+@pytest.mark.parametrize(
+	"key,expected_subs",
+	_GROUND_TRUTH_PARAMS,
+	ids=_GROUND_TRUTH_IDS,
+)
+def test_archive_ground_truth(key, expected_subs):
+	"""Every substituent must match the manually verified ground truth."""
+	code, ring_type, anomeric = key
+	spec = _generate(code, ring_type, anomeric)
+	for label_key, expected_value in expected_subs.items():
+		actual = spec.substituents.get(label_key, "MISSING")
+		assert actual == expected_value, (
+			f"{code} {ring_type} {anomeric}: {label_key} "
+			f"expected {expected_value!r}, got {actual!r}"
+		)
