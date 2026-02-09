@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
-"""Unit tests for BKChem format plugins routed through oasa_bridge."""
+"""Unit tests for BKChem registry-driven format loading."""
 
 # Local repo modules
 import conftest
@@ -9,137 +9,260 @@ import pytest
 conftest.add_bkchem_to_sys_path()
 
 # local repo modules
-from bkchem.plugins import CDXML
-from bkchem.plugins import CML
-from bkchem.plugins import CML2
-from bkchem.plugins import plugin
+import format_loader
+
+from singleton_store import Store
 
 
-def _write_text(path, text):
-	path.write_text(text, encoding="utf-8")
-	return str(path)
+class _DummyPaper:
+	def __init__(self, properties=None):
+		self._properties = properties or {}
+
+	def get_paper_property(self, key):
+		return self._properties.get(key)
+
+
+class _DummyPreferences:
+	def __init__(self, values):
+		self._values = dict(values)
+
+	def get_preference(self, key):
+		return self._values.get(key)
 
 
 #============================================
-def test_cml_importer_uses_bridge(monkeypatch, tmp_path):
+def test_load_gui_manifest_rejects_unknown_top_level(tmp_path):
+	manifest_path = tmp_path / "format_menus.yaml"
+	manifest_path.write_text("formats: {}\nextra: 1\n", encoding="utf-8")
+	with pytest.raises(ValueError) as error:
+		format_loader.load_gui_manifest(path=str(manifest_path))
+	assert "unknown top-level keys" in str(error.value)
+
+
+#============================================
+def test_load_gui_manifest_rejects_unknown_option_key(tmp_path):
+	manifest_path = tmp_path / "format_menus.yaml"
+	manifest_path.write_text(
+		"\n".join(
+			[
+				"formats:",
+				"  inchi:",
+				"    display_name: InChI",
+				"    scope: selected_molecule",
+				"    gui_options:",
+				"      - key: program_path",
+				"        source: preference",
+				"        preference_key: inchi_program_path",
+				"        unknown: nope",
+			]
+		) + "\n",
+		encoding="utf-8",
+	)
+	with pytest.raises(ValueError) as error:
+		format_loader.load_gui_manifest(path=str(manifest_path))
+	assert "unknown gui option keys" in str(error.value)
+
+
+#============================================
+def test_load_format_entries_joins_registry_and_manifest(monkeypatch):
+	backend = {
+		"cdxml": {
+			"extensions": [".cdxml"],
+			"reads_text": True,
+			"writes_text": True,
+			"reads_files": True,
+			"writes_files": True,
+		},
+		"inchi": {
+			"extensions": [".inchi"],
+			"reads_text": True,
+			"writes_text": True,
+			"reads_files": True,
+			"writes_files": True,
+		},
+	}
+	gui = {
+		"cdxml": {
+			"display_name": "CDXML",
+			"scope": "paper",
+			"gui_options": [],
+		},
+		"inchi": {
+			"display_name": "InChI",
+			"menu_capabilities": ["export"],
+			"scope": "selected_molecule",
+			"gui_options": [],
+		},
+	}
+	monkeypatch.setattr(format_loader, "load_backend_capabilities", lambda: backend)
+	monkeypatch.setattr(format_loader, "load_gui_manifest", lambda path=None: gui)
+	entries = format_loader.load_format_entries()
+	assert entries["cdxml"]["can_import"] is True
+	assert entries["cdxml"]["can_export"] is True
+	assert entries["inchi"]["can_import"] is False
+	assert entries["inchi"]["can_export"] is True
+	assert entries["cdxml"]["extensions"] == [".cdxml"]
+
+
+#============================================
+def test_load_format_entries_rejects_unknown_codec(monkeypatch):
+	backend = {
+		"cdxml": {
+			"extensions": [".cdxml"],
+			"reads_text": True,
+			"writes_text": True,
+			"reads_files": True,
+			"writes_files": True,
+		},
+	}
+	gui = {
+		"missing_codec": {
+			"display_name": "Missing",
+			"scope": "paper",
+			"gui_options": [],
+		}
+	}
+	monkeypatch.setattr(format_loader, "load_backend_capabilities", lambda: backend)
+	monkeypatch.setattr(format_loader, "load_gui_manifest", lambda path=None: gui)
+	with pytest.raises(ValueError) as error:
+		format_loader.load_format_entries()
+	assert "missing in OASA registry snapshot" in str(error.value)
+
+
+#============================================
+def test_resolve_gui_kwargs_handles_preference_and_paper_property():
+	old_pm = Store.pm
+	try:
+		Store.pm = _DummyPreferences({"inchi_program_path": "/usr/local/bin/inchi"})
+		paper = _DummyPaper(properties={"crop_svg": True})
+		options = [
+			{
+				"key": "program_path",
+				"source": "preference",
+				"preference_key": "inchi_program_path",
+				"required": True,
+			},
+			{
+				"key": "crop",
+				"source": "paper_property",
+				"property_key": "crop_svg",
+			},
+		]
+		assert format_loader.resolve_gui_kwargs(paper, options) == {
+			"program_path": "/usr/local/bin/inchi",
+			"crop": True,
+		}
+	finally:
+		Store.pm = old_pm
+
+
+#============================================
+def test_resolve_gui_kwargs_required_preference_missing_raises():
+	old_pm = Store.pm
+	try:
+		Store.pm = _DummyPreferences({})
+		paper = _DummyPaper()
+		options = [
+			{
+				"key": "program_path",
+				"source": "preference",
+				"preference_key": "inchi_program_path",
+				"required": True,
+			},
+		]
+		with pytest.raises(ValueError) as error:
+			format_loader.resolve_gui_kwargs(paper, options)
+		assert "Missing required option 'program_path'" in str(error.value)
+	finally:
+		Store.pm = old_pm
+
+
+#============================================
+def test_import_format_calls_bridge(monkeypatch, tmp_path):
 	calls = []
 
-	def _fake_read_cml(file_obj, paper, version=1):
-		calls.append((file_obj.read(), paper, version))
-		return ["ok"]
+	def _fake_read_codec_file(codec_name, file_obj, paper, **kwargs):
+		calls.append((codec_name, file_obj.read(), paper, kwargs))
+		return ["molecule"]
 
-	monkeypatch.setattr(CML.oasa_bridge, "read_cml", _fake_read_cml)
-	paper = object()
-	importer = CML.CML_importer(paper)
-	file_name = _write_text(tmp_path / "in.cml", "<cml/>")
-	assert importer.get_molecules(file_name) == ["ok"]
-	assert calls == [("<cml/>", paper, 1)]
+	monkeypatch.setattr(format_loader.oasa_bridge, "read_codec_file", _fake_read_codec_file)
+	input_path = tmp_path / "input.cdxml"
+	input_path.write_text("<CDXML/>", encoding="utf-8")
+	result = format_loader.import_format("cdxml", paper="paper", filename=str(input_path))
+	assert result == ["molecule"]
+	assert calls == [("cdxml", "<CDXML/>", "paper", {})]
 
 
 #============================================
-def test_cml2_importer_uses_bridge_version_2(monkeypatch, tmp_path):
+def test_export_format_selected_scope_uses_bridge(monkeypatch, tmp_path):
 	calls = []
+	monkeypatch.setattr(format_loader.oasa_bridge, "validate_selected_molecule", lambda paper: object())
 
-	def _fake_read_cml(file_obj, paper, version=1):
-		calls.append((file_obj.read(), paper, version))
-		return ["ok2"]
+	def _fake_write_selected(codec_name, paper, file_obj, **kwargs):
+		calls.append((codec_name, paper, kwargs))
+		file_obj.write("ok\n")
 
-	monkeypatch.setattr(CML2.oasa_bridge, "read_cml", _fake_read_cml)
-	paper = object()
-	importer = CML2.CML2_importer(paper)
-	file_name = _write_text(tmp_path / "in2.cml", "<cml/>")
-	assert importer.get_molecules(file_name) == ["ok2"]
-	assert calls == [("<cml/>", paper, 2)]
-
-
-#============================================
-def test_cdxml_importer_uses_bridge(monkeypatch, tmp_path):
-	calls = []
-
-	def _fake_read_cdxml(file_obj, paper):
-		calls.append((file_obj.read(), paper))
-		return ["cdxml"]
-
-	monkeypatch.setattr(CDXML.oasa_bridge, "read_cdxml", _fake_read_cdxml)
-	paper = object()
-	importer = CDXML.CDXML_importer(paper)
-	file_name = _write_text(tmp_path / "in.cdxml", "<CDXML/>")
-	assert importer.get_molecules(file_name) == ["cdxml"]
-	assert calls == [("<CDXML/>", paper)]
+	monkeypatch.setattr(
+		format_loader.oasa_bridge,
+		"write_codec_file_from_selected_molecule",
+		_fake_write_selected,
+	)
+	output_path = tmp_path / "out.cdxml"
+	format_loader.export_format(
+		codec_name="cdxml",
+		paper="paper",
+		filename=str(output_path),
+		scope="selected_molecule",
+		gui_options=[],
+	)
+	assert calls == [("cdxml", "paper", {})]
+	assert output_path.read_text(encoding="utf-8") == "ok\n"
 
 
 #============================================
-def test_cml_exporter_uses_bridge(monkeypatch, tmp_path):
-	calls = []
-
-	def _fake_write_cml_from_paper(paper, file_obj, version=1):
-		calls.append((paper, version))
-		file_obj.write("<cml/>")
-
-	monkeypatch.setattr(CML.oasa_bridge, "write_cml_from_paper", _fake_write_cml_from_paper)
-	paper = object()
-	exporter = CML.CML_exporter(paper)
-	file_name = str(tmp_path / "out.cml")
-	exporter.write_to_file(file_name)
-	assert calls == [(paper, 1)]
-	assert (tmp_path / "out.cml").read_text(encoding="utf-8") == "<cml/>"
+def test_export_format_smiles_selected_scope_writes_text(monkeypatch, tmp_path):
+	monkeypatch.setattr(format_loader.oasa_bridge, "validate_selected_molecule", lambda paper: "mol")
+	monkeypatch.setattr(format_loader.oasa_bridge, "mol_to_smiles", lambda mol: "CCO")
+	output_path = tmp_path / "out.smi"
+	format_loader.export_format(
+		codec_name="smiles",
+		paper="paper",
+		filename=str(output_path),
+		scope="selected_molecule",
+		gui_options=[],
+	)
+	assert output_path.read_text(encoding="utf-8") == "CCO\n"
 
 
 #============================================
-def test_cml2_exporter_uses_bridge_version_2(monkeypatch, tmp_path):
-	calls = []
-
-	def _fake_write_cml_from_paper(paper, file_obj, version=1):
-		calls.append((paper, version))
-		file_obj.write("<cml2/>")
-
-	monkeypatch.setattr(CML2.oasa_bridge, "write_cml_from_paper", _fake_write_cml_from_paper)
-	paper = object()
-	exporter = CML2.CML2_exporter(paper)
-	file_name = str(tmp_path / "out2.cml")
-	exporter.write_to_file(file_name)
-	assert calls == [(paper, 2)]
-	assert (tmp_path / "out2.cml").read_text(encoding="utf-8") == "<cml2/>"
-
-
-#============================================
-def test_cdxml_exporter_uses_bridge(monkeypatch, tmp_path):
-	calls = []
-
-	def _fake_write_cdxml_from_paper(paper, file_obj):
-		calls.append(paper)
-		file_obj.write("<CDXML/>")
-
-	monkeypatch.setattr(CDXML.oasa_bridge, "write_cdxml_from_paper", _fake_write_cdxml_from_paper)
-	paper = object()
-	exporter = CDXML.CDXML_exporter(paper)
-	file_name = str(tmp_path / "out.cdxml")
-	exporter.write_to_file(file_name)
-	assert calls == [paper]
-	assert (tmp_path / "out.cdxml").read_text(encoding="utf-8") == "<CDXML/>"
-
-
-#============================================
-def test_importer_wraps_bridge_exception(monkeypatch, tmp_path):
-	def _boom(*_args, **_kwargs):
-		raise RuntimeError("bridge fail")
-
-	monkeypatch.setattr(CML.oasa_bridge, "read_cml", _boom)
-	importer = CML.CML_importer(object())
-	file_name = _write_text(tmp_path / "bad.cml", "<cml/>")
-	with pytest.raises(plugin.import_exception) as error:
-		importer.get_molecules(file_name)
-	assert "bridge fail" in str(error.value)
-
-
-#============================================
-def test_exporter_wraps_bridge_exception(monkeypatch, tmp_path):
-	def _boom(*_args, **_kwargs):
-		raise RuntimeError("bridge fail")
-
-	monkeypatch.setattr(CDXML.oasa_bridge, "write_cdxml_from_paper", _boom)
-	exporter = CDXML.CDXML_exporter(object())
-	file_name = str(tmp_path / "bad.cdxml")
-	with pytest.raises(plugin.export_exception) as error:
-		exporter.write_to_file(file_name)
-	assert "bridge fail" in str(error.value)
+def test_export_format_inchi_selected_scope_writes_key_and_warnings(monkeypatch, tmp_path):
+	old_pm = Store.pm
+	try:
+		Store.pm = _DummyPreferences({"inchi_program_path": "/usr/local/bin/inchi"})
+		monkeypatch.setattr(format_loader.oasa_bridge, "validate_selected_molecule", lambda paper: "mol")
+		monkeypatch.setattr(
+			format_loader.oasa_bridge,
+			"mol_to_inchi",
+			lambda mol, program: ("InChI=1S/CH4/h1H4", "VNWKTOKETHGBQD-UHFFFAOYSA-N", ["warn"]),
+		)
+		output_path = tmp_path / "out.inchi"
+		format_loader.export_format(
+			codec_name="inchi",
+			paper="paper",
+			filename=str(output_path),
+			scope="selected_molecule",
+			gui_options=[
+				{
+					"key": "program_path",
+					"source": "preference",
+					"preference_key": "inchi_program_path",
+					"required": True,
+				},
+			],
+		)
+		lines = output_path.read_text(encoding="utf-8").splitlines()
+		assert lines[0] == "InChI=1S/CH4/h1H4"
+		assert lines[1] == "InChIKey=VNWKTOKETHGBQD-UHFFFAOYSA-N"
+		assert lines[2] == "# warn"
+	finally:
+		Store.pm = old_pm

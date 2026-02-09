@@ -1,6 +1,35 @@
 # Changelog
 
 ## 2026-02-09
+- Implement Phase A plumbing from
+  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md):
+  add registry snapshot capabilities in
+  [packages/oasa/oasa/codec_registry.py](packages/oasa/oasa/codec_registry.py),
+  enforce CML/CML2 import-only behavior in
+  [packages/oasa/oasa/codecs/cml.py](packages/oasa/oasa/codecs/cml.py) and
+  [packages/oasa/oasa/codecs/cml2.py](packages/oasa/oasa/codecs/cml2.py),
+  add BKChem registry-driven format plumbing via
+  [packages/bkchem/bkchem/format_loader.py](packages/bkchem/bkchem/format_loader.py)
+  and
+  [packages/bkchem/bkchem/format_menus.yaml](packages/bkchem/bkchem/format_menus.yaml),
+  route menu handling through the loader in
+  [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py), remove
+  format plugins (`CML.py`, `CML2.py`, `CDXML.py`, `molfile.py`, `smiles.py`,
+  `inchi.py`, `povray.py`) from
+  [packages/bkchem/bkchem/plugins/](packages/bkchem/bkchem/plugins/), and keep
+  only legacy GTML/renderer plugin discovery in
+  [packages/bkchem/bkchem/plugins/__init__.py](packages/bkchem/bkchem/plugins/__init__.py).
+- Replace deleted-plugin tests with loader/bridge coverage in
+  [tests/test_codec_registry_bkchem_plugins.py](tests/test_codec_registry_bkchem_plugins.py),
+  update registry capability assertions in
+  [tests/test_codec_registry.py](tests/test_codec_registry.py), extend
+  selection-validation coverage in
+  [tests/test_codec_registry_bkchem_bridge.py](tests/test_codec_registry_bkchem_bridge.py),
+  and align smoke plugin inventory in
+  [tests/bkchem_plugin_smoke.py](tests/bkchem_plugin_smoke.py).
+- Fix ASCII compliance in
+  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md)
+  by replacing a non-ISO left-right arrow with ASCII (`<->`).
 - Add [docs/PURE_OASA_BACKEND_REFACTOR.md](docs/PURE_OASA_BACKEND_REFACTOR.md)
   documenting the full refactoring roadmap for migrating all backend work
   (format I/O, rendering, coordinate transforms) from BKChem plugins to OASA.

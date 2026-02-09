@@ -31,19 +31,14 @@ except ImportError:
 
 __all__ = []
 
-# 'bitmap' and 'gtml' were removed for the release
-_names = ["CML",
-          "CML2",
-          "smiles",
-          "inchi",
+# format plugins were removed in Phase A; rendering + legacy GTML remain
+_names = ["gtml",
           "ps_builtin",
-          "molfile",
           "pdf_cairo",
           "png_cairo",
           "odf",
           "svg_cairo",
-          "ps_cairo",
-          "CDXML"]
+          "ps_cairo"]
 
 for _name in _names:
   try:

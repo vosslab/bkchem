@@ -227,15 +227,21 @@ def _ensure_defaults_registered():
 		),
 		aliases=["c"],
 	)
-	register_module_codec(
-		"cml",
-		cml,
-		extensions=[".cml"],
+	register_codec(
+		Codec(
+			name="cml",
+			text_to_mol=cml.text_to_mol,
+			file_to_mol=cml.file_to_mol,
+			extensions=[".cml", ".xml"],
+		),
 	)
-	register_module_codec(
-		"cml2",
-		cml2,
-		extensions=[],
+	register_codec(
+		Codec(
+			name="cml2",
+			text_to_mol=cml2.text_to_mol,
+			file_to_mol=cml2.file_to_mol,
+			extensions=[],
+		),
 		aliases=["cml-2"],
 	)
 	register_module_codec(
@@ -274,3 +280,19 @@ def get_codec_by_extension(ext):
 	if not name:
 		raise KeyError(f"No codec registered for extension '{key}'.")
 	return _CODECS[name]
+
+
+#============================================
+def get_registry_snapshot():
+	"""Return registry capabilities for runtime discovery."""
+	_ensure_defaults_registered()
+	snapshot = {}
+	for name, codec in sorted(_CODECS.items()):
+		snapshot[name] = {
+			"extensions": list(codec.extensions),
+			"reads_text": codec.reads_text,
+			"writes_text": codec.writes_text,
+			"reads_files": codec.reads_files,
+			"writes_files": codec.writes_files,
+		}
+	return snapshot

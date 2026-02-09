@@ -243,18 +243,13 @@ def main():
 		verify_tkinter()
 		ensure_preferences()
 	plugin_names = [
-		"CML",
-		"CML2",
-		"smiles",
-		"inchi",
+		"gtml",
 		"ps_builtin",
-		"molfile",
 		"pdf_cairo",
 		"png_cairo",
 		"odf",
 		"svg_cairo",
 		"ps_cairo",
-		"CDXML",
 	]
 	loaded, plugin_info, failures = load_plugins(plugin_names, debug=args.debug)
 	loaded_line = ", ".join(loaded) if loaded else "none"

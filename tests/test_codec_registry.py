@@ -4,6 +4,8 @@
 
 # Standard Library
 import io
+# Third Party
+import pytest
 # Local repo modules
 import conftest
 
@@ -76,12 +78,42 @@ def test_codec_registry_cdml_roundtrip():
 
 
 #============================================
-def test_codec_registry_cml_roundtrip():
+def test_codec_registry_cml_import_only():
 	oasa.codec_registry.reset_registry()
 	codec = oasa.codec_registry.get_codec("cml")
-	mol = _make_simple_mol()
-	text = codec.write_text(mol)
-	assert "<cml" in text
+	assert codec.writes_text is False
+	assert codec.writes_files is False
+	with pytest.raises(ValueError):
+		codec.write_text(_make_simple_mol())
+	text = (
+		"<cml><molecule><atomArray>"
+		"<atom id='a1' elementType='C' x2='0.0' y2='0.0'/>"
+		"<atom id='a2' elementType='O' x2='1.0' y2='0.0'/>"
+		"</atomArray><bondArray>"
+		"<bond atomRefs2='a1 a2' order='1'/>"
+		"</bondArray></molecule></cml>"
+	)
+	loaded = codec.read_text(text)
+	assert loaded is not None
+	assert len(loaded.vertices) == 2
+
+
+#============================================
+def test_codec_registry_cml2_import_only():
+	oasa.codec_registry.reset_registry()
+	codec = oasa.codec_registry.get_codec("cml2")
+	assert codec.writes_text is False
+	assert codec.writes_files is False
+	with pytest.raises(ValueError):
+		codec.write_text(_make_simple_mol())
+	text = (
+		"<cml><molecule><atomArray>"
+		"<atom id='a1' elementType='C' x2='0.0' y2='0.0'/>"
+		"<atom id='a2' elementType='N' x2='1.0' y2='0.0'/>"
+		"</atomArray><bondArray>"
+		"<bond atomRefs2='a1 a2' order='1'/>"
+		"</bondArray></molecule></cml>"
+	)
 	loaded = codec.read_text(text)
 	assert loaded is not None
 	assert len(loaded.vertices) == 2
@@ -106,3 +138,17 @@ def test_codec_registry_file_fallback():
 	stream = io.StringIO("C")
 	mol = codec.read_file(stream)
 	assert mol is not None
+
+
+#============================================
+def test_registry_snapshot_contains_capabilities():
+	oasa.codec_registry.reset_registry()
+	snapshot = oasa.codec_registry.get_registry_snapshot()
+	assert "smiles" in snapshot
+	assert "cml" in snapshot
+	assert "cml2" in snapshot
+	assert snapshot["smiles"]["writes_files"] is True
+	assert snapshot["cml"]["writes_files"] is False
+	assert snapshot["cml"]["writes_text"] is False
+	assert snapshot["cml2"]["writes_files"] is False
+	assert snapshot["cml2"]["writes_text"] is False

@@ -377,14 +377,12 @@ def file_to_mol(file_obj, version=_VERSION_1):
 
 #============================================
 def mol_to_text(mol, version=_VERSION_1):
-	version_key = _safe_text(version)
-	if version_key not in (_VERSION_1, _VERSION_2):
-		version_key = _VERSION_1
-	document = _mol_to_dom(mol, version_key)
-	return document.toxml("utf-8").decode("utf-8")
+	_ = mol
+	_ = version
+	raise ValueError("CML export is not supported. This codec is import-only.")
 
 
 #============================================
 def mol_to_file(mol, file_obj, version=_VERSION_1):
-	text = mol_to_text(mol, version=version)
-	file_obj.write(text)
+	_ = file_obj
+	mol_to_text(mol, version=version)

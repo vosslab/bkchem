@@ -1,0 +1,38 @@
+formats:
+  cml:
+    display_name: CML
+    menu_capabilities: [import]
+    scope: paper
+    gui_options: []
+
+  cml2:
+    display_name: CML2
+    menu_capabilities: [import]
+    scope: paper
+    gui_options: []
+
+  cdxml:
+    display_name: CDXML
+    scope: paper
+    gui_options: []
+
+  molfile:
+    display_name: Molfile
+    scope: selected_molecule
+    gui_options: []
+
+  smiles:
+    display_name: SMILES
+    menu_capabilities: [export]
+    scope: selected_molecule
+    gui_options: []
+
+  inchi:
+    display_name: InChI
+    menu_capabilities: [export]
+    scope: selected_molecule
+    gui_options:
+      - key: program_path
+        source: preference
+        preference_key: inchi_program_path
+        required: true

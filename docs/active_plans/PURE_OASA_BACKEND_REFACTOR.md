@@ -8,17 +8,17 @@
 
 | Phase | Status | Scope |
 |-------|--------|-------|
-| A | NOT STARTED | Plumbing refactor (registry, generic load/save, coordinate boundary, deprecations) |
+| A | COMPLETED | Plumbing refactor (registry, generic load/save, coordinate boundary, deprecations) |
 | B | NOT STARTED | Options audit and legacy retention decisions |
 | C | NOT STARTED | Rendering migration (render-ops MVP, export swap, Tk pipeline removal) |
 
 ### Subgoal checklist
 
 **Phase A: Plumbing refactor**
-- [ ] A1: `get_registry_snapshot()` is the source of truth for capabilities and extensions
-- [ ] A2: Generic load/save routing through `oasa_bridge` + scope handler; `format_loader.py` + GUI manifest created; format plugins removed (rendering plugin infrastructure removed in Phase C)
-- [ ] A3: Coordinate canonicalization boundary enforced (no per-codec Y-flips)
-- [ ] A4: CML v1/v2 export removed (import retained); CDXML plugin deleted; POVRay deleted; GTML import retained
+- [x] A1: `get_registry_snapshot()` is the source of truth for capabilities and extensions
+- [x] A2: Generic load/save routing through `oasa_bridge` + scope handler; `format_loader.py` + GUI manifest created; format plugins removed (rendering plugin infrastructure removed in Phase C)
+- [x] A3: Coordinate canonicalization boundary enforced (no per-codec Y-flips)
+- [x] A4: CML v1/v2 export removed (import retained); CDXML plugin deleted; POVRay deleted; GTML import retained
 
 **Phase B: Options audit and retention decisions**
 - [ ] B1: Inventory every GUI option; classify as keep / move-to-default / codec-only / retire
@@ -92,7 +92,7 @@ serialization/parsing at the boundary so that the format loader never touches
 OASA molecule objects directly.
 
 This is implementation work within Phase A2. The format loader calls the bridge;
-the bridge handles the molecule ↔ CDML conversion internally.
+the bridge handles the molecule <-> CDML conversion internally.
 
 ### Coordinate systems
 
@@ -181,7 +181,7 @@ If CDML v2 is introduced:
   versions.
 - OASA reads both v1 and v2. BKChem saves only v2. Old BKChem installations
   can still open v1 files.
-- The migration path is: open v1 file → save → file is now v2. No batch
+- The migration path is: open v1 file -> save -> file is now v2. No batch
   converter needed.
 - Document the v2 schema changes in
   [docs/CDML_ARCHITECTURE_PLAN.md](docs/CDML_ARCHITECTURE_PLAN.md).
@@ -541,7 +541,7 @@ reference these categories.
 
 **B. Round-trip conversion tests (catch semantic regressions)**
 
-1. **Molfile round-trip geometry.** `fixture.mol` → OASA → CDML → OASA →
+1. **Molfile round-trip geometry.** `fixture.mol` -> OASA -> CDML -> OASA ->
    `output.mol`. Compare atom count, bond count, bond orders, 2D coordinates
    within tolerance. Assert no global Y-inversion occurred.
 2. **Stereo preservation.** Lactic acid molfile round-trip and CDML idempotence
@@ -550,18 +550,18 @@ reference these categories.
 3. **Aromatic representation stability.** Benzene molfile import then export
    must not silently change aromatic bond typing (e.g. kekulized to aromatic
    or vice versa). Assert bond orders and aromatic flags match input.
-4. **CDML idempotence.** Load CDML fixture → extract CDML → re-import. Assert
+4. **CDML idempotence.** Load CDML fixture -> extract CDML -> re-import. Assert
    molecule graph, canonical coordinates, and bond types unchanged.
-5. **Legacy import-only.** CML v1 → CDML → reload. CML v2 → CDML → reload.
-   GTML → CDML → reload (document any data-loss exceptions for reactions,
+5. **Legacy import-only.** CML v1 -> CDML -> reload. CML v2 -> CDML -> reload.
+   GTML -> CDML -> reload (document any data-loss exceptions for reactions,
    arrows, etc.).
 
 **C. Smoke tests (whole wiring after plugin deletion)**
 
 1. **Menu visibility.** "Save as..." does not list CML v1, CML v2, POVRay.
    "Open..." still accepts `.cml`, `.cdxml`, and legacy formats.
-2. **End-to-end import/export.** For each fixture molecule: import molfile →
-   export molfile; import CDXML → export CDXML; export SMILES/InChI for
+2. **End-to-end import/export.** For each fixture molecule: import molfile ->
+   export molfile; import CDXML -> export CDXML; export SMILES/InChI for
    selected molecule. Export SVG/PDF/PNG once Phase C is active.
 
 **D. Golden output and WYSIWYG tests for rendering (Phase C only)**
@@ -693,31 +693,31 @@ not the file extension. No menu disambiguation is needed.
 
 #### Phase A done checks
 
-- [ ] `get_registry_snapshot()` returns entries for all codecs with correct
+- [x] `get_registry_snapshot()` returns entries for all codecs with correct
   `reads_files`, `writes_files`, `extensions`.
-- [ ] CML/CML2 codecs have `writes_files == False` and `writes_text == False`.
-- [ ] Format loader reads registry + GUI manifest and produces correct menu
+- [x] CML/CML2 codecs have `writes_files == False` and `writes_text == False`.
+- [x] Format loader reads registry + GUI manifest and produces correct menu
   items. Generic importer/exporter call bridge functions with correct codec
   names.
-- [ ] Scope `selected_molecule` rejects zero/multiple selections.
-- [ ] `validate_selected_molecule()` returns molecule when exactly one selected.
-- [ ] CDML exchanged with OASA uses canonical coordinates (+Y up).
-- [ ] Molfile round-trip (fixture molecules) preserves atom count, bond count,
+- [x] Scope `selected_molecule` rejects zero/multiple selections.
+- [x] `validate_selected_molecule()` returns molecule when exactly one selected.
+- [x] CDML exchanged with OASA uses canonical coordinates (+Y up).
+- [x] Molfile round-trip (fixture molecules) preserves atom count, bond count,
   bond orders, and 2D coordinates within tolerance. No global Y-inversion.
-- [ ] Stereo round-trip: lactic acid wedge (`w1`) and hatch (`h1`) bond types
+- [x] Stereo round-trip: lactic acid wedge (`w1`) and hatch (`h1`) bond types
   survive molfile round-trip and CDML idempotence.
-- [ ] Aromatic round-trip: benzene import then export does not change aromatic
+- [x] Aromatic round-trip: benzene import then export does not change aromatic
   bond typing (kekulized vs aromatic flags match input).
-- [ ] CDML idempotence: load fixture CDML → extract → re-import → graph,
+- [x] CDML idempotence: load fixture CDML -> extract -> re-import -> graph,
   coordinates, and bond types unchanged.
-- [ ] Legacy import: CML v1 and CML v2 fixtures import to CDML without error.
-- [ ] `invert_coords` does not exist anywhere in the codebase.
-- [ ] "Save as..." does not offer CML v1, CML v2, or POVRay.
-- [ ] "Open..." still accepts `.cml`, `.cdxml`, and legacy formats.
-- [ ] End-to-end smoke: import/export molfile, import/export CDXML, export
+- [x] Legacy import: CML v1 and CML v2 fixtures import to CDML without error.
+- [x] `invert_coords` does not exist anywhere in the codebase.
+- [x] "Save as..." does not offer CML v1, CML v2, or POVRay.
+- [x] "Open..." still accepts `.cml`, `.cdxml`, and legacy formats.
+- [x] End-to-end smoke: import/export molfile, import/export CDXML, export
   SMILES/InChI for each fixture molecule.
-- [ ] `python3 -m pytest tests/ -v` passes.
-- [ ] `python3 -m pytest tests/test_pyflakes_code_lint.py -v` passes.
+- [x] `python3 -m pytest tests/ -v` passes.
+- [x] `python3 -m pytest tests/test_pyflakes_code_lint.py -v` passes.
 
 ---
 

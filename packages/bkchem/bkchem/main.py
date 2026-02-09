@@ -45,6 +45,7 @@ import logger
 import dialogs
 import pixmaps
 import plugins
+import format_loader
 import messages
 import molecule
 import os_support
@@ -382,12 +383,34 @@ class BKChem( Tk):
       for name in plugins.__all__:
         plugin = plugins.__dict__[ name]
         self.plugins[ plugin.name] = plugin
+    self.format_entries = {}
 
     self.paper = None
 
 
   def init_plugins_menu( self):
-    # PLUGINS
+    # registry-backed formats
+    try:
+      self.format_entries = format_loader.load_format_entries()
+    except Exception as error:
+      Store.log( _("Could not load format manifest: %s") % error)
+      self.format_entries = {}
+
+    format_names = sorted( self.format_entries.keys(),
+                           key=lambda n: self.format_entries[n]["display_name"].lower())
+    for codec_name in format_names:
+      entry = self.format_entries[ codec_name]
+      local_name = entry["display_name"]
+      if entry.get("can_import"):
+        self.menu.addmenuitem( _("Import"), 'command', label=local_name,
+                               statusHelp=_("Imports %s format.") % local_name,
+                               command=misc.lazy_apply( self.format_import, (codec_name,)))
+      if entry.get("can_export"):
+        self.menu.addmenuitem( _("Export"), 'command', label=local_name,
+                               statusHelp=_("Exports %s format.") % local_name,
+                               command=misc.lazy_apply( self.format_export, (codec_name,)))
+
+    # legacy plugins (renderers and retained GTML path)
     names = sorted(self.plugins.keys())
     for name in names:
       plugin = self.plugins[ name]
@@ -985,6 +1008,116 @@ class BKChem( Tk):
     self.quit()
     if os.name != "nt":
       sys.exit(0)
+
+
+  def _format_filetypes( self, format_name, extensions):
+    types = []
+    for ext in extensions:
+      types.append( (format_name+" "+_("file"), ext))
+    types.append( (_("All files"), "*"))
+    return types
+
+
+  def format_import( self, codec_name, filename=None):
+    entry = self.format_entries.get( codec_name)
+    if not entry:
+      return 0
+    if not filename:
+      if self.paper.changes_made:
+        if tkinter.messagebox.askokcancel(
+            _("Forget changes?"),
+            _("Forget changes in currently visiting file?"),
+            default='ok',
+            parent=self) == 0:
+          return 0
+      types = self._format_filetypes( entry["display_name"], entry.get("extensions", []))
+      a = askopenfilename( defaultextension = "",
+                           initialdir = self.save_dir,
+                           initialfile = self.save_file,
+                           title = _("Load")+" "+entry["display_name"],
+                           parent = self,
+                           filetypes=types)
+      if a:
+        filename = a
+      else:
+        return 0
+    try:
+      mols = format_loader.import_format( codec_name, self.paper, filename)
+    except Exception as detail:
+      tkinter.messagebox.showerror(
+        _("Import error"),
+        _("Format import failed with following error:\n %s") % detail)
+      return 0
+    self.paper.clean_paper()
+    self.paper.create_background()
+    for m in mols:
+      self.paper.stack.append( m)
+      m.draw()
+    self.paper.add_bindings()
+    self.paper.start_new_undo_record()
+    Store.log( _("loaded file: ")+filename)
+    return 1
+
+
+  def format_export( self, codec_name, filename=None, interactive=True, on_begin_attrs=None):
+    _ = interactive
+    _ = on_begin_attrs
+    entry = self.format_entries.get( codec_name)
+    if not entry:
+      return False
+    if not filename:
+      file_name = self.paper.get_base_name()
+      extensions = entry.get("extensions", [])
+      if extensions:
+        file_name += extensions[0]
+      types = self._format_filetypes( entry["display_name"], extensions)
+      defaultextension = ""
+      if len( types) > 1:
+        defaultextension = types[0][1]
+      a = asksaveasfilename( defaultextension = defaultextension,
+                             initialdir = self.save_dir,
+                             initialfile = file_name,
+                             title = _("Export")+" "+entry["display_name"],
+                             parent = self,
+                             filetypes=types)
+    else:
+      a = filename
+    if not a:
+      return False
+    try:
+      format_loader.export_format(
+        codec_name,
+        self.paper,
+        a,
+        entry.get("scope", "paper"),
+        entry.get("gui_options", []),
+      )
+    except ValueError as error:
+      text = str( error)
+      if text == "No molecule selected.":
+        tkinter.messagebox.showerror(
+          _("No molecule selected."),
+          _('You have to select exactly one molecule (any atom or bond will do).'))
+      elif text.endswith("molecules selected."):
+        tkinter.messagebox.showerror(
+          text,
+          _('You have to select exactly one molecule (any atom or bond will do).'))
+      elif text.startswith("Missing required option 'program_path'"):
+        tkinter.messagebox.showerror(
+          _("InChI program path"),
+          _("To use InChI in BKChem you must first give it a path to the InChI program here"))
+      else:
+        tkinter.messagebox.showerror(
+          _("Export error"),
+          _("Format export failed with following error:\n %s") % error)
+      return False
+    except Exception as error:
+      tkinter.messagebox.showerror(
+        _("Export error"),
+        _("Format export failed with following error:\n %s") % error)
+      return False
+    Store.log( _("exported file: ")+a)
+    return True
 
 
   def plugin_import( self, pl_id, filename=None):

@@ -84,6 +84,29 @@ def _write_codec_file_from_bkchem_paper( codec_name, paper, file_obj, **kwargs):
   codec.write_file( merged, file_obj, **kwargs)
 
 
+def validate_selected_molecule( paper):
+  conts, _unique = paper.selected_to_unique_top_levels()
+  mols = [o for o in conts if getattr( o, "object_type", None) == "molecule"]
+  if not mols:
+    raise ValueError("No molecule selected.")
+  if len( mols) > 1:
+    raise ValueError(f"{len(mols)} molecules selected.")
+  return mols[0]
+
+
+def read_codec_file( codec_name, file_obj, paper, **kwargs):
+  return _read_codec_file_to_bkchem_mols( codec_name, file_obj, paper, **kwargs)
+
+
+def write_codec_file_from_paper( codec_name, paper, file_obj, **kwargs):
+  _write_codec_file_from_bkchem_paper( codec_name, paper, file_obj, **kwargs)
+
+
+def write_codec_file_from_selected_molecule( codec_name, paper, file_obj, **kwargs):
+  selected = validate_selected_molecule( paper)
+  _write_codec_file_from_bkchem_mol( codec_name, selected, file_obj, **kwargs)
+
+
 def read_smiles( text, paper):
   codec = _get_codec( "smiles")
   mol = codec.read_text( text)
