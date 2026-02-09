@@ -1,6 +1,33 @@
 # Changelog
 
 ## 2026-02-09
+- Refactor
+  [tests/fixtures/archive_ground_truth.py](tests/fixtures/archive_ground_truth.py)
+  alpha-base fixture variable names to code-keyed identifiers (for example
+  `_arldm_alpha_fur`, `_mklrdm_alpha_pyr`) so structural expectations are
+  anchored to sugar codes rather than sugar-name labels.
+- Reduce name-drift risk in
+  [tests/fixtures/archive_ground_truth.py](tests/fixtures/archive_ground_truth.py)
+  by keying ambiguous D-ketohexose fixture variables by sugar code
+  (`MKLLDM`/`MKRRDM`) instead of sugar-name labels.
+- Enforce sugar-name source-of-truth in
+  [tests/fixtures/neurotiker_archive_mapping.py](tests/fixtures/neurotiker_archive_mapping.py)
+  by requiring each mapped sugar code name to resolve from
+  [packages/oasa/oasa_data/sugar_codes.yml](packages/oasa/oasa_data/sugar_codes.yml)
+  or explicit `_SPECIAL_NAMES` overrides, instead of silently falling back to
+  the raw sugar code token.
+- Trim [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md) to keep only
+  representative sugar-code examples and link directly to
+  [packages/oasa/oasa_data/sugar_codes.yml](packages/oasa/oasa_data/sugar_codes.yml)
+  as the full authoritative mapping.
+- Correct D-ketohexose name mapping by swapping `MKRRDM`/`MKLLDM` assignments
+  (D-psicose vs D-tagatose) in
+  [packages/oasa/oasa_data/sugar_codes.yml](packages/oasa/oasa_data/sugar_codes.yml),
+  [docs/SUGAR_CODE_SPEC.md](docs/SUGAR_CODE_SPEC.md), and
+  [docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md),
+  and align fixture pairings in
+  [tests/fixtures/neurotiker_archive_mapping.py](tests/fixtures/neurotiker_archive_mapping.py)
+  and [tests/fixtures/archive_ground_truth.py](tests/fixtures/archive_ground_truth.py).
 - Remove unused legacy `get_structure_hash()` from
   [packages/oasa/oasa/molecule.py](packages/oasa/oasa/molecule.py) to eliminate
   Python 2-era `sha` import-policy issues in Python 3.

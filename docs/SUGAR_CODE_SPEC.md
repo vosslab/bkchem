@@ -16,7 +16,7 @@ may exceed sugar-code length.
 Two-carbon "sugars" are out of scope; monosaccharides here start at 3 carbons.
 Codes with fewer than 3 total characters are invalid.
 
-**Source of truth**: `sugar_codes.yml` from the biology-problems repository.
+**Source of truth**: [packages/oasa/oasa_data/sugar_codes.yml](packages/oasa/oasa_data/sugar_codes.yml).
 
 ## Normative Language
 
@@ -95,44 +95,19 @@ For open-chain pathway encoding, the carbonyl marker position defines the family
 - If no `K` appears at C2/C3, the entry is treated as aldose-derived, and C1 may
   still be substituted in pathway mode (for example `pRLRDp`).
 
-### Examples (from sugar_codes.yml)
+### Representative examples (full mapping lives in sugar_codes.yml)
 
-**Trioses** (3 carbons):
-```
-ADM    = D-glyceraldehyde
-MKM    = dihydroxyacetone (meso)
-MKp    = dihydroxyacetone phosphate (meso triose derivative)
-```
+For complete code-to-name data, use
+[packages/oasa/oasa_data/sugar_codes.yml](packages/oasa/oasa_data/sugar_codes.yml).
+This spec intentionally shows only minimal examples needed to explain format.
 
-Note: upstream `sugar_codes.yml` may contain the misspelling `dihydroxacetone`;
-this spec uses the corrected `dihydroxyacetone`.
-
-**Pentoses** (5 carbons):
 ```
-ARRDM  = D-ribose
-ALRDM  = D-arabinose
-ARLDM  = D-xylose
-ALLDM  = D-lyxose
-```
-
-**D-aldohexoses** (6 carbons):
-```
-ARLRDM = D-glucose
-ARLLDM = D-galactose
-ALLRDM = D-mannose
-ARRRDM = D-allose
-```
-
-**D-ketohexoses** (6 carbons):
-```
-MKLRDM = D-fructose
-MKRRDM = D-tagatose
-MKRLDM = D-sorbose
-```
-
-**D-aldoheptoses** (7 carbons):
-```
-ARLRRDM = D-glycero-D-gluco-heptose
+ADM     = D-glyceraldehyde        # triose aldose
+ARRDM   = D-ribose                # pentose aldose
+ARLRDM  = D-glucose               # aldohexose
+MKLRDM  = D-fructose              # ketohexose
+MKRRDM  = D-psicose               # ketohexose
+ARLRRDM = D-glycero-D-gluco-heptose  # aldoheptose
 ```
 
 ## Extended Format: Chemical Modifications

@@ -61,10 +61,10 @@ L-aldohexoses:
   ALLLLM: L-allose
 
 D-ketohexoses:
-  MKRRDM: D-tagatose
+  MKRRDM: D-psicose
   MKRLDM: D-sorbose
   MKLRDM: D-fructose
-  MKLLDM: D-psicose
+  MKLLDM: D-tagatose
 
 L-ketohexoses:
   MKRRLM: L-psicose

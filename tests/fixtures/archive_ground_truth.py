@@ -39,7 +39,7 @@ def _alpha_flip(subs):
 # Ring carbons: C1, C2, C3, C4. No exocyclic chain.
 # ============================================================================
 
-_erythrose_alpha_fur = {
+_ardm_alpha_fur = {
 	# ARDM: C2=R(down), config=D at C3, terminal M at C4
 	# Furanose: C1-O-C4, ring = C1,C2,C3,C4
 	# C1 anomeric alpha-D: OH down
@@ -52,7 +52,7 @@ _erythrose_alpha_fur = {
 	"C4_up": "H", "C4_down": "H",
 }
 
-_threose_alpha_fur = {
+_aldm_alpha_fur = {
 	# ALDM: C2=L(up), config=D at C3
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
@@ -67,7 +67,7 @@ _threose_alpha_fur = {
 # Pyranose: C1-O-C5, ring=C1..C5, no exocyclic
 # ============================================================================
 
-_ribose_alpha_fur = {
+_arrdm_alpha_fur = {
 	# ARRDM: C2=R(down), C3=R(down), config=D at C4
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
@@ -76,7 +76,7 @@ _ribose_alpha_fur = {
 	"C4_up": "CH2OH", "C4_down": "H",
 }
 
-_ribose_alpha_pyr = {
+_arrdm_alpha_pyr = {
 	# Pyranose: C1-O-C5, ring=C1..C5
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
@@ -87,7 +87,7 @@ _ribose_alpha_pyr = {
 	"C5_up": "H", "C5_down": "H",
 }
 
-_arabinose_alpha_fur = {
+_alrdm_alpha_fur = {
 	# ALRDM: C2=L(up), C3=R(down)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
@@ -95,7 +95,7 @@ _arabinose_alpha_fur = {
 	"C4_up": "CH2OH", "C4_down": "H",
 }
 
-_arabinose_alpha_pyr = {
+_alrdm_alpha_pyr = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
 	"C3_up": "H", "C3_down": "OH",
@@ -103,7 +103,7 @@ _arabinose_alpha_pyr = {
 	"C5_up": "H", "C5_down": "H",
 }
 
-_xylose_alpha_fur = {
+_arldm_alpha_fur = {
 	# ARLDM: C2=R(down), C3=L(up)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
@@ -111,7 +111,7 @@ _xylose_alpha_fur = {
 	"C4_up": "CH2OH", "C4_down": "H",
 }
 
-_xylose_alpha_pyr = {
+_arldm_alpha_pyr = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
 	"C3_up": "OH", "C3_down": "H",
@@ -119,7 +119,7 @@ _xylose_alpha_pyr = {
 	"C5_up": "H", "C5_down": "H",
 }
 
-_lyxose_alpha_fur = {
+_alldm_alpha_fur = {
 	# ALLDM: C2=L(up), C3=L(up)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
@@ -127,7 +127,7 @@ _lyxose_alpha_fur = {
 	"C4_up": "CH2OH", "C4_down": "H",
 }
 
-_lyxose_alpha_pyr = {
+_alldm_alpha_pyr = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
 	"C3_up": "OH", "C3_down": "H",
@@ -141,7 +141,7 @@ _lyxose_alpha_pyr = {
 # Pyranose: C1-O-C5, ring=C1..C5, exocyclic C6 off C5
 # ============================================================================
 
-_glucose_alpha_pyr = {
+_arlrdm_alpha_pyr = {
 	# ARLRDM: C2=R(down), C3=L(up), C4=R(down), config=D at C5
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
@@ -150,7 +150,7 @@ _glucose_alpha_pyr = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_glucose_alpha_fur = {
+_arlrdm_alpha_fur = {
 	# Furanose: ring C1-C4, C5+C6 off C4
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
@@ -159,7 +159,7 @@ _glucose_alpha_fur = {
 	"C4_up": "CH(OH)CH2OH", "C4_down": "H",
 }
 
-_galactose_alpha_pyr = {
+_arlldm_alpha_pyr = {
 	# ARLLDM: C2=R(down), C3=L(up), C4=L(up)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
@@ -168,14 +168,14 @@ _galactose_alpha_pyr = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_galactose_alpha_fur = {
+_arlldm_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
 	"C3_up": "OH", "C3_down": "H",
 	"C4_up": "H", "C4_down": "CH(OH)CH2OH",
 }
 
-_mannose_alpha_pyr = {
+_allrdm_alpha_pyr = {
 	# ALLRDM: C2=L(up), C3=L(up), C4=R(down)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
@@ -184,14 +184,14 @@ _mannose_alpha_pyr = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_mannose_alpha_fur = {
+_allrdm_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
 	"C3_up": "OH", "C3_down": "H",
 	"C4_up": "CH(OH)CH2OH", "C4_down": "H",
 }
 
-_allose_alpha_pyr = {
+_arrrdm_alpha_pyr = {
 	# ARRRDM: C2=R(down), C3=R(down), C4=R(down)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
@@ -200,14 +200,14 @@ _allose_alpha_pyr = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_allose_alpha_fur = {
+_arrrdm_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
 	"C3_up": "H", "C3_down": "OH",
 	"C4_up": "CH(OH)CH2OH", "C4_down": "H",
 }
 
-_altrose_alpha_pyr = {
+_alrrdm_alpha_pyr = {
 	# ALRRDM: C2=L(up), C3=R(down), C4=R(down)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
@@ -216,14 +216,14 @@ _altrose_alpha_pyr = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_altrose_alpha_fur = {
+_alrrdm_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
 	"C3_up": "H", "C3_down": "OH",
 	"C4_up": "CH(OH)CH2OH", "C4_down": "H",
 }
 
-_gulose_alpha_pyr = {
+_arrldm_alpha_pyr = {
 	# ARRLDM: C2=R(down), C3=R(down), C4=L(up)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
@@ -232,14 +232,14 @@ _gulose_alpha_pyr = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_gulose_alpha_fur = {
+_arrldm_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "H", "C2_down": "OH",
 	"C3_up": "H", "C3_down": "OH",
 	"C4_up": "H", "C4_down": "CH(OH)CH2OH",
 }
 
-_idose_alpha_pyr = {
+_alrldm_alpha_pyr = {
 	# ALRLDM: C2=L(up), C3=R(down), C4=L(up)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
@@ -248,14 +248,14 @@ _idose_alpha_pyr = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_idose_alpha_fur = {
+_alrldm_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
 	"C3_up": "H", "C3_down": "OH",
 	"C4_up": "H", "C4_down": "CH(OH)CH2OH",
 }
 
-_talose_alpha_pyr = {
+_allldm_alpha_pyr = {
 	# ALLLDM: C2=L(up), C3=L(up), C4=L(up)
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
@@ -264,7 +264,7 @@ _talose_alpha_pyr = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_talose_alpha_fur = {
+_allldm_alpha_fur = {
 	"C1_up": "H", "C1_down": "OH",
 	"C2_up": "OH", "C2_down": "H",
 	"C3_up": "OH", "C3_down": "H",
@@ -276,7 +276,7 @@ _talose_alpha_fur = {
 # Ring carbons: C2, C3, C4, C5. Pre-exocyclic: C1 off C2.
 # ============================================================================
 
-_ribulose_alpha_fur = {
+_mkrdm_alpha_fur = {
 	# MKRDM: C3=R(down), config=D at C4
 	# Furanose: C2-O-C5, ring=C2..C5, pre-exo C1 off C2, no post-exo
 	# Anomeric C2: alpha-D -> OH down, CH2OH (C1) up
@@ -286,7 +286,7 @@ _ribulose_alpha_fur = {
 	"C4_up": "H", "C4_down": "OH",
 }
 
-_xylulose_alpha_fur = {
+_mkldm_alpha_fur = {
 	# MKLDM: C3=L(up), config=D at C4
 	"C2_up": "CH2OH", "C2_down": "OH",
 	"C3_up": "OH", "C3_down": "H",
@@ -300,7 +300,7 @@ _xylulose_alpha_fur = {
 # Pyranose: C2-O-C6, ring=C2..C6, pre-exo C1 off C2, no post-exo
 # ============================================================================
 
-_fructose_alpha_fur = {
+_mklrdm_alpha_fur = {
 	# MKLRDM: C3=L(up), C4=R(down), config=D at C5
 	# Anomeric C2: alpha-D -> OH down, CH2OH (C1) opposite = up
 	"C2_up": "CH2OH", "C2_down": "OH",
@@ -310,7 +310,7 @@ _fructose_alpha_fur = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_fructose_alpha_pyr = {
+_mklrdm_alpha_pyr = {
 	# Pyranose: C2-O-C6, ring=C2..C6
 	"C2_up": "CH2OH", "C2_down": "OH",
 	"C3_up": "OH", "C3_down": "H",
@@ -319,7 +319,7 @@ _fructose_alpha_pyr = {
 	"C6_up": "H", "C6_down": "H",
 }
 
-_psicose_alpha_fur = {
+_mkll_alpha_fur = {
 	# MKLLDM: C3=L(up), C4=L(up)
 	"C2_up": "CH2OH", "C2_down": "OH",
 	"C3_up": "OH", "C3_down": "H",
@@ -327,7 +327,7 @@ _psicose_alpha_fur = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_psicose_alpha_pyr = {
+_mkll_alpha_pyr = {
 	"C2_up": "CH2OH", "C2_down": "OH",
 	"C3_up": "OH", "C3_down": "H",
 	"C4_up": "OH", "C4_down": "H",
@@ -335,7 +335,7 @@ _psicose_alpha_pyr = {
 	"C6_up": "H", "C6_down": "H",
 }
 
-_tagatose_alpha_fur = {
+_mkrr_alpha_fur = {
 	# MKRRDM: C3=R(down), C4=R(down)
 	"C2_up": "CH2OH", "C2_down": "OH",
 	"C3_up": "H", "C3_down": "OH",
@@ -343,7 +343,7 @@ _tagatose_alpha_fur = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_tagatose_alpha_pyr = {
+_mkrr_alpha_pyr = {
 	"C2_up": "CH2OH", "C2_down": "OH",
 	"C3_up": "H", "C3_down": "OH",
 	"C4_up": "H", "C4_down": "OH",
@@ -351,7 +351,7 @@ _tagatose_alpha_pyr = {
 	"C6_up": "H", "C6_down": "H",
 }
 
-_sorbose_alpha_fur = {
+_mkrldm_alpha_fur = {
 	# MKRLDM: C3=R(down), C4=L(up)
 	"C2_up": "CH2OH", "C2_down": "OH",
 	"C3_up": "H", "C3_down": "OH",
@@ -359,7 +359,7 @@ _sorbose_alpha_fur = {
 	"C5_up": "CH2OH", "C5_down": "H",
 }
 
-_sorbose_alpha_pyr = {
+_mkrldm_alpha_pyr = {
 	"C2_up": "CH2OH", "C2_down": "OH",
 	"C3_up": "H", "C3_down": "OH",
 	"C4_up": "OH", "C4_down": "H",
@@ -373,7 +373,7 @@ _sorbose_alpha_pyr = {
 # L-series: alpha -> anomeric OH UP, beta -> anomeric OH DOWN
 # ============================================================================
 
-_fucose_alpha_pyr = {
+_alrrld_alpha_pyr = {
 	# ALRRLd: L-Fucose (6-deoxy-L-galactose)
 	# Pyranose: C1-O-C5
 	# Alpha-L: anomeric OH goes UP
@@ -385,7 +385,7 @@ _fucose_alpha_pyr = {
 	"C5_up": "H", "C5_down": "H",
 }
 
-_rhamnose_alpha_pyr = {
+_arrlld_alpha_pyr = {
 	# ARRLLd: L-Rhamnose (6-deoxy-L-mannose)
 	# Alpha-L: anomeric OH goes UP
 	"C1_up": "OH", "C1_down": "H",
@@ -400,7 +400,7 @@ _rhamnose_alpha_pyr = {
 # URONIC ACID - D-series pyranose only
 # ============================================================================
 
-_galacturonic_alpha_pyr = {
+_arlldc_alpha_pyr = {
 	# ARLLDc: D-Galacturonic acid
 	# Pyranose: C1-O-C5, exocyclic COOH off C5
 	# Alpha-D: anomeric OH goes DOWN
@@ -421,51 +421,51 @@ ARCHIVE_GROUND_TRUTH = {}
 
 _ALPHA_BASES = {
 	# Tetroses
-	("ARDM", "furanose"): _erythrose_alpha_fur,
-	("ALDM", "furanose"): _threose_alpha_fur,
+	("ARDM", "furanose"): _ardm_alpha_fur,
+	("ALDM", "furanose"): _aldm_alpha_fur,
 	# Pentoses
-	("ARRDM", "furanose"): _ribose_alpha_fur,
-	("ARRDM", "pyranose"): _ribose_alpha_pyr,
-	("ALRDM", "furanose"): _arabinose_alpha_fur,
-	("ALRDM", "pyranose"): _arabinose_alpha_pyr,
-	("ARLDM", "furanose"): _xylose_alpha_fur,
-	("ARLDM", "pyranose"): _xylose_alpha_pyr,
-	("ALLDM", "furanose"): _lyxose_alpha_fur,
-	("ALLDM", "pyranose"): _lyxose_alpha_pyr,
+	("ARRDM", "furanose"): _arrdm_alpha_fur,
+	("ARRDM", "pyranose"): _arrdm_alpha_pyr,
+	("ALRDM", "furanose"): _alrdm_alpha_fur,
+	("ALRDM", "pyranose"): _alrdm_alpha_pyr,
+	("ARLDM", "furanose"): _arldm_alpha_fur,
+	("ARLDM", "pyranose"): _arldm_alpha_pyr,
+	("ALLDM", "furanose"): _alldm_alpha_fur,
+	("ALLDM", "pyranose"): _alldm_alpha_pyr,
 	# Hexoses
-	("ARRRDM", "furanose"): _allose_alpha_fur,
-	("ARRRDM", "pyranose"): _allose_alpha_pyr,
-	("ALRRDM", "furanose"): _altrose_alpha_fur,
-	("ALRRDM", "pyranose"): _altrose_alpha_pyr,
-	("ARLRDM", "furanose"): _glucose_alpha_fur,
-	("ARLRDM", "pyranose"): _glucose_alpha_pyr,
-	("ALLRDM", "furanose"): _mannose_alpha_fur,
-	("ALLRDM", "pyranose"): _mannose_alpha_pyr,
-	("ARRLDM", "furanose"): _gulose_alpha_fur,
-	("ARRLDM", "pyranose"): _gulose_alpha_pyr,
-	("ALRLDM", "furanose"): _idose_alpha_fur,
-	("ALRLDM", "pyranose"): _idose_alpha_pyr,
-	("ARLLDM", "furanose"): _galactose_alpha_fur,
-	("ARLLDM", "pyranose"): _galactose_alpha_pyr,
-	("ALLLDM", "furanose"): _talose_alpha_fur,
-	("ALLLDM", "pyranose"): _talose_alpha_pyr,
+	("ARRRDM", "furanose"): _arrrdm_alpha_fur,
+	("ARRRDM", "pyranose"): _arrrdm_alpha_pyr,
+	("ALRRDM", "furanose"): _alrrdm_alpha_fur,
+	("ALRRDM", "pyranose"): _alrrdm_alpha_pyr,
+	("ARLRDM", "furanose"): _arlrdm_alpha_fur,
+	("ARLRDM", "pyranose"): _arlrdm_alpha_pyr,
+	("ALLRDM", "furanose"): _allrdm_alpha_fur,
+	("ALLRDM", "pyranose"): _allrdm_alpha_pyr,
+	("ARRLDM", "furanose"): _arrldm_alpha_fur,
+	("ARRLDM", "pyranose"): _arrldm_alpha_pyr,
+	("ALRLDM", "furanose"): _alrldm_alpha_fur,
+	("ALRLDM", "pyranose"): _alrldm_alpha_pyr,
+	("ARLLDM", "furanose"): _arlldm_alpha_fur,
+	("ARLLDM", "pyranose"): _arlldm_alpha_pyr,
+	("ALLLDM", "furanose"): _allldm_alpha_fur,
+	("ALLLDM", "pyranose"): _allldm_alpha_pyr,
 	# Ketopentoses
-	("MKRDM", "furanose"): _ribulose_alpha_fur,
-	("MKLDM", "furanose"): _xylulose_alpha_fur,
+	("MKRDM", "furanose"): _mkrdm_alpha_fur,
+	("MKLDM", "furanose"): _mkldm_alpha_fur,
 	# Ketohexoses
-	("MKLRDM", "furanose"): _fructose_alpha_fur,
-	("MKLRDM", "pyranose"): _fructose_alpha_pyr,
-	("MKLLDM", "furanose"): _psicose_alpha_fur,
-	("MKLLDM", "pyranose"): _psicose_alpha_pyr,
-	("MKRRDM", "furanose"): _tagatose_alpha_fur,
-	("MKRRDM", "pyranose"): _tagatose_alpha_pyr,
-	("MKRLDM", "furanose"): _sorbose_alpha_fur,
-	("MKRLDM", "pyranose"): _sorbose_alpha_pyr,
+	("MKLRDM", "furanose"): _mklrdm_alpha_fur,
+	("MKLRDM", "pyranose"): _mklrdm_alpha_pyr,
+	("MKLLDM", "furanose"): _mkll_alpha_fur,
+	("MKLLDM", "pyranose"): _mkll_alpha_pyr,
+	("MKRRDM", "furanose"): _mkrr_alpha_fur,
+	("MKRRDM", "pyranose"): _mkrr_alpha_pyr,
+	("MKRLDM", "furanose"): _mkrldm_alpha_fur,
+	("MKRLDM", "pyranose"): _mkrldm_alpha_pyr,
 	# L-series modified sugars
-	("ALRRLd", "pyranose"): _fucose_alpha_pyr,
-	("ARRLLd", "pyranose"): _rhamnose_alpha_pyr,
+	("ALRRLd", "pyranose"): _alrrld_alpha_pyr,
+	("ARRLLd", "pyranose"): _arrlld_alpha_pyr,
 	# Uronic acid
-	("ARLLDc", "pyranose"): _galacturonic_alpha_pyr,
+	("ARLLDc", "pyranose"): _arlldc_alpha_pyr,
 }
 
 for (code, ring_type), alpha_subs in _ALPHA_BASES.items():

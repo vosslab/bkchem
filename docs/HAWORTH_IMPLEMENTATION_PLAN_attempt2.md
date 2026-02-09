@@ -790,8 +790,8 @@ ring type + anomeric combinations and serve as visual reference targets.
 | `MKRDM` | D-Ribulose | furanose (alpha/beta) |
 | `MKLDM` | D-Xylulose | furanose (alpha/beta) |
 | `MKLRDM` | D-Fructose | furanose + pyranose (alpha/beta) |
-| `MKLLDM` | D-Psicose | furanose + pyranose (alpha/beta) |
-| `MKRRDM` | D-Tagatose | furanose + pyranose (alpha/beta) |
+| `MKLLDM` | D-Tagatose | furanose + pyranose (alpha/beta) |
+| `MKRRDM` | D-Psicose | furanose + pyranose (alpha/beta) |
 | `MKRLDM` | D-Sorbose | furanose + pyranose (alpha/beta) |
 | `ALRRLd` | L-Fucose | pyranose (alpha/beta) |
 | `ARRLLd` | L-Rhamnose | pyranose (alpha/beta) |
@@ -846,9 +846,9 @@ for backward compatibility.
 ### Collision test vignettes
 
 Added two new vignettes to the selftest sheet (row 3):
-- **alpha-D-Tagatopyranose** (MKRRDM): inner ring collision test case (multiple OH
+- **alpha-D-Psicopyranose** (MKRRDM): inner ring collision test case (multiple OH
   groups on same side at adjacent carbons)
-- **alpha-D-Psicofuranose** (MKLLDM): external positioning test case (multiple OH
+- **alpha-D-Tagatofuranose** (MKLLDM): external positioning test case (multiple OH
   groups extending outward from the same region)
 
 ### OH vs HO convention
@@ -924,7 +924,7 @@ bounding box computation. A future improvement could add:
 - Approximate text width estimation based on character count and font size
 - Post-render collision detection between TextOp bounding boxes
 - Automatic connector length adjustment to resolve overlaps
-- Test molecules: D-Tagatose (MKRRDM, inner collisions), D-Psicose (MKLLDM, external)
+- Test molecules: D-Psicose (MKRRDM, inner collisions), D-Tagatose (MKLLDM, external)
 
 ## Phase 6: Sugar Code to SMILES
 

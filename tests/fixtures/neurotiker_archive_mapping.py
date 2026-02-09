@@ -124,16 +124,16 @@ NEUROTIKER_ARCHIVE_MAP = {
 		("pyranose", "beta"): "Beta-D-Fructopyranose.svg",
 	},
 	"MKLLDM": {
-		("furanose", "alpha"): "Alpha-D-Psicofuranose.svg",
-		("furanose", "beta"): "Beta-D-Psicofuranose.svg",
-		("pyranose", "alpha"): "Alpha-D-Psicopyranose.svg",
-		("pyranose", "beta"): "Beta-D-Psicopyranose.svg",
-	},
-	"MKRRDM": {
 		("furanose", "alpha"): "Alpha-D-Tagatofuranose.svg",
 		("furanose", "beta"): "Beta-D-Tagatofuranose.svg",
 		("pyranose", "alpha"): "Alpha-D-Tagatopyranose.svg",
 		("pyranose", "beta"): "Beta-D-Tagatopyranose.svg",
+	},
+	"MKRRDM": {
+		("furanose", "alpha"): "Alpha-D-Psicofuranose.svg",
+		("furanose", "beta"): "Beta-D-Psicofuranose.svg",
+		("pyranose", "alpha"): "Alpha-D-Psicopyranose.svg",
+		("pyranose", "beta"): "Beta-D-Psicopyranose.svg",
 	},
 	"MKRLDM": {
 		("furanose", "alpha"): "Alpha-D-Sorbofuranose.svg",
@@ -190,6 +190,11 @@ NOT_MAPPABLE_FILENAMES = [
 def all_mappable_entries():
 	"""Yield (sugar_code, ring_type, anomeric, archive_filename, sugar_name)."""
 	for code, ring_forms in NEUROTIKER_ARCHIVE_MAP.items():
-		name = _SPECIAL_NAMES.get(code) or sugar_code_names.get_sugar_name(code) or code
+		name = _SPECIAL_NAMES.get(code) or sugar_code_names.get_sugar_name(code)
+		if name is None:
+			raise ValueError(
+				f"Missing sugar name for code {code}. "
+				"Add it to sugar_codes.yml or _SPECIAL_NAMES."
+			)
 		for (ring_type, anomeric), filename in ring_forms.items():
 			yield code, ring_type, anomeric, filename, name
