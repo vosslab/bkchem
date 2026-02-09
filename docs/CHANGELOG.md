@@ -1,6 +1,9 @@
 # Changelog
 
 ## 2026-02-09
+- Update [refactor_progress.md](refactor_progress.md) to include
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  in both the `In progress` tracker and the `Reference docs` index.
 - Refine
   [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
   with a minimal default-selector rule (`attach_atom=first` when selectors are

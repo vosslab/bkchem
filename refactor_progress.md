@@ -42,6 +42,9 @@ Last updated: 2026-02-09
 ## In progress
 - [docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
   Phase 0 work is complete; future Phases 6/7 remain planned.
+- [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md):
+  Active follow-on plan to unify bond-label attachment across OASA, Haworth,
+  and BKChem with strict overlap gates and migration milestones.
 - [docs/active_plans/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md):
   Active policy; continue enforcing SPDX headers on new files.
 - [docs/TODO_CODE.md](docs/TODO_CODE.md):
@@ -69,6 +72,7 @@ Last updated: 2026-02-09
 ## Reference docs
 - [docs/active_plans/BKCHEM_GUI_MENU_REFACTOR.md](docs/active_plans/BKCHEM_GUI_MENU_REFACTOR.md)
 - [docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md](docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md)
+- [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
 - [docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
 - [docs/active_plans/MENU_REFACTOR_ANALYSIS.md](docs/active_plans/MENU_REFACTOR_ANALYSIS.md)
 - [docs/active_plans/MENU_REFACTOR_SUMMARY.md](docs/active_plans/MENU_REFACTOR_SUMMARY.md)
