@@ -20,6 +20,7 @@ from .renderer_config import (
 )
 from . import renderer_geometry as _geom
 from . import renderer_text as _text
+from .. import render_geometry as _render_geometry
 
 
 #============================================
@@ -306,13 +307,14 @@ def job_text_bbox(job: dict, length: float) -> tuple[float, float, float, float]
 	layout_font_size = job["font_size"]
 	draw_font_size = layout_font_size * float(job.get("text_scale", 1.0))
 	text_x = end_x + _text.anchor_x_offset(text, job["anchor"], layout_font_size)
-	text_y = end_y + _baseline_shift(job["direction"], layout_font_size, text)
-	return text_bbox(
+	text_y = end_y + _text.baseline_shift(job["direction"], layout_font_size, text)
+	return _render_geometry.label_bbox_from_text_origin(
 		text_x=text_x,
 		text_y=text_y,
 		text=text,
 		anchor=job["anchor"],
 		font_size=draw_font_size,
+		font_name=job.get("font_name"),
 	)
 
 
@@ -323,17 +325,14 @@ def text_bbox(
 		text: str,
 		anchor: str,
 		font_size: float) -> tuple[float, float, float, float]:
-	"""Approximate text bounding box from text geometry fields."""
-	visible = _text.visible_text_length(text)
-	width = visible * font_size * 0.60
-	height = font_size
-	if anchor == "middle":
-		x_left = text_x - (width / 2.0)
-	elif anchor == "end":
-		x_left = text_x - width
-	else:
-		x_left = text_x
-	return (x_left, text_y - height, x_left + width, text_y)
+	"""Return shared label bbox from text geometry fields."""
+	return _render_geometry.label_bbox_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+	)
 
 
 #============================================
@@ -364,21 +363,3 @@ def hydroxyl_job_penalty(
 			if _geom.box_overlaps_polygon(box, polygon):
 				penalty += HYDROXYL_RING_COLLISION_PENALTY
 	return penalty
-
-
-#============================================
-def _baseline_shift(direction: str, font_size: float, text: str = "") -> float:
-	"""Compute vertical baseline correction for label text.
-
-	For downward labels the text baseline needs to shift down so the top
-	of the glyphs aligns with the connector endpoint.  For upward labels
-	the baseline shift is near zero (text hangs below the endpoint).
-	"""
-	if text in ("OH", "HO"):
-		# Keep connector endpoints clear of hydroxyl oxygen glyphs.
-		if direction == "down":
-			return font_size * 0.90
-		return -font_size * 0.10
-	if direction == "down":
-		return font_size * 0.35
-	return -font_size * 0.10

@@ -17,6 +17,7 @@ import oasa.dom_extensions as dom_extensions
 import oasa.haworth as haworth
 import oasa.haworth_renderer as haworth_renderer
 import oasa.haworth_spec as haworth_spec
+import oasa.render_geometry as render_geometry
 import oasa.render_ops as render_ops
 import oasa.sugar_code as sugar_code
 
@@ -174,6 +175,43 @@ def _label_bbox(label: render_ops.TextOp) -> tuple[float, float, float, float]:
 #============================================
 def _point_in_box(point: tuple[float, float], box: tuple[float, float, float, float]) -> bool:
 	return box[0] <= point[0] <= box[2] and box[1] <= point[1] <= box[3]
+
+
+#============================================
+def _point_on_box_edge(
+		point: tuple[float, float],
+		box: tuple[float, float, float, float],
+		tol: float = 1e-6) -> bool:
+	x_value, y_value = point
+	x1, y1, x2, y2 = box
+	on_x = abs(x_value - x1) <= tol or abs(x_value - x2) <= tol
+	on_y = abs(y_value - y1) <= tol or abs(y_value - y2) <= tol
+	in_x = (x1 - tol) <= x_value <= (x2 + tol)
+	in_y = (y1 - tol) <= y_value <= (y2 + tol)
+	return (on_x and in_y) or (on_y and in_x)
+
+
+#============================================
+def _connector_bbox_for_label(label: render_ops.TextOp) -> tuple[float, float, float, float]:
+	first_bbox = render_geometry.label_attach_bbox_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		attach_atom="first",
+	)
+	last_bbox = render_geometry.label_attach_bbox_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		attach_atom="last",
+	)
+	if first_bbox != last_bbox:
+		return first_bbox
+	return _label_bbox(label)
 
 
 #============================================
@@ -378,7 +416,9 @@ def test_render_pyranose_side_connectors_vertical():
 	_, ops = _render("ARLRDM", "pyranose", "alpha")
 	for op_id in ("C1_up_connector", "C1_down_connector", "C4_up_connector", "C4_down_connector"):
 		line = _line_by_id(ops, op_id)
-		assert line.p2[0] == pytest.approx(line.p1[0], abs=1e-6)
+		label = _text_by_id(ops, op_id.replace("_connector", "_label"))
+		label_box = _label_bbox(label)
+		assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -386,7 +426,54 @@ def test_render_furanose_side_connectors_vertical():
 	_, ops = _render("MKLRDM", "furanose", "beta")
 	for op_id in ("C2_up_connector", "C2_down_connector", "C5_up_connector", "C5_down_connector"):
 		line = _line_by_id(ops, op_id)
-		assert line.p2[0] == pytest.approx(line.p1[0], abs=1e-6)
+		label = _text_by_id(ops, op_id.replace("_connector", "_label"))
+		label_box = _label_bbox(label)
+		assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
+
+
+#============================================
+def test_connector_terminates_at_bbox_edge():
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
+	for op in _lines(ops):
+		op_id = op.op_id or ""
+		if not op_id.endswith("_connector"):
+			continue
+		if "_chain" in op_id:
+			continue
+		label = _text_by_id(ops, op_id.replace("_connector", "_label"))
+		label_box = _connector_bbox_for_label(label)
+		assert _point_on_box_edge(op.p2, label_box, tol=1e-5)
+
+
+#============================================
+def test_connector_does_not_enter_bbox():
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
+	for op in _lines(ops):
+		op_id = op.op_id or ""
+		if not op_id.endswith("_connector"):
+			continue
+		if "_chain" in op_id:
+			continue
+		label = _text_by_id(ops, op_id.replace("_connector", "_label"))
+		label_box = _connector_bbox_for_label(label)
+		assert _point_on_box_edge(op.p2, label_box, tol=1e-5)
+		midpoint = ((op.p1[0] + op.p2[0]) / 2.0, (op.p1[1] + op.p2[1]) / 2.0)
+		assert not _point_in_box(midpoint, label_box)
+
+
+#============================================
+def test_no_connector_passes_through_label():
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
+	for op in _lines(ops):
+		op_id = op.op_id or ""
+		if not op_id.endswith("_connector"):
+			continue
+		if "_chain" in op_id:
+			continue
+		label = _text_by_id(ops, op_id.replace("_connector", "_label"))
+		label_box = _connector_bbox_for_label(label)
+		midpoint = ((op.p1[0] + op.p2[0]) / 2.0, (op.p1[1] + op.p2[1]) / 2.0)
+		assert not _point_in_box(midpoint, label_box)
 
 
 #============================================
@@ -415,11 +502,8 @@ def test_render_right_anchor_hydroxyl_connector_hits_o_center():
 	line = _line_by_id(ops, "C2_down_connector")
 	assert label.text == "OH"
 	assert label.anchor == "start"
-	o_center = haworth_renderer._hydroxyl_oxygen_center(
-		label.text, label.anchor, label.x, label.y, label.font_size
-	)
-	assert o_center is not None
-	assert line.p2[0] == pytest.approx(o_center[0], abs=0.05)
+	label_box = _connector_bbox_for_label(label)
+	assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -429,11 +513,8 @@ def test_render_left_anchor_hydroxyl_connector_hits_o_center():
 	line = _line_by_id(ops, "C4_down_connector")
 	assert label.text == "HO"
 	assert label.anchor == "end"
-	o_center = haworth_renderer._hydroxyl_oxygen_center(
-		label.text, label.anchor, label.x, label.y, label.font_size
-	)
-	assert o_center is not None
-	assert line.p2[0] == pytest.approx(o_center[0], abs=0.05)
+	label_box = _connector_bbox_for_label(label)
+	assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -446,16 +527,8 @@ def test_render_hydroxyl_connectors_do_not_overlap_oxygen_glyph():
 		if label.text not in ("OH", "HO"):
 			continue
 		line = _line_by_id(ops, op_id.replace("_label", "_connector"))
-		o_center = haworth_renderer._hydroxyl_oxygen_center(
-			label.text, label.anchor, label.x, label.y, label.font_size
-		)
-		assert o_center is not None
-		o_radius = haworth_renderer._hydroxyl_oxygen_radius(label.font_size)
-		assert line.p2[0] == pytest.approx(o_center[0], abs=0.05)
-		if "_down_label" in op_id:
-			assert line.p2[1] <= (o_center[1] - o_radius + 0.05)
-		elif "_up_label" in op_id:
-			assert line.p2[1] >= (o_center[1] + o_radius - 0.05)
+		label_box = _connector_bbox_for_label(label)
+		assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -506,11 +579,13 @@ def test_render_lyxose_pyranose_internal_labels_do_not_overlap_ring_bonds():
 
 
 #============================================
-def test_render_lyxose_pyranose_internal_connectors_equal_length():
+def test_render_lyxose_pyranose_internal_connectors_stop_at_label_edges():
 	_, ops = _render("ALLDM", "pyranose", "alpha", show_hydrogens=False)
-	c2_up_line = _line_by_id(ops, "C2_up_connector")
-	c3_up_line = _line_by_id(ops, "C3_up_connector")
-	assert _line_length(c2_up_line) == pytest.approx(_line_length(c3_up_line), abs=1e-6)
+	for op_id in ("C2_up_connector", "C3_up_connector"):
+		line = _line_by_id(ops, op_id)
+		label = _text_by_id(ops, op_id.replace("_connector", "_label"))
+		label_box = _connector_bbox_for_label(label)
+		assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -710,11 +785,8 @@ def test_render_ch2oh_connector_hits_leading_carbon_center():
 	label = _text_by_id(ops, "C5_up_label")
 	line = _line_by_id(ops, "C5_up_connector")
 	assert label.text == "CH<sub>2</sub>OH"
-	c_center = haworth_renderer._leading_carbon_center(
-		label.text, label.anchor, label.x, label.y, label.font_size
-	)
-	assert c_center is not None
-	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
+	label_box = _connector_bbox_for_label(label)
+	assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -723,11 +795,8 @@ def test_render_cooh_connector_hits_leading_carbon_center():
 	label = _text_by_id(ops, "C5_up_label")
 	line = _line_by_id(ops, "C5_up_connector")
 	assert label.text == "COOH"
-	c_center = haworth_renderer._leading_carbon_center(
-		label.text, label.anchor, label.x, label.y, label.font_size
-	)
-	assert c_center is not None
-	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
+	label_box = _connector_bbox_for_label(label)
+	assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -736,11 +805,8 @@ def test_render_arabinose_furanose_ch2oh_connector_hits_leading_carbon_center():
 	label = _text_by_id(ops, "C4_up_label")
 	line = _line_by_id(ops, "C4_up_connector")
 	assert label.text == "CH<sub>2</sub>OH"
-	c_center = haworth_renderer._leading_carbon_center(
-		label.text, label.anchor, label.x, label.y, label.font_size
-	)
-	assert c_center is not None
-	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
+	label_box = _connector_bbox_for_label(label)
+	assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -750,13 +816,8 @@ def test_render_ketopentose_furanose_down_ch2oh_connector_hits_leading_carbon_ce
 	label = _text_by_id(ops, "C2_down_label")
 	line = _line_by_id(ops, "C2_down_connector")
 	assert label.text == "CH<sub>2</sub>OH"
-	c_center = haworth_renderer._leading_carbon_center(
-		label.text, label.anchor, label.x, label.y, label.font_size
-	)
-	assert c_center is not None
-	assert line.p2[0] == pytest.approx(c_center[0], abs=0.05)
-	label_box = _label_bbox(label)
-	assert line.p2[1] <= label_box[1]
+	label_box = _connector_bbox_for_label(label)
+	assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
@@ -938,14 +999,18 @@ def test_visible_text_length_nested_tags():
 def test_sub_length_multiplier_dual_wide():
 	_, ops = _render("MKLRDM", "furanose", "beta", bond_length=40.0)
 	line = _line_by_id(ops, "C2_up_connector")
-	assert _line_length(line) == pytest.approx(40.0 * 0.45 * 1.3, rel=0.05)
+	label = _text_by_id(ops, "C2_up_label")
+	label_box = _connector_bbox_for_label(label)
+	assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================
 def test_sub_length_default_single_wide():
 	_, ops = _render("ARLRDM", "pyranose", "alpha", bond_length=40.0)
 	line = _line_by_id(ops, "C1_down_connector")
-	assert _line_length(line) == pytest.approx(40.0 * 0.45, rel=0.05)
+	label = _text_by_id(ops, "C1_down_label")
+	label_box = _connector_bbox_for_label(label)
+	assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
 
 
 #============================================

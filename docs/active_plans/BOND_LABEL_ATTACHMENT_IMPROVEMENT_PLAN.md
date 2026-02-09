@@ -30,8 +30,8 @@ backends use it. BKChem should not carry its own competing version.
 
 ## Phase Status Tracker
 
-- [ ] Phase 1: Shared label bbox and connector clipping
-- [ ] Phase 2: Apply to both renderers
+- [x] Phase 1: Shared label bbox and connector clipping
+- [x] Phase 2: Apply to both renderers
 
 ## Design decisions
 
@@ -225,15 +225,15 @@ Clipping tests:
 
 ### Done checks
 
-- [ ] `label_bbox()` exists and returns `(x1, y1, x2, y2)`.
-- [ ] `label_attach_bbox()` exists and returns `(x1, y1, x2, y2)` for the
+- [x] `label_bbox()` exists and returns `(x1, y1, x2, y2)`.
+- [x] `label_attach_bbox()` exists and returns `(x1, y1, x2, y2)` for the
       attachment sub-region within a multi-atom label.
-- [ ] `clip_bond_to_bbox()` exists and delegates to
+- [x] `clip_bond_to_bbox()` exists and delegates to
       `geometry.intersection_of_line_and_rect()`.
-- [ ] `build_vertex_ops()` uses `label_bbox()` internally.
-- [ ] All new and existing `test_codec_registry*.py` and
+- [x] `build_vertex_ops()` uses `label_bbox()` internally.
+- [x] All new and existing `test_codec_registry*.py` and
       `test_phase_c_render_pipeline.py` tests still pass.
-- [ ] `test_label_bbox.py` passes.
+- [x] `test_label_bbox.py` passes.
 
 ## Phase 2: Apply to both renderers
 
@@ -359,19 +359,19 @@ fallback are replaced by `label_bbox()` + intersection.
 
 ### Done checks
 
-- [ ] Molecular renderer bonds terminate at label bbox edges for shown vertices.
-- [ ] Molecular renderer bonds still reach atom center for hidden vertices.
-- [ ] Multi-atom labels clip to the `label_attach_bbox()` sub-region based on
+- [x] Molecular renderer bonds terminate at label bbox edges for shown vertices.
+- [x] Molecular renderer bonds still reach atom center for hidden vertices.
+- [x] Multi-atom labels clip to the `label_attach_bbox()` sub-region based on
       the vertex's `attach_atom` attribute, defaulting missing values to
       `"first"`.
-- [ ] Haworth connectors terminate at label bbox edges.
-- [ ] The special-case downward CH\* connector override is removed.
-- [ ] `_baseline_shift()` exists in exactly one location (no duplication).
-- [ ] `job_text_bbox()` in `renderer_layout.py` delegates to shared
+- [x] Haworth connectors terminate at label bbox edges.
+- [x] The special-case downward CH\* connector override is removed.
+- [x] `_baseline_shift()` exists in exactly one location (no duplication).
+- [x] `job_text_bbox()` in `renderer_layout.py` delegates to shared
       `label_bbox()`.
-- [ ] All existing Haworth geometry tests pass (label positions unchanged).
-- [ ] All existing molecular renderer tests pass.
-- [ ] Full test suite passes.
+- [x] All existing Haworth geometry tests pass (label positions unchanged).
+- [x] All existing molecular renderer tests pass.
+- [x] Full test suite passes.
 
 ## Key files
 

@@ -46,6 +46,8 @@ class BondRenderContext:
 	bond_coords: dict | None = None
 	bond_coords_provider: object | None = None
 	point_for_atom: object | None = None
+	label_bboxes: dict | None = None
+	attach_bboxes: dict | None = None
 
 
 #============================================
@@ -275,6 +277,36 @@ def build_bond_ops(edge, start, end, context):
 	if start is None or end is None:
 		return []
 	v1, v2 = edge.vertices
+	bbox_v1 = None
+	bbox_v2 = None
+	force_v1_inside = False
+	force_v2_inside = False
+	if context.attach_bboxes:
+		bbox_v1 = context.attach_bboxes.get(v1)
+		bbox_v2 = context.attach_bboxes.get(v2)
+		force_v1_inside = bbox_v1 is not None
+		force_v2_inside = bbox_v2 is not None
+	if context.label_bboxes:
+		if bbox_v1 is None:
+			bbox_v1 = context.label_bboxes.get(v1)
+		if bbox_v2 is None:
+			bbox_v2 = context.label_bboxes.get(v2)
+	if bbox_v1 is not None:
+		target_start = start
+		if force_v1_inside:
+			x1, y1, x2, y2 = misc.normalize_coords(bbox_v1)
+			is_inside = x1 <= start[0] <= x2 and y1 <= start[1] <= y2
+			if not is_inside:
+				target_start = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+		start = clip_bond_to_bbox(end, target_start, bbox_v1)
+	if bbox_v2 is not None:
+		target_end = end
+		if force_v2_inside:
+			x1, y1, x2, y2 = misc.normalize_coords(bbox_v2)
+			is_inside = x1 <= end[0] <= x2 and y1 <= end[1] <= y2
+			if not is_inside:
+				target_end = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+		end = clip_bond_to_bbox(start, target_end, bbox_v2)
 	has_shown_vertex = False
 	if context.shown_vertices:
 		has_shown_vertex = v1 in context.shown_vertices or v2 in context.shown_vertices
@@ -376,17 +408,211 @@ def vertex_label_text(vertex, show_hydrogens_on_hetero):
 
 
 #============================================
-def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
-		color_atoms=True, atom_colors=None, font_name="Arial", font_size=16):
+def _visible_label_text(text):
+	return re.sub(r"<[^>]+>", "", text or "")
+
+
+#============================================
+def _visible_label_length(text):
+	return max(1, len(_visible_label_text(text)))
+
+
+#============================================
+def _label_text_origin(x, y, anchor, font_size, text_len):
+	del text_len
+	baseline_offset = font_size * 0.375
+	start_offset = font_size * 0.3125
+	if anchor == "start":
+		return (x - start_offset, y + baseline_offset)
+	return (x, y + baseline_offset)
+
+
+#============================================
+def _tokenized_atom_spans(text):
+	visible_text = _visible_label_text(text)
+	spans = []
+	i = 0
+	length = len(visible_text)
+	while i < length:
+		char = visible_text[i]
+		if not char.isalpha() or not char.isupper():
+			i += 1
+			continue
+		start = i
+		i += 1
+		if i < length and visible_text[i].islower():
+			i += 1
+		symbol = visible_text[start:i]
+		# Treat condensed hydrogens as decorations attached to the previous
+		# heavy atom token so CH2OH yields token spans for C and OH.
+		if symbol != "H":
+			if i < length and visible_text[i] == "H":
+				i += 1
+				while i < length and visible_text[i].isdigit():
+					i += 1
+		while i < length and visible_text[i].isdigit():
+			i += 1
+		while i < length and visible_text[i] in "+-":
+			i += 1
+		spans.append((start, i))
+	return spans
+
+
+#============================================
+def label_bbox(x, y, text, anchor, font_size, font_name=None):
+	"""Compute axis-aligned bbox for a text label at (x, y)."""
+	del font_name
+	text_len = _visible_label_length(text)
+	box_width = font_size * 0.75 * text_len
+	top_offset = -font_size * 0.75
+	bottom_offset = font_size * 0.125
+	text_x, text_y = _label_text_origin(x, y, anchor, font_size, text_len)
+	if anchor == "start":
+		x1 = text_x
+		x2 = text_x + box_width
+	elif anchor == "end":
+		x1 = text_x - box_width
+		x2 = text_x
+	else:
+		x1 = text_x - box_width / 2.0
+		x2 = text_x + box_width / 2.0
+	y1 = text_y + top_offset
+	y2 = text_y + bottom_offset
+	return misc.normalize_coords((x1, y1, x2, y2))
+
+
+#============================================
+def label_bbox_from_text_origin(text_x, text_y, text, anchor, font_size, font_name=None):
+	"""Compute label bbox when text origin and baseline coordinates are known."""
+	start_offset = font_size * 0.3125
+	baseline_offset = font_size * 0.375
+	label_x = text_x
+	if anchor == "start":
+		label_x = text_x + start_offset
+	label_y = text_y - baseline_offset
+	return label_bbox(label_x, label_y, text, anchor, font_size, font_name=font_name)
+
+
+#============================================
+def label_attach_bbox_from_text_origin(
+		text_x,
+		text_y,
+		text,
+		anchor,
+		font_size,
+		attach_atom="first",
+		font_name=None):
+	"""Compute attach bbox when text origin and baseline coordinates are known."""
+	start_offset = font_size * 0.3125
+	baseline_offset = font_size * 0.375
+	label_x = text_x
+	if anchor == "start":
+		label_x = text_x + start_offset
+	label_y = text_y - baseline_offset
+	return label_attach_bbox(
+		label_x,
+		label_y,
+		text,
+		anchor,
+		font_size,
+		attach_atom=attach_atom,
+		font_name=font_name,
+	)
+
+
+#============================================
+def label_attach_bbox(x, y, text, anchor, font_size, attach_atom="first", font_name=None):
+	"""Compute bbox for the first/last attachable atom token within a label."""
+	if attach_atom not in ("first", "last"):
+		raise ValueError(f"Invalid attach_atom value: {attach_atom!r}")
+	full_bbox = label_bbox(x, y, text, anchor, font_size, font_name=font_name)
+	spans = _tokenized_atom_spans(text)
+	if len(spans) <= 1:
+		return full_bbox
+	if attach_atom == "last":
+		start_index, end_index = spans[-1]
+	else:
+		start_index, end_index = spans[0]
+	visible_len = _visible_label_length(text)
+	if visible_len <= 1:
+		return full_bbox
+	x1, y1, x2, y2 = full_bbox
+	char_width = (x2 - x1) / float(visible_len)
+	attach_x1 = x1 + start_index * char_width
+	attach_x2 = x1 + end_index * char_width
+	return misc.normalize_coords((attach_x1, y1, attach_x2, y2))
+
+
+#============================================
+def clip_bond_to_bbox(bond_start, bond_end, bbox):
+	"""Clip bond_end to bbox edge when bond_end lies inside bbox."""
+	x1, y1, x2, y2 = misc.normalize_coords(bbox)
+	end_x, end_y = bond_end
+	is_inside = x1 <= end_x <= x2 and y1 <= end_y <= y2
+	if not is_inside:
+		return bond_end
+	start_x, start_y = bond_start
+	if start_x == end_x and start_y == end_y:
+		return bond_end
+	return geometry.intersection_of_line_and_rect(
+		(start_x, start_y, end_x, end_y),
+		(x1, y1, x2, y2),
+	)
+
+
+#============================================
+def _resolved_vertex_label_layout(vertex, show_hydrogens_on_hetero, font_size, font_name):
 	if not vertex_is_shown(vertex):
-		return []
+		return None
 	text = vertex_label_text(vertex, show_hydrogens_on_hetero)
 	if not text:
-		return []
+		return None
+	label_anchor = vertex.properties_.get("label_anchor")
+	auto_anchor = label_anchor is None
+	if label_anchor is None:
+		label_anchor = "start"
+	text_len = _visible_label_length(text)
+	if auto_anchor and text_len == 1:
+		label_anchor = "middle"
+	bbox = label_bbox(
+		vertex.x,
+		vertex.y,
+		text,
+		label_anchor,
+		font_size,
+		font_name=font_name,
+	)
+	text_origin = _label_text_origin(vertex.x, vertex.y, label_anchor, font_size, text_len)
+	return {
+		"text": text,
+		"anchor": label_anchor,
+		"text_len": text_len,
+		"bbox": bbox,
+		"text_origin": text_origin,
+	}
 
-	def text_visible_length(text_value):
-		text_value = re.sub(r"<[^>]+>", "", text_value or "")
-		return max(1, len(text_value))
+
+#============================================
+def _transform_bbox(bbox, transform_xy):
+	if transform_xy is None:
+		return bbox
+	x1, y1, x2, y2 = bbox
+	tx1, ty1 = transform_xy(x1, y1)
+	tx2, ty2 = transform_xy(x2, y2)
+	return misc.normalize_coords((tx1, ty1, tx2, ty2))
+
+
+#============================================
+def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
+		color_atoms=True, atom_colors=None, font_name="Arial", font_size=16):
+	layout = _resolved_vertex_label_layout(
+		vertex,
+		show_hydrogens_on_hetero=show_hydrogens_on_hetero,
+		font_size=font_size,
+		font_name=font_name,
+	)
+	if layout is None:
+		return []
 
 	def transform_point(x, y):
 		if transform_xy:
@@ -394,33 +620,10 @@ def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
 		return (x, y)
 
 	ops = []
-	label_anchor = vertex.properties_.get("label_anchor")
-	auto_anchor = label_anchor is None
-	if label_anchor is None:
-		label_anchor = "start"
-	text_len = text_visible_length(text)
-	if auto_anchor and text_len == 1:
-		label_anchor = "middle"
-	box_width = font_size * 0.75 * text_len
-	baseline_offset = font_size * 0.375
-	top_offset = -font_size * 0.75
-	bottom_offset = font_size * 0.125
-	start_offset = font_size * 0.3125
-	if label_anchor == "start":
-		x = vertex.x - start_offset
-		x1 = x
-		x2 = x + box_width
-	elif label_anchor == "end":
-		x = vertex.x
-		x1 = x - box_width
-		x2 = x
-	else:
-		x = vertex.x
-		x1 = x - box_width / 2.0
-		x2 = x + box_width / 2.0
-	y = vertex.y + baseline_offset
-	y1 = y + top_offset
-	y2 = y + bottom_offset
+	text = layout["text"]
+	label_anchor = layout["anchor"]
+	x1, y1, x2, y2 = layout["bbox"]
+	x, y = layout["text_origin"]
 	center_x = (x1 + x2) / 2.0
 
 	if vertex.multiplicity in (2, 3):
@@ -523,6 +726,31 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		elif vertex_is_shown(vertex):
 			shown_vertices.add(vertex)
 	bond_coords = _edge_points(mol, transform_xy=transform_xy)
+	label_bboxes = {}
+	attach_bboxes = {}
+	for vertex in shown_vertices:
+		layout = _resolved_vertex_label_layout(
+			vertex,
+			show_hydrogens_on_hetero=bool(used_style["show_hydrogens_on_hetero"]),
+			font_size=float(used_style["font_size"]),
+			font_name=str(used_style["font_name"]),
+		)
+		if layout is None:
+			continue
+		label_bboxes[vertex] = _transform_bbox(layout["bbox"], transform_xy)
+		if len(_tokenized_atom_spans(layout["text"])) <= 1:
+			continue
+		attach_mode = vertex.properties_.get("attach_atom", "first")
+		attach_bbox = label_attach_bbox(
+			vertex.x,
+			vertex.y,
+			layout["text"],
+			layout["anchor"],
+			float(used_style["font_size"]),
+			attach_atom=attach_mode,
+			font_name=str(used_style["font_name"]),
+		)
+		attach_bboxes[vertex] = _transform_bbox(attach_bbox, transform_xy)
 	context = BondRenderContext(
 		molecule=mol,
 		line_width=float(used_style["line_width"]),
@@ -536,6 +764,8 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		bond_coords=bond_coords,
 		bond_coords_provider=bond_coords.get,
 		point_for_atom=None,
+		label_bboxes=label_bboxes,
+		attach_bboxes=attach_bboxes,
 	)
 	ops = []
 	for edge in mol.edges:

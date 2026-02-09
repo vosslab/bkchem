@@ -1,6 +1,20 @@
 # Changelog
 
 ## 2026-02-09
+- Make
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py)
+  auto-create `output_smoke/archive_matrix/` when missing, while still failing
+  clearly if that path exists as a non-directory.
+- Clean stale backlog/status docs by removing obsolete `bkchem/oasa` validation
+  from [docs/TODO_REPO.md](docs/TODO_REPO.md), updating RDKit/Open Babel
+  candidate wiring in [docs/TODO_CODE.md](docs/TODO_CODE.md) from legacy plugin
+  paths to current format-loader wiring, and refreshing moved plan links plus
+  Haworth plan status in [refactor_progress.md](refactor_progress.md), including
+  normalized `docs/active_plans/` and `docs/archive/` references with a
+  consolidated reference-doc index.
+- Remove [docs/TODO.md](docs/TODO.md) and move its remaining backlog-hygiene
+  action into [docs/TODO_REPO.md](docs/TODO_REPO.md) so TODO tracking lives
+  only in code/repo-specific lists.
 - Clarify CDML namespace usage and add explicit documentation-pointer metadata:
   keep namespace identity
   (`http://www.freesoftware.fsf.org/bkchem/cdml`) unchanged, add
@@ -21,6 +35,44 @@
   a regression test in [tests/test_codec_registry.py](tests/test_codec_registry.py)
   that validates forwarded `version`/`namespace` values appear in embedded
   CDML.
+- Implement Phase 1 of
+  [docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md](docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md):
+  add shared geometry helpers (`label_bbox`, `label_attach_bbox`,
+  `clip_bond_to_bbox`) and shared label tokenization utilities in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py),
+  refactor `build_vertex_ops()` to consume `label_bbox()` as the single bbox
+  source, and add Phase 1 unit coverage in
+  [tests/test_label_bbox.py](tests/test_label_bbox.py).
+- Tighten Phase 1 validation by making
+  `label_attach_bbox(..., attach_atom=...)` fail fast on invalid enum values
+  (raise `ValueError` unless value is `"first"` or `"last"`) in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py),
+  with regression coverage in [tests/test_label_bbox.py](tests/test_label_bbox.py).
+- Implement Phase 2 connector clipping integration from
+  [docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md](docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md):
+  route molecular bond endpoints through shared label and attachment bboxes in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  (`molecule_to_ops`/`build_bond_ops`), add text-origin bbox helpers for shared
+  clipping math, route Haworth simple-label connectors through shared bbox
+  clipping in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py),
+  centralize baseline shift in
+  [packages/oasa/oasa/haworth/renderer_text.py](packages/oasa/oasa/haworth/renderer_text.py),
+  delegate layout bboxes to shared geometry in
+  [packages/oasa/oasa/haworth/renderer_layout.py](packages/oasa/oasa/haworth/renderer_layout.py),
+  and add/update regression coverage in
+  [tests/test_connector_clipping.py](tests/test_connector_clipping.py) plus
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py).
+- Finalize Phase 2 hardening for
+  [docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md](docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md):
+  add malformed-legacy `attach_atom` fail-fast regression coverage (with
+  explicit error-message assertions) in
+  [tests/test_connector_clipping.py](tests/test_connector_clipping.py) and
+  [tests/test_label_bbox.py](tests/test_label_bbox.py), add a focused
+  tokenization fixture matrix (`OAc`, `NHCH3`, `SO3H`, `PPh3`,
+  `CH(OH)CH2OH`) in [tests/test_label_bbox.py](tests/test_label_bbox.py), and
+  mark Phase 1/2 done checks complete in
+  [docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md](docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md).
 - Update label-attachment planning/spec documentation to adopt
   `attach_atom="first|last"` as optional attachment intent metadata (geometry
   remains renderer-derived): revise design and Phase 1/2 implementation details

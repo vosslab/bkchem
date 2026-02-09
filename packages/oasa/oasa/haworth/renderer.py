@@ -10,6 +10,7 @@ import re
 # local repo modules
 from . import _ring_template
 from .. import render_ops
+from .. import render_geometry as _render_geometry
 from .spec import HaworthSpec
 from . import renderer_geometry as _geom
 from . import renderer_text as _text
@@ -292,6 +293,7 @@ def render(
 				text_scale=job.get("text_scale", 1.0),
 				font_name=job["font_name"],
 				anchor=job["anchor"],
+				attach_atom=job.get("attach_atom"),
 				line_color=job["line_color"],
 			label_color=job["label_color"],
 		)
@@ -356,6 +358,7 @@ def _add_simple_label_ops(
 		text_scale: float,
 		font_name: str,
 		anchor: str,
+		attach_atom: str | None,
 		line_color: str,
 		label_color: str) -> None:
 	"""Add one connector line + one label."""
@@ -363,17 +366,52 @@ def _add_simple_label_ops(
 	text = _text.format_label_text(label, anchor=anchor)
 	anchor_x = _text.anchor_x_offset(text, anchor, font_size)
 	text_x = end_point[0] + anchor_x
-	text_y = end_point[1] + _baseline_shift(direction, font_size, text)
+	text_y = end_point[1] + _text.baseline_shift(direction, font_size, text)
 	draw_font_size = font_size * text_scale
-	connector_end = end_point
-	c_center = _text.leading_carbon_center(text, anchor, text_x, text_y, draw_font_size)
-	if direction == "down" and c_center is not None:
-		# For downward CH* labels, keep x centered on the leading carbon but
-		# stop just above the top glyph boundary so the bond cap touches the text
-		# without running through the "C" character.
-		label_top = text_y - draw_font_size
-		max_tip_y = label_top - (draw_font_size * 0.10)
-		connector_end = (c_center[0], min(c_center[1], max_tip_y))
+	full_bbox = _render_geometry.label_bbox_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=draw_font_size,
+		font_name=font_name,
+	)
+	first_attach = _render_geometry.label_attach_bbox_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=draw_font_size,
+		attach_atom="first",
+		font_name=font_name,
+	)
+	last_attach = _render_geometry.label_attach_bbox_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=draw_font_size,
+		attach_atom="last",
+		font_name=font_name,
+	)
+	target_bbox = full_bbox
+	if first_attach != last_attach:
+		attach_mode = attach_atom or "first"
+		target_bbox = _render_geometry.label_attach_bbox_from_text_origin(
+			text_x=text_x,
+			text_y=text_y,
+			text=text,
+			anchor=anchor,
+			font_size=draw_font_size,
+			attach_atom=attach_mode,
+			font_name=font_name,
+		)
+	target_point = (text_x, text_y)
+	x1, y1, x2, y2 = target_bbox
+	is_inside = x1 <= target_point[0] <= x2 and y1 <= target_point[1] <= y2
+	if not is_inside:
+		target_point = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+	connector_end = _render_geometry.clip_bond_to_bbox(vertex, target_point, target_bbox)
 	ops.append(
 		render_ops.LineOp(
 			p1=vertex,
@@ -435,7 +473,7 @@ def _add_chain_ops(
 		text = _text.format_chain_label_text(raw_label, anchor=anchor)
 		anchor_x = _text.anchor_x_offset(text, anchor, font_size)
 		text_x = end[0] + anchor_x
-		text_y = end[1] + _baseline_shift(direction, font_size, text)
+		text_y = end[1] + _text.baseline_shift(direction, font_size, text)
 		ops.append(
 			render_ops.TextOp(
 				x=text_x,
@@ -518,7 +556,7 @@ def _add_furanose_two_carbon_tail_ops(
 	)
 	ho_text = _text.format_label_text("OH", anchor=anchor)
 	ho_x = ho_end[0] + _text.anchor_x_offset(ho_text, anchor, font_size)
-	ho_y = ho_end[1] + _baseline_shift("up", font_size, ho_text)
+	ho_y = ho_end[1] + _text.baseline_shift("up", font_size, ho_text)
 	ops.append(
 		render_ops.TextOp(
 			x=ho_x,
@@ -535,7 +573,7 @@ def _add_furanose_two_carbon_tail_ops(
 	)
 	ch2_text = _text.format_chain_label_text("CH2OH", anchor=anchor)
 	ch2_x = ch2_end[0] + _text.anchor_x_offset(ch2_text, anchor, font_size)
-	ch2_y = ch2_end[1] + _baseline_shift("down", font_size, ch2_text)
+	ch2_y = ch2_end[1] + _text.baseline_shift("down", font_size, ch2_text)
 	ops.append(
 		render_ops.TextOp(
 			x=ch2_x,
@@ -550,24 +588,6 @@ def _add_furanose_two_carbon_tail_ops(
 			op_id=f"C{carbon}_{direction}_chain2_label",
 		)
 	)
-
-
-#============================================
-def _baseline_shift(direction: str, font_size: float, text: str = "") -> float:
-	"""Compute vertical baseline correction for label text.
-
-	For downward labels the text baseline needs to shift down so the top
-	of the glyphs aligns with the connector endpoint.  For upward labels
-	the baseline shift is near zero (text hangs below the endpoint).
-	"""
-	if text in ("OH", "HO"):
-		# Keep connector endpoints clear of hydroxyl oxygen glyphs.
-		if direction == "down":
-			return font_size * 0.90
-		return -font_size * 0.10
-	if direction == "down":
-		return font_size * 0.35
-	return -font_size * 0.10
 
 
 #============================================

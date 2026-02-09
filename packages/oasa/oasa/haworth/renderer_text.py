@@ -76,7 +76,7 @@ def apply_subscript_markup(text: str) -> str:
 
 #============================================
 def anchor_x_offset(text: str, anchor: str, font_size: float) -> float:
-	"""Shift text so hydroxyl connectors terminate at oxygen glyph center."""
+	"""Shift text origin for side-aware label placement."""
 	if text == "OH":
 		if anchor == "start":
 			return -font_size * 0.30
@@ -98,6 +98,18 @@ def anchor_x_offset(text: str, anchor: str, font_size: float) -> float:
 	if anchor == "end":
 		return -font_size * 0.12
 	return 0.0
+
+
+#============================================
+def baseline_shift(direction: str, font_size: float, text: str = "") -> float:
+	"""Compute vertical baseline correction for label text."""
+	if text in ("OH", "HO"):
+		if direction == "down":
+			return font_size * 0.90
+		return -font_size * 0.10
+	if direction == "down":
+		return font_size * 0.35
+	return -font_size * 0.10
 
 
 #============================================

@@ -464,8 +464,9 @@ def main() -> None:
 	summary_path = output_dir / "archive_matrix_summary.html"
 	archive_dir = repo_root / "neurotiker_haworth_archive"
 
-	if not matrix_dir.is_dir():
-		raise FileNotFoundError(f"Missing archive matrix folder: {matrix_dir}")
+	if matrix_dir.exists() and not matrix_dir.is_dir():
+		raise FileNotFoundError(f"Archive matrix path exists but is not a folder: {matrix_dir}")
+	matrix_dir.mkdir(parents=True, exist_ok=True)
 	if not archive_dir.is_dir():
 		raise FileNotFoundError(f"Missing reference archive folder: {archive_dir}")
 

@@ -23,5 +23,6 @@
     - Open Babel: SDF/SD, MOL2, PDB, CIF (broader format coverage).
   - Candidate entry points:
     - `packages/bkchem/bkchem/oasa_bridge.py` for conversion hooks.
-    - `packages/bkchem/bkchem/plugins/` for optional import/export plugins.
+    - `packages/bkchem/bkchem/format_loader.py` and
+      `packages/bkchem/bkchem/format_menus.yaml` for BKChem format wiring.
     - [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) to list new formats.
