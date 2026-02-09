@@ -1,6 +1,33 @@
 # Changelog
 
+## 2026-02-09
+- Remove unused legacy `get_structure_hash()` from
+  [packages/oasa/oasa/molecule.py](packages/oasa/oasa/molecule.py) to eliminate
+  Python 2-era `sha` import-policy issues in Python 3.
+- Add a backlog item in [docs/TODO_CODE.md](docs/TODO_CODE.md) to implement a
+  hash-based verification layer for future CDML files.
+
 ## 2026-02-08
+- Move Haworth modules into dedicated
+  [packages/oasa/oasa/haworth/](packages/oasa/oasa/haworth/) subpackage: split
+  the 1,381-line `haworth_renderer.py` into five focused modules
+  (`renderer.py`, `renderer_config.py`, `renderer_geometry.py`,
+  `renderer_text.py`, `renderer_layout.py`), move `haworth.py` to
+  `haworth/__init__.py` and `haworth_spec.py` to `haworth/spec.py`. Thin
+  backward-compat shims at the old import paths
+  ([packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py),
+  [packages/oasa/oasa/haworth_spec.py](packages/oasa/oasa/haworth_spec.py))
+  keep all existing `import oasa.haworth_renderer` / `import oasa.haworth_spec`
+  code working without changes.
+- Add [packages/oasa/oasa/sugar_code_names.py](packages/oasa/oasa/sugar_code_names.py):
+  load sugar display names from
+  [packages/oasa/oasa_data/sugar_codes.yml](packages/oasa/oasa_data/sugar_codes.yml)
+  via `get_sugar_name()` and `all_sugar_names()`, making the YAML file the
+  single source of truth for sugar names. Update
+  [tests/fixtures/neurotiker_archive_mapping.py](tests/fixtures/neurotiker_archive_mapping.py)
+  to pull names from the YAML loader instead of hardcoding them, flattening the
+  map structure from `{"name": ..., "ring_forms": {...}}` to
+  `{(ring_type, anomeric): filename}`.
 - Add [docs/SUGAR_CODE_GUIDE.md](docs/SUGAR_CODE_GUIDE.md) to document sugar
   code syntax, token meanings, prefix/config parsing, digit footnote rules,
   and how to read

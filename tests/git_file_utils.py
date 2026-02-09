@@ -1,6 +1,8 @@
 import subprocess
 from typing import Optional
 
+DEFAULT_SKIP_DIRS = {"old_shell_folder"}
+
 
 #============================================
 def _run_git(repo_root: str, args: list[str], error_message: str) -> str:
@@ -41,9 +43,39 @@ def _split_null(output: str) -> list[str]:
 
 
 #============================================
+def _path_has_skip_dir(path: str, skip_dirs: set[str]) -> bool:
+	"""
+	Check whether a path includes one of the skipped directories.
+	"""
+	normalized = path.replace("\\", "/")
+	for part in normalized.split("/"):
+		if part in skip_dirs:
+			return True
+	return False
+
+
+#============================================
+def _filter_skip_dirs(paths: list[str], skip_dirs: Optional[set[str]]) -> list[str]:
+	"""
+	Filter path list by skipped directory names.
+	"""
+	if skip_dirs is None:
+		skip_dirs = DEFAULT_SKIP_DIRS
+	if not skip_dirs:
+		return paths
+	filtered_paths = []
+	for path in paths:
+		if _path_has_skip_dir(path, skip_dirs):
+			continue
+		filtered_paths.append(path)
+	return filtered_paths
+
+
+#============================================
 def list_tracked_files(
 	repo_root: str,
 	patterns: Optional[list[str]] = None,
+	skip_dirs: Optional[set[str]] = None,
 	error_message: Optional[str] = None,
 ) -> list[str]:
 	"""
@@ -55,13 +87,14 @@ def list_tracked_files(
 	if patterns:
 		command += ["--"] + patterns
 	output = _run_git(repo_root, command, error_message)
-	return _split_null(output)
+	return _filter_skip_dirs(_split_null(output), skip_dirs)
 
 
 #============================================
 def list_changed_files(
 	repo_root: str,
 	diff_filter: str = "ACMRTUXB",
+	skip_dirs: Optional[set[str]] = None,
 	error_message: Optional[str] = None,
 ) -> list[str]:
 	"""
@@ -77,4 +110,4 @@ def list_changed_files(
 	for command in commands:
 		output = _run_git(repo_root, command, error_message)
 		paths.extend(_split_null(output))
-	return paths
+	return _filter_skip_dirs(paths, skip_dirs)

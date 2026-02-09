@@ -1,5 +1,9 @@
 # Required runtime dependencies
+defusedxml
+openbabel
 Pmw
 Pillow
-defusedxml
+pybel
 pycairo
+pyyaml
+SOAPpy

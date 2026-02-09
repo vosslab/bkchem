@@ -946,17 +946,6 @@ class molecule(base_graph):
     return bl
 
 
-  def get_structure_hash( self):
-    vs = self.number_atoms_uniquely()
-    ret = []
-    for v in vs:
-      ret.append( str(v.properties_['distance_matrix']))
-    res = "*".join( ret)
-    import sha
-    ss = sha.new()
-    ss.update( res)
-    return ss.hexdigest()
-
   def create_CIP_digraph( self, center):
     """creates a digraph according to rules described in CIP paper."""
     assert center in self.vertices

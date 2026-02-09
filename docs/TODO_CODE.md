@@ -5,6 +5,8 @@
   (format conversion, batch reference output generation).
 - Decide whether to remove the legacy PostScript builtin exporter once Cairo is
   required.
+- Add a hash-based verification layer for newly generated CDML files, including
+  a stable canonicalization step before digest calculation.
 - Evaluate optional RDKit/Open Babel integration for expanded import/export
   formats.
   - Target formats: SDF/SD, MOL2, PDB, CIF.
