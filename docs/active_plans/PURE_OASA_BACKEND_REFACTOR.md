@@ -16,7 +16,7 @@
 
 **Phase A: Plumbing refactor**
 - [ ] A1: `get_registry_snapshot()` is the source of truth for capabilities and extensions
-- [ ] A2: Generic load/save routing through `oasa_bridge` + scope handler; `format_loader.py` + GUI manifest created; `plugins/` directory deleted
+- [ ] A2: Generic load/save routing through `oasa_bridge` + scope handler; `format_loader.py` + GUI manifest created; format plugins removed (rendering plugin infrastructure removed in Phase C)
 - [ ] A3: Coordinate canonicalization boundary enforced (no per-codec Y-flips)
 - [ ] A4: CML v1/v2 export removed (import retained); CDXML plugin deleted; POVRay deleted; GTML import retained
 
@@ -53,6 +53,46 @@ Import:  BKChem gives file path  -->  OASA reads format  -->  OASA emits CDML  -
 Export:  BKChem gives CDML        -->  OASA converts CDML -->  OASA writes format
 Render:  BKChem gives CDML        -->  OASA renders CDML  -->  OASA writes PDF/PNG/SVG/PS
 ```
+
+### CDML bridge API contract
+
+The data flow above says "OASA emits CDML" and "BKChem gives CDML," but today
+the OASA codec registry is molecule-centric: codecs return OASA `molecule`
+objects, not CDML strings. The bridge (`oasa_bridge.py`) converts between
+BKChem molecule objects and OASA molecule objects. CDML is not currently an
+explicit wire format between the two layers.
+
+To realize the target architecture, the bridge must provide two conversion
+boundaries:
+
+```
+Import:  file path  -->  codec.read_file()  -->  oasa.molecule
+                         oasa.molecule       -->  bridge.oasa_mol_to_cdml()  -->  CDML string
+                         CDML string         -->  BKChem loads into canvas
+
+Export:  BKChem canvas  -->  bridge.canvas_to_cdml()  -->  CDML string
+                             CDML string               -->  bridge.cdml_to_oasa_mol()  -->  oasa.molecule
+                             oasa.molecule              -->  codec.write_file()
+```
+
+The key functions that must exist (in `oasa_bridge.py` or a new module):
+
+- **`oasa_mol_to_cdml(mol) -> str`**: Serialize an OASA molecule to a CDML
+  string in canonical coordinates. Uses `cdml_writer`.
+- **`cdml_to_oasa_mol(cdml_str) -> molecule`**: Parse a CDML string into an
+  OASA molecule. Uses `cdml.text_to_mol`.
+- **`canvas_to_cdml(paper) -> str`**: Extract CDML from the BKChem canvas,
+  canonicalizing coordinates if the transitional path is active.
+- **`cdml_to_canvas(paper, cdml_str)`**: Load a CDML string into the BKChem
+  canvas, de-canonicalizing if the transitional path is active.
+
+Today `oasa_bridge.py` already has `oasa_mol_to_bkchem_mol()` and
+`bkchem_mol_to_oasa_mol()`. The new functions wrap these with CDML
+serialization/parsing at the boundary so that the format loader never touches
+OASA molecule objects directly.
+
+This is implementation work within Phase A2. The format loader calls the bridge;
+the bridge handles the molecule ↔ CDML conversion internally.
 
 ### Coordinate systems
 
@@ -599,7 +639,7 @@ plugins. InChI `program_path` resolves from preferences via `gui_options`.
 - `packages/bkchem/bkchem/main.py`: Replace `init_plugins_menu()`,
   `plugin_import()`, `plugin_export()` with calls to the format loader.
 
-**Files deleted:**
+**Files deleted (format plugins only):**
 - `packages/bkchem/bkchem/plugins/CML.py`
 - `packages/bkchem/bkchem/plugins/CML2.py`
 - `packages/bkchem/bkchem/plugins/CDXML.py`
@@ -607,16 +647,18 @@ plugins. InChI `program_path` resolves from preferences via `gui_options`.
 - `packages/bkchem/bkchem/plugins/smiles.py`
 - `packages/bkchem/bkchem/plugins/inchi.py`
 - `packages/bkchem/bkchem/plugins/povray.py`
-- `packages/bkchem/bkchem/plugins/gtml.py`
-- `packages/bkchem/bkchem/plugins/plugin.py`
-- `packages/bkchem/bkchem/plugins/__init__.py`
+
+**Do NOT delete until Phase B decides retention:**
+- `packages/bkchem/bkchem/plugins/gtml.py` (GTML import retained until
+  Phase B audit confirms coverage; see B3)
 
 **Do NOT delete until Phase C gate passes:**
+- `plugin.py`, `__init__.py` (rendering plugins import from `plugin.py`)
 - `tk2cairo.py`, `cairo_lowlevel.py`, `pdf_cairo.py`, `png_cairo.py`,
   `svg_cairo.py`, `ps_cairo.py`, `ps_builtin.py`, `odf.py`
 
-These rendering plugins are still the active export path until Phase C replaces
-them with OASA renderers.
+These rendering plugins (and the plugin infrastructure they depend on) are still
+the active export path until Phase C replaces them with OASA renderers.
 
 #### A3: Coordinate canonicalization boundary
 
@@ -639,13 +681,15 @@ exists anywhere.
 - Delete `CML.py`, `CML2.py`, `CDXML.py`, `povray.py` plugins.
 - CML v1/v2: import retained, export dropped.
 - CDXML: full import/export via codec registry.
-- GTML: import retained (retention level confirmed in Phase B).
+- GTML: `gtml.py` stays until Phase B audit (B3) decides retention level.
+  Do not delete in Phase A.
 - POVRay: retired entirely.
 
-**Extension overlap:** CML and CML2 both declare `.cml` and `.xml`. Since both
-are import-only, they appear as separate Import menu entries keyed by display
-name. The codec registry resolves `.cml` to `cml` (v1) because it was
-registered first; CML2 uses only the `cml-2` alias.
+**Extension overlap:** CML and CML2 both use `.cml` / `.xml` file extensions.
+Since both are import-only (export is dropped), the extension overlap is
+harmless: the Open dialog accepts `.cml` files, and the importer inspects file
+content to determine whether the document is CML v1 or v2 (content sniffing),
+not the file extension. No menu disambiguation is needed.
 
 #### Phase A done checks
 
@@ -854,8 +898,10 @@ smoke tests.
 - [ ] After MVP: Haworth sugar fixture renders (q-type bonds).
 - [ ] SVG output parses as valid XML with expected elements.
 - [ ] Cairo renders without exceptions for PDF, PNG, SVG, PostScript.
-- [ ] Ops JSON is identical between SVG and Cairo paths for same molecule
-  (per [docs/RENDER_BACKEND_UNIFICATION.md](docs/RENDER_BACKEND_UNIFICATION.md)).
+- [ ] Render-ops equivalence: SVG and Cairo paths receive the same ops list
+  from `molecule_to_ops()`. Ops are compared by type, count, and geometry
+  within coordinate tolerance (1e-3), not by strict JSON identity. Painters
+  may legitimately differ in text metrics and rounding.
 - [ ] `get_codec("pdf").write_file(mol, file_obj)` produces non-empty output.
 - [ ] Wedge geometry invariants: polygon has correct orientation (wide end at
   substituent), correct signed area, no self-intersection. Hatch lines on
