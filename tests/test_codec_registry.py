@@ -41,9 +41,14 @@ def test_codec_registry_defaults():
 	assert "inchi" in codecs
 	assert "molfile" in codecs
 	assert "cdml" in codecs
+	assert "cdsvg" in codecs
 	assert "cml" in codecs
 	assert "cml2" in codecs
 	assert "cdxml" in codecs
+	assert "svg" in codecs
+	assert "pdf" in codecs
+	assert "png" in codecs
+	assert "ps" in codecs
 	smiles_codec = oasa.codec_registry.get_codec("s")
 	assert smiles_codec.name == "smiles"
 	by_ext = oasa.codec_registry.get_codec_by_extension(".smi")
@@ -52,6 +57,10 @@ def test_codec_registry_defaults():
 	assert by_ext.name == "cml"
 	by_ext = oasa.codec_registry.get_codec_by_extension(".cdxml")
 	assert by_ext.name == "cdxml"
+	by_ext = oasa.codec_registry.get_codec_by_extension(".svg")
+	assert by_ext.name == "svg"
+	by_ext = oasa.codec_registry.get_codec_by_extension(".cdsvg")
+	assert by_ext.name == "cdsvg"
 
 
 #============================================
@@ -141,14 +150,68 @@ def test_codec_registry_file_fallback():
 
 
 #============================================
+def test_codec_registry_pdf_write_file_non_empty():
+	oasa.codec_registry.reset_registry()
+	codec = oasa.codec_registry.get_codec("pdf")
+	out = io.BytesIO()
+	codec.write_file(_make_simple_mol(), out)
+	assert len(out.getvalue()) > 0
+
+
+#============================================
+def test_codec_registry_render_write_file_non_empty_for_png_and_ps():
+	oasa.codec_registry.reset_registry()
+	for codec_name in ("png", "ps"):
+		codec = oasa.codec_registry.get_codec(codec_name)
+		out = io.BytesIO()
+		codec.write_file(_make_simple_mol(), out)
+		assert len(out.getvalue()) > 0
+
+
+#============================================
+def test_codec_registry_svg_write_file_non_empty():
+	oasa.codec_registry.reset_registry()
+	codec = oasa.codec_registry.get_codec("svg")
+	out = io.BytesIO()
+	codec.write_file(_make_simple_mol(), out)
+	text = out.getvalue().decode("utf-8")
+	assert "<svg" in text
+
+
+#============================================
+def test_codec_registry_cdsvg_roundtrip_and_safe_export():
+	oasa.codec_registry.reset_registry()
+	codec = oasa.codec_registry.get_codec("cdsvg")
+	mol = _make_simple_mol()
+	text = codec.write_text(mol)
+	assert "<svg" in text
+	assert "<cdml" in text
+	lower_text = text.lower()
+	assert "<script" not in lower_text
+	assert " onload=" not in lower_text
+	assert "<foreignobject" not in lower_text
+	loaded = codec.read_text(text)
+	assert loaded is not None
+	assert len(loaded.vertices) == 2
+
+
+#============================================
 def test_registry_snapshot_contains_capabilities():
 	oasa.codec_registry.reset_registry()
 	snapshot = oasa.codec_registry.get_registry_snapshot()
 	assert "smiles" in snapshot
 	assert "cml" in snapshot
 	assert "cml2" in snapshot
+	assert "pdf" in snapshot
+	assert "png" in snapshot
+	assert "svg" in snapshot
+	assert "ps" in snapshot
+	assert "cdsvg" in snapshot
 	assert snapshot["smiles"]["writes_files"] is True
 	assert snapshot["cml"]["writes_files"] is False
 	assert snapshot["cml"]["writes_text"] is False
 	assert snapshot["cml2"]["writes_files"] is False
 	assert snapshot["cml2"]["writes_text"] is False
+	assert snapshot["pdf"]["reads_files"] is False
+	assert snapshot["pdf"]["writes_files"] is True
+	assert snapshot["cdsvg"]["reads_files"] is True

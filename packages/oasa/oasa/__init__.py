@@ -84,6 +84,7 @@ from . import haworth_renderer
 from . import sugar_code_names
 from . import stereochemistry
 from . import geometry
+from . import molecule_utils
 from . import transform3d
 from . import transform
 from . import known_groups
@@ -125,6 +126,7 @@ _EXPORTED_MODULES = [
 	sugar_code_names,
 	stereochemistry,
 	geometry,
+	molecule_utils,
 	transform3d,
 	transform,
 	known_groups,
@@ -152,6 +154,7 @@ allNames.extend([
 	"haworth_spec",
 	"haworth_renderer",
 	"sugar_code_names",
+	"molecule_utils",
 ])
 allNames.append("cdml_writer")
 allNames.append("__version__")

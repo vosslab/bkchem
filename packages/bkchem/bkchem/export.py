@@ -21,8 +21,8 @@
 
 """
 
-import xml_writer
 import dom_extensions
+import oasa_bridge
 
 
 
@@ -40,18 +40,12 @@ def export_CD_SVG(paper, filename, gzipped=0):
   except IOError:
     return 0
 
-  exporter = xml_writer.SVG_writer(paper)
-  exporter.construct_dom_tree(paper.top_levels)
-  doc = exporter.document
-  cdml = paper.get_package().childNodes[0]
-  doc.childNodes[0].appendChild(cdml)
-  dom_extensions.safe_indent(doc.childNodes[0],
-                             dont_indent=("text", "ftext", "user-data"))
-
-  s = doc.toxml('utf-8')
-  f.write(s)
+  try:
+    oasa_bridge.write_codec_file_from_paper("cdsvg", paper, f)
+  except Exception:
+    f.close()
+    return 0
   f.close()
-
   return 1
 
 

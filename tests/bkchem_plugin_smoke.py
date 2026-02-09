@@ -244,12 +244,6 @@ def main():
 		ensure_preferences()
 	plugin_names = [
 		"gtml",
-		"ps_builtin",
-		"pdf_cairo",
-		"png_cairo",
-		"odf",
-		"svg_cairo",
-		"ps_cairo",
 	]
 	loaded, plugin_info, failures = load_plugins(plugin_names, debug=args.debug)
 	loaded_line = ", ".join(loaded) if loaded else "none"

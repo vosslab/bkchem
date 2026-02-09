@@ -51,13 +51,11 @@ import molecule
 import os_support
 import interactors
 import oasa_bridge
-import dom_extensions
 import safe_xml
 import template_catalog
 
 from paper import chem_paper
 from edit_pool import editPool
-from xml_writer import SVG_writer
 from id_manager import id_manager
 from temp_manager import template_manager
 from plugin_support import plugin_manager
@@ -190,7 +188,6 @@ class BKChem( Tk):
       ( _("File"),  'separator'),
       # export cascade
       ( _("File"),  'cascade',  _('Export'),     _("Export the current file")),
-      ( _("Export"), 'command',  _('SVG'),  None, _("Export to plain SVG - Scalable Vector Graphics - without embedding BKChem data inside"), self.save_SVG, None),
       ( _("File"),  'cascade',  _('Import'),     _("Import a non-native file format")),
       ( _("File"),  'separator'),
       ( _("File"),  'command',  _('File properties'), None, _("Set the papers size and other properties of the document"), self.change_properties, None),
@@ -410,7 +407,7 @@ class BKChem( Tk):
                                statusHelp=_("Exports %s format.") % local_name,
                                command=misc.lazy_apply( self.format_export, (codec_name,)))
 
-    # legacy plugins (renderers and retained GTML path)
+    # legacy plugin path (GTML import-only)
     names = sorted(self.plugins.keys())
     for name in names:
       plugin = self.plugins[ name]
@@ -931,27 +928,7 @@ class BKChem( Tk):
 
 
   def save_SVG( self, file_name=None):
-    if not file_name:
-      svg_file = self.paper.get_base_name()+".svg"
-      a = asksaveasfilename( defaultextension = ".svg", initialdir = self.svg_dir, initialfile = svg_file,
-                             title = _("Export SVG"), parent = self, filetypes=((_("SVG file"),"*.svg"),))
-    else:
-      a = file_name
-    if a != '':
-      self.svg_dir, svg_file = os.path.split( a)
-      try:
-        inp = open(a, "wb")
-      except IOError as x:
-        e = ValueError("Unable to open to file ")
-        e.__traceback__ = x
-        raise e
-      exporter = SVG_writer( self.paper)
-      exporter.construct_dom_tree( self.paper.top_levels)
-      dom_extensions.safe_indent( exporter.document.childNodes[0])
-      s = exporter.document.toxml('utf-8')
-      inp.write(s)
-      inp.close()
-      Store.log( _("exported to SVG file: ")+svg_file)
+    return self.format_export( "svg", filename=file_name)
 
 
   def _update_geometry( self, e):

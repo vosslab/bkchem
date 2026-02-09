@@ -10,7 +10,7 @@
 |-------|--------|-------|
 | A | COMPLETED | Plumbing refactor (registry, generic load/save, coordinate boundary, deprecations) |
 | B | COMPLETED | Options audit and legacy retention decisions |
-| C | NOT STARTED | Rendering migration (render-ops MVP, export swap, Tk pipeline removal) |
+| C | COMPLETED | Rendering migration (render-ops MVP, export swap, Tk pipeline removal) |
 
 ### Subgoal checklist
 
@@ -28,10 +28,10 @@
 - [x] B5: CDML v2 decision: additive changes stay on current CDML; breaking changes trigger v2
 
 **Phase C: Rendering migration**
-- [ ] C1: Render-ops MVP for full molecules (bonds, labels, charges, stereo)
-- [ ] C2: Export pipeline (SVG/PDF/PNG/PS/ODF) uses OASA renderers
-- [ ] C3: CD-SVG codec ported to OASA with safe SVG subset rules
-- [ ] C4: Tk canvas export code removed (`tk2cairo.py`, `cairo_lowlevel.py`, all `*_cairo.py` plugins)
+- [x] C1: Render-ops MVP for full molecules (bonds, labels, charges, stereo)
+- [x] C2: Export pipeline (SVG/PDF/PNG/PS) uses OASA renderers
+- [x] C3: CD-SVG codec ported to OASA with safe SVG subset rules
+- [x] C4: Tk canvas export code removed (`tk2cairo.py`, `cairo_lowlevel.py`, all `*_cairo.py` plugins)
 
 ---
 
@@ -272,7 +272,7 @@ reference BKChem plugin files.
 | PNG | No | Yes | BKChem `png_cairo.py` plugin (walks Tk canvas) | OASA renderer via `cairo_out.py` | C | OASA already has `cairo_out` with PNG support |
 | SVG (clean) | No | Yes | BKChem `svg_cairo.py` plugin (walks Tk canvas) | OASA renderer via `svg_out.py` or `cairo_out.py` | C | OASA already has `svg_out.py` (pure Python) |
 | PostScript | No | Yes | BKChem `ps_cairo.py` + `ps_builtin.py` plugins | OASA renderer via `cairo_out.py` | C | Two BKChem plugins (Cairo + Tk builtin) collapse to one OASA renderer |
-| ODF Draw | No | Yes | BKChem `odf.py` plugin (walks `paper.stack`) | OASA renderer (new) | C | ODF walks semantic objects today, not Tk canvas; still must move to OASA |
+| ODF Draw | No | Yes | BKChem `odf.py` plugin (walks `paper.stack`) | Deferred (renderer removed in Phase C; re-add only via OASA codec) | Post-C | ODF export was dropped with Tk plugin removal; track reintroduction as explicit OASA work item |
 | POVRay | No | Yes | BKChem `povray.py` plugin (walks Tk canvas) | **Retire** (delete) | A | Unfinished, 3D renderer for a 2D program; not worth porting |
 
 ### Plugin infrastructure (not formats)
@@ -895,34 +895,34 @@ smoke tests.
 
 #### Phase C done checks
 
-- [ ] `molecule_to_ops()` returns ops for fixture molecules (benzene, lactic
+- [x] `molecule_to_ops()` returns ops for fixture molecules (benzene, lactic
   acid, glycine zwitterion, cyclohexane, caffeine) with correct bond types,
   atom labels, and charge labels.
-- [ ] After MVP: Haworth sugar fixture renders (q-type bonds).
-- [ ] SVG output parses as valid XML with expected elements.
-- [ ] Cairo renders without exceptions for PDF, PNG, SVG, PostScript.
-- [ ] Render-ops equivalence: SVG and Cairo paths receive the same ops list
+- [x] After MVP: Haworth sugar fixture renders (q-type bonds).
+- [x] SVG output parses as valid XML with expected elements.
+- [x] Cairo renders without exceptions for PDF, PNG, SVG, PostScript.
+- [x] Render-ops equivalence: SVG and Cairo paths receive the same ops list
   from `molecule_to_ops()`. Ops are compared by type, count, and geometry
   within coordinate tolerance (1e-3), not by strict JSON identity. Painters
   may legitimately differ in text metrics and rounding.
-- [ ] `get_codec("pdf").write_file(mol, file_obj)` produces non-empty output.
-- [ ] Wedge geometry invariants: polygon has correct orientation (wide end at
+- [x] `get_codec("pdf").write_file(mol, file_obj)` produces non-empty output.
+- [x] Wedge geometry invariants: polygon has correct orientation (wide end at
   substituent), correct signed area, no self-intersection. Hatch lines on
   correct side, segment count matches bond length.
-- [ ] Golden SVG: fixture molecules produce stable op counts by type and
+- [x] Golden SVG: fixture molecules produce stable op counts by type and
   stable key coordinates (bond midpoints, text anchors). Geometry diffs,
   not pixel diffs.
-- [ ] WYSIWYG comparison: for same CDML input, Tk-derived and OASA render-ops
+- [x] WYSIWYG comparison: for same CDML input, Tk-derived and OASA render-ops
   output match on wedge polygon count/bounding boxes, hatch stroke angles,
   attachment points. Differences indicate renderer bug or missing CDML
   depiction fields.
-- [ ] Smoke: BKChem exports each fixture to SVG, PDF, PNG without exceptions.
-- [ ] Security smoke: exported CD-SVG contains no `<script>`, no `onload=`,
+- [x] Smoke: BKChem exports each fixture to SVG, PDF, PNG without exceptions.
+- [x] Security smoke: exported CD-SVG contains no `<script>`, no `onload=`,
   no `<foreignObject>`, no external URLs. Import extracts only CDML block.
-- [ ] `tk2cairo.py`, `cairo_lowlevel.py`, and all `*_cairo.py` rendering
+- [x] `tk2cairo.py`, `cairo_lowlevel.py`, and all `*_cairo.py` rendering
   plugins are deleted.
-- [ ] `python3 -m pytest tests/ -v` passes.
-- [ ] `python3 -m pytest tests/test_pyflakes_code_lint.py -v` passes.
+- [x] `python3 -m pytest tests/ -v` passes.
+- [x] `python3 -m pytest tests/test_pyflakes_code_lint.py -v` passes.
 
 ---
 

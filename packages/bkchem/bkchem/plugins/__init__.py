@@ -31,14 +31,8 @@ except ImportError:
 
 __all__ = []
 
-# format plugins were removed in Phase A; rendering + legacy GTML remain
-_names = ["gtml",
-          "ps_builtin",
-          "pdf_cairo",
-          "png_cairo",
-          "odf",
-          "svg_cairo",
-          "ps_cairo"]
+# format/render plugins were removed in Phases A/C; legacy GTML import remains
+_names = ["gtml"]
 
 for _name in _names:
   try:

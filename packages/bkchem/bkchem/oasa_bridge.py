@@ -39,25 +39,6 @@ def _get_codec( name):
   return oasa.codec_registry.get_codec( name)
 
 
-def _merge_oasa_molecules( molecules):
-  if not molecules:
-    return None
-  if len( molecules) == 1:
-    return molecules[0]
-  merged = oasa.molecule()
-  for part in molecules:
-    vertex_map = {}
-    for original_vertex in part.vertices:
-      copied_vertex = original_vertex.copy()
-      merged.add_vertex( copied_vertex)
-      vertex_map[ original_vertex] = copied_vertex
-    for original_edge in part.edges:
-      copied_edge = original_edge.copy()
-      vertex_1, vertex_2 = original_edge.vertices
-      merged.add_edge( vertex_map[vertex_1], vertex_map[vertex_2], copied_edge)
-  return merged
-
-
 def _read_codec_file_to_bkchem_mols( codec_name, file_obj, paper, **kwargs):
   codec = _get_codec( codec_name)
   mol = codec.read_file( file_obj, **kwargs)
@@ -77,7 +58,7 @@ def _write_codec_file_from_bkchem_mol( codec_name, bkchem_mol, file_obj, **kwarg
 
 def _write_codec_file_from_bkchem_paper( codec_name, paper, file_obj, **kwargs):
   oasa_mols = [bkchem_mol_to_oasa_mol( mol) for mol in paper.molecules]
-  merged = _merge_oasa_molecules( oasa_mols)
+  merged = oasa.molecule_utils.merge_molecules( oasa_mols)
   if merged is None:
     return
   codec = _get_codec( codec_name)

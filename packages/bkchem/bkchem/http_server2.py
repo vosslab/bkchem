@@ -139,7 +139,7 @@ class bkchem_http_handler( http.server.BaseHTTPRequestHandler):
 
 
 	def serve__content_png( self):
-		Store.app.plugin_export( "PNG (Cairo)", filename="http_temp.png", interactive=False)
+		Store.app.format_export( "png", filename="http_temp.png", interactive=False)
 		self._serve_file( "http_temp.png", "image/png")
 
 

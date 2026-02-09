@@ -472,3 +472,84 @@ def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
 		color=color,
 	))
 	return ops
+
+
+_DEFAULT_STYLE = {
+	"line_width": 2.0,
+	"bond_width": 6.0,
+	"wedge_width": 6.0,
+	"bold_line_width_multiplier": 1.2,
+	"bond_second_line_shortening": 0.0,
+	"color_atoms": True,
+	"color_bonds": True,
+	"atom_colors": None,
+	"show_hydrogens_on_hetero": False,
+	"font_name": "Arial",
+	"font_size": 16.0,
+	"show_carbon_symbol": False,
+}
+
+
+#============================================
+def _resolve_style(style):
+	resolved = dict(_DEFAULT_STYLE)
+	if style:
+		resolved.update(style)
+	return resolved
+
+
+#============================================
+def _edge_points(mol, transform_xy):
+	points = {}
+	for edge in mol.edges:
+		v1, v2 = edge.vertices
+		if transform_xy:
+			points[edge] = (transform_xy(v1.x, v1.y), transform_xy(v2.x, v2.y))
+		else:
+			points[edge] = ((v1.x, v1.y), (v2.x, v2.y))
+	return points
+
+
+#============================================
+def molecule_to_ops(mol, style=None, transform_xy=None):
+	"""Convert one molecule into a render-ops list for SVG/Cairo painters."""
+	if mol is None:
+		return []
+	used_style = _resolve_style(style)
+	shown_vertices = set()
+	for vertex in mol.vertices:
+		if used_style["show_carbon_symbol"] and vertex.symbol == "C":
+			shown_vertices.add(vertex)
+		elif vertex_is_shown(vertex):
+			shown_vertices.add(vertex)
+	bond_coords = _edge_points(mol, transform_xy=transform_xy)
+	context = BondRenderContext(
+		molecule=mol,
+		line_width=float(used_style["line_width"]),
+		bond_width=float(used_style["bond_width"]),
+		wedge_width=float(used_style["wedge_width"]),
+		bold_line_width_multiplier=float(used_style["bold_line_width_multiplier"]),
+		bond_second_line_shortening=float(used_style["bond_second_line_shortening"]),
+		color_bonds=bool(used_style["color_bonds"]),
+		atom_colors=used_style["atom_colors"],
+		shown_vertices=shown_vertices,
+		bond_coords=bond_coords,
+		bond_coords_provider=bond_coords.get,
+		point_for_atom=None,
+	)
+	ops = []
+	for edge in mol.edges:
+		start, end = bond_coords[edge]
+		ops.extend(build_bond_ops(edge, start, end, context))
+	for vertex in mol.vertices:
+		vertex_ops = build_vertex_ops(
+			vertex,
+			transform_xy=transform_xy,
+			show_hydrogens_on_hetero=bool(used_style["show_hydrogens_on_hetero"]),
+			color_atoms=bool(used_style["color_atoms"]),
+			atom_colors=used_style["atom_colors"],
+			font_name=str(used_style["font_name"]),
+			font_size=float(used_style["font_size"]),
+		)
+		ops.extend(vertex_ops)
+	return ops

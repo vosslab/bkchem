@@ -5,6 +5,7 @@
 """Registry-backed format loader for BKChem import/export menus."""
 
 # Standard Library
+import io
 import os
 
 # Third Party
@@ -173,7 +174,11 @@ def resolve_gui_kwargs(paper, gui_options):
 def _write_text_output(handle, text):
 	if text and not text.endswith("\n"):
 		text = text + "\n"
-	handle.write(text or "")
+	data = text or ""
+	if isinstance(handle, io.TextIOBase):
+		handle.write(data)
+	else:
+		handle.write(data.encode("utf-8"))
 
 
 #============================================
@@ -187,7 +192,7 @@ def import_format(codec_name, paper, filename):
 def export_format(codec_name, paper, filename, scope, gui_options):
 	"""Export one file via oasa_bridge using scope and resolved GUI options."""
 	kwargs = resolve_gui_kwargs(paper, gui_options)
-	with open(filename, "w") as handle:
+	with open(filename, "wb") as handle:
 		if scope == "selected_molecule":
 			mol = oasa_bridge.validate_selected_molecule(paper)
 			# Bridge still returns preformatted text for SMILES/InChI instead of
@@ -208,7 +213,7 @@ def export_format(codec_name, paper, filename, scope, gui_options):
 				if warnings:
 					lines.extend(["# " + warning for warning in warnings])
 				if lines:
-					handle.write("\n".join(lines) + "\n")
+					_write_text_output(handle, "\n".join(lines))
 				return
 			oasa_bridge.write_codec_file_from_selected_molecule(
 				codec_name,

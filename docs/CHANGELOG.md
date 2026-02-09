@@ -1,6 +1,46 @@
 # Changelog
 
 ## 2026-02-09
+- Complete Phase C renderer migration from
+  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md):
+  add OASA registry-backed render codecs (`svg`, `pdf`, `png`, `ps`) plus a
+  new CD-SVG codec in
+  [packages/oasa/oasa/codec_registry.py](packages/oasa/oasa/codec_registry.py),
+  [packages/oasa/oasa/codecs/render.py](packages/oasa/oasa/codecs/render.py),
+  and [packages/oasa/oasa/codecs/cdsvg.py](packages/oasa/oasa/codecs/cdsvg.py);
+  route BKChem export paths through registry/bridge in
+  [packages/bkchem/bkchem/format_loader.py](packages/bkchem/bkchem/format_loader.py),
+  [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py),
+  [packages/bkchem/bkchem/http_server2.py](packages/bkchem/bkchem/http_server2.py),
+  and [packages/bkchem/bkchem/export.py](packages/bkchem/bkchem/export.py);
+  extend manifest entries in
+  [packages/bkchem/bkchem/format_menus.yaml](packages/bkchem/bkchem/format_menus.yaml);
+  and remove the Tk/cairo renderer plugin stack
+  (`tk2cairo.py`, `cairo_lowlevel.py`, `pdf_cairo.py`, `png_cairo.py`,
+  `svg_cairo.py`, `ps_cairo.py`, `ps_builtin.py`, `odf.py`) from
+  [packages/bkchem/bkchem/plugins/](packages/bkchem/bkchem/plugins/).
+- Add Phase C regression coverage in
+  [tests/test_phase_c_render_pipeline.py](tests/test_phase_c_render_pipeline.py),
+  expand codec/manifest checks in
+  [tests/test_codec_registry.py](tests/test_codec_registry.py) and
+  [tests/test_codec_registry_bkchem_plugins.py](tests/test_codec_registry_bkchem_plugins.py),
+  and align plugin smoke inventory in
+  [tests/bkchem_plugin_smoke.py](tests/bkchem_plugin_smoke.py).
+- Phase C cleanup follow-ups: consolidate duplicated molecule merge helpers into
+  [packages/oasa/oasa/molecule_utils.py](packages/oasa/oasa/molecule_utils.py)
+  and route both
+  [packages/oasa/oasa/render_out.py](packages/oasa/oasa/render_out.py) and
+  [packages/bkchem/bkchem/oasa_bridge.py](packages/bkchem/bkchem/oasa_bridge.py)
+  through that shared utility; remove redundant SVG root append in
+  [packages/oasa/oasa/render_out.py](packages/oasa/oasa/render_out.py); avoid
+  built-in shadowing by switching `mol_to_output(..., format=...)` to
+  `fmt` with backward-compatible `format` keyword handling; and document
+  non-namespaced CD-SVG fallback behavior in
+  [packages/oasa/oasa/codecs/cdsvg.py](packages/oasa/oasa/codecs/cdsvg.py).
+- Mark ODF export as deferred post-Phase-C in
+  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md)
+  and add an explicit OASA-only reintroduction/retirement decision item in
+  [docs/TODO_CODE.md](docs/TODO_CODE.md).
 - Remove dead legacy CML export code paths in
   [packages/oasa/oasa/codecs/cml.py](packages/oasa/oasa/codecs/cml.py) and
   [packages/oasa/oasa/codecs/cml2.py](packages/oasa/oasa/codecs/cml2.py) so

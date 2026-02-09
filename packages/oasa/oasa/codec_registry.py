@@ -195,8 +195,10 @@ def _ensure_defaults_registered():
 	from . import molfile
 	from . import smiles
 	from .codecs import cdxml
+	from .codecs import cdsvg
 	from .codecs import cml
 	from .codecs import cml2
+	from .codecs import render
 
 	register_module_codec(
 		"smiles",
@@ -251,6 +253,46 @@ def _ensure_defaults_registered():
 		"cdxml",
 		cdxml,
 		extensions=[".cdxml"],
+	)
+	register_codec(
+		Codec(
+			name="svg",
+			mol_to_file=render.svg_mol_to_file,
+			extensions=[".svg"],
+		),
+	)
+	register_codec(
+		Codec(
+			name="pdf",
+			mol_to_file=render.pdf_mol_to_file,
+			extensions=[".pdf"],
+		),
+	)
+	register_codec(
+		Codec(
+			name="png",
+			mol_to_file=render.png_mol_to_file,
+			extensions=[".png"],
+		),
+	)
+	register_codec(
+		Codec(
+			name="ps",
+			mol_to_file=render.ps_mol_to_file,
+			extensions=[".ps"],
+		),
+		aliases=["postscript"],
+	)
+	register_codec(
+		Codec(
+			name="cdsvg",
+			text_to_mol=cdsvg.text_to_mol,
+			mol_to_text=cdsvg.mol_to_text,
+			file_to_mol=cdsvg.file_to_mol,
+			mol_to_file=cdsvg.mol_to_file,
+			extensions=[".cdsvg"],
+		),
+		aliases=["cd-svg"],
 	)
 	_DEFAULTS_REGISTERED = True
 

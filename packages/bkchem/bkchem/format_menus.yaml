@@ -36,3 +36,35 @@ formats:
         source: preference
         preference_key: inchi_program_path
         required: true
+
+  pdf:
+    display_name: PDF
+    scope: paper
+    gui_options:
+      - key: crop
+        source: paper_property
+        property_key: crop_svg
+
+  png:
+    display_name: PNG
+    scope: paper
+    gui_options:
+      - key: crop
+        source: paper_property
+        property_key: crop_svg
+
+  svg:
+    display_name: SVG
+    scope: paper
+    gui_options:
+      - key: crop
+        source: paper_property
+        property_key: crop_svg
+
+  ps:
+    display_name: PostScript
+    scope: paper
+    gui_options:
+      - key: crop
+        source: paper_property
+        property_key: crop_svg

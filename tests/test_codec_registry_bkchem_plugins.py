@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 """Unit tests for BKChem registry-driven format loading."""
 
+# Standard Library
+import os
+
 # Local repo modules
 import conftest
 import pytest
@@ -200,7 +203,7 @@ def test_export_format_selected_scope_uses_bridge(monkeypatch, tmp_path):
 
 	def _fake_write_selected(codec_name, paper, file_obj, **kwargs):
 		calls.append((codec_name, paper, kwargs))
-		file_obj.write("ok\n")
+		file_obj.write(b"ok\n")
 
 	monkeypatch.setattr(
 		format_loader.oasa_bridge,
@@ -299,3 +302,29 @@ def test_manifest_has_no_retired_options_or_deprecated_exporters():
 	for entry in entries.values():
 		for option in entry.get("gui_options", []):
 			assert option["key"] not in retired_options
+
+
+#============================================
+def test_render_formats_are_registry_backed_exports():
+	entries = format_loader.load_format_entries()
+	for codec_name in ("svg", "png", "pdf", "ps"):
+		assert codec_name in entries
+		assert entries[codec_name]["can_import"] is False
+		assert entries[codec_name]["can_export"] is True
+
+
+#============================================
+def test_legacy_tk_render_plugins_removed_from_repo():
+	root = conftest.repo_root()
+	removed = (
+		"packages/bkchem/bkchem/plugins/tk2cairo.py",
+		"packages/bkchem/bkchem/plugins/cairo_lowlevel.py",
+		"packages/bkchem/bkchem/plugins/pdf_cairo.py",
+		"packages/bkchem/bkchem/plugins/png_cairo.py",
+		"packages/bkchem/bkchem/plugins/svg_cairo.py",
+		"packages/bkchem/bkchem/plugins/ps_cairo.py",
+		"packages/bkchem/bkchem/plugins/ps_builtin.py",
+		"packages/bkchem/bkchem/plugins/odf.py",
+	)
+	for rel_path in removed:
+		assert not os.path.exists(os.path.join(root, rel_path))

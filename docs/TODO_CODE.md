@@ -10,6 +10,8 @@
 - Add OASA CDML depiction metadata support needed for Phase C WYSIWYG parity:
   `<standard>` profile fields, explicit label-placement metadata, and stable
   aromatic depiction policy controls.
+- Reintroduce ODF export only as an OASA codec/renderer (no BKChem plugin
+  path), or formally retire ODF if there is no downstream requirement.
 - Define GTML import-loss mitigation for reaction semantics in CDML/OASA path:
   preserve reactant/product grouping and arrow/plus objects when converting
   legacy GTML content to CDML-backed workflows.
