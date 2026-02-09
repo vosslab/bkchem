@@ -1,0 +1,3 @@
+# Optional extra dependencies
+openbabel  # optional chemistry conversion and forcefield backend
+pybel  # optional Python bridge API for Open Babel integration

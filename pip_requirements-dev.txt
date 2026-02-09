@@ -1,5 +1,6 @@
-bandit
-packaging
-pyflakes
-pytest
-rich
+# Development dependencies
+bandit  # security linting for Python code
+packaging  # version parsing/comparison helpers used by tooling/tests
+pyflakes  # static analysis lint checks
+pytest  # automated test runner
+rich  # formatted terminal output in developer tools

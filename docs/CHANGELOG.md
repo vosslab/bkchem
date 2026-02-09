@@ -12,6 +12,12 @@
 - Remove SOAP support references by deleting the legacy SOAP server startup
   block from [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py)
   and dropping `SOAPpy` from [pip_requirements.txt](pip_requirements.txt).
+- Add inline purpose comments for each dependency in
+  [pip_requirements.txt](pip_requirements.txt),
+  [pip_requirements-dev.txt](pip_requirements-dev.txt), and
+  [pip_extras.txt](pip_extras.txt) for clearer dependency intent.
+- Add heading comments to [pip_requirements-dev.txt](pip_requirements-dev.txt)
+  and [pip_extras.txt](pip_extras.txt) to clarify each file's dependency scope.
 
 ## 2026-02-08
 - Move Haworth modules into dedicated
