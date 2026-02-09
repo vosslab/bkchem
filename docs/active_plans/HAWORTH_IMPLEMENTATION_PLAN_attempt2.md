@@ -858,6 +858,28 @@ The renderer uses side-aware hydroxyl ordering: "OH" for right-anchored labels
 closest to the ring/connector in both cases. NEUROtiker archive always uses "OH"
 regardless of side, but the "HO" convention has chemical advantages and was retained.
 
+### Connector endpoint policy (stabilized)
+
+To keep Phase 5b/5c clipping upgrades without regressing visual Haworth semantics,
+the renderer now uses a split endpoint policy:
+
+- Shared clipping remains default for molecular rendering and non-hydroxyl Haworth
+  labels: `label_bbox()`, `label_attach_bbox()`, and `clip_bond_to_bbox()`.
+- Hydroxyl labels (`OH`/`HO`) use a dedicated oxygen-target path:
+  connector endpoints are resolved against the oxygen-center radius boundary
+  (not full label-bbox edge), with round-cap clearance included so rendered
+  connector paint does not overlap the oxygen glyph, and deterministic fallback
+  to attach-bbox clipping when oxygen center cannot be computed.
+- For side slots (`BR`, `BL`, `TL`), hydroxyl connectors preserve vertical
+  appearance by locking endpoint `x` to ring-vertex `x` after endpoint
+  resolution.
+
+Regression checks must keep all three guarantees:
+
+1. Side hydroxyl connectors stay vertical.
+2. Hydroxyl connectors terminate at oxygen-centered targets/radius boundaries.
+3. Non-hydroxyl labels continue to use shared clipping behavior.
+
 ## Phase 0 Exit Checklist
 
 Status: complete as of 2026-02-08 after running

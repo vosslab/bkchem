@@ -1,6 +1,206 @@
 # Changelog
 
 ## 2026-02-09
+- Refine
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  with a minimal default-selector rule (`attach_atom=first` when selectors are
+  absent), add a one-line numeric strict-overlap policy (`epsilon = 0.5 px`,
+  edge-touch allowed, penetration fails), and clarify backward compatibility
+  expectations for older readers that ignore new selectors.
+- Expand
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  with a new "Haworth special-case contract" section that makes Haworth
+  exceptions explicit shared-engine inputs (site intent payload, target
+  primitive, connector constraints, and bond style), adds required behavioral
+  rules to eliminate renderer-only endpoint hacks, and defines acceptance
+  criteria for upward OH overlap, furanose side-chain stereography, L-rhamnose
+  methyl parity, and reversible CH2OH/HOH2C attachment stability.
+- Add a focused "Phase B.1: furanose side-chain stereography parity" addendum
+  in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  to target the remaining two-carbon left-tail parity gap (hashed cue plus
+  above/below placement impression) with deterministic stereocenter-driven
+  rules, explicit fixture scope (including D-galactose furanose alpha), and
+  strict acceptance criteria that preserve current ring/vertical/OH-HO quality.
+- Add a new strict overlap gate section to
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  defining mandatory painted-geometry overlap validation, target-derived
+  forbidden regions, matrix/archive smoke enforcement, explicit unit-regression
+  cases, and fail-fast CI policy.
+- Clarify
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  with explicit selector precedence (`attach_element` over `attach_atom` over
+  deterministic defaults), target-based legality semantics (forbidden regions
+  derived from attachment targets, not cosmetic masks), constrained-segment
+  handling for Haworth vertical connectors, no-CDML-migration compatibility
+  promise, and wedge/hashed shape-generation guidance requiring clipped
+  endpoints to drive full bond geometry.
+- Tighten quick Haworth regression guards:
+  in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py), replace
+  the no-op scaled overlap assertion with a real bounded threshold for the
+  lyxose internal OH/HO pair.
+- Remove the own-connector smoke gate leak in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py):
+  non-hydroxyl own connectors are no longer skipped when not `_chain`, and
+  single-token labels now fall back to full `label_box` validation.
+- Apply a quick visual hashed-branch hotfix in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  make the hashed carrier modestly visible and expand hatch filtering toward
+  near-full branch coverage to reduce the "floating" appearance.
+- Fix stale parity plan reference in
+  [docs/CHANGELOG.md](docs/CHANGELOG.md) to point at
+  [docs/archive/RENDER_LAYOUT_PARITY_SPEC.md](docs/archive/RENDER_LAYOUT_PARITY_SPEC.md).
+- Expand
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  with explicit blocking findings and closure criteria for known attachment
+  regressions: hashed branch detachment heuristics, non-protective overlap
+  assertions, own-connector smoke exemptions, and doc-path hygiene checks.
+- Refine phase structure in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  from seven checklist phases to three execution phases (`A/B/C`), moving
+  inventory/exception cleanup/release gating into embedded deliverables and a
+  dedicated release checklist, and add an explicit backward-compatibility
+  section for additive rollout guarantees.
+- Restore rounded side wedges for Haworth ring edges adjacent to the front edge
+  in [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  keep oxygen-end clipping before edge-op construction, render the two
+  front-adjacent edges as shared rounded-wedge `PathOp` geometry with `ARC`
+  commands (while keeping front and back edge draw behavior unchanged), and
+  retain polygon proxies for ring collision/layout blocking. Add explicit
+  pyranose/furanose assertions for rounded side-edge `PathOp`/`ARC` output in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py).
+- Add a complete follow-on attachment unification plan in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  to replace exception-driven behavior with one shared target-primitive bond to
+  label contract across OASA molecular, Haworth, and BKChem rendering paths,
+  including phased migration, strict invariants, and release gates.
+- Implement directional token-edge label attachment as follow-on clipping
+  behavior in [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
+  add shared `directional_attach_edge_intersection(...)` plus `bbox_center(...)`,
+  route bond clipping to attach/label bbox centers instead of text-baseline
+  origins, and apply directional edge selection (side vs vertical approach) for
+  deterministic endpoint parity across render backends, including clipped
+  parallel double-bond lines.
+- Update Haworth connector clipping in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  to use directional token-edge attachment for generic label clipping and branch
+  label connectors, while preserving oxygen-center-first behavior for `OH`/`HO`
+  and switching its fallback path to directional oxygen-token edge clipping
+  rather than generic bbox-center fallback; extend hydroxyl center parsing in
+  [packages/oasa/oasa/haworth/renderer_text.py](packages/oasa/oasa/haworth/renderer_text.py)
+  to handle markup-stripped `OH`/`HO` text consistently.
+- Add directional attachment regressions in
+  [tests/test_label_bbox.py](tests/test_label_bbox.py),
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py), and keep
+  overlap/parity gates green in
+  [tests/test_connector_clipping.py](tests/test_connector_clipping.py),
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py),
+  and [tests/test_phase_c_render_pipeline.py](tests/test_phase_c_render_pipeline.py).
+- Refine true hashed-branch semantics for furanose two-carbon tails in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  compute branch endpoints after label placement using shared
+  `label_attach_bbox_from_text_origin(...)` + `clip_bond_to_bbox(...)`,
+  carry hashed connector geometry with a non-visible stable-id centerline
+  (`width <= 0.05`), and extend hatch coverage to near-terminal span
+  (~8%..92% of connector length); fix the own-connector exemption bug in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  so non-hydroxyl own connectors are checked, and add explicit hashed quality
+  checks in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  for `ARRRDM`/`ARRLDM` furanose alpha branch connectors.
+- Replace Haworth oxygen masking with deterministic ring-edge geometry clipping
+  in [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  remove `oxygen_mask` op emission, compute oxygen label bbox from shared
+  `render_geometry.label_bbox_from_text_origin(...)`, and clip only the two
+  oxygen-adjacent ring edge endpoints to an exclusion boundary derived from
+  label bounds + edge thickness (with preserved existing edge thickness/color
+  behavior, including gradient split ops and API-compatible `bg_color` arg).
+  Replace mask-era unit expectations in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) with
+  explicit no-mask and oxygen-label-interior non-overlap assertions, and add
+  smoke/archive-matrix guards in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  to ensure no `oxygen_mask` ops and no oxygen-adjacent ring polygon overlap
+  with oxygen label interiors.
+- Tune hashed two-carbon-tail branch connectors in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  to remove the doubled-bond appearance while restoring visible connectivity to
+  `CH2OH`: hashed branches now render as a thin centerline plus proximal hatch
+  strokes (shared hashed geometry style, deterministic `*_hatchN` IDs), and
+  keep smoke overlap checks and full test suite passing.
+- Tighten Haworth hydroxyl connector acceptance to block own-label penetration:
+  update [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  so `OH`/`HO` owning connectors fail on full label-interior overlap (while
+  retaining non-oxygen overlap diagnostics), add targeted talopyranose
+  regressions in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  for `ALLLDM` pyranose beta with `show_hydrogens` true/false, and harden
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  by adding deterministic upward-hydroxyl label nudge candidates plus endpoint
+  retreat-to-clearance logic for both simple hydroxyl connectors and the furanose
+  two-carbon-tail `chain1_oh` branch connector path.
+- Refine furanose two-carbon tail rendering to match reference directionality
+  without per-code branching in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  use direction/template-driven up-tail vs down-tail branch vectors, keep
+  allose-like up tails clear of ring/cross-connector overlap with canonical
+  `CH2OH` orientation, and add deterministic hashed branch overlays with stable
+  op IDs (`*_hatchN`) for stereobond emphasis; update geometry/text expectations
+  in [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) and keep
+  overlap guards green in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py).
+- Fix two Haworth defects without sugar-code-specific conditionals:
+  update terminal one-carbon post-closure deoxy handling in
+  [packages/oasa/oasa/haworth/spec.py](packages/oasa/oasa/haworth/spec.py) so
+  terminal deoxy renders as `CH3` (not `H`), update L-fucose/L-rhamnose
+  expectations in
+  [tests/fixtures/archive_ground_truth.py](tests/fixtures/archive_ground_truth.py),
+  and add explicit alpha/beta coverage for `ALRRLd` and `ARRLLd` in
+  [tests/test_haworth_spec.py](tests/test_haworth_spec.py); replace hardcoded
+  two-carbon-tail branch layout in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  with deterministic direction-based templates plus branch-specific anchor/text
+  behavior for OH and CH2OH labels, and update
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to assert
+  allose/gulose branch geometry orientation and direction-specific label order
+  instead of forcing a single leftward `HOH<sub>2</sub>C` pattern.
+- Refine the Haworth hydroxyl-own-connector overlap gate in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py):
+  keep the no-overlap invariant for `OH`/`HO` own connectors but evaluate
+  non-oxygen penetration against token-level label regions, with a deterministic
+  left/right half split fallback when attach-token spans collapse to the full
+  label bbox, and update the forced-overlap regression fixture to target the
+  non-oxygen token region explicitly.
+- Complete render-layout parity implementation from
+  [docs/archive/RENDER_LAYOUT_PARITY_SPEC.md](docs/archive/RENDER_LAYOUT_PARITY_SPEC.md):
+  expand general SVG/Cairo payload parity plus geometry-invariant checks in
+  [tests/test_phase_c_render_pipeline.py](tests/test_phase_c_render_pipeline.py)
+  (simple labels, aromatic ring, charged labels, wedge/hashed/wavy, and
+  Haworth ring layouts), add optional real Cairo execution parity coverage when
+  `pycairo` is available, and add focused Haworth parity guards in
+  [tests/test_render_layout_parity.py](tests/test_render_layout_parity.py) for
+  key connector/label op IDs, side-slot vertical connector invariants, and
+  connector endpoint boundary invariants.
+- Add hard Haworth bond/label overlap regression checks to
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py):
+  run the invariant in both `test_haworth_renderer_smoke_matrix` and
+  `test_archive_full_matrix` for both `show_hydrogens=True/False`, fail when any
+  `LineOp` overlaps any label interior bbox (computed from shared
+  `render_geometry` APIs), remove own-connector exemption for hydroxyl labels
+  (`OH`/`HO`) with an oxygen-boundary-only allowance, and keep edge-touch allowed
+  while rejecting interior penetration.
+- Add [docs/archive/RENDER_LAYOUT_PARITY_SPEC.md](docs/archive/RENDER_LAYOUT_PARITY_SPEC.md)
+  with a stronger no-deps SVG/Cairo parity test plan based on shared render-ops
+  payload and geometry invariants (not pixel diffs).
+- Fix Haworth connector regression after shared-clipping integration by splitting
+  endpoint policy in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  keep shared bbox/attach-bbox clipping for non-hydroxyl labels, route `OH`/`HO`
+  connectors to oxygen-centered radius boundaries with deterministic attach-bbox
+  fallback, add round-cap clearance so connector paint does not overlap the
+  oxygen glyph, and preserve vertical connector appearance for side slots
+  (`BR`, `BL`, `TL`); update regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) and document
+  the split policy in
+  [docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md).
 - Make
   [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py)
   auto-create `output_smoke/archive_matrix/` when missing, while still failing

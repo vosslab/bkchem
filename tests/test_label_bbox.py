@@ -43,6 +43,17 @@ def _bbox_contains(inner, outer):
 
 
 #============================================
+def _is_on_box_edge(point, box, tol=1e-6):
+	x, y = point
+	x1, y1, x2, y2 = box
+	on_x = abs(x - x1) <= tol or abs(x - x2) <= tol
+	on_y = abs(y - y1) <= tol or abs(y - y2) <= tol
+	in_x = x1 - tol <= x <= x2 + tol
+	in_y = y1 - tol <= y <= y2 + tol
+	return (on_x and in_y) or (on_y and in_x)
+
+
+#============================================
 def _first_polygon_op(ops):
 	for op in ops:
 		if isinstance(op, render_ops.PolygonOp):
@@ -204,6 +215,35 @@ def test_attach_bbox_first_last_ch2oh():
 		)
 		assert first_bbox[0] < last_bbox[0]
 		assert first_bbox[2] <= last_bbox[2]
+
+
+#============================================
+def test_directional_attach_edge_intersection_prefers_side_edge_for_side_approach():
+	attach_bbox = (0.0, 0.0, 10.0, 10.0)
+	attach_target = (6.0, 9.0)
+	bond_start = (-20.0, 8.0)
+	endpoint = render_geometry.directional_attach_edge_intersection(
+		bond_start=bond_start,
+		attach_bbox=attach_bbox,
+		attach_target=attach_target,
+	)
+	assert _is_on_box_edge(endpoint, attach_bbox, tol=1e-6)
+	assert endpoint[0] == pytest.approx(attach_bbox[0], abs=1e-6)
+	assert endpoint[1] < (attach_bbox[3] - 1e-6)
+
+
+#============================================
+def test_directional_attach_edge_intersection_prefers_vertical_edge_for_vertical_approach():
+	attach_bbox = (0.0, 0.0, 10.0, 10.0)
+	attach_target = (6.0, 9.0)
+	bond_start = (5.5, -20.0)
+	endpoint = render_geometry.directional_attach_edge_intersection(
+		bond_start=bond_start,
+		attach_bbox=attach_bbox,
+		attach_target=attach_target,
+	)
+	assert _is_on_box_edge(endpoint, attach_bbox, tol=1e-6)
+	assert endpoint[1] == pytest.approx(attach_bbox[1], abs=1e-6)
 
 
 #============================================

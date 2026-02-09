@@ -185,9 +185,10 @@ def hydroxyl_oxygen_center(
 		text_y: float,
 		font_size: float) -> tuple[float, float] | None:
 	"""Approximate oxygen glyph center in OH/HO label coordinates."""
-	if text not in ("OH", "HO"):
+	visible_text = re.sub(r"<[^>]+>", "", text or "")
+	if visible_text not in ("OH", "HO"):
 		return None
-	visible = visible_text_length(text)
+	visible = visible_text_length(visible_text)
 	text_width = visible * font_size * HYDROXYL_GLYPH_WIDTH_FACTOR
 	if anchor == "start":
 		start_x = text_x
@@ -197,7 +198,7 @@ def hydroxyl_oxygen_center(
 		start_x = text_x - (text_width / 2.0)
 	else:
 		start_x = text_x
-	o_index = text.find("O")
+	o_index = visible_text.find("O")
 	if o_index < 0:
 		return None
 	o_center_x = start_x + ((o_index * HYDROXYL_GLYPH_WIDTH_FACTOR) + HYDROXYL_O_X_CENTER_FACTOR) * font_size

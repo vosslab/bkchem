@@ -382,7 +382,7 @@ _alrrld_alpha_pyr = {
 	"C3_up": "H", "C3_down": "OH",
 	"C4_up": "H", "C4_down": "OH",
 	# C5: 6-deoxy -> CH3 instead of CH2OH, L-config: chain down
-	"C5_up": "H", "C5_down": "H",
+	"C5_up": "H", "C5_down": "CH3",
 }
 
 _arrlld_alpha_pyr = {
@@ -393,7 +393,7 @@ _arrlld_alpha_pyr = {
 	"C3_up": "H", "C3_down": "OH",
 	"C4_up": "OH", "C4_down": "H",
 	# C5: 6-deoxy -> CH3, L-config: chain down
-	"C5_up": "H", "C5_down": "H",
+	"C5_up": "H", "C5_down": "CH3",
 }
 
 # ============================================================================

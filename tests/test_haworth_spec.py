@@ -209,6 +209,16 @@ def test_furanose_two_carbon_tail_tracks_closure_stereocenter(code, expected_up,
 
 
 #============================================
+@pytest.mark.parametrize("code", ("ALRRLd", "ARRLLd"))
+@pytest.mark.parametrize("anomeric", ("alpha", "beta"))
+def test_terminal_deoxy_pyranose_one_carbon_chain_renders_methyl(code, anomeric):
+	spec = _generate(code, "pyranose", anomeric)
+	assert spec.substituents["C5_down"] == "CH3"
+	assert spec.substituents["C5_up"] == "H"
+	assert "CH2OH" not in spec.substituents.values()
+
+
+#============================================
 def test_prefix_ring_mismatch():
 	with pytest.raises(ValueError) as error:
 		_generate("ARDM", "pyranose", "alpha")

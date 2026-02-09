@@ -45,7 +45,7 @@ _MODIFIER_LABELS = {
 	"a": "NH2",
 	"n": "NHAc",
 	"f": "F",
-	"d": "H",
+	"d": "CH3",
 }
 
 _PATHWAY_DISALLOWED_VALUE_PATTERNS = [
@@ -263,13 +263,13 @@ def _post_chain_label(parsed: ParsedSugarCode, closure_carbon: int, post_chain_l
 			left_key = f"{terminal_carbon}L"
 			right_key = f"{terminal_carbon}R"
 			if plain_key in parsed.footnotes:
-				return _normalize_group_label(parsed.footnotes[plain_key])
+				return _normalize_terminal_chain_label(parsed.footnotes[plain_key])
 			if left_key in parsed.footnotes:
-				return _normalize_group_label(parsed.footnotes[left_key])
+				return _normalize_terminal_chain_label(parsed.footnotes[left_key])
 			if right_key in parsed.footnotes:
-				return _normalize_group_label(parsed.footnotes[right_key])
+				return _normalize_terminal_chain_label(parsed.footnotes[right_key])
 			return terminal_token
-		return _normalize_group_label(_MODIFIER_LABELS.get(terminal_token, terminal_token))
+		return _normalize_terminal_chain_label(_MODIFIER_LABELS.get(terminal_token, terminal_token))
 	# 2+ post-closure carbons are rendered as mini-chains in Phase 3.
 	_ = closure_carbon
 	if post_chain_len == 2:
@@ -317,6 +317,15 @@ def _normalize_group_label(value: str) -> str:
 	if upper == "DEOXY":
 		return "H"
 	return text
+
+
+#============================================
+def _normalize_terminal_chain_label(value: str) -> str:
+	"""Normalize one-carbon post-closure terminal labels with deoxy->methyl rule."""
+	text = (value or "").strip()
+	if text.lower() == "d" or text.upper() == "DEOXY":
+		return "CH3"
+	return _normalize_group_label(text)
 
 
 #============================================

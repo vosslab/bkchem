@@ -279,34 +279,20 @@ def build_bond_ops(edge, start, end, context):
 	v1, v2 = edge.vertices
 	bbox_v1 = None
 	bbox_v2 = None
-	force_v1_inside = False
-	force_v2_inside = False
 	if context.attach_bboxes:
 		bbox_v1 = context.attach_bboxes.get(v1)
 		bbox_v2 = context.attach_bboxes.get(v2)
-		force_v1_inside = bbox_v1 is not None
-		force_v2_inside = bbox_v2 is not None
 	if context.label_bboxes:
 		if bbox_v1 is None:
 			bbox_v1 = context.label_bboxes.get(v1)
 		if bbox_v2 is None:
 			bbox_v2 = context.label_bboxes.get(v2)
+	target_center_v1 = bbox_center(bbox_v1) if bbox_v1 is not None else None
+	target_center_v2 = bbox_center(bbox_v2) if bbox_v2 is not None else None
 	if bbox_v1 is not None:
-		target_start = start
-		if force_v1_inside:
-			x1, y1, x2, y2 = misc.normalize_coords(bbox_v1)
-			is_inside = x1 <= start[0] <= x2 and y1 <= start[1] <= y2
-			if not is_inside:
-				target_start = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
-		start = clip_bond_to_bbox(end, target_start, bbox_v1)
+		start = directional_attach_edge_intersection(end, bbox_v1, target_center_v1)
 	if bbox_v2 is not None:
-		target_end = end
-		if force_v2_inside:
-			x1, y1, x2, y2 = misc.normalize_coords(bbox_v2)
-			is_inside = x1 <= end[0] <= x2 and y1 <= end[1] <= y2
-			if not is_inside:
-				target_end = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
-		end = clip_bond_to_bbox(start, target_end, bbox_v2)
+		end = directional_attach_edge_intersection(start, bbox_v2, target_center_v2)
 	has_shown_vertex = False
 	if context.shown_vertices:
 		has_shown_vertex = v1 in context.shown_vertices or v2 in context.shown_vertices
@@ -355,6 +341,10 @@ def build_bond_ops(edge, start, end, context):
 				if not context.shown_vertices or v1 not in context.shown_vertices:
 					x1, y1 = geometry.elongate_line(x2, y2, x1, y1,
 							-context.bond_second_line_shortening * length)
+			if bbox_v1 is not None:
+				x1, y1 = directional_attach_edge_intersection((x2, y2), bbox_v1, target_center_v1)
+			if bbox_v2 is not None:
+				x2, y2 = directional_attach_edge_intersection((x1, y1), bbox_v2, target_center_v2)
 			ops.extend(_line_ops((x1, y1), (x2, y2), edge_line_width,
 					color1, color2, gradient, cap="butt"))
 			return ops
@@ -362,6 +352,10 @@ def build_bond_ops(edge, start, end, context):
 			x1, y1, x2, y2 = geometry.find_parallel(
 				start[0], start[1], end[0], end[1], i * context.bond_width * 0.5
 			)
+			if bbox_v1 is not None:
+				x1, y1 = directional_attach_edge_intersection((x2, y2), bbox_v1, target_center_v1)
+			if bbox_v2 is not None:
+				x2, y2 = directional_attach_edge_intersection((x1, y1), bbox_v2, target_center_v2)
 			ops.extend(_line_ops((x1, y1), (x2, y2), edge_line_width,
 					color1, color2, gradient, cap="round"))
 		return ops
@@ -558,6 +552,48 @@ def clip_bond_to_bbox(bond_start, bond_end, bbox):
 		(start_x, start_y, end_x, end_y),
 		(x1, y1, x2, y2),
 	)
+
+
+#============================================
+def bbox_center(bbox):
+	"""Return center point of an axis-aligned bbox."""
+	x1, y1, x2, y2 = misc.normalize_coords(bbox)
+	return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+
+
+#============================================
+def directional_attach_edge_intersection(bond_start, attach_bbox, attach_target):
+	"""Return directional token-edge endpoint from bond_start toward attach_target.
+
+	Horizontal-dominant approaches terminate on left/right token edges, while
+	vertical-dominant approaches terminate on top/bottom edges.
+	"""
+	x1, y1, x2, y2 = misc.normalize_coords(attach_bbox)
+	target_x, target_y = attach_target
+	if not (x1 <= target_x <= x2 and y1 <= target_y <= y2):
+		target_x, target_y = bbox_center((x1, y1, x2, y2))
+	start_x, start_y = bond_start
+	dx = target_x - start_x
+	dy = target_y - start_y
+	abs_dx = abs(dx)
+	abs_dy = abs(dy)
+	if abs_dx <= 1e-12 and abs_dy <= 1e-12:
+		return (target_x, target_y)
+	if abs_dx >= abs_dy:
+		if abs_dx <= 1e-12:
+			return clip_bond_to_bbox((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
+		edge_x = x1 if dx > 0.0 else x2
+		t_value = (edge_x - start_x) / dx
+		y_value = start_y + (dy * t_value)
+		y_value = min(max(y_value, y1), y2)
+		return (edge_x, y_value)
+	if abs_dy <= 1e-12:
+		return clip_bond_to_bbox((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
+	edge_y = y1 if dy > 0.0 else y2
+	t_value = (edge_y - start_y) / dy
+	x_value = start_x + (dx * t_value)
+	x_value = min(max(x_value, x1), x2)
+	return (x_value, edge_y)
 
 
 #============================================
