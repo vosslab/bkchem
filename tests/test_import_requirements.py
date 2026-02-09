@@ -17,8 +17,10 @@ REPORT_NAME = "report_imports.txt"
 REQUIREMENT_FILES = (
 	"pip_requirements.txt",
 	"pip_requirements-dev.txt",
+	"pip_extras.txt",
 	os.path.join("config_files", "pip_requirements.txt"),
 	os.path.join("config_files", "pip_requirements-dev.txt"),
+	os.path.join("config_files", "pip_extras.txt"),
 )
 LOCAL_IMPORT_WHITELIST = {
 	"apDisplay",

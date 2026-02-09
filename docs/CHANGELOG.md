@@ -18,6 +18,33 @@
   [pip_extras.txt](pip_extras.txt) for clearer dependency intent.
 - Add heading comments to [pip_requirements-dev.txt](pip_requirements-dev.txt)
   and [pip_extras.txt](pip_extras.txt) to clarify each file's dependency scope.
+- Complete codec-registry Phase 3 backend routing by moving CML/CML2/CDXML
+  parsing and serialization into OASA codecs
+  ([packages/oasa/oasa/codecs/cml.py](packages/oasa/oasa/codecs/cml.py),
+  [packages/oasa/oasa/codecs/cml2.py](packages/oasa/oasa/codecs/cml2.py), and
+  [packages/oasa/oasa/codecs/cdxml.py](packages/oasa/oasa/codecs/cdxml.py)),
+  registering them in
+  [packages/oasa/oasa/codec_registry.py](packages/oasa/oasa/codec_registry.py),
+  extending [packages/bkchem/bkchem/oasa_bridge.py](packages/bkchem/bkchem/oasa_bridge.py)
+  with generic codec file bridge helpers, and rewriting BKChem format plugins
+  [packages/bkchem/bkchem/plugins/CML.py](packages/bkchem/bkchem/plugins/CML.py),
+  [packages/bkchem/bkchem/plugins/CML2.py](packages/bkchem/bkchem/plugins/CML2.py),
+  and [packages/bkchem/bkchem/plugins/CDXML.py](packages/bkchem/bkchem/plugins/CDXML.py)
+  as thin bridge wrappers.
+- Expand codec integration coverage in
+  [tests/test_codec_registry.py](tests/test_codec_registry.py) and
+  [tests/test_codec_registry_bkchem_bridge.py](tests/test_codec_registry_bkchem_bridge.py)
+  for CML/CML2/CDXML default registration and bridge usage.
+- Add plugin-level bridge routing tests in
+  [tests/test_codec_registry_bkchem_plugins.py](tests/test_codec_registry_bkchem_plugins.py)
+  to verify BKChem CML/CML2/CDXML importers and exporters call `oasa_bridge`
+  (including versioned CML2 paths) and wrap bridge failures as plugin
+  import/export exceptions.
+- Update import policy sources in
+  [tests/test_import_requirements.py](tests/test_import_requirements.py) to
+  include `pip_extras.txt` (and `config_files/pip_extras.txt`) so optional
+  dependencies such as Open Babel/Pybel are recognized by the requirements
+  allowlist.
 
 ## 2026-02-08
 - Move Haworth modules into dedicated

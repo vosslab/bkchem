@@ -194,6 +194,9 @@ def _ensure_defaults_registered():
 	from . import inchi
 	from . import molfile
 	from . import smiles
+	from .codecs import cdxml
+	from .codecs import cml
+	from .codecs import cml2
 
 	register_module_codec(
 		"smiles",
@@ -223,6 +226,22 @@ def _ensure_defaults_registered():
 			extensions=[".cdml"],
 		),
 		aliases=["c"],
+	)
+	register_module_codec(
+		"cml",
+		cml,
+		extensions=[".cml"],
+	)
+	register_module_codec(
+		"cml2",
+		cml2,
+		extensions=[],
+		aliases=["cml-2"],
+	)
+	register_module_codec(
+		"cdxml",
+		cdxml,
+		extensions=[".cdxml"],
 	)
 	_DEFAULTS_REGISTERED = True
 

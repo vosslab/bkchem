@@ -61,6 +61,23 @@ class DummyDisconnectedMol:
 		return list(self._parts)
 
 
+class DummyPaper:
+	def __init__(self, molecules):
+		self.molecules = list(molecules)
+
+
+#============================================
+def _make_oasa_mol():
+	mol = oasa.molecule()
+	a1 = oasa.atom(symbol="C")
+	a2 = oasa.atom(symbol="O")
+	mol.add_vertex(a1)
+	mol.add_vertex(a2)
+	bond = oasa.bond(order=1, type="n")
+	mol.add_edge(a1, a2, bond)
+	return mol
+
+
 #============================================
 def test_oasa_bridge_read_smiles_uses_registry(monkeypatch):
 	codec = DummyCodec()
@@ -155,3 +172,55 @@ def test_oasa_bridge_write_molfile_uses_registry(monkeypatch):
 	oasa_bridge.write_molfile("bkchem_mol", "file")
 	assert codec.write_file_calls
 	assert codec.write_file_calls[0][0] is dummy_mol
+
+
+#============================================
+def test_oasa_bridge_read_cml_uses_registry(monkeypatch):
+	codec = DummyCodec()
+	part_a = DummyMol()
+	part_b = DummyMol()
+	codec.read_file_result = DummyDisconnectedMol([part_a, part_b])
+	monkeypatch.setattr(oasa.codec_registry, "get_codec", lambda name: codec)
+	monkeypatch.setattr(
+		oasa_bridge,
+		"oasa_mol_to_bkchem_mol",
+		lambda mol, paper: ("bkchem", mol, paper),
+	)
+
+	result = oasa_bridge.read_cml("file", paper="paper", version=2)
+	assert result == [("bkchem", part_a, "paper"), ("bkchem", part_b, "paper")]
+	assert codec.read_file_calls
+
+
+#============================================
+def test_oasa_bridge_write_cml_from_paper_uses_registry(monkeypatch):
+	codec = DummyCodec()
+	monkeypatch.setattr(oasa.codec_registry, "get_codec", lambda name: codec)
+
+	first = _make_oasa_mol()
+	second = _make_oasa_mol()
+	monkeypatch.setattr(
+		oasa_bridge,
+		"bkchem_mol_to_oasa_mol",
+		lambda mol: first if mol == "one" else second,
+	)
+	paper = DummyPaper(["one", "two"])
+	oasa_bridge.write_cml_from_paper(paper, "file", version=1)
+	assert codec.write_file_calls
+
+
+#============================================
+def test_oasa_bridge_read_cdxml_uses_registry(monkeypatch):
+	codec = DummyCodec()
+	dummy_mol = DummyMol()
+	codec.read_file_result = dummy_mol
+	monkeypatch.setattr(oasa.codec_registry, "get_codec", lambda name: codec)
+	monkeypatch.setattr(
+		oasa_bridge,
+		"oasa_mol_to_bkchem_mol",
+		lambda mol, paper: ("bkchem", mol, paper),
+	)
+
+	result = oasa_bridge.read_cdxml("file", paper="paper")
+	assert result == [("bkchem", dummy_mol, "paper")]
+	assert codec.read_file_calls

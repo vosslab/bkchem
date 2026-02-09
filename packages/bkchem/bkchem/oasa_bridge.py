@@ -39,6 +39,51 @@ def _get_codec( name):
   return oasa.codec_registry.get_codec( name)
 
 
+def _merge_oasa_molecules( molecules):
+  if not molecules:
+    return None
+  if len( molecules) == 1:
+    return molecules[0]
+  merged = oasa.molecule()
+  for part in molecules:
+    vertex_map = {}
+    for original_vertex in part.vertices:
+      copied_vertex = original_vertex.copy()
+      merged.add_vertex( copied_vertex)
+      vertex_map[ original_vertex] = copied_vertex
+    for original_edge in part.edges:
+      copied_edge = original_edge.copy()
+      vertex_1, vertex_2 = original_edge.vertices
+      merged.add_edge( vertex_map[vertex_1], vertex_map[vertex_2], copied_edge)
+  return merged
+
+
+def _read_codec_file_to_bkchem_mols( codec_name, file_obj, paper, **kwargs):
+  codec = _get_codec( codec_name)
+  mol = codec.read_file( file_obj, **kwargs)
+  if mol is None:
+    return []
+  if not mol.is_connected():
+    mols = mol.get_disconnected_subgraphs()
+    return [oasa_mol_to_bkchem_mol( part, paper) for part in mols]
+  return [oasa_mol_to_bkchem_mol( mol, paper)]
+
+
+def _write_codec_file_from_bkchem_mol( codec_name, bkchem_mol, file_obj, **kwargs):
+  codec = _get_codec( codec_name)
+  oasa_mol = bkchem_mol_to_oasa_mol( bkchem_mol)
+  codec.write_file( oasa_mol, file_obj, **kwargs)
+
+
+def _write_codec_file_from_bkchem_paper( codec_name, paper, file_obj, **kwargs):
+  oasa_mols = [bkchem_mol_to_oasa_mol( mol) for mol in paper.molecules]
+  merged = _merge_oasa_molecules( oasa_mols)
+  if merged is None:
+    return
+  codec = _get_codec( codec_name)
+  codec.write_file( merged, file_obj, **kwargs)
+
+
 def read_smiles( text, paper):
   codec = _get_codec( "smiles")
   mol = codec.read_text( text)
@@ -70,19 +115,38 @@ def mol_to_inchi( mol, program):
 
 
 def read_molfile( file, paper):
-  codec = _get_codec( "molfile")
-  mol = codec.read_file( file)
-  if not mol.is_connected():
-    mols = mol.get_disconnected_subgraphs()
-    return [oasa_mol_to_bkchem_mol( mol, paper) for mol in mols]
-  else:
-    return [oasa_mol_to_bkchem_mol( mol, paper)]
+  return _read_codec_file_to_bkchem_mols( "molfile", file, paper)
 
 
 def write_molfile( mol, file):
-  codec = _get_codec( "molfile")
-  m = bkchem_mol_to_oasa_mol( mol)
-  codec.write_file( m, file)
+  _write_codec_file_from_bkchem_mol( "molfile", mol, file)
+
+
+def read_cml( file_obj, paper, version=1):
+  codec_name = "cml2" if int( version) == 2 else "cml"
+  return _read_codec_file_to_bkchem_mols( codec_name, file_obj, paper)
+
+
+def write_cml( mol, file_obj, version=1):
+  codec_name = "cml2" if int( version) == 2 else "cml"
+  _write_codec_file_from_bkchem_mol( codec_name, mol, file_obj)
+
+
+def write_cml_from_paper( paper, file_obj, version=1):
+  codec_name = "cml2" if int( version) == 2 else "cml"
+  _write_codec_file_from_bkchem_paper( codec_name, paper, file_obj)
+
+
+def read_cdxml( file_obj, paper):
+  return _read_codec_file_to_bkchem_mols( "cdxml", file_obj, paper)
+
+
+def write_cdxml( mol, file_obj):
+  _write_codec_file_from_bkchem_mol( "cdxml", mol, file_obj)
+
+
+def write_cdxml_from_paper( paper, file_obj):
+  _write_codec_file_from_bkchem_paper( "cdxml", paper, file_obj)
 
 
 # ==================================================

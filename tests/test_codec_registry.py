@@ -39,10 +39,17 @@ def test_codec_registry_defaults():
 	assert "inchi" in codecs
 	assert "molfile" in codecs
 	assert "cdml" in codecs
+	assert "cml" in codecs
+	assert "cml2" in codecs
+	assert "cdxml" in codecs
 	smiles_codec = oasa.codec_registry.get_codec("s")
 	assert smiles_codec.name == "smiles"
 	by_ext = oasa.codec_registry.get_codec_by_extension(".smi")
 	assert by_ext.name == "smiles"
+	by_ext = oasa.codec_registry.get_codec_by_extension(".cml")
+	assert by_ext.name == "cml"
+	by_ext = oasa.codec_registry.get_codec_by_extension(".cdxml")
+	assert by_ext.name == "cdxml"
 
 
 #============================================
@@ -66,6 +73,30 @@ def test_codec_registry_cdml_roundtrip():
 	assert "<cdml" in text
 	loaded = codec.read_text(text)
 	assert loaded is not None
+
+
+#============================================
+def test_codec_registry_cml_roundtrip():
+	oasa.codec_registry.reset_registry()
+	codec = oasa.codec_registry.get_codec("cml")
+	mol = _make_simple_mol()
+	text = codec.write_text(mol)
+	assert "<cml" in text
+	loaded = codec.read_text(text)
+	assert loaded is not None
+	assert len(loaded.vertices) == 2
+
+
+#============================================
+def test_codec_registry_cdxml_roundtrip():
+	oasa.codec_registry.reset_registry()
+	codec = oasa.codec_registry.get_codec("cdxml")
+	mol = _make_simple_mol()
+	text = codec.write_text(mol)
+	assert "<CDXML" in text
+	loaded = codec.read_text(text)
+	assert loaded is not None
+	assert len(loaded.vertices) == 2
 
 
 #============================================
