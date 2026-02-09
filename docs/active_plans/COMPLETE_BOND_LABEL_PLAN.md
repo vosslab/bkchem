@@ -119,6 +119,50 @@ Token selection must be deterministic and renderer-independent:
 - If neither selector is present, use minimal deterministic defaults:
   `attach_atom="first"` only; avoid label-specific implicit defaults.
 
+### Formula-aware labels (tight scope)
+
+To support stable attachment while allowing limited display flips, add a small
+formula parser for attachment-relevant labels only. This is not a general
+chemistry formatter.
+
+Required scope:
+- Supported token classes: element symbols, integer counts, optional trailing
+  charge.
+- Supported examples: `OH`/`HO`, `CH3`/`H3C`, `CH2OH`/`HOH2C`, `NH3+`, `COOH`.
+- Do not attempt arbitrary grammar or full formula normalization.
+
+Required outputs:
+- `parse_formula(label) -> (tokens, charge, attach_default)` where `tokens` are
+  element/count units and `attach_default` can provide stable element intent
+  (for example `O` for hydroxyl class, `C` for methyl class).
+- `render_formula(tokens, charge, style)` for markup only (`html`, later other
+  backends as needed).
+
+Required separation of concerns:
+- Parsing/tokenization and markup rendering must be separate functions.
+- Display canonicalization (for example `OH` vs `HO`, `CH3` vs `H3C`) must be
+  explicit policy, not side effects of formatting.
+- Attachment selection must use selector precedence and token intent, not first
+  rendered character position.
+
+Required charge rule:
+- Treat `+`/`-` as charge only when suffix-positioned (end of label, with
+  optional adjacent digits in the suffix).
+- Document this as a strict parser contract for this phase.
+
+Required deterministic behavior:
+- If display order is flipped for readability, attachment target remains on the
+  selected element token (`attach_element=O` or `attach_element=C`) so bond
+  connectivity does not drift.
+- Avoid duplicated formula formatter paths to prevent divergence across
+  backends.
+
+Plan statement:
+- Labels that resemble molecular fragments are tokenized into
+  element-count-charge form. Rendering may reorder tokens for style
+  (`OH`/`HO`, `CH3`/`H3C`), but attachment uses tokenized element selectors so
+  connectivity is stable.
+
 ### Core API
 
 Additive shared API (names may vary, behavior is required):
