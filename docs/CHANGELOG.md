@@ -2,7 +2,7 @@
 
 ## 2026-02-09
 - Complete Phase C renderer migration from
-  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md):
+  [docs/archive/PURE_OASA_BACKEND_REFACTOR.md](docs/archive/PURE_OASA_BACKEND_REFACTOR.md):
   add OASA registry-backed render codecs (`svg`, `pdf`, `png`, `ps`) plus a
   new CD-SVG codec in
   [packages/oasa/oasa/codec_registry.py](packages/oasa/oasa/codec_registry.py),
@@ -38,7 +38,7 @@
   non-namespaced CD-SVG fallback behavior in
   [packages/oasa/oasa/codecs/cdsvg.py](packages/oasa/oasa/codecs/cdsvg.py).
 - Mark ODF export as deferred post-Phase-C in
-  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md)
+  [docs/archive/PURE_OASA_BACKEND_REFACTOR.md](docs/archive/PURE_OASA_BACKEND_REFACTOR.md)
   and add an explicit OASA-only reintroduction/retirement decision item in
   [docs/TODO_CODE.md](docs/TODO_CODE.md).
 - Remove dead legacy CML export code paths in
@@ -58,12 +58,12 @@
   and keep regression coverage aligned in
   [tests/test_codec_registry_bkchem_bridge.py](tests/test_codec_registry_bkchem_bridge.py).
 - Complete Phase B audit/retention work for
-  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md):
+  [docs/archive/PURE_OASA_BACKEND_REFACTOR.md](docs/archive/PURE_OASA_BACKEND_REFACTOR.md):
   publish option classification, GTML retention outcome, CDML depiction audit,
   and CDML v2 decision in
-  [docs/active_plans/PHASE_B_AUDIT.md](docs/active_plans/PHASE_B_AUDIT.md),
+  [docs/archive/PHASE_B_AUDIT.md](docs/archive/PHASE_B_AUDIT.md),
   mark Phase B status/done gates complete in
-  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md),
+  [docs/archive/PURE_OASA_BACKEND_REFACTOR.md](docs/archive/PURE_OASA_BACKEND_REFACTOR.md),
   and add follow-up backlog items in [docs/TODO_CODE.md](docs/TODO_CODE.md).
 - Make GTML explicitly import-only by setting `exporter = None` in
   [packages/bkchem/bkchem/plugins/gtml.py](packages/bkchem/bkchem/plugins/gtml.py)
@@ -75,7 +75,7 @@
   [tests/test_codec_registry_bkchem_plugins.py](tests/test_codec_registry_bkchem_plugins.py)
   with default-manifest/registry consistency and retired-option/deprecated-export checks.
 - Implement Phase A plumbing from
-  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md):
+  [docs/archive/PURE_OASA_BACKEND_REFACTOR.md](docs/archive/PURE_OASA_BACKEND_REFACTOR.md):
   add registry snapshot capabilities in
   [packages/oasa/oasa/codec_registry.py](packages/oasa/oasa/codec_registry.py),
   enforce CML/CML2 import-only behavior in
@@ -101,7 +101,7 @@
   and align smoke plugin inventory in
   [tests/bkchem_plugin_smoke.py](tests/bkchem_plugin_smoke.py).
 - Fix ASCII compliance in
-  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md)
+  [docs/archive/PURE_OASA_BACKEND_REFACTOR.md](docs/archive/PURE_OASA_BACKEND_REFACTOR.md)
   by replacing a non-ISO left-right arrow with ASCII (`<->`).
 - Add [docs/PURE_OASA_BACKEND_REFACTOR.md](docs/PURE_OASA_BACKEND_REFACTOR.md)
   documenting the full refactoring roadmap for migrating all backend work

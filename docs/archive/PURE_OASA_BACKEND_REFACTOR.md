@@ -727,7 +727,7 @@ not the file extension. No menu disambiguation is needed.
 validated. GTML retention level is decided and documented.
 
 Phase B deliverables and decisions are documented in
-[docs/active_plans/PHASE_B_AUDIT.md](docs/active_plans/PHASE_B_AUDIT.md).
+[docs/archive/PHASE_B_AUDIT.md](docs/archive/PHASE_B_AUDIT.md).
 
 #### B1: Option inventory and classification
 
