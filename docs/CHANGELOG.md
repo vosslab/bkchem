@@ -1,6 +1,12 @@
 # Changelog
 
 ## 2026-02-09
+- Add [docs/PURE_OASA_BACKEND_REFACTOR.md](docs/PURE_OASA_BACKEND_REFACTOR.md)
+  documenting the full refactoring roadmap for migrating all backend work
+  (format I/O, rendering, coordinate transforms) from BKChem plugins to OASA.
+  Covers 6 phases: delete bridge wrappers, move format logic to OASA codecs,
+  audit format options, evaluate GTML retirement, move rendering to OASA, and
+  replace the plugins directory with YAML-driven manifests and a generic loader.
 - Refactor
   [tests/fixtures/archive_ground_truth.py](tests/fixtures/archive_ground_truth.py)
   alpha-base fixture variable names to code-keyed identifiers (for example
