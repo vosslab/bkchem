@@ -125,7 +125,6 @@ def mol_to_smiles( mol):
 def read_inchi( text, paper):
   codec = _get_codec( "inchi")
   mol = codec.read_text( text, calc_coords=1, include_hydrogens=False)
-  #oasa.coords_generator.calculate_coords( mol, bond_length=1.0, force=1)
   m = oasa_mol_to_bkchem_mol( mol, paper)
   return m
 
@@ -151,13 +150,13 @@ def read_cml( file_obj, paper, version=1):
 
 
 def write_cml( mol, file_obj, version=1):
-  codec_name = "cml2" if int( version) == 2 else "cml"
-  _write_codec_file_from_bkchem_mol( codec_name, mol, file_obj)
+  del mol, file_obj, version
+  raise ValueError("CML export is not supported. Legacy CML is import-only.")
 
 
 def write_cml_from_paper( paper, file_obj, version=1):
-  codec_name = "cml2" if int( version) == 2 else "cml"
-  _write_codec_file_from_bkchem_paper( codec_name, paper, file_obj)
+  del paper, file_obj, version
+  raise ValueError("CML export is not supported. Legacy CML is import-only.")
 
 
 def read_cdxml( file_obj, paper):

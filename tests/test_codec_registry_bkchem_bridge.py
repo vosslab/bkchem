@@ -81,18 +81,6 @@ class DummyObject:
 
 
 #============================================
-def _make_oasa_mol():
-	mol = oasa.molecule()
-	a1 = oasa.atom(symbol="C")
-	a2 = oasa.atom(symbol="O")
-	mol.add_vertex(a1)
-	mol.add_vertex(a2)
-	bond = oasa.bond(order=1, type="n")
-	mol.add_edge(a1, a2, bond)
-	return mol
-
-
-#============================================
 def test_oasa_bridge_read_smiles_uses_registry(monkeypatch):
 	codec = DummyCodec()
 	dummy_mol = DummyMol()
@@ -207,20 +195,17 @@ def test_oasa_bridge_read_cml_uses_registry(monkeypatch):
 
 
 #============================================
-def test_oasa_bridge_write_cml_from_paper_uses_registry(monkeypatch):
-	codec = DummyCodec()
-	monkeypatch.setattr(oasa.codec_registry, "get_codec", lambda name: codec)
+def test_oasa_bridge_write_cml_is_disabled():
+	with pytest.raises(ValueError) as error:
+		oasa_bridge.write_cml("mol", "file", version=1)
+	assert "CML export is not supported" in str(error.value)
 
-	first = _make_oasa_mol()
-	second = _make_oasa_mol()
-	monkeypatch.setattr(
-		oasa_bridge,
-		"bkchem_mol_to_oasa_mol",
-		lambda mol: first if mol == "one" else second,
-	)
-	paper = DummyPaper(["one", "two"])
-	oasa_bridge.write_cml_from_paper(paper, "file", version=1)
-	assert codec.write_file_calls
+
+#============================================
+def test_oasa_bridge_write_cml_from_paper_is_disabled():
+	with pytest.raises(ValueError) as error:
+		oasa_bridge.write_cml_from_paper(DummyPaper(["one"]), "file", version=2)
+	assert "CML export is not supported" in str(error.value)
 
 
 #============================================

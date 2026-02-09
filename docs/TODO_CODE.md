@@ -7,6 +7,12 @@
   required.
 - Add a hash-based verification layer for newly generated CDML files, including
   a stable canonicalization step before digest calculation.
+- Add OASA CDML depiction metadata support needed for Phase C WYSIWYG parity:
+  `<standard>` profile fields, explicit label-placement metadata, and stable
+  aromatic depiction policy controls.
+- Define GTML import-loss mitigation for reaction semantics in CDML/OASA path:
+  preserve reactant/product grouping and arrow/plus objects when converting
+  legacy GTML content to CDML-backed workflows.
 - Evaluate optional RDKit/Open Babel integration for expanded import/export
   formats.
   - Target formats: SDF/SD, MOL2, PDB, CIF.

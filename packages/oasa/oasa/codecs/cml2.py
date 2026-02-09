@@ -19,15 +19,3 @@ def text_to_mol(text):
 #============================================
 def file_to_mol(file_obj):
 	return cml.file_to_mol(file_obj, version=_VERSION)
-
-
-#============================================
-def mol_to_text(mol):
-	_ = mol
-	raise ValueError("CML2 export is not supported. This codec is import-only.")
-
-
-#============================================
-def mol_to_file(mol, file_obj):
-	_ = file_obj
-	return mol_to_text(mol)

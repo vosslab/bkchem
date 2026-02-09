@@ -240,10 +240,15 @@ def test_export_format_inchi_selected_scope_writes_key_and_warnings(monkeypatch,
 	try:
 		Store.pm = _DummyPreferences({"inchi_program_path": "/usr/local/bin/inchi"})
 		monkeypatch.setattr(format_loader.oasa_bridge, "validate_selected_molecule", lambda paper: "mol")
+		calls = []
 		monkeypatch.setattr(
 			format_loader.oasa_bridge,
 			"mol_to_inchi",
-			lambda mol, program: ("InChI=1S/CH4/h1H4", "VNWKTOKETHGBQD-UHFFFAOYSA-N", ["warn"]),
+			lambda mol, program: calls.append((mol, program)) or (
+				"InChI=1S/CH4/h1H4",
+				"VNWKTOKETHGBQD-UHFFFAOYSA-N",
+				["warn"],
+			),
 		)
 		output_path = tmp_path / "out.inchi"
 		format_loader.export_format(
@@ -264,5 +269,33 @@ def test_export_format_inchi_selected_scope_writes_key_and_warnings(monkeypatch,
 		assert lines[0] == "InChI=1S/CH4/h1H4"
 		assert lines[1] == "InChIKey=VNWKTOKETHGBQD-UHFFFAOYSA-N"
 		assert lines[2] == "# warn"
+		assert calls == [("mol", "/usr/local/bin/inchi")]
 	finally:
 		Store.pm = old_pm
+
+
+#============================================
+def test_default_manifest_codecs_exist_in_registry_snapshot():
+	backend = format_loader.load_backend_capabilities()
+	gui = format_loader.load_gui_manifest()
+	for codec_name in sorted(gui.keys()):
+		assert codec_name in backend
+
+
+#============================================
+def test_manifest_has_no_retired_options_or_deprecated_exporters():
+	entries = format_loader.load_format_entries()
+	for retired in ("povray",):
+		assert retired not in entries
+	for import_only in ("cml", "cml2"):
+		assert entries[import_only]["can_export"] is False
+	retired_options = {
+		"invert_coords",
+		"scaling",
+		"dpi",
+		"target_width_px",
+		"background_color",
+	}
+	for entry in entries.values():
+		for option in entry.get("gui_options", []):
+			assert option["key"] not in retired_options

@@ -1,6 +1,39 @@
 # Changelog
 
 ## 2026-02-09
+- Remove dead legacy CML export code paths in
+  [packages/oasa/oasa/codecs/cml.py](packages/oasa/oasa/codecs/cml.py) and
+  [packages/oasa/oasa/codecs/cml2.py](packages/oasa/oasa/codecs/cml2.py) so
+  CML/CML2 stay strictly import-only at module API level, and add defensive
+  registration comments in
+  [packages/oasa/oasa/codec_registry.py](packages/oasa/oasa/codec_registry.py)
+  to keep legacy CML codecs wired through explicit read callables.
+- Enforce legacy export-drop policy in bridge code by keeping CML export hard
+  disabled in
+  [packages/bkchem/bkchem/oasa_bridge.py](packages/bkchem/bkchem/oasa_bridge.py),
+  and remove stale commented code in `read_inchi`.
+- Add inline technical-debt note for SMILES/InChI selected-molecule special
+  handling in
+  [packages/bkchem/bkchem/format_loader.py](packages/bkchem/bkchem/format_loader.py),
+  and keep regression coverage aligned in
+  [tests/test_codec_registry_bkchem_bridge.py](tests/test_codec_registry_bkchem_bridge.py).
+- Complete Phase B audit/retention work for
+  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md):
+  publish option classification, GTML retention outcome, CDML depiction audit,
+  and CDML v2 decision in
+  [docs/active_plans/PHASE_B_AUDIT.md](docs/active_plans/PHASE_B_AUDIT.md),
+  mark Phase B status/done gates complete in
+  [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md),
+  and add follow-up backlog items in [docs/TODO_CODE.md](docs/TODO_CODE.md).
+- Make GTML explicitly import-only by setting `exporter = None` in
+  [packages/bkchem/bkchem/plugins/gtml.py](packages/bkchem/bkchem/plugins/gtml.py)
+  so no GTML exporter entry is exposed in the GUI export path.
+- Add Phase B guardrail coverage in
+  [tests/test_phase_b_option_policy.py](tests/test_phase_b_option_policy.py)
+  and [tests/test_phase_b_gtml_roundtrip.py](tests/test_phase_b_gtml_roundtrip.py),
+  and extend
+  [tests/test_codec_registry_bkchem_plugins.py](tests/test_codec_registry_bkchem_plugins.py)
+  with default-manifest/registry consistency and retired-option/deprecated-export checks.
 - Implement Phase A plumbing from
   [docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md](docs/active_plans/PURE_OASA_BACKEND_REFACTOR.md):
   add registry snapshot capabilities in

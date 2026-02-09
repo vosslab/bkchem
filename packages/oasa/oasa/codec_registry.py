@@ -230,6 +230,8 @@ def _ensure_defaults_registered():
 	register_codec(
 		Codec(
 			name="cml",
+			# Keep import-only by wiring read callables explicitly.
+			# Do not switch to register_module_codec() for legacy CML codecs.
 			text_to_mol=cml.text_to_mol,
 			file_to_mol=cml.file_to_mol,
 			extensions=[".cml", ".xml"],
@@ -238,6 +240,7 @@ def _ensure_defaults_registered():
 	register_codec(
 		Codec(
 			name="cml2",
+			# Keep import-only by wiring read callables explicitly.
 			text_to_mol=cml2.text_to_mol,
 			file_to_mol=cml2.file_to_mol,
 			extensions=[],

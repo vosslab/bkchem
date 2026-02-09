@@ -2,13 +2,10 @@
 #     This file is part of OASA - a free chemical python library
 #--------------------------------------------------------------------------
 
-"""CML import/export helpers for OASA molecules.
+"""CML import helpers for OASA molecules.
 
-Supports the CML 1.0 style used by legacy BKChem plugins and CML 2.0.
+Supports CML 1.0 style and CML 2.0 read paths for legacy recovery.
 """
-
-# Standard Library
-import xml.dom.minidom
 
 # local repo modules
 from .. import dom_extensions
@@ -20,9 +17,7 @@ from ..periodic_table import periodic_table
 
 
 _VERSION_1 = "1"
-_VERSION_2 = "2"
 _STEREO_TO_TYPE = {"W": "w", "H": "h"}
-_TYPE_TO_STEREO = {"w": "W", "h": "H"}
 
 
 #============================================
@@ -255,114 +250,6 @@ def _collect_molecules_from_text(text):
 
 
 #============================================
-def _add_cml1_atom(doc, atom_array, atom_obj, atom_id):
-	atom_node = doc.createElement("atom")
-	atom_array.appendChild(atom_node)
-	dom_extensions.textOnlyElementUnder(
-		atom_node, "string", atom_id, (("builtin", "atomId"), ("convention", "CML"))
-	)
-	dom_extensions.textOnlyElementUnder(
-		atom_node, "string", atom_obj.symbol,
-		(("builtin", "elementType"), ("convention", "CML"))
-	)
-	dom_extensions.textOnlyElementUnder(
-		atom_node, "float", str(atom_obj.x), (("builtin", "x2"),)
-	)
-	dom_extensions.textOnlyElementUnder(
-		atom_node, "float", str(atom_obj.y), (("builtin", "y2"),)
-	)
-	if atom_obj.z:
-		dom_extensions.textOnlyElementUnder(
-			atom_node, "float", str(atom_obj.z), (("builtin", "z3"),)
-		)
-	if atom_obj.charge:
-		dom_extensions.textOnlyElementUnder(
-			atom_node, "float", str(atom_obj.charge), (("builtin", "formalCharge"),)
-		)
-
-
-#============================================
-def _add_cml2_atom(doc, atom_array, atom_obj, atom_id):
-	atom_node = doc.createElement("atom")
-	atom_array.appendChild(atom_node)
-	atom_node.setAttribute("id", atom_id)
-	atom_node.setAttribute("elementType", atom_obj.symbol)
-	atom_node.setAttribute("x2", str(atom_obj.x))
-	atom_node.setAttribute("y2", str(atom_obj.y))
-	if atom_obj.z:
-		atom_node.setAttribute("z3", str(atom_obj.z))
-	if atom_obj.charge:
-		atom_node.setAttribute("formalCharge", str(atom_obj.charge))
-
-
-#============================================
-def _add_cml1_bond(doc, bond_array, bond_obj, atom_id_map):
-	bond_node = doc.createElement("bond")
-	bond_array.appendChild(bond_node)
-	atom_1, atom_2 = bond_obj.vertices
-	dom_extensions.textOnlyElementUnder(
-		bond_node, "string", atom_id_map[atom_1],
-		(("builtin", "atomRef"), ("convention", "CML"))
-	)
-	dom_extensions.textOnlyElementUnder(
-		bond_node, "string", atom_id_map[atom_2],
-		(("builtin", "atomRef"), ("convention", "CML"))
-	)
-	dom_extensions.textOnlyElementUnder(
-		bond_node, "string", str(int(bond_obj.order)),
-		(("builtin", "order"), ("convention", "CML"))
-	)
-	stereo = _TYPE_TO_STEREO.get(_safe_text(bond_obj.type))
-	if stereo:
-		dom_extensions.textOnlyElementUnder(
-			bond_node, "string", stereo,
-			(("builtin", "stereo"), ("convention", "CML"))
-		)
-
-
-#============================================
-def _add_cml2_bond(doc, bond_array, bond_obj, atom_id_map, bond_index):
-	bond_node = doc.createElement("bond")
-	bond_array.appendChild(bond_node)
-	atom_1, atom_2 = bond_obj.vertices
-	bond_node.setAttribute("id", f"b{bond_index}")
-	bond_node.setAttribute("atomRefs2", f"{atom_id_map[atom_1]} {atom_id_map[atom_2]}")
-	bond_node.setAttribute("order", str(int(bond_obj.order)))
-	stereo = _TYPE_TO_STEREO.get(_safe_text(bond_obj.type))
-	if stereo:
-		dom_extensions.textOnlyElementUnder(bond_node, "stereo", stereo)
-
-
-#============================================
-def _mol_to_dom(mol, version):
-	doc = xml.dom.minidom.Document()
-	root = doc.createElement("cml")
-	doc.appendChild(root)
-	molecule_node = doc.createElement("molecule")
-	root.appendChild(molecule_node)
-	atom_array = doc.createElement("atomArray")
-	bond_array = doc.createElement("bondArray")
-	molecule_node.appendChild(atom_array)
-	molecule_node.appendChild(bond_array)
-
-	atom_id_map = {}
-	for index, atom_obj in enumerate(mol.vertices, start=1):
-		atom_id = f"a{index}"
-		atom_id_map[atom_obj] = atom_id
-		if version == _VERSION_2:
-			_add_cml2_atom(doc, atom_array, atom_obj, atom_id)
-		else:
-			_add_cml1_atom(doc, atom_array, atom_obj, atom_id)
-	for index, bond_obj in enumerate(mol.edges, start=1):
-		if version == _VERSION_2:
-			_add_cml2_bond(doc, bond_array, bond_obj, atom_id_map, index)
-		else:
-			_add_cml1_bond(doc, bond_array, bond_obj, atom_id_map)
-	dom_extensions.safe_indent(root)
-	return doc
-
-
-#============================================
 def text_to_mol(text, version=_VERSION_1):
 	_ = version
 	molecules = _collect_molecules_from_text(text)
@@ -373,16 +260,3 @@ def text_to_mol(text, version=_VERSION_1):
 def file_to_mol(file_obj, version=_VERSION_1):
 	text = file_obj.read()
 	return text_to_mol(text, version=version)
-
-
-#============================================
-def mol_to_text(mol, version=_VERSION_1):
-	_ = mol
-	_ = version
-	raise ValueError("CML export is not supported. This codec is import-only.")
-
-
-#============================================
-def mol_to_file(mol, file_obj, version=_VERSION_1):
-	_ = file_obj
-	mol_to_text(mol, version=version)

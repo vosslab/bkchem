@@ -21,9 +21,6 @@
 
 """
 
-from io import StringIO
-
-from xml import xpath
 from oasa.transform import transform
 
 import dom_extensions as dom_ext
@@ -32,7 +29,75 @@ import safe_xml
 from atom import atom
 from bond import bond
 from molecule import molecule
-from classes import plus, arrow
+from classes import plus
+from arrow import arrow
+
+
+try:
+  from xml import xpath
+except ImportError:
+  class _xpath_compat(object):
+
+    @staticmethod
+    def _direct_children(node, name):
+      out = []
+      for child in getattr(node, "childNodes", []):
+        if child.nodeType == child.ELEMENT_NODE and child.nodeName == name:
+          out.append(child)
+      return out
+
+    @staticmethod
+    def _desc_graphs_by_type(node, graph_type):
+      out = []
+      for graph in node.getElementsByTagName("graph"):
+        if graph.getAttribute("type") == graph_type:
+          out.append(graph)
+      return out
+
+    @staticmethod
+    def Evaluate(expression, node):
+      if expression == "//graph[@type='molecule']":
+        return _xpath_compat._desc_graphs_by_type(node, "molecule")
+      if expression == "//graph[@type='reaction']":
+        return _xpath_compat._desc_graphs_by_type(node, "reaction")
+      if expression == "vertex":
+        return _xpath_compat._direct_children(node, "vertex")
+      if expression == "edge":
+        return _xpath_compat._direct_children(node, "edge")
+      if expression == "symbol":
+        return _xpath_compat._direct_children(node, "symbol")
+      if expression == "coordinates":
+        return _xpath_compat._direct_children(node, "coordinates")
+      if expression == "x":
+        return _xpath_compat._direct_children(node, "x")
+      if expression == "y":
+        return _xpath_compat._direct_children(node, "y")
+      if expression == "z":
+        return _xpath_compat._direct_children(node, "z")
+      if expression == "charge":
+        return _xpath_compat._direct_children(node, "charge")
+      if expression == "radical":
+        return _xpath_compat._direct_children(node, "radical")
+      if expression == "bond":
+        return _xpath_compat._direct_children(node, "bond")
+      if expression == "end/@idref":
+        attrs = []
+        for end in _xpath_compat._direct_children(node, "end"):
+          attr = end.getAttributeNode("idref")
+          if attr is not None:
+            attrs.append(attr)
+        return attrs
+      if expression in ("edge/end[@type='initial']", "edge/end[@type='terminal']"):
+        target_type = expression.split("'")[1]
+        out = []
+        for edge in _xpath_compat._direct_children(node, "edge"):
+          for end in _xpath_compat._direct_children(edge, "end"):
+            if end.getAttribute("type") == target_type:
+              out.append(end)
+        return out
+      return []
+
+  xpath = _xpath_compat
 
 
 
@@ -62,19 +127,10 @@ class gtml_importer(object):
   def get_molecules( self, file_name):
     self.molecules = []
 
-    # prepare the file to resolve entities
-    f = StringIO()
-    f.write( "<!DOCTYPE item [")
-    with open('mathmlentities.ent') as entities:
-      f.write(entities.read())
-    f.write( "<!ENTITY epsilon '&#x3B5;'><!ENTITY nevim '&amp;nevim;'>]>")
-
     with open(file_name) as the_file:
-      f.write(the_file.read())
-    f.seek(0)
-
-    doc = safe_xml.parse_dom_from_file( f)
-    f.close()
+      text = the_file.read()
+    # defusedxml rejects DTD/entity declarations; parse plain GTML input only.
+    doc = safe_xml.parse_dom_from_string( text)
 
     for ch in xpath.Evaluate( "//graph[@type='molecule']", doc):
       m = self._read_molecule( ch)
@@ -224,15 +280,9 @@ class gtml_importer(object):
 
 
 
-class gtml_exporter(object):
-
-  def __init__( self, paper):
-    pass
-
-
-
 # PLUGIN INTERFACE SPECIFICATION
 name = "GTML"
 extensions = [".gtml",".xml"]
 importer = gtml_importer
-exporter = gtml_exporter
+# GTML stays import-only for legacy recovery.
+exporter = None

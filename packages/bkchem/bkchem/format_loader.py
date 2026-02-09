@@ -190,6 +190,8 @@ def export_format(codec_name, paper, filename, scope, gui_options):
 	with open(filename, "w") as handle:
 		if scope == "selected_molecule":
 			mol = oasa_bridge.validate_selected_molecule(paper)
+			# Bridge still returns preformatted text for SMILES/InChI instead of
+			# exposing these via the generic codec write_file interface.
 			if codec_name == "smiles":
 				_write_text_output(handle, oasa_bridge.mol_to_smiles(mol))
 				return

@@ -9,7 +9,7 @@
 | Phase | Status | Scope |
 |-------|--------|-------|
 | A | COMPLETED | Plumbing refactor (registry, generic load/save, coordinate boundary, deprecations) |
-| B | NOT STARTED | Options audit and legacy retention decisions |
+| B | COMPLETED | Options audit and legacy retention decisions |
 | C | NOT STARTED | Rendering migration (render-ops MVP, export swap, Tk pipeline removal) |
 
 ### Subgoal checklist
@@ -21,11 +21,11 @@
 - [x] A4: CML v1/v2 export removed (import retained); CDXML plugin deleted; POVRay deleted; GTML import retained
 
 **Phase B: Options audit and retention decisions**
-- [ ] B1: Inventory every GUI option; classify as keep / move-to-default / codec-only / retire
-- [ ] B2: GUI manifest schema validated (strict failure on unknown keys)
-- [ ] B3: GTML retention level decided and documented
-- [ ] B4: CDML depiction audit (identify gaps before Phase C rendering swap)
-- [ ] B5: CDML v2 decision: additive changes stay on current CDML; breaking changes trigger v2
+- [x] B1: Inventory every GUI option; classify as keep / move-to-default / codec-only / retire
+- [x] B2: GUI manifest schema validated (strict failure on unknown keys)
+- [x] B3: GTML retention level decided and documented
+- [x] B4: CDML depiction audit (identify gaps before Phase C rendering swap)
+- [x] B5: CDML v2 decision: additive changes stay on current CDML; breaking changes trigger v2
 
 **Phase C: Rendering migration**
 - [ ] C1: Render-ops MVP for full molecules (bonds, labels, charges, stereo)
@@ -726,6 +726,9 @@ not the file extension. No menu disambiguation is needed.
 **Goal:** Every per-format GUI option is classified. The GUI manifest schema is
 validated. GTML retention level is decided and documented.
 
+Phase B deliverables and decisions are documented in
+[docs/active_plans/PHASE_B_AUDIT.md](docs/active_plans/PHASE_B_AUDIT.md).
+
 #### B1: Option inventory and classification
 
 Classify every existing per-format option into four buckets:
@@ -773,20 +776,20 @@ arrows, plus signs). CDML is the modern equivalent.
 
 #### Phase B done checks
 
-- [ ] Every option classified as "move to codec defaults" has a corresponding
+- [x] Every option classified as "move to codec defaults" has a corresponding
   OASA codec test asserting the default behavior.
-- [ ] Every option classified as "expose only when codec supports it" is
+- [x] Every option classified as "expose only when codec supports it" is
   accepted as a kwarg by the OASA codec and has a codec test.
-- [ ] No retired option appears in the GUI manifest or as a codec kwarg.
-- [ ] GUI manifest schema validation test passes (strict, no unknown keys).
-- [ ] Every codec name in `format_menus.yaml` matches `get_registry_snapshot()`.
-- [ ] GTML retention decision documented. If import-only: round-trip test
+- [x] No retired option appears in the GUI manifest or as a codec kwarg.
+- [x] GUI manifest schema validation test passes (strict, no unknown keys).
+- [x] Every codec name in `format_menus.yaml` matches `get_registry_snapshot()`.
+- [x] GTML retention decision documented. If import-only: round-trip test
   (GTML -> CDML -> reload) passes with documented data-loss exceptions.
-- [ ] No deprecated exporters appear in the GUI.
-- [ ] CDML depiction audit: identify any depiction choices (aromatic style,
+- [x] No deprecated exporters appear in the GUI.
+- [x] CDML depiction audit: identify any depiction choices (aromatic style,
   label direction, etc.) where BKChem and OASA have independent defaults.
   Document which are stored in CDML and which need to be added before Phase C.
-- [ ] CDML v2 decision made: if all depiction changes are additive (new
+- [x] CDML v2 decision made: if all depiction changes are additive (new
   optional attributes), stay on current CDML. If any changes are breaking
   (changed semantics, new required attributes), introduce CDML v2.
 
