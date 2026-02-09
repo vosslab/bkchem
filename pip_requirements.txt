@@ -2,8 +2,6 @@
 defusedxml
 openbabel
 Pmw
-Pillow
 pybel
 pycairo
 pyyaml
-SOAPpy

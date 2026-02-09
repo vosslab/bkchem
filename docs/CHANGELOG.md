@@ -6,6 +6,12 @@
   Python 2-era `sha` import-policy issues in Python 3.
 - Add a backlog item in [docs/TODO_CODE.md](docs/TODO_CODE.md) to implement a
   hash-based verification layer for future CDML files.
+- Fix invalid UTF-8 bytes in
+  [docs/HAWORTH_CODE_ORGANIZATION_PLAN.md](docs/HAWORTH_CODE_ORGANIZATION_PLAN.md)
+  by replacing corrupted separator lines with an ASCII markdown table.
+- Remove SOAP support references by deleting the legacy SOAP server startup
+  block from [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py)
+  and dropping `SOAPpy` from [pip_requirements.txt](pip_requirements.txt).
 
 ## 2026-02-08
 - Move Haworth modules into dedicated

@@ -1,68 +1,45 @@
 #--------------------------------------------------------------------------
 #     This file is part of BKChem - a chemical drawing program
 #     Copyright (C) 2002-2009 Beda Kosata <beda@zirael.org>
-
+#
 #     This program is free software; you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
 #     the Free Software Foundation; either version 2 of the License, or
 #     (at your option) any later version.
-
+#
 #     This program is distributed in the hope that it will be useful,
 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #     GNU General Public License for more details.
-
+#
 #     Complete text of GNU GPL can be found in the file gpl.txt in the
 #     main directory of the program
-
+#
 #--------------------------------------------------------------------------
 
-"""Basic class(es) for exporting to non-XML formats (bitmaps or text).
+"""Legacy non-XML bitmap export shim.
 
+Pillow support has been removed from BKChem runtime requirements.
 """
 
-__all__ = ['enabled', 'Bitmap_writer']
+__all__ = ['enabled', 'Bitmap_writer', 'RGB_color']
 
-import import_checker
-# try to import PIL
-if import_checker.PIL_available:
-  if import_checker.PIL_prefix:
-    import PIL.ImageDraw as ImageDraw, PIL.Image as Image #, PIL.ImageFont as ImageFont
-  else:
-    import Image, ImageDraw #, ImageFont
-else:
-  enabled = 0
+
+enabled = 0
+
 
 def RGB_color(r, g, b):
-  """Convert 3 RGB values to one for use in PIL.Image.
-
-  """
-  return r * 65536 + g * 256 + b
-
+	"""Convert RGB triple to packed integer."""
+	return r * 65536 + g * 256 + b
 
 
 class Bitmap_writer(object):
-  """Exporter to bitmap formats.
+	"""Compatibility stub for removed Pillow-backed bitmap export."""
 
-  """
-  def __init__( self, paper, mode='RGB'):
-    self.paper = paper
-    self.image = Image.new( mode, (int(self.paper.cget('width')), int(self.paper.cget('height'))), RGB_color( 255, 255, 255))
-    self.draw = ImageDraw.Draw( self.image)
-    self.fill_image()
-
-
-  def fill_image( self):
-    for item in self.paper.find_all():
-      if self.paper.type( item) == "line":
-        self.draw.line( self.paper.coords( item), fill=0)
-      elif self.paper.type( item) == "text":
-        pass
-        #font = ImageFont.load( '../fonts/helvR10.pil')
-        #self.draw.text( self.paper.coords( item), self.paper.itemcget( item, 'text'), font=font, fill=0)
-
-
-  def write_image( self, name):
-    del self.draw
-    self.image.save( name)
-    del self.image
+	def __init__( self, paper, mode='RGB'):
+		_ = paper
+		_ = mode
+		raise RuntimeError(
+			"Bitmap_writer is no longer available without Pillow; "
+			"use Cairo export plugins instead."
+		)

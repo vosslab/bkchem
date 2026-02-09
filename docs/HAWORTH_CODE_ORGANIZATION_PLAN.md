@@ -28,21 +28,14 @@ renderer_layout.py   # Hydroxyl layout optimizer (~300 lines)
 Backward compatibility shims
 
 Six import paths are used across the codebase and must keep working:
-aî¨aî¨aîê
-Pattern                Used in                           Solution
-aîúaîºaîºaî§
-from oasa import haworth              3 files  Works automatically -- haworth/ package replaces haworth.py
-aîúaîºaîºaî§
-import oasa.haworth                   2 files  Same -- package import
-aîúaîºaîºaî§
-oasa.haworth._ring_template etc.      internal Same -- functions in __init__.py
-aîúaîºaîºaî§
-import oasa.haworth_renderer          5 files  Keep thin shim at oasa/haworth_renderer.py
-aîúaîºaîºaî§
-import oasa.haworth_spec              6 files  Keep thin shim at oasa/haworth_spec.py
-aîúaîºaîºaî§
-from .haworth_spec import HaworthSpec 1 file   Works via shim
-aîîaî¥aî¥aîò
+| Pattern | Used in | Solution |
+| --- | --- | --- |
+| from oasa import haworth | 3 files | Works automatically -- haworth/ package replaces haworth.py |
+| import oasa.haworth | 2 files | Same -- package import |
+| oasa.haworth._ring_template etc. | internal | Same -- functions in __init__.py |
+| import oasa.haworth_renderer | 5 files | Keep thin shim at oasa/haworth_renderer.py |
+| import oasa.haworth_spec | 6 files | Keep thin shim at oasa/haworth_spec.py |
+| from .haworth_spec import HaworthSpec | 1 file | Works via shim |
 Shim files (kept at old paths, ~5 lines each):
 
 packages/oasa/oasa/haworth_renderer.py:
