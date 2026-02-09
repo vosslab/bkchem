@@ -190,6 +190,25 @@ def _check_vertex_ordering(root):
 
 
 #============================================
+def _check_cdml_doc_pointer(root):
+	metadata_nodes = [node for node in _iter_elements(root, "metadata")]
+	if not metadata_nodes:
+		raise AssertionError("Missing CDML metadata node with doc pointer")
+	doc_nodes = []
+	for metadata in metadata_nodes:
+		for child in metadata:
+			if _strip_namespace(child.tag) == "doc":
+				doc_nodes.append(child)
+	if not doc_nodes:
+		raise AssertionError("Missing CDML metadata/doc pointer node")
+	for doc_node in doc_nodes:
+		href = doc_node.get("href") or ""
+		if href.endswith("/docs/CDML_FORMAT_SPEC.md"):
+			return
+	raise AssertionError("CDML metadata/doc pointer href is missing or incorrect")
+
+
+#============================================
 def _run_roundtrip(fixtures_dir, output_dir=None):
 	root_dir = conftest.repo_root()
 	_ensure_sys_path(root_dir)
@@ -217,6 +236,7 @@ def _run_roundtrip(fixtures_dir, output_dir=None):
 				if not bkchem.export.export_CDML(app.paper, output_path, gzipped=0):
 					raise AssertionError("Failed to export %s" % output_path)
 				root = _load_cdml(output_path)
+				_check_cdml_doc_pointer(root)
 				globals()[check_name](root)
 		else:
 			with tempfile.TemporaryDirectory() as tmp_dir:
@@ -230,6 +250,7 @@ def _run_roundtrip(fixtures_dir, output_dir=None):
 					if not bkchem.export.export_CDML(app.paper, output_path, gzipped=0):
 						raise AssertionError("Failed to export %s" % output_path)
 					root = _load_cdml(output_path)
+					_check_cdml_doc_pointer(root)
 					globals()[check_name](root)
 	finally:
 		app.destroy()

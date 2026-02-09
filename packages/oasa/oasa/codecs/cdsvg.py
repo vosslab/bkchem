@@ -17,16 +17,15 @@ from .. import svg_out
 
 
 _CDML_NAMESPACE = cdml_writer.CDML_NAMESPACE
+_SVG_NAMESPACE = "http://www.w3.org/2000/svg"
 _FORBIDDEN_EXPORT_SNIPPETS = (
 	"<script",
 	" onload=",
 	" onerror=",
 	"<foreignobject",
-	"url(http",
-	"href=\"http://",
-	"href=\"https://",
-	"xlink:href=\"http://",
-	"xlink:href=\"https://",
+)
+_CDML_WRITER_KWARGS = frozenset(
+	("policy", "version", "namespace", "coord_to_text", "width_to_text")
 )
 
 
@@ -44,6 +43,32 @@ def _assert_safe_svg_export(svg_text):
 	for snippet in _FORBIDDEN_EXPORT_SNIPPETS:
 		if snippet in lower_text:
 			raise ValueError(f"Unsafe SVG content blocked during CD-SVG export: {snippet}")
+	doc = safe_xml.parse_dom_from_string(svg_text)
+	for node in doc.getElementsByTagName("*"):
+		namespace = node.namespaceURI or ""
+		if namespace and namespace != _SVG_NAMESPACE:
+			continue
+		local_name = (node.localName or node.tagName or "").lower()
+		if local_name in ("script", "foreignobject"):
+			raise ValueError(f"Unsafe SVG content blocked during CD-SVG export: <{local_name}>")
+		attributes = getattr(node, "attributes", None)
+		if attributes is None:
+			continue
+		for attr in attributes.values():
+			attr_name = attr.name.lower()
+			attr_value = (attr.value or "").strip().lower()
+			if attr_name.startswith("on"):
+				raise ValueError(
+					f"Unsafe SVG content blocked during CD-SVG export: {attr_name}"
+				)
+			if attr_name in ("href", "xlink:href") and (
+				attr_value.startswith("http://") or attr_value.startswith("https://")
+			):
+				raise ValueError(
+					f"Unsafe SVG content blocked during CD-SVG export: {attr_name}"
+				)
+			if "url(http://" in attr_value or "url(https://" in attr_value:
+				raise ValueError("Unsafe SVG content blocked during CD-SVG export: external-url")
 
 
 #============================================
@@ -60,6 +85,15 @@ def _extract_cdml_element(svg_text):
 
 
 #============================================
+def _extract_cdml_writer_kwargs(kwargs):
+	cdml_kwargs = {}
+	for key in _CDML_WRITER_KWARGS:
+		if key in kwargs:
+			cdml_kwargs[key] = kwargs[key]
+	return cdml_kwargs
+
+
+#============================================
 def _build_cdsvg_text(mol, **kwargs):
 	svg_buffer = io.StringIO()
 	render_out.render_to_svg(mol, svg_buffer, **kwargs)
@@ -69,7 +103,8 @@ def _build_cdsvg_text(mol, **kwargs):
 		raise ValueError("CD-SVG export failed to construct an SVG root node.")
 	metadata = svg_doc.createElement("metadata")
 	metadata.setAttribute("id", "bkchem_cdml")
-	cdml_doc = safe_xml.parse_dom_from_string(cdml_writer.mol_to_text(mol))
+	cdml_kwargs = _extract_cdml_writer_kwargs(kwargs)
+	cdml_doc = safe_xml.parse_dom_from_string(cdml_writer.mol_to_text(mol, **cdml_kwargs))
 	cdml_root = _first_element(cdml_doc)
 	if cdml_root is None:
 		raise ValueError("CD-SVG export failed to build CDML payload.")

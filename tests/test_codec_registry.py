@@ -82,6 +82,8 @@ def test_codec_registry_cdml_roundtrip():
 	mol = _make_simple_mol()
 	text = codec.write_text(mol)
 	assert "<cdml" in text
+	assert "<metadata>" in text
+	assert "docs/CDML_FORMAT_SPEC.md" in text
 	loaded = codec.read_text(text)
 	assert loaded is not None
 
@@ -193,6 +195,20 @@ def test_codec_registry_cdsvg_roundtrip_and_safe_export():
 	loaded = codec.read_text(text)
 	assert loaded is not None
 	assert len(loaded.vertices) == 2
+
+
+#============================================
+def test_codec_registry_cdsvg_forwards_cdml_writer_kwargs():
+	oasa.codec_registry.reset_registry()
+	codec = oasa.codec_registry.get_codec("cdsvg")
+	mol = _make_simple_mol()
+	text = codec.write_text(
+		mol,
+		version="77.01",
+		namespace="http://example.org/custom-cdml",
+	)
+	assert 'version="77.01"' in text
+	assert 'xmlns="http://example.org/custom-cdml"' in text
 
 
 #============================================

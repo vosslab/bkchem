@@ -65,6 +65,7 @@ align_modes = {'t': 'Top',
 
 
 cdml_namespace = 'http://www.freesoftware.fsf.org/bkchem/cdml'
+cdml_doc_url = 'https://github.com/vosslab/bkchem/blob/main/docs/CDML_FORMAT_SPEC.md'
 
 
 # types of vector graphics

@@ -34,6 +34,7 @@ from .periodic_table import periodic_table as PT
 
 POINTS_PER_CM = 72.0 / 2.54
 CDML_NAMESPACE = "http://www.freesoftware.fsf.org/bkchem/cdml"
+CDML_DOC_URL = "https://github.com/vosslab/bkchem/blob/main/docs/CDML_FORMAT_SPEC.md"
 DEFAULT_CDML_VERSION = "26.02"
 
 reads_text = False
@@ -154,6 +155,8 @@ def mol_to_text(mol, *, policy="present_only", version=None, namespace=None, coo
 	cdml_el = doc.createElement("cdml")
 	cdml_el.setAttribute("version", str(version or DEFAULT_CDML_VERSION))
 	cdml_el.setAttribute("xmlns", str(namespace or CDML_NAMESPACE))
+	metadata_el = dom_ext.elementUnder(cdml_el, "metadata")
+	dom_ext.elementUnder(metadata_el, "doc", attributes=(("href", CDML_DOC_URL),))
 	cdml_el.appendChild(
 		write_cdml_molecule_element(
 			mol,

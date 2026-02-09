@@ -658,6 +658,8 @@ class chem_paper(Canvas, object):
 																																		( 'xmlns', data.cdml_namespace)))
 		info = dom_extensions.elementUnder( root, 'info')
 		dom_extensions.textOnlyElementUnder( info, 'author_program', 'BKChem', attributes = (('version',config.current_BKChem_version),))
+		metadata = dom_extensions.elementUnder( root, 'metadata')
+		dom_extensions.elementUnder( metadata, 'doc', attributes=(('href', data.cdml_doc_url),))
 		paper = dom_extensions.elementUnder( root, 'paper',
 																					attributes = (('type', self._paper_properties['type']),
 																												('orientation', self._paper_properties['orientation']),
@@ -1656,6 +1658,8 @@ class chem_paper(Canvas, object):
 																																			( 'xmlns', data.cdml_namespace)))
 			info = dom_extensions.elementUnder( root, 'info')
 			dom_extensions.textOnlyElementUnder( info, 'author_program', 'BKChem', attributes = (('version',config.current_BKChem_version),))
+			metadata = dom_extensions.elementUnder( root, 'metadata')
+			dom_extensions.elementUnder( metadata, 'doc', attributes=(('href', data.cdml_doc_url),))
 			root.appendChild( st.get_package( doc))
 			dom_extensions.safe_indent( root)
 			try:

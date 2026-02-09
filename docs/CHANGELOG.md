@@ -1,6 +1,40 @@
 # Changelog
 
 ## 2026-02-09
+- Clarify CDML namespace usage and add explicit documentation-pointer metadata:
+  keep namespace identity
+  (`http://www.freesoftware.fsf.org/bkchem/cdml`) unchanged, add
+  `<metadata><doc href="https://github.com/vosslab/bkchem/blob/main/docs/CDML_FORMAT_SPEC.md"/></metadata>`
+  in OASA/BKChem CDML output writers
+  ([packages/oasa/oasa/cdml_writer.py](packages/oasa/oasa/cdml_writer.py),
+  [packages/bkchem/bkchem/paper.py](packages/bkchem/bkchem/paper.py), and
+  [packages/bkchem/bkchem/data.py](packages/bkchem/bkchem/data.py)),
+  update spec guidance in
+  [docs/CDML_FORMAT_SPEC.md](docs/CDML_FORMAT_SPEC.md), and add regression
+  coverage in [tests/test_codec_registry.py](tests/test_codec_registry.py) and
+  [tests/test_bkchem_cdml_roundtrip.py](tests/test_bkchem_cdml_roundtrip.py).
+- Fix CD-SVG CDML forwarding in
+  [packages/oasa/oasa/codecs/cdsvg.py](packages/oasa/oasa/codecs/cdsvg.py) by
+  passing CDML writer kwargs (`policy`, `version`, `namespace`,
+  `coord_to_text`, `width_to_text`) through to
+  `cdml_writer.mol_to_text(...)` while leaving render kwargs unchanged, and add
+  a regression test in [tests/test_codec_registry.py](tests/test_codec_registry.py)
+  that validates forwarded `version`/`namespace` values appear in embedded
+  CDML.
+- Update label-attachment planning/spec documentation to adopt
+  `attach_atom="first|last"` as optional attachment intent metadata (geometry
+  remains renderer-derived): revise design and Phase 1/2 implementation details
+  in
+  [docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md](docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md)
+  and expand CDML semantics/defaults/write-location/backward-compat rules in
+  [docs/CDML_FORMAT_SPEC.md](docs/CDML_FORMAT_SPEC.md).
+- Tighten attachment and coordinate-system wording in
+  [docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md](docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md)
+  and [docs/CDML_FORMAT_SPEC.md](docs/CDML_FORMAT_SPEC.md): make missing
+  `attach_atom` default behavior explicit (`"first"` for new readers), add an
+  explicit anchor-origin-inside-bbox test requirement, add a compatibility
+  promise statement, remove ambiguous `HOH2C` example wording, and clarify that
+  CDML-on-disk remains +Y down while OASA may canonicalize internally.
 - Complete Phase C renderer migration from
   [docs/archive/PURE_OASA_BACKEND_REFACTOR.md](docs/archive/PURE_OASA_BACKEND_REFACTOR.md):
   add OASA registry-backed render codecs (`svg`, `pdf`, `png`, `ps`) plus a
