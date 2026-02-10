@@ -61,7 +61,8 @@ def parse_args() -> argparse.Namespace:
 		action="store_true",
 		help=(
 			"Regenerate generated Haworth SVG previews in "
-			"output_smoke/archive_matrix_previews/generated."
+			"output_smoke/archive_matrix_previews/generated. This mode always "
+			"enforces strict overlap checks."
 		),
 	)
 	parser.set_defaults(regenerate_haworth_svgs=False)
@@ -797,18 +798,15 @@ def main() -> None:
 		preview_name = f"{code}_{ring_type}_{anomeric}.svg"
 		preview_path = preview_generated_dir / preview_name
 		if args.regenerate_haworth_svgs:
-			try:
-				_render_generated_preview_svg(
-					repo_root=repo_root,
-					code=code,
-					ring_type=ring_type,
-					anomeric=anomeric,
-					strict_render_checks=strict_render_checks,
-					dst_path=preview_path,
-				)
-				generated_rel = os.path.relpath(preview_path, output_dir)
-			except Exception:
-				pass
+			_render_generated_preview_svg(
+				repo_root=repo_root,
+				code=code,
+				ring_type=ring_type,
+				anomeric=anomeric,
+				strict_render_checks=strict_render_checks,
+				dst_path=preview_path,
+			)
+			generated_rel = os.path.relpath(preview_path, output_dir)
 		if generated_rel is None and preview_path.is_file():
 			generated_rel = os.path.relpath(preview_path, output_dir)
 		if generated_rel is None:
@@ -816,12 +814,13 @@ def main() -> None:
 			if generated_path is not None:
 				generated_rel = os.path.relpath(generated_path, output_dir)
 		is_l_sugar = _is_l_sugar_name(sugar_name)
+		has_reference = reference_path.is_file()
 		if generated_rel is None:
-			if is_l_sugar:
+			if is_l_sugar and not has_reference:
 				l_missing_generated += 1
 			else:
 				missing_generated += 1
-		if (not is_l_sugar) and (not reference_path.is_file()):
+		if (not has_reference) and (not is_l_sugar):
 			missing_reference += 1
 		row_data = (
 			{
@@ -831,11 +830,11 @@ def main() -> None:
 				"anomeric": anomeric,
 				"generated_rel": generated_rel,
 				"reference_rel": (
-					os.path.relpath(reference_path, output_dir) if reference_path.is_file() else None
+					os.path.relpath(reference_path, output_dir) if has_reference else None
 				),
 			}
 		)
-		if is_l_sugar:
+		if is_l_sugar and not has_reference:
 			l_sugar_rows.append(row_data)
 		else:
 			rows.append(row_data)

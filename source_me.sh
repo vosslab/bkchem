@@ -8,6 +8,8 @@
 #   source source_me.sh
 #   . source_me.sh
 
+source $HOME/.bashrc
+
 # Determine repo root
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

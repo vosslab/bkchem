@@ -799,6 +799,24 @@ def test_render_ribose_furanose_alpha_c4_up_connector_attaches_to_carbon_core():
 
 
 #============================================
+def test_render_ribose_furanose_alpha_c4_up_connector_x_aligns_to_carbon_center():
+	_, ops = _render("ARRDM", "furanose", "alpha", show_hydrogens=False)
+	label = _text_by_id(ops, "C4_up_label")
+	line = _line_by_id(ops, "C4_up_connector")
+	carbon_target = render_geometry.label_attach_target_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		attach_atom="first",
+		attach_element="C",
+	)
+	carbon_center_x, _carbon_center_y = carbon_target.centroid()
+	assert line.p2[0] == pytest.approx(carbon_center_x, abs=0.35)
+
+
+#============================================
 @pytest.mark.parametrize("code", ("ARLLDM", "ARRLDM"))
 def test_render_furanose_left_tail_chain2_connector_stays_on_carbon_token(code):
 	_, ops = _render(code, "furanose", "alpha", show_hydrogens=False)
@@ -814,7 +832,7 @@ def test_render_furanose_left_tail_chain2_connector_stays_on_carbon_token(code):
 @pytest.mark.parametrize("code", ("ALRRLd", "ARRLLd"))
 def test_render_deoxy_terminal_methyl_uses_subscript_markup(code):
 	_, ops = _render(code, "pyranose", "alpha", show_hydrogens=False)
-	assert _text_by_id(ops, "C5_down_label").text == "CH<sub>3</sub>"
+	assert _text_by_id(ops, "C5_down_label").text == "H<sub>3</sub>C"
 
 
 #============================================

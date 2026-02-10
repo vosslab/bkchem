@@ -1,6 +1,46 @@
 # Changelog
 
 ## 2026-02-10
+- Improve methyl readability in Haworth labels by rendering midpoint methyl
+  substituents as `H<sub>3</sub>C` (instead of `CH<sub>3</sub>`) in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py),
+  and update the L-fucose/L-rhamnose regression expectation in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py).
+- Validation reruns for this readability fix:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py`
+  (`95 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_renderer_smoke.py`
+  (`86 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (strict checks enabled; regenerated summary previews).
+- Fix furanose two-carbon tail connector-first placement in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  chain2 labels are now solved with deterministic label-only offsets while
+  keeping the branch connector endpoint fixed from branch geometry, and each
+  candidate is nudged to keep the endpoint inside the selected `attach_element="C"`
+  target before strict legality scoring.
+- Improve branched-tail hydroxyl endpoint behavior in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  by using hydroxyl-order-aware token selection (`OH -> first`, `HO -> last`)
+  for chain1 OH connector targeting, restoring directional side-edge behavior
+  with strict overlap validation.
+- Keep archive-matrix partition semantics stable in
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py):
+  L-series rows that have real archive references (for example `ALRRLd`,
+  `ARRLLd`) remain in `archive_matrix_summary.html`, while only no-reference
+  L-series rows are sent to `l-sugar_matrix.html`; also keep `-r` strict mode
+  hard-fail behavior by removing regenerate-path exception swallowing.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_attach_targets.py`
+  (`21 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py`
+  (`95 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_renderer_smoke.py`
+  (`86 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (strict checks enabled, wrote summary + L-sugar outputs, `Missing generated: 0`).
 - Add active plan
   [docs/active_plans/HAWORTH_EXPLICIT_HYDROGEN_PLAN.md](docs/active_plans/HAWORTH_EXPLICIT_HYDROGEN_PLAN.md)
   defining a no-hack explicit-hydrogen upgrade path for Haworth rendering:

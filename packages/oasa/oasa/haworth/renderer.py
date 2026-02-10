@@ -430,10 +430,42 @@ def _add_simple_label_ops(
 	end_point = (vertex[0] + dx * length, vertex[1] + dy * length)
 	text = _text.format_label_text(label, anchor=anchor)
 	is_chain_like_label = _text.is_chain_like_label(str(label))
+	draw_font_size = font_size * text_scale
 	anchor_x = _text.anchor_x_offset(text, anchor, font_size)
 	text_x = end_point[0] + anchor_x
 	text_y = end_point[1] + _text.baseline_shift(direction, font_size, text)
-	draw_font_size = font_size * text_scale
+	text, text_x, text_y, draw_font_size = _resolve_methyl_label_collision(
+		ops=ops,
+		end_point=end_point,
+		direction=direction,
+		anchor=anchor,
+		font_name=font_name,
+		text=text,
+		text_x=text_x,
+		text_y=text_y,
+		draw_font_size=draw_font_size,
+	)
+	force_vertical_chain = (
+		ring_type == "furanose"
+		and direction == "up"
+		and slot == "ML"
+		and is_chain_like_label
+	)
+	if force_vertical_chain:
+		# Align the chain-like carbon core center to the locked vertical connector
+		# x-position so the bond visually lands on C (not the C/H boundary).
+		core_target = _render_geometry.label_attach_target_from_text_origin(
+			text_x=text_x,
+			text_y=text_y,
+			text=text,
+			anchor=anchor,
+			font_size=draw_font_size,
+			attach_atom=attach_atom or "first",
+			attach_element="C",
+			font_name=font_name,
+		)
+		core_center_x, _core_center_y = core_target.centroid()
+		text_x += vertex[0] - core_center_x
 	first_attach_target = _render_geometry.label_attach_target_from_text_origin(
 		text_x=text_x,
 		text_y=text_y,
@@ -638,6 +670,16 @@ def _add_simple_label_ops(
 				vertical_lock=force_vertical,
 			),
 		)
+	if (not is_hydroxyl_label) and is_chain_like_label:
+		expanded_allow_target = _expanded_allowed_target(target, connector_width, draw_font_size)
+		connector_end = _render_geometry.retreat_endpoint_until_legal(
+			line_start=vertex,
+			line_end=connector_end,
+			line_width=connector_width,
+			forbidden_regions=[full_target],
+			allowed_regions=[expanded_allow_target],
+			epsilon=STRICT_OVERLAP_EPSILON,
+		)
 	ops.append(
 		render_ops.LineOp(
 			p1=vertex,
@@ -685,6 +727,287 @@ def _hydroxyl_connector_radius(font_size: float, connector_width: float) -> floa
 	base_radius = _text.hydroxyl_oxygen_radius(font_size) + (connector_width * 0.5)
 	clearance_margin = max(0.25, font_size * 0.05)
 	return base_radius + clearance_margin
+
+
+#============================================
+def _expanded_allowed_target(
+		target: _render_geometry.AttachTarget,
+		line_width: float,
+		font_size: float) -> _render_geometry.AttachTarget:
+	"""Expand one token attach target to include connector paint thickness."""
+	margin = max(float(line_width) * 0.55, float(font_size) * 0.18)
+	x1, y1, x2, y2 = target.box
+	return _render_geometry.make_box_target((x1 - margin, y1 - margin, x2 + margin, y2 + margin))
+
+
+#============================================
+def _box_overlap_area(
+		box_a: tuple[float, float, float, float],
+		box_b: tuple[float, float, float, float]) -> float:
+	"""Return overlap area for two axis-aligned boxes."""
+	ax1, ay1, ax2, ay2 = box_a
+	bx1, by1, bx2, by2 = box_b
+	overlap_w = min(ax2, bx2) - max(ax1, bx1)
+	overlap_h = min(ay2, by2) - max(ay1, by1)
+	if overlap_w <= 0.0 or overlap_h <= 0.0:
+		return 0.0
+	return overlap_w * overlap_h
+
+
+#============================================
+def _nudge_text_origin_to_include_point(
+		text_x: float,
+		text_y: float,
+		target_box: tuple[float, float, float, float],
+		point: tuple[float, float]) -> tuple[float, float]:
+	"""Shift text origin so point lands inside target_box after translation."""
+	x1, y1, x2, y2 = target_box
+	px, py = point
+	shift_x = 0.0
+	shift_y = 0.0
+	if px < x1:
+		shift_x = px - x1
+	elif px > x2:
+		shift_x = px - x2
+	if py < y1:
+		shift_y = py - y1
+	elif py > y2:
+		shift_y = py - y2
+	return (text_x + shift_x, text_y + shift_y)
+
+
+#============================================
+def _label_overlap_area_against_existing(
+		ops: list,
+		text_x: float,
+		text_y: float,
+		text: str,
+		anchor: str,
+		font_size: float,
+		font_name: str) -> float:
+	"""Return max overlap area between candidate label and existing labels."""
+	candidate_target = _render_geometry.label_target_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+		font_name=font_name,
+	)
+	max_area = 0.0
+	for op in ops:
+		if not isinstance(op, render_ops.TextOp):
+			continue
+		existing_target = _render_geometry.label_target_from_text_origin(
+			text_x=op.x,
+			text_y=op.y,
+			text=op.text,
+			anchor=op.anchor,
+			font_size=op.font_size,
+			font_name=op.font_name,
+		)
+		max_area = max(max_area, _box_overlap_area(candidate_target.box, existing_target.box))
+	return max_area
+
+
+#============================================
+def _resolve_methyl_label_collision(
+		ops: list,
+		end_point: tuple[float, float],
+		direction: str,
+		anchor: str,
+		font_name: str,
+		text: str,
+		text_x: float,
+		text_y: float,
+		draw_font_size: float) -> tuple[str, float, float, float]:
+	"""Resolve CH3-vs-neighbor label overlap with deterministic local fallbacks."""
+	canonical_ch3 = _text.apply_subscript_markup("CH3")
+	canonical_h3c = _text.apply_subscript_markup("H3C")
+	if text != canonical_ch3:
+		return (text, text_x, text_y, draw_font_size)
+	if anchor == "middle":
+		# Mid-lane methyl labels in Haworth projections are visually clearer as
+		# H3C than CH3; keep this deterministic and local to methyl labels.
+		mid_x = end_point[0] + _text.anchor_x_offset(canonical_h3c, anchor, draw_font_size)
+		mid_y = end_point[1] + _text.baseline_shift(direction, draw_font_size, canonical_h3c)
+		return (canonical_h3c, mid_x, mid_y, draw_font_size)
+	current_overlap = _label_overlap_area_against_existing(
+		ops=ops,
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=draw_font_size,
+		font_name=font_name,
+	)
+	if current_overlap <= STRICT_OVERLAP_EPSILON:
+		return (text, text_x, text_y, draw_font_size)
+	candidates = [
+		(canonical_ch3, draw_font_size * 0.90),
+		(canonical_h3c, draw_font_size),
+		(canonical_h3c, draw_font_size * 0.90),
+	]
+	best = (text, text_x, text_y, draw_font_size, current_overlap)
+	for candidate_text, candidate_font_size in candidates:
+		candidate_x = end_point[0] + _text.anchor_x_offset(candidate_text, anchor, candidate_font_size)
+		candidate_y = end_point[1] + _text.baseline_shift(direction, candidate_font_size, candidate_text)
+		overlap_area = _label_overlap_area_against_existing(
+			ops=ops,
+			text_x=candidate_x,
+			text_y=candidate_y,
+			text=candidate_text,
+			anchor=anchor,
+			font_size=candidate_font_size,
+			font_name=font_name,
+		)
+		if overlap_area < best[4]:
+			best = (candidate_text, candidate_x, candidate_y, candidate_font_size, overlap_area)
+		if overlap_area <= STRICT_OVERLAP_EPSILON:
+			return (candidate_text, candidate_x, candidate_y, candidate_font_size)
+	return (best[0], best[1], best[2], best[3])
+
+
+#============================================
+def _chain2_label_offset_candidates(
+		anchor: str,
+		label_direction: str,
+		font_size: float) -> list[tuple[float, float]]:
+	"""Return deterministic candidate offsets for fixed-endpoint chain2 labels."""
+	step_x = max(0.5, font_size * 0.18)
+	step_y = max(0.5, font_size * 0.22)
+	horizontal_sign = -1.0 if anchor == "end" else 1.0
+	vertical_sign = 1.0 if label_direction == "down" else -1.0
+	return [
+		(0.0, 0.0),
+		(0.0, vertical_sign * step_y),
+		(0.0, vertical_sign * step_y * 2.0),
+		(horizontal_sign * step_x, vertical_sign * step_y),
+		(horizontal_sign * step_x * 2.0, vertical_sign * step_y),
+		(-horizontal_sign * step_x, vertical_sign * step_y),
+		(-horizontal_sign * step_x * 2.0, vertical_sign * step_y),
+	]
+
+
+#============================================
+def _solve_chain2_label_for_fixed_connector(
+		ops: list,
+		branch_point: tuple[float, float],
+		connector_end: tuple[float, float],
+		connector_width: float,
+		text: str,
+		anchor: str,
+		label_direction: str,
+		font_size: float,
+		font_name: str,
+		peer_label_target: _render_geometry.AttachTarget) -> tuple[
+			float,
+			float,
+			_render_geometry.AttachTarget,
+			_render_geometry.AttachTarget]:
+	"""Place chain2 label by moving label only, keeping connector endpoint fixed."""
+	base_text_x = connector_end[0] + _text.anchor_x_offset(text, anchor, font_size)
+	base_text_y = connector_end[1] + _text.baseline_shift(label_direction, font_size, text)
+	base_attach_target = _render_geometry.label_attach_target_from_text_origin(
+		text_x=base_text_x,
+		text_y=base_text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+		attach_atom="first",
+		attach_element="C",
+		font_name=font_name,
+	)
+	base_center_x, base_center_y = base_attach_target.centroid()
+	aligned_base_x = base_text_x + (connector_end[0] - base_center_x)
+	aligned_base_y = base_text_y + (connector_end[1] - base_center_y)
+	existing_label_boxes = [peer_label_target.box]
+	for op in ops:
+		if not isinstance(op, render_ops.TextOp):
+			continue
+		box = _render_geometry.label_target_from_text_origin(
+			text_x=op.x,
+			text_y=op.y,
+			text=op.text,
+			anchor=op.anchor,
+			font_size=op.font_size,
+			font_name=op.font_name,
+		).box
+		existing_label_boxes.append(box)
+	best = None
+	for offset_x, offset_y in _chain2_label_offset_candidates(
+			anchor=anchor,
+			label_direction=label_direction,
+			font_size=font_size):
+		candidate_x = aligned_base_x + offset_x
+		candidate_y = aligned_base_y + offset_y
+		initial_attach = _render_geometry.label_attach_target_from_text_origin(
+			text_x=candidate_x,
+			text_y=candidate_y,
+			text=text,
+			anchor=anchor,
+			font_size=font_size,
+			attach_atom="first",
+			attach_element="C",
+			font_name=font_name,
+		)
+		candidate_x, candidate_y = _nudge_text_origin_to_include_point(
+			text_x=candidate_x,
+			text_y=candidate_y,
+			target_box=initial_attach.box,
+			point=connector_end,
+		)
+		candidate_attach = _render_geometry.label_attach_target_from_text_origin(
+			text_x=candidate_x,
+			text_y=candidate_y,
+			text=text,
+			anchor=anchor,
+			font_size=font_size,
+			attach_atom="first",
+			attach_element="C",
+			font_name=font_name,
+		)
+		x1, y1, x2, y2 = candidate_attach.box
+		if not (x1 <= connector_end[0] <= x2 and y1 <= connector_end[1] <= y2):
+			continue
+		candidate_full = _render_geometry.label_target_from_text_origin(
+			text_x=candidate_x,
+			text_y=candidate_y,
+			text=text,
+			anchor=anchor,
+			font_size=font_size,
+			font_name=font_name,
+		)
+		legal_paint = _render_geometry.validate_attachment_paint(
+			line_start=branch_point,
+			line_end=connector_end,
+			line_width=connector_width,
+			forbidden_regions=[candidate_full],
+			allowed_regions=[candidate_attach],
+			epsilon=STRICT_OVERLAP_EPSILON,
+		)
+		if not legal_paint:
+			continue
+		max_overlap = 0.0
+		for existing_box in existing_label_boxes:
+			max_overlap = max(max_overlap, _box_overlap_area(candidate_full.box, existing_box))
+		score = (max_overlap, abs(offset_x) + abs(offset_y))
+		if best is None or score < best["score"]:
+			best = {
+				"score": score,
+				"text_x": candidate_x,
+				"text_y": candidate_y,
+				"attach": candidate_attach,
+				"full": candidate_full,
+			}
+		if max_overlap <= STRICT_OVERLAP_EPSILON:
+			break
+	if best is None:
+		raise RuntimeError(
+			"No legal chain2 label placement with fixed connector "
+			f"branch={branch_point} end={connector_end} text={text!r} anchor={anchor!r}"
+		)
+	return (best["text_x"], best["text_y"], best["attach"], best["full"])
 
 
 #============================================
@@ -834,16 +1157,15 @@ def _add_furanose_two_carbon_tail_ops(
 		ch2_text = _text.apply_subscript_markup("CH2OH")
 	else:
 		ch2_text = _text.format_chain_label_text("CH2OH", anchor=ch2_anchor)
-	ch2_x = ch2_end[0] + _text.anchor_x_offset(ch2_text, ch2_anchor, font_size)
-	ch2_y = ch2_end[1] + _text.baseline_shift(ch2_direction, font_size, ch2_text)
+	ch2_connector_end = ch2_end
+	ho_attach_mode = "first" if ho_text == "OH" else "last"
 	ho_attach_target = _render_geometry.label_attach_target_from_text_origin(
 		text_x=ho_x,
 		text_y=ho_y,
 		text=ho_text,
 		anchor=ho_anchor,
 		font_size=font_size,
-		attach_atom="first",
-		attach_element="O",
+		attach_atom=ho_attach_mode,
 		font_name=font_name,
 	)
 	ho_connector_end = _render_geometry.resolve_attach_endpoint(
@@ -860,37 +1182,17 @@ def _add_furanose_two_carbon_tail_ops(
 		allowed_regions=[ho_attach_target],
 		epsilon=STRICT_OVERLAP_EPSILON,
 	)
-	ch2_attach_target = _render_geometry.label_attach_target_from_text_origin(
-		text_x=ch2_x,
-		text_y=ch2_y,
+	ch2_x, ch2_y, ch2_attach_target, _ch2_label_target = _solve_chain2_label_for_fixed_connector(
+		ops=ops,
+		branch_point=branch_point,
+		connector_end=ch2_connector_end,
+		connector_width=connector_width,
 		text=ch2_text,
 		anchor=ch2_anchor,
-		font_size=font_size,
-		attach_atom="first",
-		attach_element="C",
-		font_name=font_name,
-	)
-	ch2_connector_end = _render_geometry.resolve_attach_endpoint(
-		bond_start=branch_point,
-		target=ch2_attach_target,
-		interior_hint=ch2_attach_target.centroid(),
-		constraints=_render_geometry.AttachConstraints(direction_policy="auto"),
-	)
-	ch2_label_target = _render_geometry.label_target_from_text_origin(
-		text_x=ch2_x,
-		text_y=ch2_y,
-		text=ch2_text,
-		anchor=ch2_anchor,
+		label_direction=ch2_direction,
 		font_size=font_size,
 		font_name=font_name,
-	)
-	ch2_connector_end = _render_geometry.retreat_endpoint_until_legal(
-		line_start=branch_point,
-		line_end=ch2_connector_end,
-		line_width=connector_width,
-		forbidden_regions=[ch2_label_target],
-		allowed_regions=[ch2_attach_target],
-		epsilon=STRICT_OVERLAP_EPSILON,
+		peer_label_target=ho_label_target,
 	)
 	_append_branch_connector_ops(
 		ops=ops,

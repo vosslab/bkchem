@@ -533,6 +533,30 @@ def _label_text_origin(x, y, anchor, font_size, text_len):
 
 
 #============================================
+def _core_element_span_box(
+		entry,
+		span_x1,
+		span_x2,
+		font_size,
+		glyph_char_width):
+	"""Return attach box bounds for one core element glyph span."""
+	symbol = str(entry.get("symbol", ""))
+	# Keep multi-letter core spans (for example Cl/Br) unchanged.
+	if len(symbol) != 1:
+		return (span_x1, span_x2)
+	# Single-letter elements use a tighter core glyph window. Carbon uses the
+	# same center factor as Haworth text anchoring so C-target connectors land
+	# on the carbon glyph, not on CH boundary whitespace.
+	if symbol == "C":
+		center_x = (span_x1 + span_x2) * 0.5
+		half_width = max(font_size * 0.24, glyph_char_width * 0.40)
+	else:
+		center_x = (span_x1 + span_x2) * 0.5
+		half_width = max(font_size * 0.16, glyph_char_width * 0.26)
+	return (center_x - half_width, center_x + half_width)
+
+
+#============================================
 def _tokenized_atom_spans(text):
 	"""Return decorated token spans for visible label text.
 
@@ -632,18 +656,20 @@ def _label_attach_box_coords(
 	if len(spans) <= 1:
 		return full_bbox
 	selected_span = None
+	selected_entry = None
 	if attach_element is not None:
 		if not isinstance(attach_element, str) or not attach_element.strip():
 			raise ValueError(f"Invalid attach_element value: {attach_element!r}")
 		normalized = _normalize_element_symbol(attach_element)
 		# Formula-aware attachment: attach_element resolves to the core element
 		# glyph span (for example just "C" in CH2OH), not the decorated token.
-		matched = [entry["core_span"] for entry in entries if entry["symbol"] == normalized]
+		matched = [entry for entry in entries if entry["symbol"] == normalized]
 		if matched:
 			if attach_atom == "last":
-				selected_span = matched[-1]
+				selected_entry = matched[-1]
 			else:
-				selected_span = matched[0]
+				selected_entry = matched[0]
+			selected_span = selected_entry["core_span"]
 	if selected_span is None:
 		if attach_atom == "last":
 			selected_span = spans[-1]
@@ -666,8 +692,19 @@ def _label_attach_box_coords(
 		glyph_x1 = text_x - glyph_width
 	else:
 		glyph_x1 = text_x - (glyph_width / 2.0)
-	attach_x1 = glyph_x1 + start_index * glyph_char_width
-	attach_x2 = glyph_x1 + end_index * glyph_char_width
+	span_x1 = glyph_x1 + start_index * glyph_char_width
+	span_x2 = glyph_x1 + end_index * glyph_char_width
+	if selected_entry is not None:
+		attach_x1, attach_x2 = _core_element_span_box(
+			selected_entry,
+			span_x1,
+			span_x2,
+			font_size,
+			glyph_char_width,
+		)
+	else:
+		attach_x1 = span_x1
+		attach_x2 = span_x2
 	# Clamp to full label bbox so attach targets cannot escape label bounds.
 	attach_x1 = min(max(attach_x1, x1), x2)
 	attach_x2 = min(max(attach_x2, x1), x2)
