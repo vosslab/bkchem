@@ -15,6 +15,17 @@
 - Define GTML import-loss mitigation for reaction semantics in CDML/OASA path:
   preserve reactant/product grouping and arrow/plus objects when converting
   legacy GTML content to CDML-backed workflows.
+- Clean up `packages/oasa/oasa/graph/graph.py` dead algorithm variants. The
+  file contains multiple generations of the same graph operations kept as
+  `_old` / `_oldest` suffixed methods (e.g., `get_all_cycles_e`,
+  `get_all_cycles_e_old`, `get_all_cycles_e_oldest`) plus commented-out
+  methods. Identify the current callers, delete the unused variants, and
+  remove commented-out code. Likely ~200-300 lines of dead code.
+- Replace `packages/oasa/oasa/inchi_key.py` InChI key generation with an
+  external library (Datamol, RDKit, or Open Babel). The current file is 1,348
+  lines, ~1,100 of which are a hardcoded triplet lookup table embedded as
+  Python code. Data should not be stored as Python source. If no external
+  library is adopted, at minimum extract the lookup table to a data file.
 - Evaluate optional RDKit/Open Babel integration for expanded import/export
   formats.
   - Target formats: SDF/SD, MOL2, PDB, CIF.
