@@ -654,9 +654,23 @@ def _label_attach_box_coords(
 	if visible_len <= 1:
 		return full_bbox
 	x1, y1, x2, y2 = full_bbox
-	char_width = (x2 - x1) / float(visible_len)
-	attach_x1 = x1 + start_index * char_width
-	attach_x2 = x1 + end_index * char_width
+	# Use glyph-width metrics for attach-span projection instead of full bbox
+	# width so core element targeting (for example C in CH2OH) stays aligned with
+	# rendered glyph centers.
+	glyph_char_width = font_size * 0.60
+	glyph_width = glyph_char_width * float(visible_len)
+	text_x, _text_y = _label_text_origin(x, y, anchor, font_size, visible_len)
+	if anchor == "start":
+		glyph_x1 = text_x
+	elif anchor == "end":
+		glyph_x1 = text_x - glyph_width
+	else:
+		glyph_x1 = text_x - (glyph_width / 2.0)
+	attach_x1 = glyph_x1 + start_index * glyph_char_width
+	attach_x2 = glyph_x1 + end_index * glyph_char_width
+	# Clamp to full label bbox so attach targets cannot escape label bounds.
+	attach_x1 = min(max(attach_x1, x1), x2)
+	attach_x2 = min(max(attach_x2, x1), x2)
 	return misc.normalize_coords((attach_x1, y1, attach_x2, y2))
 
 

@@ -20,10 +20,39 @@ GENERATED_PREVIEW_BG_COLOR = "#fafafa"
 
 
 #============================================
+def _is_l_sugar_name(name: str) -> bool:
+	"""Return True when one sugar display name is in the L-series."""
+	return str(name or "").startswith("L-")
+
+
+#============================================
+def _box_intersection_area(
+		box_a: tuple[float, float, float, float],
+		box_b: tuple[float, float, float, float]) -> float:
+	"""Return overlap area for two axis-aligned boxes."""
+	ax1, ay1, ax2, ay2 = box_a
+	bx1, by1, bx2, by2 = box_b
+	overlap_w = min(ax2, bx2) - max(ax1, bx1)
+	overlap_h = min(ay2, by2) - max(ay1, by1)
+	if overlap_w <= 0.0 or overlap_h <= 0.0:
+		return 0.0
+	return overlap_w * overlap_h
+
+
+#============================================
 def parse_args() -> argparse.Namespace:
 	"""Parse command-line arguments."""
 	parser = argparse.ArgumentParser(
 		description="Build HTML summary for Haworth archive matrix outputs."
+	)
+	parser.add_argument(
+		"--strict-render-checks",
+		dest="strict_render_checks",
+		action="store_true",
+		help=(
+			"Fail generated preview regeneration when bond/label or label/label "
+			"overlaps are detected."
+		),
 	)
 	parser.add_argument(
 		"-r",
@@ -36,6 +65,7 @@ def parse_args() -> argparse.Namespace:
 		),
 	)
 	parser.set_defaults(regenerate_haworth_svgs=False)
+	parser.set_defaults(strict_render_checks=False)
 	args = parser.parse_args()
 	return args
 
@@ -102,6 +132,7 @@ def _render_generated_preview_svg(
 		code: str,
 		ring_type: str,
 		anomeric: str,
+		strict_render_checks: bool,
 		dst_path: pathlib.Path) -> None:
 	"""Render one generated preview SVG with hydrogens disabled."""
 	dom_extensions, haworth_renderer, haworth_spec, render_ops, sugar_code = _load_oasa_modules(repo_root)
@@ -112,6 +143,13 @@ def _render_generated_preview_svg(
 		show_hydrogens=False,
 		bg_color=GENERATED_PREVIEW_BG_COLOR,
 	)
+	if strict_render_checks:
+		_validate_ops_strict(
+			repo_root=repo_root,
+			render_ops_module=render_ops,
+			ops=ops,
+			context=f"{code}_{ring_type}_{anomeric}",
+		)
 
 	try:
 		impl = xml_minidom.getDOMImplementation()
@@ -138,6 +176,121 @@ def _render_generated_preview_svg(
 	dst_path.parent.mkdir(parents=True, exist_ok=True)
 	dst_path.write_text(svg_text, encoding="utf-8")
 	_normalize_generated_svg(dst_path, dst_path, scale=GENERATED_PREVIEW_SCALE)
+
+
+#============================================
+def _label_target(render_geometry, label_op):
+	"""Build full label target from one text op."""
+	return render_geometry.label_target_from_text_origin(
+		text_x=label_op.x,
+		text_y=label_op.y,
+		text=label_op.text,
+		anchor=label_op.anchor,
+		font_size=label_op.font_size,
+	)
+
+
+#============================================
+def _attach_target(render_geometry, renderer_text, label_op):
+	"""Build preferred attach target for one label."""
+	text = str(label_op.text or "")
+	if renderer_text.is_chain_like_label(text):
+		return render_geometry.label_attach_target_from_text_origin(
+			text_x=label_op.x,
+			text_y=label_op.y,
+			text=text,
+			anchor=label_op.anchor,
+			font_size=label_op.font_size,
+			attach_element="C",
+		)
+	if text == "OH":
+		return render_geometry.label_attach_target_from_text_origin(
+			text_x=label_op.x,
+			text_y=label_op.y,
+			text=text,
+			anchor=label_op.anchor,
+			font_size=label_op.font_size,
+			attach_atom="first",
+		)
+	if text == "HO":
+		return render_geometry.label_attach_target_from_text_origin(
+			text_x=label_op.x,
+			text_y=label_op.y,
+			text=text,
+			anchor=label_op.anchor,
+			font_size=label_op.font_size,
+			attach_atom="last",
+		)
+	return render_geometry.label_attach_target_from_text_origin(
+		text_x=label_op.x,
+		text_y=label_op.y,
+		text=text,
+		anchor=label_op.anchor,
+		font_size=label_op.font_size,
+		attach_atom="first",
+	)
+
+
+#============================================
+def _validate_ops_strict(repo_root: pathlib.Path, render_ops_module, ops: list, context: str) -> None:
+	"""Fail on strict overlap checks for one rendered ops list."""
+	try:
+		import oasa.render_geometry as render_geometry
+		from oasa.haworth import renderer_text
+	except ImportError:
+		oasa_path = repo_root / "packages" / "oasa"
+		if str(oasa_path) not in sys.path:
+			sys.path.insert(0, str(oasa_path))
+		import oasa.render_geometry as render_geometry
+		from oasa.haworth import renderer_text
+
+	labels = [op for op in ops if isinstance(op, render_ops_module.TextOp)]
+	lines = [op for op in ops if isinstance(op, render_ops_module.LineOp)]
+	label_targets = {label: _label_target(render_geometry, label) for label in labels}
+	attach_targets = {label: _attach_target(render_geometry, renderer_text, label) for label in labels}
+
+	# Strict label-label overlap gate.
+	for left_index, left_label in enumerate(labels):
+		left_box = label_targets[left_label].box
+		left_id = left_label.op_id or f"label[{left_index}]"
+		for right_index in range(left_index + 1, len(labels)):
+			right_label = labels[right_index]
+			right_box = label_targets[right_label].box
+			area = _box_intersection_area(left_box, right_box)
+			if area > 0.5:
+				right_id = right_label.op_id or f"label[{right_index}]"
+				raise RuntimeError(
+					f"Strict overlap failure in {context}: label/label {left_id} vs {right_id}"
+				)
+
+	# Strict bond-label overlap gate.
+	for label in labels:
+		label_id = label.op_id or "<no-label-id>"
+		full_target = label_targets[label]
+		own_connector_id = None
+		if label.op_id and label.op_id.endswith("_label"):
+			own_connector_id = label.op_id.replace("_label", "_connector")
+		for line in lines:
+			line_id = line.op_id or "<no-line-id>"
+			is_own_connector = bool(own_connector_id and line.op_id == own_connector_id)
+			is_own_hatch = bool(
+				own_connector_id
+				and line.op_id
+				and line.op_id.startswith(f"{own_connector_id}_hatch")
+			)
+			allowed_regions = [attach_targets[label]] if (is_own_connector or is_own_hatch) else []
+			ok = render_geometry.validate_attachment_paint(
+				line_start=line.p1,
+				line_end=line.p2,
+				line_width=float(getattr(line, "width", 0.0) or 0.0),
+				forbidden_regions=[full_target],
+				allowed_regions=allowed_regions,
+				epsilon=0.5,
+			)
+			if not ok:
+				raise RuntimeError(
+					f"Strict overlap failure in {context}: bond/label line={line_id} label={label_id}"
+				)
 
 
 #============================================
@@ -327,6 +480,156 @@ def _preview_block(label: str, rel_path: str | None) -> str:
 
 
 #============================================
+def build_l_sugar_html(rows: list[dict], missing_generated: int) -> str:
+	"""Build generated-only summary page for L-series sugars."""
+	timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+	row_html = []
+	for entry in rows:
+		code = html.escape(entry["code"])
+		name = html.escape(entry["name"])
+		ring_type = html.escape(entry["ring_type"])
+		anomeric = html.escape(entry["anomeric"])
+		generated_block = _preview_block("Generated", entry["generated_rel"])
+		row_html.append(
+			f"""
+			<section class="card">
+				<h2>{code} | {name}</h2>
+				<p class="meta">{ring_type} | {anomeric}</p>
+				<div class="grid single">
+					{generated_block}
+				</div>
+			</section>
+			"""
+		)
+
+	return f"""<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>L-Sugar Matrix (Generated Only)</title>
+	<style>
+		:root {{
+			--bg: #f7f6f2;
+			--ink: #222;
+			--panel: #fff;
+			--line: #d8d3c8;
+			--warn: #8a2f1f;
+		}}
+		body {{
+			margin: 0;
+			font-family: "Menlo", "Monaco", "Consolas", monospace;
+			background: var(--bg);
+			color: var(--ink);
+		}}
+		header {{
+			position: sticky;
+			top: 0;
+			z-index: 2;
+			background: linear-gradient(90deg, #f2efe6, #ebe7dc);
+			border-bottom: 1px solid var(--line);
+			padding: 12px 18px;
+		}}
+		h1 {{
+			margin: 0 0 6px 0;
+			font-size: 18px;
+		}}
+		.stats {{
+			margin: 0;
+			font-size: 12px;
+			line-height: 1.4;
+		}}
+		main {{
+			padding: 14px;
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(560px, 1fr));
+			gap: 12px;
+		}}
+		.card {{
+			border: 1px solid var(--line);
+			background: var(--panel);
+			border-radius: 8px;
+			padding: 10px;
+			box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+		}}
+		h2 {{
+			margin: 0;
+			font-size: 14px;
+		}}
+		.meta {{
+			margin: 4px 0 8px 0;
+			font-size: 12px;
+			color: #555;
+		}}
+		.grid.single {{
+			display: grid;
+			grid-template-columns: 1fr;
+			gap: 8px;
+		}}
+		.block {{
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			padding: 6px;
+			min-height: 240px;
+			background: #fff;
+		}}
+		.block h3 {{
+			margin: 0 0 4px 0;
+			font-size: 12px;
+		}}
+		.frame {{
+			width: 100%;
+			height: 230px;
+			border: 1px solid #e3e0d8;
+			border-radius: 4px;
+			background: #fafafa;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			overflow: hidden;
+		}}
+		.preview {{
+			max-width: 100%;
+			max-height: 100%;
+			width: auto;
+			height: auto;
+			display: block;
+		}}
+		.link {{
+			margin-top: 6px;
+			font-size: 11px;
+			word-break: break-all;
+		}}
+		.missing {{
+			font-size: 12px;
+			color: var(--warn);
+			padding-top: 12px;
+		}}
+		@media (max-width: 800px) {{
+			main {{
+				grid-template-columns: 1fr;
+			}}
+		}}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>L-Sugar Matrix (Generated Only)</h1>
+		<p class="stats">
+			Reference panel intentionally omitted for L-series rows.<br>
+			Rows: {len(rows)} | Missing generated: {missing_generated}<br>
+			Generated at {html.escape(timestamp)}
+		</p>
+	</header>
+	<main>
+		{''.join(row_html)}
+	</main>
+</body>
+</html>
+"""
+
+
+#============================================
 def _svg_tag_name(tag: str) -> str:
 	"""Return XML tag without namespace."""
 	if "}" in tag:
@@ -462,7 +765,9 @@ def main() -> None:
 	preview_dir = output_dir / "archive_matrix_previews"
 	preview_generated_dir = preview_dir / "generated"
 	summary_path = output_dir / "archive_matrix_summary.html"
+	l_sugar_summary_path = output_dir / "l-sugar_matrix.html"
 	archive_dir = repo_root / "neurotiker_haworth_archive"
+	strict_render_checks = bool(args.strict_render_checks or args.regenerate_haworth_svgs)
 
 	if matrix_dir.exists() and not matrix_dir.is_dir():
 		raise FileNotFoundError(f"Archive matrix path exists but is not a folder: {matrix_dir}")
@@ -481,8 +786,10 @@ def main() -> None:
 
 	entries = load_archive_mapping(repo_root)
 	rows = []
+	l_sugar_rows = []
 	missing_generated = 0
 	missing_reference = 0
+	l_missing_generated = 0
 	for code, ring_type, anomeric, archive_filename, sugar_name in entries:
 		reference_path = archive_dir / archive_filename
 		generated_rel = None
@@ -496,6 +803,7 @@ def main() -> None:
 					code=code,
 					ring_type=ring_type,
 					anomeric=anomeric,
+					strict_render_checks=strict_render_checks,
 					dst_path=preview_path,
 				)
 				generated_rel = os.path.relpath(preview_path, output_dir)
@@ -507,11 +815,15 @@ def main() -> None:
 			generated_path = generated_by_key.get(key)
 			if generated_path is not None:
 				generated_rel = os.path.relpath(generated_path, output_dir)
+		is_l_sugar = _is_l_sugar_name(sugar_name)
 		if generated_rel is None:
-			missing_generated += 1
-		if not reference_path.is_file():
+			if is_l_sugar:
+				l_missing_generated += 1
+			else:
+				missing_generated += 1
+		if (not is_l_sugar) and (not reference_path.is_file()):
 			missing_reference += 1
-		rows.append(
+		row_data = (
 			{
 				"code": code,
 				"name": sugar_name,
@@ -523,6 +835,10 @@ def main() -> None:
 				),
 			}
 		)
+		if is_l_sugar:
+			l_sugar_rows.append(row_data)
+		else:
+			rows.append(row_data)
 
 	html_text = build_summary_html(
 		rows=rows,
@@ -531,14 +847,24 @@ def main() -> None:
 		missing_generated=missing_generated,
 		missing_reference=missing_reference,
 	)
+	l_sugar_html_text = build_l_sugar_html(
+		rows=l_sugar_rows,
+		missing_generated=l_missing_generated,
+	)
 	output_dir.mkdir(exist_ok=True)
 	summary_path.write_text(html_text, encoding="utf-8")
+	l_sugar_summary_path.write_text(l_sugar_html_text, encoding="utf-8")
 	print(f"Wrote summary: {summary_path}")
+	print(f"Wrote L-sugar summary: {l_sugar_summary_path}")
 	print(f"Regenerate generated previews: {args.regenerate_haworth_svgs}")
-	print(f"Generated previews written: {len(entries) - missing_generated}")
+	print(f"Strict render checks: {strict_render_checks}")
+	print(f"Generated previews written (D and related): {len(rows) - missing_generated}")
+	print(f"Generated previews written (L-series): {len(l_sugar_rows) - l_missing_generated}")
 	print(f"Matrix source SVG files discovered: {len(generated_paths)}")
-	print(f"Mappable entries: {len(entries)}")
+	print(f"Mappable entries (D and related): {len(rows)}")
+	print(f"Mappable entries (L-series): {len(l_sugar_rows)}")
 	print(f"Missing generated: {missing_generated}")
+	print(f"Missing generated (L-series): {l_missing_generated}")
 	print(f"Missing reference: {missing_reference}")
 
 

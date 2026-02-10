@@ -7,6 +7,38 @@
   standalone `H` labels get a smaller gray visual style while connector
   endpoint legality remains on shared attach-target architecture, with explicit
   unit/smoke/regression gates and rollout documentation requirements.
+- Refine formula-aware core attachment geometry in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  so `attach_element` span selection uses glyph-width projection from token
+  origin (clamped to full label bounds), improving carbon-core targeting for
+  decorated labels such as `CH2OH` and `HOH2C`.
+- Restore deterministic vertical connector behavior for furanose left-top
+  chain-like `up` substituents in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  by forcing vertical-lock endpoint constraints for that slot class (fixes the
+  D-ribose C4-up regression where connector tilt was introduced).
+- Extend
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py)
+  with strict generated-render overlap validation (enabled automatically with
+  `-r`), split D-series and L-series outputs, and write a dedicated generated-
+  only L-sugar page at `output_smoke/l-sugar_matrix.html` (no reference panel
+  by design).
+- Update
+  [tests/test_attach_targets.py](tests/test_attach_targets.py)
+  legacy expectation for `label_attach_target(..., "CH2OH", attach_atom="last")`
+  to match the new deterministic attach-span geometry.
+- Validation reruns for these changes:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_attach_targets.py`
+  (`21 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py`
+  (`95 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_renderer_smoke.py`
+  (`86 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (wrote `output_smoke/archive_matrix_summary.html` and
+  `output_smoke/l-sugar_matrix.html` with strict checks enabled and zero
+  missing generated previews).
 - Remove dormant, unregistered mode implementations from
   [packages/bkchem/bkchem/modes.py](packages/bkchem/bkchem/modes.py):
   `reaction_mode`, `external_data_mode`, and `rapid_draw_mode`; also remove

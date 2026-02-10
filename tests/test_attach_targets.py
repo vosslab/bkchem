@@ -170,7 +170,7 @@ def test_label_attach_target_legacy_geometry_values():
 		16.0,
 		attach_atom="last",
 	)
-	expected = (31.0, -6.0, 55.0, 8.0)
+	expected = (23.8, -6.0, 43.0, 8.0)
 	assert target.kind == "box"
 	assert target.box == pytest.approx(expected)
 

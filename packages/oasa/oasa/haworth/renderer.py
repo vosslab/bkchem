@@ -623,11 +623,20 @@ def _add_simple_label_ops(
 			is_inside = x1 <= target_hint[0] <= x2 and y1 <= target_hint[1] <= y2
 			if not is_inside:
 				target_hint = target.centroid()
+		force_vertical = (
+			ring_type == "furanose"
+			and direction == "up"
+			and slot == "ML"
+			and is_chain_like_label
+		)
 		connector_end = _render_geometry.resolve_attach_endpoint(
 			bond_start=vertex,
 			target=target,
 			interior_hint=target_hint,
-			constraints=_render_geometry.AttachConstraints(direction_policy="auto"),
+			constraints=_render_geometry.AttachConstraints(
+				direction_policy="line" if force_vertical else "auto",
+				vertical_lock=force_vertical,
+			),
 		)
 	ops.append(
 		render_ops.LineOp(
