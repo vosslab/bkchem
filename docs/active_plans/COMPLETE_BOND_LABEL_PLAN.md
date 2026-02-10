@@ -16,6 +16,35 @@ attachment paths.
   - [ ] Phase B.1: Furanose side-chain stereography parity
 - [ ] Phase C: Migrate BKChem + decompose bond.py + delete compatibility code
 
+## Bbox naming inventory (tracked for refactor)
+
+This inventory is the explicit Phase B/C rename backlog for attachment-related
+`bbox` naming. Keep this list updated as items are migrated or deleted.
+
+- `packages/oasa/oasa/render_geometry.py`
+  - Legacy compatibility surface still present by design in Phase A:
+    `label_bbox*`, `label_attach_bbox*`, `clip_bond_to_bbox`,
+    `bbox_center`, `BondRenderContext.label_bboxes`,
+    `BondRenderContext.attach_bboxes`.
+  - Internal variable names pending Phase B/C cleanup:
+    `bbox_v1`, `bbox_v2`, `full_bbox`, `attach_bbox`, `target_bbox`.
+- `packages/oasa/oasa/haworth/renderer.py`
+  - Active usage of `label_bbox_from_text_origin(...)`,
+    `label_attach_bbox_from_text_origin(...)`, and `bbox_center(...)`.
+  - Local variable names still bbox-oriented:
+    `oxygen_label_bbox`, `full_bbox`, `target_bbox`, `*_attach_bbox`.
+- `packages/oasa/oasa/haworth/renderer_layout.py`
+  - Function names still pending rename:
+    `job_text_bbox(...)`, `text_bbox(...)`.
+- `tests/smoke/test_haworth_renderer_smoke.py`
+  - Helper names pending rename:
+    `_label_bbox`, `_connector_bbox_for_label`,
+    `_hydroxyl_half_token_bboxes`.
+- `tests/test_label_bbox.py`
+  - Entire test module is compatibility-focused and remains valid during
+    wrapper phase; expected rename/split in Phase C when bbox wrappers are
+    deleted.
+
 ## Done checklist
 
 - [ ] All attachment endpoints route through one shared target API.
@@ -27,7 +56,7 @@ attachment paths.
 - [ ] Archive matrix smoke passes with strict overlap gates.
 - [ ] `bbox` does not appear in any attachment-related production or test code.
 - [ ] `bond.py` duplicated rendering pipeline eliminated; decomposed into
-      `bond.py` + 3 mixin modules (no `bond_draw_types.py` — 9 `l`/`r` methods
+      `bond.py` + 3 mixin modules (no `bond_draw_types.py` - 9 `l`/`r` methods
       deleted outright, remaining ~37 `_draw_*` methods replaced by
       `build_bond_ops()` + thin Tk adapter).
 - [ ] Documentation is updated and old plan is archived as superseded baseline.
@@ -58,7 +87,7 @@ from these six principles.
 
 4. **No function, variable, or field should be named `bbox` unless it is
    exclusively an axis-aligned rectangle.**
-   The current codebase calls everything `bbox` — including circles (Haworth
+   The current codebase calls everything `bbox` - including circles (Haworth
    oxygen), directional apertures, and polymorphic target lookups. This is
    wrong. A circle is not a bounding box. This plan introduces `AttachTarget`
    as the polymorphic type. Every `bbox`-named function, dict key, field, and
@@ -136,70 +165,70 @@ attachment-relevant functions in each. Test files are omitted.
 
 ### Primary targets (heavy changes)
 
-**packages/oasa/oasa/render_geometry.py** (822 lines) — shared geometry
+**packages/oasa/oasa/render_geometry.py** (822 lines) - shared geometry
 producer for Cairo/SVG drawing. Central module for this plan.
 
 Current attachment functions:
-- `BondRenderContext` dataclass — fields `label_bboxes`, `attach_bboxes`
+- `BondRenderContext` dataclass - fields `label_bboxes`, `attach_bboxes`
   (both `dict | None`).
-- `build_bond_ops(edge, start, end, context)` — main bond rendering; reads
+- `build_bond_ops(edge, start, end, context)` - main bond rendering; reads
   `context.attach_bboxes` / `context.label_bboxes`, calls
   `directional_attach_edge_intersection()` and `bbox_center()`.
-- `label_bbox(x, y, text, anchor, font_size, font_name)` — axis-aligned bbox
+- `label_bbox(x, y, text, anchor, font_size, font_name)` - axis-aligned bbox
   for a text label.
-- `label_bbox_from_text_origin(...)` — same, from text-origin coords.
-- `label_attach_bbox(x, y, text, ..., attach_atom)` — bbox for first/last
+- `label_bbox_from_text_origin(...)` - same, from text-origin coords.
+- `label_attach_bbox(x, y, text, ..., attach_atom)` - bbox for first/last
   attachable atom token within a label.
-- `label_attach_bbox_from_text_origin(...)` — same, from text-origin coords.
-- `clip_bond_to_bbox(bond_start, bond_end, bbox)` — clip bond_end to bbox
+- `label_attach_bbox_from_text_origin(...)` - same, from text-origin coords.
+- `clip_bond_to_bbox(bond_start, bond_end, bbox)` - clip bond_end to bbox
   edge via `geometry.intersection_of_line_and_rect()`.
-- `bbox_center(bbox)` — center point of an axis-aligned bbox.
+- `bbox_center(bbox)` - center point of an axis-aligned bbox.
 - `directional_attach_edge_intersection(bond_start, attach_bbox,
-  attach_target)` — directional token-edge endpoint (horizontal/vertical
+  attach_target)` - directional token-edge endpoint (horizontal/vertical
   dominant).
-- `molecule_to_ops(mol, style, transform_xy)` — builds `label_bboxes` and
+- `molecule_to_ops(mol, style, transform_xy)` - builds `label_bboxes` and
   `attach_bboxes` dicts, populates `BondRenderContext`.
-- `_tokenized_atom_spans(text)` — helper tokenizing atom labels for
+- `_tokenized_atom_spans(text)` - helper tokenizing atom labels for
   first/last token bbox extraction.
 
-**packages/oasa/oasa/haworth/renderer.py** (1,482 lines) — Haworth schematic
+**packages/oasa/oasa/haworth/renderer.py** (1,482 lines) - Haworth schematic
 renderer. Contains all the inlined circle and hydroxyl attachment logic that
 must move into the shared engine.
 
 Current attachment functions:
-- `_add_simple_label_ops(...)` — adds connector + label with extensive
+- `_add_simple_label_ops(...)` - adds connector + label with extensive
   attachment logic; calls `label_attach_bbox_from_text_origin()`,
   `label_bbox_from_text_origin()`, `directional_attach_edge_intersection()`,
   and contains the inlined hydroxyl endpoint math.
-- `_compute_hydroxyl_endpoint(...)` (nested closure) — computes oxygen center
+- `_compute_hydroxyl_endpoint(...)` (nested closure) - computes oxygen center
   via `renderer_text.hydroxyl_oxygen_center()`, clips to circle boundary,
   applies vertical circle intersection for BR/BL/TL slots, enforces
   clearance.
-- `_clip_to_circle_boundary(start, center, radius)` — ray-circle intersection
+- `_clip_to_circle_boundary(start, center, radius)` - ray-circle intersection
   returning boundary point.
-- `_vertical_circle_intersection(vertex, center, radius)` — vertical-line
+- `_vertical_circle_intersection(vertex, center, radius)` - vertical-line
   circle intersection for slot-constrained connectors.
 - `_enforce_hydroxyl_clearance(connector_end, vertex, oxygen_center,
-  oxygen_radius, lock_vertical)` — retreats endpoint outside clearance
+  oxygen_radius, lock_vertical)` - retreats endpoint outside clearance
   radius.
 - `_retreat_endpoint_until_clear(line_start, line_end, line_width,
-  label_box)` — retreats endpoint until connector paint no longer penetrates
+  label_box)` - retreats endpoint until connector paint no longer penetrates
   label interior.
-- `_clip_ring_edge_oxygen_endpoint(...)` — clips oxygen-side ring edge
+- `_clip_ring_edge_oxygen_endpoint(...)` - clips oxygen-side ring edge
   endpoint.
-- `_clip_segment_endpoint_to_circle(start, end, center, radius)` — clips
+- `_clip_segment_endpoint_to_circle(start, end, center, radius)` - clips
   segment endpoint to circle boundary.
-- `_add_furanose_two_carbon_tail_ops(...)` — branched sidechain rendering
+- `_add_furanose_two_carbon_tail_ops(...)` - branched sidechain rendering
   with attachment bboxes and `directional_attach_edge_intersection()` calls.
 - Hardcoded label-string checks: `text in ("OH", "HO")` at multiple sites,
   `str(label) == "CH(OH)CH2OH"` for furanose two-carbon tail.
 
-**packages/bkchem/bkchem/bond.py** (1,881 lines) — BKChem bond drawing class
+**packages/bkchem/bkchem/bond.py** (1,881 lines) - BKChem bond drawing class
 with legacy Tk-metric clipping. This file is too large for a single module and
 will be decomposed during Phase C. See the bond.py decomposition section below.
 
 Current attachment functions:
-- `_where_to_draw_from_and_to(self)` — computes bond endpoints; gets atom
+- `_where_to_draw_from_and_to(self)` - computes bond endpoints; gets atom
   bboxes and calls `geometry.intersection_of_line_and_rect()` directly for
   clipping. This is the standalone clipping path that must migrate to the
   shared engine.
@@ -224,15 +253,15 @@ Current internal structure (92 methods, single `bond` class):
 
 ### Secondary targets (moderate changes)
 
-**packages/oasa/oasa/haworth/renderer_text.py** (213 lines) — text formatting
+**packages/oasa/oasa/haworth/renderer_text.py** (213 lines) - text formatting
 and positioning helpers for Haworth rendering. Provides the glyph-center
 estimates used by the inlined circle math.
 
 Current attachment functions:
-- `hydroxyl_oxygen_center(text, anchor, text_x, text_y, font_size)` —
+- `hydroxyl_oxygen_center(text, anchor, text_x, text_y, font_size)` -
   approximate oxygen glyph center in OH/HO label.
-- `hydroxyl_oxygen_radius(font_size)` — approximate oxygen glyph radius.
-- `leading_carbon_center(text, anchor, text_x, text_y, font_size)` —
+- `hydroxyl_oxygen_radius(font_size)` - approximate oxygen glyph radius.
+- `leading_carbon_center(text, anchor, text_x, text_y, font_size)` -
   approximate leading-carbon glyph center for C* labels.
 
 Migration role: these functions **stay** but their role changes. Currently
@@ -244,40 +273,40 @@ Phase B, they become data suppliers for `AttachTarget` construction:
 that currently consumes these values is deleted (see Haworth helper
 function dispositions table in the unified target contract section below).
 
-**packages/oasa/oasa/haworth/renderer_layout.py** (366 lines) — hydroxyl
+**packages/oasa/oasa/haworth/renderer_layout.py** (366 lines) - hydroxyl
 layout optimizer. Uses label bboxes for overlap penalty calculation.
 
 Current attachment functions:
-- `job_text_bbox(job, length)` — approximate text bbox for placement job via
+- `job_text_bbox(job, length)` - approximate text bbox for placement job via
   `label_bbox_from_text_origin()`.
-- `text_bbox(text_x, text_y, text, anchor, font_size)` — shared label bbox
+- `text_bbox(text_x, text_y, text, anchor, font_size)` - shared label bbox
   from text geometry.
-- `overlap_penalty(box, occupied_boxes, gap)` — summed overlap area.
-- `hydroxyl_job_penalty(job, occupied, blocked_polygons, min_gap)` — overlap
+- `overlap_penalty(box, occupied_boxes, gap)` - summed overlap area.
+- `hydroxyl_job_penalty(job, occupied, blocked_polygons, min_gap)` - overlap
   penalty using `job_text_bbox()`.
 
 ### Supporting files (light or no changes)
 
-**packages/oasa/oasa/geometry.py** (600 lines) — low-level geometry.
-- `intersection_of_line_and_rect(line, rect, round_edges)` — line-rect
+**packages/oasa/oasa/geometry.py** (600 lines) - low-level geometry.
+- `intersection_of_line_and_rect(line, rect, round_edges)` - line-rect
   intersection used by `clip_bond_to_bbox()` and `bond.py`.
-- `do_rectangles_intersect(rect1, rect2)` — rectangle overlap test.
+- `do_rectangles_intersect(rect1, rect2)` - rectangle overlap test.
 
-**packages/oasa/oasa/misc.py** (233 lines) — miscellaneous utilities.
-- `normalize_coords(coords)` — normalize `(x1, y1, x2, y2)` so min comes
+**packages/oasa/oasa/misc.py** (233 lines) - miscellaneous utilities.
+- `normalize_coords(coords)` - normalize `(x1, y1, x2, y2)` so min comes
   first. Used by every `bbox`-named function.
 
-**packages/oasa/oasa/haworth/renderer_geometry.py** (166 lines) — pure
+**packages/oasa/oasa/haworth/renderer_geometry.py** (166 lines) - pure
 computational geometry for Haworth rendering.
-- `intersection_area(box_a, box_b, gap)` — intersection area with gap.
-- `point_in_box(point, box)` — point-in-bbox test.
-- `box_overlaps_polygon(box, polygon)` — bbox-polygon intersection.
+- `intersection_area(box_a, box_b, gap)` - intersection area with gap.
+- `point_in_box(point, box)` - point-in-bbox test.
+- `box_overlaps_polygon(box, polygon)` - bbox-polygon intersection.
 
-**packages/oasa/oasa/render_ops.py** (605 lines) — render op dataclasses
+**packages/oasa/oasa/render_ops.py** (605 lines) - render op dataclasses
 (`LineOp`, `TextOp`, `PathOp`, `PolygonOp`). No attachment logic today;
 `AttachTarget` dataclass may live here or in `render_geometry.py`.
 
-**packages/oasa/oasa/wedge_geometry.py** (281 lines) — rounded wedge bond
+**packages/oasa/oasa/wedge_geometry.py** (281 lines) - rounded wedge bond
 geometry. No attachment functions, but wedge path generation must consume the
 clipped endpoint from `resolve_attach_endpoint()` so full painted shape
 respects attachment legality.
@@ -355,7 +384,7 @@ old names.
 | `BondRenderContext.label_bboxes` | `BondRenderContext.label_targets: dict \| None` | `dict[vertex, AttachTarget]` |
 | `BondRenderContext.attach_bboxes` | `BondRenderContext.attach_targets: dict \| None` | `dict[vertex, AttachTarget]` |
 
-Layout optimizer renames (renderer_layout.py — called 13+ times):
+Layout optimizer renames (renderer_layout.py - called 13+ times):
 
 | Current name | Replacement | Notes |
 | --- | --- | --- |
@@ -782,7 +811,7 @@ OASA's render ops (`LineOp`, `PathOp`, `PolygonOp`, `TextOp` in
 `render_ops.py`) are abstract drawing instructions with no backend
 dependency. `build_bond_ops()` produces a list of render ops;
 Cairo/SVG/PNG painters consume them to draw. The key insight for BKChem
-migration is that a Tk canvas is just another consumer — a thin adapter
+migration is that a Tk canvas is just another consumer - a thin adapter
 can convert `LineOp` to `canvas.create_line()`, `PolygonOp` to
 `canvas.create_polygon()`, etc. This is why eliminating the duplicated
 pipeline is feasible: BKChem does not need its own geometry, only its
@@ -793,10 +822,10 @@ own final paint call.
 Approximately 50% of `bond.py` (~900 lines, 46 `_draw_*` methods) is a **Tk
 canvas rendering pipeline that duplicates geometry already in OASA's
 `render_geometry.py`**. Both implement the same wedge, hashed, dashed, wavy,
-bold, and dotted algorithms — `bond.py` outputs Tk canvas items via
+bold, and dotted algorithms - `bond.py` outputs Tk canvas items via
 `self.paper.create_line()`, while `render_geometry.py` outputs abstract
 `LineOp`/`PathOp`/`PolygonOp` objects. The duplication is nearly line-for-line. Concrete example: `_draw_hashed()`
-(bond.py:627) vs `_hashed_ops()` (render_geometry.py:150) — both call
+(bond.py:627) vs `_hashed_ops()` (render_geometry.py:150) - both call
 `geometry.find_parallel()` to compute parallel offset lines, both iterate
 to create hatch marks at the same intervals with the same width tapering.
 Similarly, both call `wedge_geometry.rounded_wedge_geometry()` for wedge
@@ -814,7 +843,7 @@ The other ~50% is genuinely BKChem-specific and cannot be replaced:
 The original upstream BKChem had 29 `_draw_*` methods for 8 bond types. We
 added 14 methods for 3 new types (`s`, `q`, `l`/`r`) during Haworth Stage 2
 work. The `l`/`r` types were an experimental Haworth approach that never went
-anywhere — their order 2/3 methods are stubs that just delegate to `_draw_n2`
+anywhere - their order 2/3 methods are stubs that just delegate to `_draw_n2`
 / `_draw_n3`, they appear in zero CDML files, and they are not in the BKChem
 UI mode list.
 
@@ -842,12 +871,12 @@ code, reusing the identical math currently in bond.py's `_draw_dash`,
 `_draw_dotted`, `_draw_adder`, and `_draw_bold_central`.
 
 BKChem-specific context fields to add to `BondRenderContext`:
-- `equithick: bool` — uniform-width hash/adder lines (applies to `h` and `a`).
-- `simple_double: bool` — whether double bond second line uses same style.
-- `double_length_ratio: float` — second line length ratio.
-- `draw_start_hatch: bool` — skip first hash line when atom has occupied
+- `equithick: bool` - uniform-width hash/adder lines (applies to `h` and `a`).
+- `simple_double: bool` - whether double bond second line uses same style.
+- `double_length_ratio: float` - second line length ratio.
+- `draw_start_hatch: bool` - skip first hash line when atom has occupied
   valency (derived from `atom.show` + `atom.occupied_valency`).
-- `draw_end_hatch: bool` — same for end atom.
+- `draw_end_hatch: bool` - same for end atom.
 
 **`simple_double` dispatch pattern.** In bond.py, order-2/3 draw methods
 choose between `_draw_second_line()` and the type-specific method (e.g.,
@@ -924,7 +953,7 @@ class bond(
     ...
 ```
 
-There is no `bond_draw_types.py` — the `_draw_*` methods and their helpers
+There is no `bond_draw_types.py` - the `_draw_*` methods and their helpers
 (`_draw_hashed`, `_draw_dash`, `_draw_adder`, `_draw_wavy`, `_draw_dotted`,
 `_draw_side_hashed`, `_rounded_wedge_polygon`, `_arc_points`,
 `_path_commands_to_polygon`) are deleted entirely. The `l`/`r` methods are
@@ -955,7 +984,7 @@ the thin Tk adapter.
 - `build_bond_ops()` handles all 9 surviving bond types (`n`, `w`, `h`, `s`,
   `q`, `a`, `b`, `d`, `o`) including `equithick` and `simple_double` behavior.
 - All `_draw_*` methods and their helpers are deleted from `bond.py`.
-- `draw()` calls `build_bond_ops()` → `_render_ops_to_tk_canvas()`.
+- `draw()` calls `build_bond_ops()` -> `_render_ops_to_tk_canvas()`.
 - BKChem bond rendering uses the same geometry code path as SVG/PDF export.
 - No file in `packages/bkchem/bkchem/` exceeds ~500 lines.
 - All existing BKChem tests pass.
@@ -1092,7 +1121,7 @@ deleted, not commented out or renamed with an underscore prefix.
 
 After Phase C, the word `bbox` must not appear in any attachment-related
 production function, variable, dict key, dataclass field, or test helper. This
-is not conditional on shape — it is a blanket rule. The function name mapping
+is not conditional on shape - it is a blanket rule. The function name mapping
 table in the unified target contract section is the authoritative rename list.
 All entries in that table are mandatory renames or deletions, not suggestions.
 
@@ -1153,15 +1182,15 @@ This plan touches `bond.py` (1,880 lines) and `haworth/renderer.py`
 files exceed 1,500 lines and would benefit from decomposition, but are
 unrelated to bond-label attachment and must not be mixed into this plan:
 
-- `packages/bkchem/bkchem/modes.py` (2,753 lines) — UI event handlers.
-- `packages/bkchem/bkchem/paper.py` (1,882 lines) — canvas management.
-- `packages/bkchem/bkchem/main.py` (1,546 lines) — application startup.
+- `packages/bkchem/bkchem/modes.py` (2,753 lines) - UI event handlers.
+- `packages/bkchem/bkchem/paper.py` (1,882 lines) - canvas management.
+- `packages/bkchem/bkchem/main.py` (1,546 lines) - application startup.
 
 Each deserves its own decomposition plan. The `bond.py` decomposition in this
 plan demonstrates the pattern (identify duplication, eliminate it, then split
 the remainder into focused modules) that can be applied to the others.
 
 Large OASA-only files (`graph/graph.py`, `inchi_key.py`) are out of scope
-entirely — they are internal to OASA, do not touch attachment or rendering,
+entirely - they are internal to OASA, do not touch attachment or rendering,
 and have no BKChem crossover. InChI key cleanup is tracked in
 [docs/TODO_CODE.md](../TODO_CODE.md).

@@ -23,6 +23,7 @@ def _make_two_atom_mol(
 		right_charge=0,
 		right_label=None,
 		right_attach_atom=None,
+		right_attach_element=None,
 		bond_order=1,
 		bond_type="n",
 ):
@@ -38,6 +39,8 @@ def _make_two_atom_mol(
 		right.properties_["label"] = right_label
 	if right_attach_atom is not None:
 		right.properties_["attach_atom"] = right_attach_atom
+	if right_attach_element is not None:
+		right.properties_["attach_element"] = right_attach_element
 	mol.add_vertex(left)
 	mol.add_vertex(right)
 	bond = oasa.bond(order=bond_order, type=bond_type)
@@ -195,6 +198,26 @@ def test_multi_atom_label_attach_default_first_when_missing():
 	default_ops = render_geometry.molecule_to_ops(mol_default, style={"font_size": 16.0})
 	first_ops = render_geometry.molecule_to_ops(mol_first, style={"font_size": 16.0})
 	assert _first_line(default_ops).p2 == pytest.approx(_first_line(first_ops).p2)
+
+
+#============================================
+def test_multi_atom_label_attach_element_overrides_attach_atom_first():
+	mol, _left, right = _make_two_atom_mol(
+		right_symbol="C",
+		right_label="CH2OH",
+		right_attach_atom="last",
+		right_attach_element="C",
+	)
+	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
+	line = _first_line(ops)
+	attach_bbox = render_geometry.label_attach_bbox(
+		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last", attach_element="C"
+	)
+	default_first_bbox = render_geometry.label_attach_bbox(
+		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last"
+	)
+	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
+	assert not _is_on_box_edge(line.p2, default_first_bbox, tol=1e-5)
 
 
 #============================================

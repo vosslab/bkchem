@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026-02-10
+- Add new skill
+  [skills/python-code-review/SKILL.md](skills/python-code-review/SKILL.md)
+  with
+  [skills/python-code-review/agents/openai.yaml](skills/python-code-review/agents/openai.yaml)
+  to provide comprehensive Python code reviews focused on correctness,
+  security, maintainability, and actionable before/after fixes, and to
+  explicitly incorporate `read-repo-rules` summaries before reviewing code.
+- Update
+  [skills/python-code-review/SKILL.md](skills/python-code-review/SKILL.md)
+  to remove Ruff/Mypy-check workflow language and focus reviews on
+  implementation conformance to active plan documents in
+  `docs/active_plans/`, including plan-criteria mapping and plan-drift checks.
+- Implement Phase A attachment-engine primitives in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
+  add `AttachTarget` and `AttachConstraints`, target constructors
+  (`make_box_target`, `make_circle_target`, `make_segment_target`,
+  `make_composite_target`), shared endpoint resolver
+  `resolve_attach_endpoint(...)`, and painted-overlap validator
+  `validate_attachment_paint(...)`, while keeping `bbox`-named APIs as
+  compatibility wrappers.
+- Add target-named label APIs in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
+  `label_target(...)`, `label_target_from_text_origin(...)`,
+  `label_attach_target(...)`, and
+  `label_attach_target_from_text_origin(...)`; keep existing
+  `label_bbox(...)` and `label_attach_bbox(...)` wrappers functional and add
+  `attach_element` selector support with deterministic precedence over
+  `attach_atom`.
+- Extend molecule label selector wiring in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  so per-vertex `attach_element` is honored when constructing attach targets,
+  while preserving legacy bbox-based clipping behavior in `build_bond_ops(...)`
+  for additive Phase A rollout.
+- Add Phase A unit coverage in
+  [tests/test_attach_targets.py](tests/test_attach_targets.py) for target
+  centroid/contains/boundary behavior, circle endpoint legality with strict
+  epsilon penetration checks, and wrapper parity between target-named and
+  bbox-named label helpers; extend
+  [tests/test_connector_clipping.py](tests/test_connector_clipping.py) with an
+  `attach_element` precedence regression case.
+- Update
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  with a formula-aware label parsing note that keeps scope tight (tokenized
+  parsing for supported emitted patterns, rendering/attachment separation, and
+  `attach_element`-driven stable connector intent).
+- Add a concrete `bbox` naming-inventory section to
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  listing remaining `bbox`-named APIs/fields/helpers in
+  `render_geometry.py`, `haworth/renderer.py`, `haworth/renderer_layout.py`,
+  and smoke/unit tests as explicit Phase B/C rename backlog.
+
 ## 2026-02-09
 - Update [refactor_progress.md](refactor_progress.md) to include
   [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
