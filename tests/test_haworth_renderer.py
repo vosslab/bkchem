@@ -377,6 +377,34 @@ def _line_projection_along(line: render_ops.LineOp, point: tuple[float, float]) 
 
 
 #============================================
+def _allowed_attach_target_for_connector(
+		label: render_ops.TextOp,
+		connector_id: str) -> render_geometry.AttachTarget | None:
+	"""Return attach-token carve-out target for explicit token-based connectors."""
+	if "_chain2_" in connector_id:
+		return render_geometry.label_attach_target_from_text_origin(
+			text_x=label.x,
+			text_y=label.y,
+			text=label.text,
+			anchor=label.anchor,
+			font_size=label.font_size,
+			attach_atom="first",
+			attach_element="C",
+		)
+	if "_chain1_oh_" in connector_id or label.text in ("OH", "HO"):
+		return render_geometry.label_attach_target_from_text_origin(
+			text_x=label.x,
+			text_y=label.y,
+			text=label.text,
+			anchor=label.anchor,
+			font_size=label.font_size,
+			attach_atom="first",
+			attach_element="O",
+		)
+	return None
+
+
+#============================================
 def _assert_hashed_connector_quality(ops: list, connector_id: str, label_id: str) -> None:
 	carrier = _line_by_id(ops, connector_id)
 	assert 0.12 <= carrier.width <= 0.35
@@ -400,10 +428,46 @@ def _assert_hashed_connector_quality(ops: list, connector_id: str, label_id: str
 	)
 	assert nearest <= (0.12 * connector_length)
 	assert farthest >= (0.85 * connector_length)
-	label_box = _label_bbox(_text_by_id(ops, label_id))
-	assert not _line_penetrates_label_interior(carrier, label_box)
+	label = _text_by_id(ops, label_id)
+	label_box = _label_bbox(label)
+	allowed_target = _allowed_attach_target_for_connector(label, connector_id)
+	if allowed_target is None:
+		assert not _line_penetrates_label_interior(carrier, label_box)
+	else:
+		full_target = render_geometry.label_target_from_text_origin(
+			text_x=label.x,
+			text_y=label.y,
+			text=label.text,
+			anchor=label.anchor,
+			font_size=label.font_size,
+		)
+		assert render_geometry.validate_attachment_paint(
+			line_start=carrier.p1,
+			line_end=carrier.p2,
+			line_width=carrier.width,
+			forbidden_regions=[full_target],
+			allowed_regions=[allowed_target],
+			epsilon=0.5,
+		)
 	for hatch in hatches:
-		assert not _line_penetrates_label_interior(hatch, label_box)
+		if allowed_target is None:
+			assert not _line_penetrates_label_interior(hatch, label_box)
+		else:
+			full_target = render_geometry.label_target_from_text_origin(
+				text_x=label.x,
+				text_y=label.y,
+				text=label.text,
+				anchor=label.anchor,
+				font_size=label.font_size,
+			)
+			assert render_geometry.validate_attachment_paint(
+				line_start=hatch.p1,
+				line_end=hatch.p2,
+				line_width=hatch.width,
+				forbidden_regions=[full_target],
+				allowed_regions=[allowed_target],
+				epsilon=0.5,
+			)
 
 
 #============================================
@@ -440,6 +504,44 @@ def _oxygen_attach_bbox_for_hydroxyl_label(label: render_ops.TextOp) -> tuple[fl
 		font_size=label.font_size,
 		attach_atom=attach_mode,
 	).box
+
+
+#============================================
+def _assert_connector_endpoint_on_attach_element(
+		ops: list,
+		label_id: str,
+		connector_id: str,
+		attach_element: str) -> None:
+	label = _text_by_id(ops, label_id)
+	connector = _line_by_id(ops, connector_id)
+	attach_target = render_geometry.label_attach_target_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		attach_atom="first",
+		attach_element=attach_element,
+	)
+	assert _point_in_box(connector.p2, attach_target.box), (
+		f"{connector_id} endpoint {connector.p2} not inside {label_id} "
+		f"{attach_element}-target {attach_target.box}"
+	)
+	full_target = render_geometry.label_target_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+	)
+	assert render_geometry.validate_attachment_paint(
+		line_start=connector.p1,
+		line_end=connector.p2,
+		line_width=connector.width,
+		forbidden_regions=[full_target],
+		allowed_regions=[attach_target],
+		epsilon=0.5,
+	)
 
 
 #============================================
@@ -686,6 +788,36 @@ def test_render_erythrose_furanose():
 
 
 #============================================
+def test_render_ribose_furanose_alpha_c4_up_connector_attaches_to_carbon_core():
+	_, ops = _render("ARRDM", "furanose", "alpha", show_hydrogens=False)
+	_assert_connector_endpoint_on_attach_element(
+		ops,
+		label_id="C4_up_label",
+		connector_id="C4_up_connector",
+		attach_element="C",
+	)
+
+
+#============================================
+@pytest.mark.parametrize("code", ("ARLLDM", "ARRLDM"))
+def test_render_furanose_left_tail_chain2_connector_stays_on_carbon_token(code):
+	_, ops = _render(code, "furanose", "alpha", show_hydrogens=False)
+	_assert_connector_endpoint_on_attach_element(
+		ops,
+		label_id="C4_down_chain2_label",
+		connector_id="C4_down_chain2_connector",
+		attach_element="C",
+	)
+
+
+#============================================
+@pytest.mark.parametrize("code", ("ALRRLd", "ARRLLd"))
+def test_render_deoxy_terminal_methyl_uses_subscript_markup(code):
+	_, ops = _render(code, "pyranose", "alpha", show_hydrogens=False)
+	assert _text_by_id(ops, "C5_down_label").text == "CH<sub>3</sub>"
+
+
+#============================================
 def test_render_front_edge_stable():
 	_, ops = _render("ARLRDM", "pyranose", "alpha", bond_length=40.0)
 	front = _polygon_by_id(ops, f"ring_edge_{haworth_renderer.PYRANOSE_FRONT_EDGE_INDEX}")
@@ -925,7 +1057,23 @@ def test_allose_furanose_alpha_branch_hydroxyl_uses_directional_side_edge_attach
 	assert label.text in ("OH", "HO")
 	attach_bbox = _oxygen_attach_bbox_for_hydroxyl_label(label)
 	_assert_endpoint_matches_directional_attach_edge(line, attach_bbox)
-	assert not _line_penetrates_label_interior(line, _label_bbox(label))
+	full_target = render_geometry.label_target_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+	)
+	allowed_target = _allowed_attach_target_for_connector(label, "C4_up_chain1_oh_connector")
+	assert allowed_target is not None
+	assert render_geometry.validate_attachment_paint(
+		line_start=line.p1,
+		line_end=line.p2,
+		line_width=line.width,
+		forbidden_regions=[full_target],
+		allowed_regions=[allowed_target],
+		epsilon=0.5,
+	)
 
 
 #============================================

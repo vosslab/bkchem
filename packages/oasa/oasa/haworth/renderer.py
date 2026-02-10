@@ -29,6 +29,7 @@ FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR,
 # Use a tight epsilon for retreat binary-search convergence. The strict
 # overlap acceptance gate remains 0.5 px in validate_attachment_paint.
 RETREAT_SOLVER_EPSILON = 1e-3
+STRICT_OVERLAP_EPSILON = 0.5
 
 
 #============================================
@@ -90,6 +91,10 @@ def render(
 	o_index = ring_cfg["oxygen_index"]
 
 	coords = _ring_template(ring_size, bond_length=bond_length)
+	ring_center = (
+		sum(point[0] for point in coords) / float(len(coords)),
+		sum(point[1] for point in coords) / float(len(coords)),
+	)
 	ops = []
 	front_thickness = bond_length * 0.15
 	back_thickness = bond_length * 0.04
@@ -282,6 +287,7 @@ def render(
 					slot=slot,
 					direction=direction,
 					vertex=vertex,
+					ring_center=ring_center,
 					dx=dx,
 					dy=dy,
 					segment_length=effective_length,
@@ -423,6 +429,7 @@ def _add_simple_label_ops(
 	"""Add one connector line + one label."""
 	end_point = (vertex[0] + dx * length, vertex[1] + dy * length)
 	text = _text.format_label_text(label, anchor=anchor)
+	is_chain_like_label = _text.is_chain_like_label(str(label))
 	anchor_x = _text.anchor_x_offset(text, anchor, font_size)
 	text_x = end_point[0] + anchor_x
 	text_y = end_point[1] + _text.baseline_shift(direction, font_size, text)
@@ -508,6 +515,7 @@ def _add_simple_label_ops(
 				anchor=anchor,
 				font_size=draw_font_size,
 				attach_atom=attach_mode,
+				attach_element="C" if is_chain_like_label else None,
 				font_name=font_name,
 			)
 	if is_hydroxyl_label and oxygen_center is not None and connector_end is not None:
@@ -754,6 +762,7 @@ def _add_furanose_two_carbon_tail_ops(
 		slot: str,
 		direction: str,
 		vertex: tuple[float, float],
+		ring_center: tuple[float, float],
 		dx: float,
 		dy: float,
 		segment_length: float,
@@ -764,6 +773,7 @@ def _add_furanose_two_carbon_tail_ops(
 		line_color: str,
 		label_color: str) -> None:
 	"""Render CH(OH)CH2OH as a branched furanose sidechain."""
+	del slot
 	branch_point = (vertex[0] + dx * segment_length, vertex[1] + dy * segment_length)
 	ops.append(
 		render_ops.LineOp(
@@ -776,16 +786,22 @@ def _add_furanose_two_carbon_tail_ops(
 			op_id=f"C{carbon}_{direction}_chain1_connector",
 		)
 	)
-	template = _furanose_two_carbon_tail_template(slot=slot, direction=direction)
-	ho_dx, ho_dy = _geom.normalize_vector(template["ho_vector"][0], template["ho_vector"][1])
-	ch2_dx, ch2_dy = _geom.normalize_vector(template["ch2_vector"][0], template["ch2_vector"][1])
-	ho_length = segment_length * template["ho_length_factor"]
-	ch2_length = segment_length * template["ch2_length_factor"]
-	ho_anchor = template["ho_anchor"]
-	ch2_anchor = template["ch2_anchor"]
-	ho_direction = template["ho_text_direction"]
-	ch2_direction = template["ch2_text_direction"]
-	ch2_canonical_text = bool(template.get("ch2_canonical_text", False))
+	tail_profile = _furanose_two_carbon_tail_profile(
+		direction=direction,
+		vertex=vertex,
+		ring_center=ring_center,
+		dx=dx,
+		dy=dy,
+	)
+	ho_dx, ho_dy = tail_profile["ho_vector"]
+	ch2_dx, ch2_dy = tail_profile["ch2_vector"]
+	ho_length = segment_length * tail_profile["ho_length_factor"]
+	ch2_length = segment_length * tail_profile["ch2_length_factor"]
+	ho_anchor = tail_profile["ho_anchor"]
+	ch2_anchor = tail_profile["ch2_anchor"]
+	ho_direction = tail_profile["ho_text_direction"]
+	ch2_direction = tail_profile["ch2_text_direction"]
+	ch2_canonical_text = bool(tail_profile.get("ch2_canonical_text", False))
 	ho_end = (
 		branch_point[0] + (ho_dx * ho_length),
 		branch_point[1] + (ho_dy * ho_length),
@@ -832,7 +848,8 @@ def _add_furanose_two_carbon_tail_ops(
 		line_end=ho_connector_end,
 		line_width=connector_width,
 		forbidden_regions=[ho_label_target],
-		epsilon=RETREAT_SOLVER_EPSILON,
+		allowed_regions=[ho_attach_target],
+		epsilon=STRICT_OVERLAP_EPSILON,
 	)
 	ch2_attach_target = _render_geometry.label_attach_target_from_text_origin(
 		text_x=ch2_x,
@@ -863,7 +880,8 @@ def _add_furanose_two_carbon_tail_ops(
 		line_end=ch2_connector_end,
 		line_width=connector_width,
 		forbidden_regions=[ch2_label_target],
-		epsilon=RETREAT_SOLVER_EPSILON,
+		allowed_regions=[ch2_attach_target],
+		epsilon=STRICT_OVERLAP_EPSILON,
 	)
 	_append_branch_connector_ops(
 		ops=ops,
@@ -873,7 +891,7 @@ def _add_furanose_two_carbon_tail_ops(
 		font_size=font_size,
 		color=line_color,
 		op_id=f"C{carbon}_{direction}_chain2_connector",
-		style="hashed" if template["hashed_branch"] == "ch2" else "solid",
+		style="hashed" if tail_profile["hashed_branch"] == "ch2" else "solid",
 	)
 	_append_branch_connector_ops(
 		ops=ops,
@@ -883,7 +901,7 @@ def _add_furanose_two_carbon_tail_ops(
 		font_size=font_size,
 		color=line_color,
 		op_id=f"C{carbon}_{direction}_chain1_oh_connector",
-		style="hashed" if template["hashed_branch"] == "ho" else "solid",
+		style="hashed" if tail_profile["hashed_branch"] == "ho" else "solid",
 	)
 	ops.append(
 		render_ops.TextOp(
@@ -916,40 +934,64 @@ def _add_furanose_two_carbon_tail_ops(
 
 
 #============================================
-def _furanose_two_carbon_tail_template(slot: str, direction: str) -> dict:
-	"""Return deterministic branch geometry/text placement for one two-carbon tail."""
-	left_template = {
-		"ho_vector": (-1.0, -0.55),
-		"ch2_vector": (-1.0, 0.72),
-		"ho_length_factor": 0.78,
-		"ch2_length_factor": 0.95,
-		"ho_anchor": "end",
-		"ch2_anchor": "end",
-		"ho_text_direction": "up",
-		"ch2_text_direction": "down",
-		"hashed_branch": "ho",
-	}
-	right_template = {
-		"ho_vector": (-1.0, -0.50),
-		"ch2_vector": (1.0, -0.95),
-		"ho_length_factor": 0.72,
-		"ch2_length_factor": 1.08,
-		"ho_anchor": "end",
-		"ch2_anchor": "start",
-		"ho_text_direction": "up",
-		"ch2_text_direction": "up",
-		"ch2_canonical_text": True,
-		"hashed_branch": "ch2",
-	}
-	if slot == "ML":
-		if direction == "up":
-			return right_template
-		if direction == "down":
-			return left_template
-	if slot == "MR":
-		# Right-side two-carbon tails keep canonical right-branch template.
-		return right_template
-	raise ValueError(f"Unsupported furanose two-carbon-tail slot/direction: {slot}/{direction}")
+def _furanose_two_carbon_tail_profile(
+		direction: str,
+		vertex: tuple[float, float],
+		ring_center: tuple[float, float],
+		dx: float,
+		dy: float) -> dict:
+	"""Build branched-tail geometry from one ring-local frame and face rule."""
+	if direction not in ("up", "down"):
+		raise ValueError(f"Unsupported two-carbon-tail direction: {direction!r}")
+	trunk_dx, trunk_dy = _geom.normalize_vector(dx, dy)
+	if abs(trunk_dx) <= 1e-9 and abs(trunk_dy) <= 1e-9:
+		center_dx = vertex[0] - ring_center[0]
+		center_dy = vertex[1] - ring_center[1]
+		trunk_dx, trunk_dy = _geom.normalize_vector(center_dx, center_dy)
+	tangent_dx, tangent_dy = (-trunk_dy, trunk_dx)
+	# Stereochemical face rule for two-carbon tails:
+	# "up" face keeps CH2 branch on the positive tangent side and hashes CH2;
+	# "down" face keeps both branches on the negative x-facing side and hashes HO.
+	if direction == "up":
+		ho_tangent = -1.0
+		ho_trunk = 0.50
+		ch2_tangent = 1.0
+		ch2_trunk = 0.95
+		profile = {
+			"ho_length_factor": 0.72,
+			"ch2_length_factor": 1.08,
+			"ho_anchor": "end",
+			"ch2_anchor": "start",
+			"ho_text_direction": "up",
+			"ch2_text_direction": "up",
+			"ch2_canonical_text": True,
+			"hashed_branch": "ch2",
+		}
+	else:
+		ho_tangent = 1.0
+		ho_trunk = -0.55
+		ch2_tangent = 1.0
+		ch2_trunk = 0.72
+		profile = {
+			"ho_length_factor": 0.78,
+			"ch2_length_factor": 0.95,
+			"ho_anchor": "end",
+			"ch2_anchor": "end",
+			"ho_text_direction": "up",
+			"ch2_text_direction": "down",
+			"hashed_branch": "ho",
+		}
+	ho_vector = _geom.normalize_vector(
+		(ho_tangent * tangent_dx) + (ho_trunk * trunk_dx),
+		(ho_tangent * tangent_dy) + (ho_trunk * trunk_dy),
+	)
+	ch2_vector = _geom.normalize_vector(
+		(ch2_tangent * tangent_dx) + (ch2_trunk * trunk_dx),
+		(ch2_tangent * tangent_dy) + (ch2_trunk * trunk_dy),
+	)
+	profile["ho_vector"] = ho_vector
+	profile["ch2_vector"] = ch2_vector
+	return profile
 
 
 #============================================

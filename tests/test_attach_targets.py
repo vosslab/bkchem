@@ -198,6 +198,38 @@ def test_label_attach_selector_precedence_uses_element_before_attach_atom():
 
 
 #============================================
+@pytest.mark.parametrize("text", ("CH2OH", "HOH2C"))
+def test_label_attach_element_targets_core_span_not_decorated_span(text):
+	core_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		text,
+		"start",
+		16.0,
+		attach_atom="first",
+		attach_element="C",
+	).box
+	decorated_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		text,
+		"start",
+		16.0,
+		attach_atom="first",
+	).box
+	core_width = core_target[2] - core_target[0]
+	decorated_width = decorated_target[2] - decorated_target[0]
+	if text == "CH2OH":
+		assert core_width < decorated_width
+		assert core_target[0] == pytest.approx(decorated_target[0])
+		assert core_target[2] < decorated_target[2]
+	else:
+		assert core_width == pytest.approx(decorated_width)
+		assert core_target[0] > decorated_target[0]
+		assert core_target[2] > decorated_target[2]
+
+
+#============================================
 def test_label_attach_invalid_attach_atom_raises_even_with_attach_element():
 	with pytest.raises(ValueError, match=r"Invalid attach_atom value: 'frist'"):
 		render_geometry.label_attach_target(

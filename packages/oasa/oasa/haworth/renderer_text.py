@@ -87,10 +87,13 @@ def format_chain_label_text(label: str, anchor: str = "middle") -> str:
 
 #============================================
 def apply_subscript_markup(text: str) -> str:
-	"""Apply subscript markup for compact numeric label fragments."""
-	text = text.replace("CH2OH", "CH<sub>2</sub>OH")
-	text = text.replace("HOH2C", "HOH<sub>2</sub>C")
-	return text
+	"""Apply numeric subscripts in compact molecular-fragment labels."""
+	value = str(text or "")
+	# Keep existing preformatted markup stable.
+	if "<sub>" in value:
+		return value
+	# Subscript numeric runs that follow element/fragment characters.
+	return re.sub(r"(?<=[A-Za-z\)])(\d+)", r"<sub>\1</sub>", value)
 
 
 #============================================

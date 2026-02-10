@@ -534,33 +534,12 @@ def _label_text_origin(x, y, anchor, font_size, text_len):
 
 #============================================
 def _tokenized_atom_spans(text):
-	visible_text = _visible_label_text(text)
-	spans = []
-	i = 0
-	length = len(visible_text)
-	while i < length:
-		char = visible_text[i]
-		if not char.isalpha() or not char.isupper():
-			i += 1
-			continue
-		start = i
-		i += 1
-		if i < length and visible_text[i].islower():
-			i += 1
-		symbol = visible_text[start:i]
-		# Treat condensed hydrogens as decorations attached to the previous
-		# heavy atom token so CH2OH yields token spans for C and OH.
-		if symbol != "H":
-			if i < length and visible_text[i] == "H":
-				i += 1
-				while i < length and visible_text[i].isdigit():
-					i += 1
-		while i < length and visible_text[i].isdigit():
-			i += 1
-		while i < length and visible_text[i] in "+-":
-			i += 1
-		spans.append((start, i))
-	return spans
+	"""Return decorated token spans for visible label text.
+
+	Decorated spans include compact hydrogen/count suffixes (for example `CH2`)
+	so existing first/last-token attachment behavior remains stable.
+	"""
+	return [entry["decorated_span"] for entry in _tokenized_atom_entries(text)]
 
 
 #============================================
@@ -649,7 +628,7 @@ def _label_attach_box_coords(
 		raise ValueError(f"Invalid attach_atom value: {attach_atom!r}")
 	full_bbox = _label_box_coords(x, y, text, anchor, font_size, font_name=font_name)
 	entries = _tokenized_atom_entries(text)
-	spans = [entry["span"] for entry in entries]
+	spans = [entry["decorated_span"] for entry in entries]
 	if len(spans) <= 1:
 		return full_bbox
 	selected_span = None
@@ -657,7 +636,9 @@ def _label_attach_box_coords(
 		if not isinstance(attach_element, str) or not attach_element.strip():
 			raise ValueError(f"Invalid attach_element value: {attach_element!r}")
 		normalized = _normalize_element_symbol(attach_element)
-		matched = [entry["span"] for entry in entries if entry["symbol"] == normalized]
+		# Formula-aware attachment: attach_element resolves to the core element
+		# glyph span (for example just "C" in CH2OH), not the decorated token.
+		matched = [entry["core_span"] for entry in entries if entry["symbol"] == normalized]
 		if matched:
 			if attach_atom == "last":
 				selected_span = matched[-1]
@@ -715,20 +696,54 @@ def _normalize_element_symbol(symbol: str) -> str:
 
 #============================================
 def _tokenized_atom_entries(text):
-	"""Return atom token entries with symbol and span information."""
+	"""Return atom token entries with core/decorated span information.
+
+	Each entry exposes:
+	- `core_span`: element-symbol-only span (for example `C` in `CH2`)
+	- `decorated_span`: element plus compact suffix decoration span
+	  (for example `CH2`)
+	"""
 	visible_text = _visible_label_text(text)
 	entries = []
-	for start_index, end_index in _tokenized_atom_spans(text):
-		token = visible_text[start_index:end_index]
-		match = re.match(r"([A-Z][a-z]?)", token)
-		if not match:
+	length = len(visible_text)
+	index = 0
+	while index < length:
+		char = visible_text[index]
+		if not char.isupper():
+			index += 1
 			continue
+		core_start = index
+		index += 1
+		if index < length and visible_text[index].islower():
+			index += 1
+		core_end = index
+		symbol = visible_text[core_start:core_end]
+		decorated_end = core_end
+		# Optional atom count directly after the symbol, e.g. O3.
+		while decorated_end < length and visible_text[decorated_end].isdigit():
+			decorated_end += 1
+		has_explicit_count = decorated_end > core_end
+		# Condensed hydrogens belong to the decorated token unless this atom
+		# already had an explicit numeric count (e.g. O3H should tokenize as O3 + H).
+		if symbol != "H" and not has_explicit_count and decorated_end < length and visible_text[decorated_end] == "H":
+			decorated_end += 1
+			while decorated_end < length and visible_text[decorated_end].isdigit():
+				decorated_end += 1
+		# Optional trailing charge on terminal tokens, e.g. NH3+.
+		if decorated_end < length and visible_text[decorated_end] in "+-":
+			charge_end = decorated_end + 1
+			while charge_end < length and visible_text[charge_end].isdigit():
+				charge_end += 1
+			if charge_end == length:
+				decorated_end = charge_end
 		entries.append(
 			{
-				"symbol": match.group(1),
-				"span": (start_index, end_index),
+				"symbol": symbol,
+				"core_span": (core_start, core_end),
+				"decorated_span": (core_start, decorated_end),
 			}
 		)
+		index = max(index, decorated_end)
 	return entries
 
 

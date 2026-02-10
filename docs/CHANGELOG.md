@@ -1,6 +1,12 @@
 # Changelog
 
 ## 2026-02-10
+- Add active plan
+  [docs/active_plans/HAWORTH_EXPLICIT_HYDROGEN_PLAN.md](docs/active_plans/HAWORTH_EXPLICIT_HYDROGEN_PLAN.md)
+  defining a no-hack explicit-hydrogen upgrade path for Haworth rendering:
+  standalone `H` labels get a smaller gray visual style while connector
+  endpoint legality remains on shared attach-target architecture, with explicit
+  unit/smoke/regression gates and rollout documentation requirements.
 - Remove dormant, unregistered mode implementations from
   [packages/bkchem/bkchem/modes.py](packages/bkchem/bkchem/modes.py):
   `reaction_mode`, `external_data_mode`, and `rapid_draw_mode`; also remove
@@ -39,6 +45,31 @@
   (`84 passed`) and
   `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/test_haworth_renderer.py -q`
   (`90 passed`).
+- Tighten formula-aware label targeting and Haworth branch attachment behavior:
+  in [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  add core-vs-decorated token spans so `attach_element` resolves to the core
+  element glyph span (for example `C` in `CH2OH`) while preserving decorated
+  first/last token fallback; in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  apply allowed-region retreat carve-outs for two-carbon-tail `OH`/`CH2OH`
+  connectors and replace template-locked branch vectors with one
+  ring-frame/face profile builder; in
+  [packages/oasa/oasa/haworth/renderer_text.py](packages/oasa/oasa/haworth/renderer_text.py)
+  generalize numeric subscripting so `CH3 -> CH<sub>3</sub>`.
+- Add regression coverage for carbon-core attach targeting and methyl subscript
+  rendering in
+  [tests/test_attach_targets.py](tests/test_attach_targets.py),
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py), and
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py),
+  including matrix-level CH3 and chain2-token endpoint assertions.
+- Validation reruns for this change set:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/test_attach_targets.py -q`
+  (`21 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/test_haworth_renderer.py -q`
+  (`95 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/smoke/test_haworth_renderer_smoke.py -q`
+  (`86 passed`).
 - Harden render-pipeline parity tests against operation-order nondeterminism by
   canonicalizing payload comparisons in
   [tests/test_phase_c_render_pipeline.py](tests/test_phase_c_render_pipeline.py)

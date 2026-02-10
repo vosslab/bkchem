@@ -462,7 +462,13 @@ def _assert_no_bond_label_overlap(ops: list, context: str) -> None:
 		for line in lines:
 			line_id = line.op_id or "<no-line-id>"
 			label_name = label_id or "<no-label-id>"
-			if own_connector_id and line.op_id == own_connector_id:
+			is_own_connector = bool(own_connector_id and line.op_id == own_connector_id)
+			is_own_hatch = bool(
+				own_connector_id
+				and line.op_id
+				and line.op_id.startswith(f"{own_connector_id}_hatch")
+			)
+			if is_own_connector or is_own_hatch:
 				if _is_hydroxyl_label(label.text):
 					if _line_overlaps_label_interior(line, label_box):
 						non_oxygen_overlap = _own_hydroxyl_connector_overlaps_non_oxygen_area(
@@ -470,12 +476,13 @@ def _assert_no_bond_label_overlap(ops: list, context: str) -> None:
 							label,
 							label_target,
 						)
-						raise AssertionError(
-							(
-								f"Bond/label overlap in {context}: line={line_id} "
-								f"label={label_name} own_hydroxyl_non_oxygen={int(non_oxygen_overlap)}"
+						if non_oxygen_overlap:
+							raise AssertionError(
+								(
+									f"Bond/label overlap in {context}: line={line_id} "
+									f"label={label_name} own_hydroxyl_non_oxygen={int(non_oxygen_overlap)}"
+								)
 							)
-						)
 					continue
 				own_attach_target = _connector_target_for_label(label)
 				if own_attach_target is None:
@@ -631,6 +638,54 @@ def test_furanose_left_two_carbon_tail_parity_smoke(code):
 	assert ch2_branch.p2[0] < ch2_branch.p1[0]
 	assert ho_branch.p2[1] < ho_branch.p1[1]
 	assert ch2_branch.p2[1] > ch2_branch.p1[1]
+
+
+#============================================
+def test_archive_matrix_ch3_labels_are_subscripted():
+	"""Ensure no generated Haworth label emits plain CH3 text."""
+	for code, ring_type, anomeric, _filename, _name in all_mappable_entries():
+		ops = _build_ops(code, ring_type, anomeric, show_hydrogens=False)
+		plain_ch3 = [
+			op.op_id for op in ops
+			if isinstance(op, render_ops.TextOp) and op.text == "CH3"
+		]
+		assert not plain_ch3, (
+			f"Plain CH3 label(s) found in {code}_{ring_type}_{anomeric}: {plain_ch3}"
+		)
+
+
+#============================================
+def test_archive_matrix_chain2_connectors_end_on_selected_carbon_token():
+	"""Ensure CH2OH/HOH2C chain2 connectors terminate on attach_element C target."""
+	for code, ring_type, anomeric, _filename, _name in all_mappable_entries():
+		ops = _build_ops(code, ring_type, anomeric, show_hydrogens=False)
+		line_by_id = {
+			op.op_id: op
+			for op in ops
+			if isinstance(op, render_ops.LineOp) and op.op_id
+		}
+		for label in [op for op in ops if isinstance(op, render_ops.TextOp)]:
+			label_id = label.op_id or ""
+			if not label_id.endswith("_chain2_label"):
+				continue
+			connector_id = label_id.replace("_label", "_connector")
+			connector = line_by_id.get(connector_id)
+			assert connector is not None, (
+				f"Missing connector {connector_id} for {code}_{ring_type}_{anomeric}"
+			)
+			attach_target = render_geometry.label_attach_target_from_text_origin(
+				text_x=label.x,
+				text_y=label.y,
+				text=label.text,
+				anchor=label.anchor,
+				font_size=label.font_size,
+				attach_atom="first",
+				attach_element="C",
+			)
+			assert _point_in_box(connector.p2, attach_target.box), (
+				f"{code}_{ring_type}_{anomeric} {connector_id} endpoint {connector.p2} "
+				f"outside C-target {attach_target.box}"
+			)
 
 
 #============================================
