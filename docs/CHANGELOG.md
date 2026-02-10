@@ -1,6 +1,25 @@
 # Changelog
 
 ## 2026-02-10
+- Refine formula-aware carbon attach targeting in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  so core-token span projection follows rendered Haworth glyph spacing
+  (`0.60 * font_size`) and carbon center alignment (`0.24 * font_size`),
+  improving CH2OH/HOH2C connector centering for furanose sidechain labels.
+- Update attach-target regression expectation in
+  [tests/test_attach_targets.py](tests/test_attach_targets.py) to assert the
+  core-span contract (core C target is narrower and right-bounded inside the
+  decorated span) after the carbon-center alignment fix.
+- Validation reruns for this adjustment:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/test_attach_targets.py -q`
+  (`21 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/test_haworth_renderer.py -q`
+  (`97 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/smoke/test_haworth_renderer_smoke.py -q`
+  (`86 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (strict checks enabled; regenerated matrix summaries with `Missing generated: 0`).
 - Adjust methyl readability policy in
   [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
   midpoint methyl labels now prefer `CH<sub>3</sub>` at 90% font size

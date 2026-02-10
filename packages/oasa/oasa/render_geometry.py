@@ -548,7 +548,9 @@ def _core_element_span_box(
 	# same center factor as Haworth text anchoring so C-target connectors land
 	# on the carbon glyph, not on CH boundary whitespace.
 	if symbol == "C":
-		center_x = (span_x1 + span_x2) * 0.5
+		# Haworth text shaping places the visual center of "C" left of the full
+		# glyph cell midpoint; keep connector targeting aligned to that center.
+		center_x = span_x1 + (font_size * 0.24)
 		half_width = max(font_size * 0.24, glyph_char_width * 0.40)
 	else:
 		center_x = (span_x1 + span_x2) * 0.5
@@ -680,9 +682,10 @@ def _label_attach_box_coords(
 	if visible_len <= 1:
 		return full_bbox
 	x1, y1, x2, y2 = full_bbox
-	# Keep attach-span projection on the same horizontal width model used by
-	# label boxes so element targets do not drift right relative to rendered text.
-	glyph_char_width = font_size * 0.75
+	# Project attach-token spans with the same per-glyph width model used by
+	# rendered Haworth text so C-target endpoints land on the carbon glyph
+	# center (not between adjacent CH characters).
+	glyph_char_width = font_size * 0.60
 	glyph_width = glyph_char_width * float(visible_len)
 	text_x, _text_y = _label_text_origin(x, y, anchor, font_size, visible_len)
 	if anchor == "start":

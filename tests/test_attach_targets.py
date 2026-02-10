@@ -221,8 +221,9 @@ def test_label_attach_element_targets_core_span_not_decorated_span(text):
 	decorated_width = decorated_target[2] - decorated_target[0]
 	if text == "CH2OH":
 		assert core_width < decorated_width
-		assert core_target[0] > decorated_target[0]
+		assert core_target[0] >= decorated_target[0]
 		assert core_target[2] <= decorated_target[2]
+		assert core_target[2] < decorated_target[2]
 	else:
 		assert core_width > 0.0
 		assert core_target[0] > decorated_target[2]
