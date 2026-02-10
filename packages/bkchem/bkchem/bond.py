@@ -30,10 +30,12 @@ from oasa import wedge_geometry
 from warnings import warn
 
 import misc
-import dom_extensions
 
-from singleton_store import Store, Screen
+from singleton_store import Screen
 from parents import meta_enabled, line_colored, drawable, with_line, interactive, child_with_paper
+from bkchem.bond_cdml import BondCDMLMixin
+from bkchem.bond_display import BondDisplayMixin
+from bkchem.bond_drawing import BondDrawingMixin
 
 
 ### NOTE: now that all classes are children of meta_enabled, so the read_standard_values method
@@ -41,7 +43,18 @@ from parents import meta_enabled, line_colored, drawable, with_line, interactive
 ### not set in __init__ itself
 
 
-class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_with_paper, oasa.bond):
+class bond(
+  BondDrawingMixin,
+  BondDisplayMixin,
+  BondCDMLMixin,
+  meta_enabled,
+  line_colored,
+  drawable,
+  with_line,
+  interactive,
+  child_with_paper,
+  oasa.bond,
+):
   # note that all children of simple_parent have default meta infos set
   # therefore it is not necessary to provide them for all new classes if they
   # don't differ
@@ -326,33 +339,6 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
 
   # THE DRAW HELPER METHODS
-  def _where_to_draw_from_and_to( self):
-    x1, y1 = self.atom1.get_xy_on_paper()
-    x2, y2 = self.atom2.get_xy_on_paper()
-    bbox1 = list( misc.normalize_coords( self.atom1.bbox( substract_font_descent=True)))
-    bbox2 = list( misc.normalize_coords( self.atom2.bbox( substract_font_descent=True)))
-    if geometry.do_rectangles_intersect( bbox1, bbox2):
-      return None
-    # Resolve clipping against shared target primitives instead of ad-hoc rect math.
-    if self.atom1.show:
-      x1, y1 = render_geometry.resolve_attach_endpoint(
-        bond_start=(x2, y2),
-        target=render_geometry.make_box_target( tuple( bbox1)),
-        interior_hint=(x1, y1),
-        constraints=render_geometry.AttachConstraints( direction_policy="line"),
-      )
-    if self.atom2.show:
-      x2, y2 = render_geometry.resolve_attach_endpoint(
-        bond_start=(x1, y1),
-        target=render_geometry.make_box_target( tuple( bbox2)),
-        interior_hint=(x2, y2),
-        constraints=render_geometry.AttachConstraints( direction_policy="line"),
-      )
-
-    if geometry.point_distance( x1, y1, x2, y2) <= 1.0:
-      return None
-    else:
-      return (x1, y1, x2, y2)
 
   def _polygon_bond_mask( self, thickness1=-1, thickness2=-1):
     """Returns a polygon as x,y coords list which represents a filled bond from atom1 to 2.
@@ -1348,260 +1334,6 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
 
   ## // DRAW HELPER METHODS
-  def redraw( self, recalc_side=0):
-    if not self.__dirty:
-      pass
-      #print("redrawing non-dirty bond")
-    if self.item:
-      self.delete()
-    self.draw( automatic=recalc_side and "both" or "none")
-    # redraw selection attribute
-    if self._selected:
-      self.select()
-    self.__dirty = 0
-
-
-  def simple_redraw( self):
-    """very fast redraw that draws only a simple line instead of the bond,
-    used in 3d rotation only (as for BKChem 0.5.0)"""
-    [self.paper.delete( i) for i in self.second]
-    self.second = []
-    [self.paper.delete( i) for i in self.third]
-    self.third = []
-    if self.items:
-      list(map( self.paper.delete, self.items))
-      self.items = []
-    x1, y1 = self.atom1.get_xy()
-    x2, y2 = self.atom2.get_xy()
-    x1, y1, x2, y2 = list(map( round, [x1, y1, x2, y2]))
-    if self.item and not self.paper.type( self.item) == "line":
-      self.paper.unregister_id( self.item)
-      self.paper.delete( self.item)
-      self.item = None
-    if not self.item:
-      # the bond might not be drawn because it was too short
-      self.item = self.paper.create_line( (x1,y1,x2,y2))
-      self.paper.register_id( self.item, self)
-    else:
-      self.paper.coords( self.item, x1, y1, x2, y2)
-    self.paper.itemconfig( self.item, width = self.line_width, fill=self.line_color)
-
-  def visible_items(self):
-    """Returns a list of the items displayed by this bond.
-        Used by focus to modify the attributes of the items."""
-    # self.item is visible only in specific cases
-    items = []
-    if self.order in (1,3):
-      if self.type in 'nwba':
-        items = [self.item]
-    elif self.order == 2:
-      if not self.type == 'h' and not self.center:
-        items = [self.item]
-
-    # other items are always visible when defined
-    if self.second:
-      items += self.second
-    if self.third:
-      items += self.third
-    if self.items:
-      items += self.items
-
-    return items
-
-  def focus( self):
-    items = self.visible_items()
-
-    if self.type in 'nahd':
-      [self.paper.itemconfig( item, fill=self.paper.highlight_color, width = self.line_width+1) for item in items]
-    elif self.type == 'o':
-      [self.paper.itemconfig( item, fill=self.paper.highlight_color, outline=self.paper.highlight_color) for item in items]
-    elif self.type in 'wb':
-      [self.paper.itemconfigure( item, fill=self.paper.highlight_color) for item in items]
-
-  def unfocus( self):
-    items = self.visible_items()
-
-    if self.type in 'nahd':
-      [self.paper.itemconfig( item, fill=self.line_color, width = self.line_width) for item in items]
-    elif self.type == 'o':
-      [self.paper.itemconfig( item, fill=self.line_color, outline=self.line_color) for item in items]
-    elif self.type in 'wb':
-      [self.paper.itemconfigure( item, fill=self.line_color) for item in items]
-
-  def select( self):
-    x1, y1 = self.atom1.get_xy_on_paper()
-    x2, y2 = self.atom2.get_xy_on_paper()
-    x = ( x1 + x2) / 2
-    y = ( y1 + y2) / 2
-    if self.selector:
-      self.paper.coords( self.selector, x-2, y-2, x+2, y+2)
-    else:
-      self.selector = self.paper.create_rectangle( x-2, y-2, x+2, y+2, outline=Store.app.paper.highlight_color)
-    #It's not clear why, but when redrawing everything this line hides the selector.
-    #self.paper.lower( self.selector)
-    self._selected = 1
-
-  def unselect( self):
-    self.paper.delete( self.selector)
-    self.selector = None
-    self._selected = 0
-
-
-  def move( self, dx, dy, use_paper_coords=False):
-    """moves object with his selector (when present)"""
-    if not use_paper_coords:
-      dx = self.paper.real_to_canvas(dx)
-      dy = self.paper.real_to_canvas(dy)
-    items = [i for i in ([self.item] + self.second + self.third + self.items)
-                 if i]
-    if self.selector:
-      items.append( self.selector)
-    [self.paper.move( o, dx, dy) for o in items]
-
-
-  def delete( self):
-    items = [self.item] + self.second + self.third + self.items
-    if self.selector:
-      items += [self.selector]
-      self.selector = None
-    if self.item:
-      self.paper.unregister_id( self.item)
-    self.item = None
-    self.second = []
-    self.third = []
-    self.items = []
-    list(map( self.paper.delete, items))
-    return self
-
-
-  def read_package( self, package):
-    """reads the dom element package and sets internal state according to it"""
-    b = ['no', 'yes']
-    type = package.getAttribute( 'type')
-    if type:
-      type_char = type[0]
-      normalized, legacy = oasa.bond_semantics.normalize_bond_type_char( type_char)
-      self.type = normalized or 'n'
-      self.order = int( type[1])
-      if legacy:
-        self.properties_[ 'legacy_bond_type'] = legacy
-    else:
-      self.type = 'n'
-      self.order = 1
-    self.id = package.getAttribute( 'id')
-    # implied
-    if package.getAttribute( 'bond_width'):
-      self.bond_width = float( package.getAttribute( 'bond_width')) * self.paper.real_to_screen_ratio()
-    #else:
-    #  self.bond_width = None
-    if package.getAttribute( 'line_width'):
-      self.line_width = float( package.getAttribute( 'line_width'))
-    if package.getAttribute( 'wedge_width'):
-      self.wedge_width = float( package.getAttribute( 'wedge_width'))
-    if package.getAttribute( 'center'):
-      self.center = b.index( package.getAttribute( 'center'))
-    else:
-      self.center = None
-    if package.getAttribute( 'color'):
-      self.line_color = package.getAttribute( 'color')
-    if package.getAttribute( 'double_ratio'):
-      self.double_length_ratio = float( package.getAttribute( 'double_ratio'))
-    if package.getAttribute( 'simple_double'):
-      self.simple_double = int( package.getAttribute( 'simple_double'))
-    if package.getAttribute( 'auto_sign'):
-      self.auto_bond_sign = int( package.getAttribute( 'auto_sign'))
-    if package.getAttribute( 'equithick'):
-      self.equithick = int( package.getAttribute( 'equithick'))
-    else:
-      self.equithick = 0
-    if package.getAttribute( 'wavy_style'):
-      self.wavy_style = package.getAttribute( 'wavy_style')
-    # end of implied
-    self.atom1 = Store.id_manager.get_object_with_id( package.getAttribute( 'start'))
-    self.atom2 = Store.id_manager.get_object_with_id( package.getAttribute( 'end'))
-    oasa.cdml_bond_io.read_cdml_bond_attributes(
-      package,
-      self,
-      known_attrs=oasa.cdml_bond_io.CDML_ALL_ATTRS,
-    )
-    oasa.bond_semantics.canonicalize_bond_vertices( self)
-
-
-  def post_read_analysis( self):
-    """this method is called by molecule after the *whole* molecule is
-    read to perform a post-load analysis of double bond positioning"""
-    # after read analysis
-    if self.order == 2:
-      sign, center = self._compute_sign_and_center()
-      if self.bond_width and self.bond_width * sign < 0:
-        self.auto_bond_sign = -1
-
-
-  def get_package( self, doc):
-    """returns a DOM element describing the object in CDML,
-    doc is the parent document which is used for element creation
-    (the returned element is not inserted into the document)"""
-    b = ['no', 'yes']
-    bnd = doc.createElement('bond')
-    dom_extensions.setAttributes(
-      bnd,
-      (
-        ('type', "%s%d" % (self.type, self.order)),
-        ('start', self.atom1.id),
-        ('end', self.atom2.id),
-        ('id', str( self.id)),
-      ),
-    )
-    values = {}
-    values['line_width'] = str( self.line_width)
-    values['double_ratio'] = str( self.double_length_ratio)
-    if hasattr( self, 'equithick') and self.equithick:
-      values['equithick'] = str(1)
-    if self.order != 1:
-      values['bond_width'] = str( self.bond_width * self.paper.screen_to_real_ratio())
-      if self.order == 2 and self.center is not None:
-        values['center'] = b[ int( self.center)]
-        if self.auto_bond_sign != 1:
-          values['auto_sign'] = str( self.auto_bond_sign)
-    if self.type != 'n':
-      values['wedge_width'] = str( self.wedge_width * self.paper.screen_to_real_ratio())
-    if self.line_color != '#000':
-      values['color'] = self.line_color
-    if self.type != 'n' and self.order != 1:
-      values['simple_double'] = str( int( self.simple_double))
-    if self.wavy_style:
-      values['wavy_style'] = self.wavy_style
-    defaults = {
-      'color': '#000',
-      'auto_sign': '1',
-      'equithick': '0',
-      'simple_double': '1',
-    }
-    if self.paper and self.paper.standard:
-      defaults['line_width'] = str( Screen.any_to_px( self.paper.standard.line_width))
-      defaults['double_ratio'] = str( self.paper.standard.double_length_ratio)
-      defaults['bond_width'] = str(
-        Screen.any_to_px( self.paper.standard.bond_width)
-        * self.paper.screen_to_real_ratio()
-      )
-      defaults['wedge_width'] = str(
-        Screen.any_to_px( self.paper.standard.wedge_width)
-        * self.paper.screen_to_real_ratio()
-      )
-    present = oasa.cdml_bond_io.get_cdml_present( self)
-    optional_attrs = oasa.cdml_bond_io.select_cdml_attributes(
-      values,
-      defaults=defaults,
-      present=present,
-    )
-    unknown_attrs = oasa.cdml_bond_io.collect_unknown_cdml_attributes(
-      self,
-      known_attrs=oasa.cdml_bond_io.CDML_ALL_ATTRS,
-      present=present,
-    )
-    if optional_attrs or unknown_attrs:
-      dom_extensions.setAttributes( bnd, tuple( optional_attrs + unknown_attrs))
-    return bnd
 
 
   def toggle_type( self, only_shift = 0, to_type='n', to_order=1, simple_double=1):
@@ -1779,110 +1511,3 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
       self.atom2 = a2
     else:
       warn("not bonds' atom in bond.change_atoms(): "+str( a1), UserWarning, 2)
-
-
-  def bbox( self):
-    """returns the bounding box of the object as a list of [x1,y1,x2,y2]"""
-    return self.paper.bbox( self.item)
-
-
-  def lift( self):
-    [self.paper.lift( i) for i in self.items]
-    if self.selector:
-      self.paper.lift( self.selector)
-    if self.second:
-      [self.paper.lift( o) for o in self.second]
-    if self.third:
-      [self.paper.lift( o) for o in self.third]
-    if self.item:
-      self.paper.lift( self.item)
-
-
-  def transform( self, tr):
-    if not self.item:
-      return
-    for i in [self.item] + self.second + self.third + self.items:
-      coords = self.paper.coords( i)
-      tr_coords = tr.transform_xy_flat_list( coords)
-      self.paper.coords( i, tuple( tr_coords))
-    if self.selector:
-      self.unselect()
-      self.select()
-    # we need to check if the sign of double bond width has not changed
-    # this happens during 3d rotation
-    if self.order == 2 and not self.center:
-      line = list( self.atom1.get_xy())
-      line += self.atom2.get_xy()
-      x, y = self.paper.coords( self.second[0])[0:2]
-      sign = geometry.on_which_side_is_point( line, (x,y))
-      if sign * self.bond_width < 0:
-        self.bond_width *= -1
-
-
-  def get_exportable_items( self):
-    """helper function for exporters,
-    it returns a tuple in form of (line_items, items) where
-    line_items are items that are exported as lines,
-    items are items that are exported according to the bond type;
-    as this code is a ugly mix of conditionals it makes sense to put it into one
-    place co that the exporters do not have to reinvent it themself."""
-    # items to be exported
-    if self.type == 'd':
-      # d is a little bit twisted
-      if self.simple_double and not self.center and not self.order in (0,1):
-        line_items = [self.item]
-        items = self.second + self.third
-      else:
-        line_items = self.items
-        items = self.second + self.third
-    elif self.type == 'o':
-      # o is a little bit twisted, too
-      if self.simple_double and not self.center and not self.order in (0,1):
-        line_items = [self.item]
-        items = self.second + self.third
-      else:
-        line_items = []
-        items = self.items + self.second + self.third
-    else:
-      if self.type in ('h', 'l', 'r'):
-        items = self.items
-      else:
-        if self.center:
-          items = []
-        else:
-          items = [self.item]
-      # simple doubles?
-      if self.type == 'n' or (not self.simple_double and not self.center):
-        items += self.second
-        items += self.third
-        line_items = []
-      else:
-        line_items = self.second + self.third
-    return line_items, items
-
-
-  def _create_line_with_transform( self, coords, **kw):
-    """this is a private method intended to pass things to self.paper.create_line,
-    but ensuring that a proper transformation takes place in case it is needed.
-    It is used during drawing of bonds in 3D"""
-    if self._transform:
-      coords = self._transform.transform_xy_flat_list( coords)
-    return self.paper.create_line( coords, **kw)
-
-
-  def _create_oval_with_transform( self, coords, **kw):
-    """this is a private method intended to pass things to self.paper.create_oval,
-    but ensuring that a proper transformation takes place in case it is needed.
-    It is used during drawing of bonds in 3D"""
-    if self._transform:
-      coords = self._transform.transform_xy_flat_list( coords)
-    return self.paper.create_oval( coords, **kw)
-
-
-  def _create_polygon_with_transform( self, coords, **kw):
-    """this is a private method intended to pass things to self.paper.create_polygon,
-    but ensuring that a proper transformation takes place in case it is needed.
-    It is used during drawing of bonds in 3D"""
-    if self._transform:
-      coords = self._transform.transform_xy_flat_list( coords)
-    return self.paper.create_polygon( coords, **kw)

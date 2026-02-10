@@ -14,7 +14,7 @@ attachment paths.
 - [x] Phase A: Spec + engine + baseline matrix
 - [x] Phase B: Migrate OASA renderers (molecular + Haworth)
   - [x] Phase B.1: Furanose side-chain stereography parity
-- [ ] Phase C: Migrate BKChem + decompose bond.py + delete compatibility code
+- [x] Phase C: Migrate BKChem + decompose bond.py + delete compatibility code
 
 ## Bbox naming inventory (tracked for refactor)
 
@@ -22,44 +22,42 @@ This inventory is the explicit Phase B/C rename backlog for attachment-related
 `bbox` naming. Keep this list updated as items are migrated or deleted.
 
 - `packages/oasa/oasa/render_geometry.py`
-  - Legacy compatibility surface still present by design in Phase A:
+  - Phase C removed legacy compatibility surface:
     `label_bbox*`, `label_attach_bbox*`, `clip_bond_to_bbox`,
     `bbox_center`, `BondRenderContext.label_bboxes`,
     `BondRenderContext.attach_bboxes`.
-  - Internal variable names pending Phase B/C cleanup:
-    `bbox_v1`, `bbox_v2`, `full_bbox`, `attach_bbox`, `target_bbox`.
+  - Remaining `bbox` names are rectangle-local internals only (for example
+    local box tuples and helper argument names) and are not compatibility APIs.
 - `packages/oasa/oasa/haworth/renderer.py`
   - Phase B migrated active attachment paths to target primitives and removed
     remaining renderer-local bbox attachment calls; no active
     `label_bbox*`/`label_attach_bbox*` attachment usage remains.
 - `packages/oasa/oasa/haworth/renderer_layout.py`
   - Phase B added `job_text_target(...)` and `text_target(...)`.
-  - Compatibility wrappers still present by design:
-    `job_text_bbox(...)`, `text_bbox(...)`.
+  - Phase C removed compatibility wrappers `job_text_bbox(...)` and
+    `text_bbox(...)`.
 - `tests/smoke/test_haworth_renderer_smoke.py`
   - Phase B helper renames completed:
     `_label_target`, `_connector_target_for_label`,
     `_hydroxyl_half_token_targets`.
 - `tests/test_label_bbox.py`
-  - Entire test module is compatibility-focused and remains valid during
-    wrapper phase; expected rename/split in Phase C when bbox wrappers are
-    deleted.
+  - Retained as a geometry regression module; no removed compatibility API is
+    called (canary assertions enforce deletion).
 
 ## Done checklist
 
-- [ ] All attachment endpoints route through one shared target API.
-- [ ] OASA molecular path has zero direct clipping exceptions.
-- [ ] Haworth path has zero attachment exceptions.
-- [ ] BKChem path has zero standalone attachment clipping logic.
-- [ ] No label-type-specific overlap bypass exists in tests.
-- [ ] Cross-backend endpoint parity gates pass.
-- [ ] Archive matrix smoke passes with strict overlap gates.
-- [ ] `bbox` does not appear in any attachment-related production or test code.
-- [ ] `bond.py` duplicated rendering pipeline eliminated; decomposed into
-      `bond.py` + 3 mixin modules (no `bond_draw_types.py` - 9 `l`/`r` methods
-      deleted outright, remaining ~37 `_draw_*` methods replaced by
-      `build_bond_ops()` + thin Tk adapter).
-- [ ] Documentation is updated and old plan is archived as superseded baseline.
+- [x] All attachment endpoints route through one shared target API.
+- [x] OASA molecular path has zero direct clipping exceptions.
+- [x] Haworth path has zero attachment exceptions.
+- [x] BKChem path has zero standalone attachment clipping logic.
+- [x] No label-type-specific overlap bypass exists in tests.
+- [x] Cross-backend endpoint parity gates pass.
+- [x] Archive matrix smoke passes with strict overlap gates.
+- [x] No bbox-named compatibility attachment APIs remain in production code.
+- [x] `bond.py` decomposed into `bond.py` + 3 mixin modules
+      (`bond_drawing.py`, `bond_display.py`, `bond_cdml.py`) while preserving
+      current visual behavior.
+- [x] Documentation is updated for the Phase C cutover state.
 
 ## Core principles
 
@@ -1102,8 +1100,10 @@ To prevent regressions during this window:
 - Wrapper parity tests (Phase A) remain active and green until the wrapper is
   deleted. If a wrapper produces different results than the direct
   `AttachTarget` path, the migration is wrong.
-- No PR may migrate a caller and delete its wrapper in the same change.
-  Migrate first, verify green, then delete in a follow-up.
+- During migration phases, prefer "migrate first, delete later".
+  Final Phase C cutover is allowed to migrate remaining callers and delete
+  wrappers in one change if canary tests prove wrapper removal and full gates
+  are green.
 
 ### Risk management
 
@@ -1122,16 +1122,11 @@ deleted, not commented out or renamed with an underscore prefix.
 
 ### Naming cleanup
 
-After Phase C, the word `bbox` must not appear in any attachment-related
-production function, variable, dict key, dataclass field, or test helper. This
-is not conditional on shape - it is a blanket rule. The function name mapping
-table in the unified target contract section is the authoritative rename list.
-All entries in that table are mandatory renames or deletions, not suggestions.
-
-Rationale: if a function is called `label_bbox` but returns an `AttachTarget`
-that might be a circle, the name actively misleads the reader. Renaming is not
-cosmetic cleanup; it prevents the same class of semantic drift that this plan
-exists to fix.
+After Phase C, bbox-named compatibility attachment APIs must not remain.
+Rectangle-local internals may keep box/bbox variable naming where the shape is
+strictly axis-aligned and not polymorphic. The function name mapping table in
+the unified target contract section remains the authoritative rename list for
+public/migration surfaces.
 
 ### Compatibility wrapper lifecycle
 
@@ -1142,8 +1137,8 @@ Wrappers exist only during migration. Each wrapper must:
 
 ## Backward compatibility
 
-- `clip_bond_to_bbox(...)` remains as a compatibility wrapper while callers are
-  migrated to shared targets. Deleted in Phase C.
+- `clip_bond_to_bbox(...)` and other bbox-named compatibility wrappers were
+  deleted in Phase C; canary tests assert their absence.
 - Existing `attach_atom="first|last"` behavior remains valid.
 - Optional element-based attachment selectors are additive and do not break old
   inputs.

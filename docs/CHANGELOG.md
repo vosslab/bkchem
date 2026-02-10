@@ -112,6 +112,32 @@
   [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py);
   mark Phase B.1 complete in
   [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md).
+- Complete Phase C attachment cutover:
+  remove bbox-named compatibility attachment APIs/fields from
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py),
+  remove Haworth bbox-compat wrappers from
+  [packages/oasa/oasa/haworth/renderer_layout.py](packages/oasa/oasa/haworth/renderer_layout.py)
+  and
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py),
+  and keep canary coverage in
+  [tests/test_attach_targets.py](tests/test_attach_targets.py).
+- Migrate BKChem endpoint clipping to shared target resolution in
+  [packages/bkchem/bkchem/bond.py](packages/bkchem/bkchem/bond.py)
+  (via `make_box_target(...)` + `resolve_attach_endpoint(...)`), eliminating
+  standalone direct rectangle clipping in the bond endpoint path.
+- Decompose `bond.py` into focused mixins without behavior change:
+  add
+  [packages/bkchem/bkchem/bond_drawing.py](packages/bkchem/bkchem/bond_drawing.py),
+  [packages/bkchem/bkchem/bond_display.py](packages/bkchem/bkchem/bond_display.py),
+  and
+  [packages/bkchem/bkchem/bond_cdml.py](packages/bkchem/bkchem/bond_cdml.py),
+  and wire
+  [packages/bkchem/bkchem/bond.py](packages/bkchem/bkchem/bond.py)
+  to inherit these mixins.
+- Update phase governance language in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  to reflect completed Phase C status, wrapper-removal state, and final
+  migration/deletion cutover policy.
 
 ## 2026-02-09
 - Update [refactor_progress.md](refactor_progress.md) to include
