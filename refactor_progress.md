@@ -54,8 +54,8 @@ Last updated: 2026-02-10
 - [docs/archive/ROUNDED_WEDGES_PLAN.md](docs/archive/ROUNDED_WEDGES_PLAN.md):
   Rounded wedge geometry is shared via `wedge_geometry.py` and used by render ops
   and BKChem bond rendering.
-- [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md):
-  Closed in-place as the historical source-of-record; 2026-02-10 recovery
+- [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md):
+  Closed and archived as the historical source-of-record; 2026-02-10 recovery
   addendum gates are complete and release closure is verified.
 - [docs/archive/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/archive/BOND_BACKEND_ALIGNMENT_PLAN.md):
   Phases 0-5 complete; Phase 4 optional. Bond semantics normalized with tests.
@@ -72,7 +72,7 @@ Last updated: 2026-02-10
 ## Reference docs
 - [docs/active_plans/BKCHEM_GUI_MENU_REFACTOR.md](docs/active_plans/BKCHEM_GUI_MENU_REFACTOR.md)
 - [docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md](docs/active_plans/BOND_LABEL_ATTACHMENT_IMPROVEMENT_PLAN.md)
-- [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+- [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
 - [docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
 - [docs/active_plans/MENU_REFACTOR_ANALYSIS.md](docs/active_plans/MENU_REFACTOR_ANALYSIS.md)
 - [docs/active_plans/MENU_REFACTOR_SUMMARY.md](docs/active_plans/MENU_REFACTOR_SUMMARY.md)

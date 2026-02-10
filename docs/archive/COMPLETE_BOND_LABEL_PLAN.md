@@ -1,7 +1,7 @@
 # Complete bond-label attachment plan
 
-Status: Closed (2026-02-10). This file remains in `docs/active_plans/` as the
-historical source-of-record with recovery addendum closure evidence.
+Status: Closed (2026-02-10). This file is archived as the historical
+source-of-record with recovery addendum closure evidence.
 
 Define one attachment engine that handles all bond-to-label attachment in OASA
 and BKChem, remove renderer-specific attachment exceptions, and make overlap

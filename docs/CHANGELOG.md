@@ -17,7 +17,7 @@
 - Remove unused dead code path `_draw_normal_old` from
   [packages/bkchem/bkchem/arrow.py](packages/bkchem/bkchem/arrow.py).
 - Close recovery gates from
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   addendum: remove Haworth renderer text-literal endpoint policy branches in
   [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
   (`text in ("OH", "HO")`, `_compute_hydroxyl_endpoint`,
@@ -30,6 +30,15 @@
   `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q`
   with outcomes `510 passed, 6 skipped` (run 1) and `510 passed, 6 skipped`
   (run 2).
+- Separate Haworth verification evidence:
+  archive-matrix summary generation command
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  wrote `output_smoke/archive_matrix_summary.html` with `Generated previews written: 78`;
+  strict-overlap/smoke verification commands
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/smoke/test_haworth_renderer_smoke.py -q`
+  (`84 passed`) and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest tests/test_haworth_renderer.py -q`
+  (`90 passed`).
 - Harden render-pipeline parity tests against operation-order nondeterminism by
   canonicalizing payload comparisons in
   [tests/test_phase_c_render_pipeline.py](tests/test_phase_c_render_pipeline.py)
@@ -50,12 +59,12 @@
   [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) to describe OASA-based
   CDML/export flow and remove stale XML-writer references.
 - Preserve
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   as the full historical record and append a 2026-02-10 recovery addendum in
   the same file (instead of replacing it), documenting reopened closure gates
   for remaining Haworth endpoint-branch hardening and release verification.
 - Add concrete R0 audit commands directly into
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   as an in-file checklist section, mapping each deletion gate to exact grep
   checks and pytest runs (DG-1 BKChem duplicate draw paths, DG-2 Haworth
   text-branch endpoint policy, DG-3 removed bbox compatibility surfaces), plus
@@ -111,12 +120,12 @@
   [tests/test_connector_clipping.py](tests/test_connector_clipping.py) with an
   `attach_element` precedence regression case.
 - Update
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   with a formula-aware label parsing note that keeps scope tight (tokenized
   parsing for supported emitted patterns, rendering/attachment separation, and
   `attach_element`-driven stable connector intent).
 - Add a concrete `bbox` naming-inventory section to
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   listing remaining `bbox`-named APIs/fields/helpers in
   `render_geometry.py`, `haworth/renderer.py`, `haworth/renderer_layout.py`,
   and smoke/unit tests as explicit Phase B/C rename backlog.
@@ -139,14 +148,14 @@
   `_connector_target_for_label`, `_hydroxyl_half_token_targets`) while
   preserving strict overlap gate behavior.
 - Update Phase status/inventory tracking in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   to reflect completed Phase B migration items and remaining Phase B.1/Phase C
   backlog.
 - Validate full test suite after Phase B migration:
   `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest`
   (`502 passed`, `6 skipped`).
 - Clarify strict-overlap policy wording in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md):
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md):
   keep acceptance gating at `epsilon = 0.5 px`, while explicitly allowing
   tighter internal retreat-solver tolerance for endpoint bisection stability.
 - Add direct unit coverage for
@@ -170,7 +179,7 @@
   smoke parity coverage in
   [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py);
   mark Phase B.1 complete in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md).
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md).
 - Complete Phase C attachment cutover:
   remove bbox-named compatibility attachment APIs/fields from
   [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py),
@@ -194,7 +203,7 @@
   [packages/bkchem/bkchem/bond.py](packages/bkchem/bkchem/bond.py)
   to inherit these mixins.
 - Update phase governance language in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   to reflect completed Phase C status, wrapper-removal state, and final
   migration/deletion cutover policy.
 - Fix BKChem import-mode compatibility for mixin decomposition in
@@ -202,7 +211,7 @@
   prefer package-relative mixin imports and add deterministic top-level import
   fallback via `importlib` for legacy `sys.path` usage (`import bond`).
 - Reconcile Phase C plan acceptance text in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md):
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md):
   keep shipped cutover criteria as Phase C gates and move aggressive
   file-length/draw-pipeline elimination goals to explicit post-Phase C
   follow-up objectives.
@@ -234,22 +243,22 @@
   so focus/unfocus, deletion, and exporter item selection operate on the new
   rendered item-id list.
 - Update recovery status in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   to record R2 completion and remove stale "BKChem duplicate draw path still
   active" wording.
 
 ## 2026-02-09
 - Update [refactor_progress.md](refactor_progress.md) to include
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   in both the `In progress` tracker and the `Reference docs` index.
 - Refine
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   with a minimal default-selector rule (`attach_atom=first` when selectors are
   absent), add a one-line numeric strict-overlap policy (`epsilon = 0.5 px`,
   edge-touch allowed, penetration fails), and clarify backward compatibility
   expectations for older readers that ignore new selectors.
 - Expand
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   with a new "Haworth special-case contract" section that makes Haworth
   exceptions explicit shared-engine inputs (site intent payload, target
   primitive, connector constraints, and bond style), adds required behavioral
@@ -258,18 +267,18 @@
   methyl parity, and reversible CH2OH/HOH2C attachment stability.
 - Add a focused "Phase B.1: furanose side-chain stereography parity" addendum
   in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   to target the remaining two-carbon left-tail parity gap (hashed cue plus
   above/below placement impression) with deterministic stereocenter-driven
   rules, explicit fixture scope (including D-galactose furanose alpha), and
   strict acceptance criteria that preserve current ring/vertical/OH-HO quality.
 - Add a new strict overlap gate section to
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   defining mandatory painted-geometry overlap validation, target-derived
   forbidden regions, matrix/archive smoke enforcement, explicit unit-regression
   cases, and fail-fast CI policy.
 - Clarify
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   with explicit selector precedence (`attach_element` over `attach_atom` over
   deterministic defaults), target-based legality semantics (forbidden regions
   derived from attachment targets, not cosmetic masks), constrained-segment
@@ -292,12 +301,12 @@
   [docs/CHANGELOG.md](docs/CHANGELOG.md) to point at
   [docs/archive/RENDER_LAYOUT_PARITY_SPEC.md](docs/archive/RENDER_LAYOUT_PARITY_SPEC.md).
 - Expand
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   with explicit blocking findings and closure criteria for known attachment
   regressions: hashed branch detachment heuristics, non-protective overlap
   assertions, own-connector smoke exemptions, and doc-path hygiene checks.
 - Refine phase structure in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   from seven checklist phases to three execution phases (`A/B/C`), moving
   inventory/exception cleanup/release gating into embedded deliverables and a
   dedicated release checklist, and add an explicit backward-compatibility
@@ -311,7 +320,7 @@
   pyranose/furanose assertions for rounded side-edge `PathOp`/`ARC` output in
   [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py).
 - Add a complete follow-on attachment unification plan in
-  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  [docs/archive/COMPLETE_BOND_LABEL_PLAN.md](docs/archive/COMPLETE_BOND_LABEL_PLAN.md)
   to replace exception-driven behavior with one shared target-primitive bond to
   label contract across OASA molecular, Haworth, and BKChem rendering paths,
   including phased migration, strict invariants, and release gates.
