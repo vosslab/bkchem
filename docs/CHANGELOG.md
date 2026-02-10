@@ -1,6 +1,17 @@
 # Changelog
 
 ## 2026-02-10
+- Preserve
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  as the full historical record and append a 2026-02-10 recovery addendum in
+  the same file (instead of replacing it), documenting reopened closure gates
+  for remaining Haworth endpoint-branch hardening and release verification.
+- Add concrete R0 audit commands directly into
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  as an in-file checklist section, mapping each deletion gate to exact grep
+  checks and pytest runs (DG-1 BKChem duplicate draw paths, DG-2 Haworth
+  text-branch endpoint policy, DG-3 removed bbox compatibility surfaces), plus
+  two-pass full-suite release verification commands.
 - Add new manager planning skill
   [skills/plan-manager/SKILL.md](skills/plan-manager/SKILL.md)
   with
@@ -138,6 +149,46 @@
   [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
   to reflect completed Phase C status, wrapper-removal state, and final
   migration/deletion cutover policy.
+- Fix BKChem import-mode compatibility for mixin decomposition in
+  [packages/bkchem/bkchem/bond.py](packages/bkchem/bkchem/bond.py):
+  prefer package-relative mixin imports and add deterministic top-level import
+  fallback via `importlib` for legacy `sys.path` usage (`import bond`).
+- Reconcile Phase C plan acceptance text in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md):
+  keep shipped cutover criteria as Phase C gates and move aggressive
+  file-length/draw-pipeline elimination goals to explicit post-Phase C
+  follow-up objectives.
+- Revalidate after Phase C decomposition/import-mode updates:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest`
+  (`510 passed`, `6 skipped`).
+- Remove deprecated BKChem left/right hashed draw variants from runtime drawing:
+  delete `_draw_l*`/`_draw_r*` and side-hash rendering path in
+  [packages/bkchem/bkchem/bond.py](packages/bkchem/bkchem/bond.py),
+  normalize legacy `l/r` runtime draws to hashed `h` in `draw()`, and narrow
+  hashed-only visibility/export handling in
+  [packages/bkchem/bkchem/bond_display.py](packages/bkchem/bkchem/bond_display.py)
+  and
+  [packages/bkchem/bkchem/xml_writer.py](packages/bkchem/bkchem/xml_writer.py);
+  full suite revalidated:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest`
+  (`510 passed`, `6 skipped`).
+- Complete BKChem legacy draw-path deletion in
+  [packages/bkchem/bkchem/bond.py](packages/bkchem/bkchem/bond.py):
+  remove the per-type `_draw_*` geometry pipeline from `bond.py`, route
+  `bond.draw()` through shared OASA render-ops via new Tk adapter mixin
+  [packages/bkchem/bkchem/bond_render_ops.py](packages/bkchem/bkchem/bond_render_ops.py),
+  move type/order geometry control to
+  [packages/bkchem/bkchem/bond_type_control.py](packages/bkchem/bkchem/bond_type_control.py),
+  and keep only BKChem-specific object state/properties in `bond.py`
+  (`312` lines).
+- Update BKChem display/export integration for render-op outputs in
+  [packages/bkchem/bkchem/bond_display.py](packages/bkchem/bkchem/bond_display.py)
+  so focus/unfocus, deletion, and exporter item selection operate on the new
+  rendered item-id list.
+- Update recovery status in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  to record R2 completion and remove stale "BKChem duplicate draw path still
+  active" wording.
 
 ## 2026-02-09
 - Update [refactor_progress.md](refactor_progress.md) to include

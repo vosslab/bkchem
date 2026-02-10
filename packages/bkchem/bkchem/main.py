@@ -132,9 +132,6 @@ class BKChem( Tk):
 
     self.update_menu_after_selection_change( None)
 
-    #self.start_server()
-
-
   def initialize_batch( self):
     self.in_batch_mode = 1
     self.init_basics()
@@ -1373,20 +1370,6 @@ Enter InChI:""")
       return 0
     else:
       return max( ps)+1
-
-
-  def start_server( self):
-
-    import http_server2 as http_server
-
-    server_address = ('', 8008)
-    httpd = http_server.bkchem_http_server( server_address, http_server.bkchem_http_handler)
-
-    import threading
-
-    t = threading.Thread( target=httpd.serve_forever, name='server')
-    t.setDaemon( 1)
-    t.start()
 
 
   def get_new_tab_name( self):

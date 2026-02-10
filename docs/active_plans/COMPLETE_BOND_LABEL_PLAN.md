@@ -16,6 +16,177 @@ attachment paths.
   - [x] Phase B.1: Furanose side-chain stereography parity
 - [x] Phase C: Migrate BKChem + decompose bond.py + delete compatibility code
 
+## 2026-02-10 recovery addendum
+
+This addendum preserves this file as the historical source of record while
+documenting reopened closure work discovered after the original Phase C status
+was marked complete.
+
+Recovery status:
+- R2 (BKChem duplicate draw-path deletion) is complete.
+- Remaining closure work is R1/R3 hardening and naming gates.
+
+Reopened closure gates:
+- Remove remaining Haworth text-branch endpoint policy in
+  [packages/oasa/oasa/haworth/renderer.py](../../packages/oasa/oasa/haworth/renderer.py)
+  (`text in ("OH", "HO")`, `_compute_hydroxyl_endpoint`, and related
+  branch/fallback endpoint policy paths).
+- Keep removed bbox compatibility surfaces absent from production APIs/fields.
+- Enforce release closure by two consecutive full-suite green runs.
+
+Execution checklist:
+- Use the `R0 audit checklist commands (2026-02-10)` section below for exact
+  grep/test commands for each deletion gate.
+
+## R0 audit checklist commands (2026-02-10)
+
+Concrete, copy-paste audit commands for R0 deletion/closure gates.
+
+### Environment preflight
+
+Run these first from repo root:
+
+```bash
+git rev-parse --show-toplevel
+source source_me.sh
+/opt/homebrew/opt/python@3.12/bin/python3.12 --version
+```
+
+Expected:
+- repo root path prints
+- `source_me.sh` loads without error
+- Python reports `3.12.x`
+
+### Deletion gate DG-1: BKChem duplicate draw geometry entry points
+
+Goal:
+- No legacy duplicated `_draw_*` geometry pipeline entry points remain active.
+
+DG-1 grep commands:
+
+```bash
+rg -n 'def _draw_(n|h|d|w|a|s|b|o)[123]?\b|def _draw_(hashed|dash|second_line|wedge|adder|wavy|bold_central|dotted)\b' \
+  packages/bkchem/bkchem/bond.py \
+  packages/bkchem/bkchem/bond_drawing.py \
+  packages/bkchem/bkchem/bond_render_ops.py
+```
+
+```bash
+rg -n 'getattr\(.+_draw_|self\._draw_[a-z0-9_]+' \
+  packages/bkchem/bkchem/bond.py \
+  packages/bkchem/bkchem/bond_render_ops.py
+```
+
+Pass criteria:
+- both commands return no matches for legacy per-type geometry draw paths
+
+DG-1 test commands:
+
+```bash
+source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest \
+  tests/test_phase_c_render_pipeline.py \
+  tests/test_bkchem_round_wedge.py
+```
+
+Pass criteria:
+- tests pass with no failures
+
+### Deletion gate DG-2: Haworth endpoint text-branch policy removal
+
+Goal:
+- Endpoint legality is target/constraint driven, not label-text branch driven.
+
+DG-2 grep commands:
+
+```bash
+rg -n 'text in \("OH", "HO"\)|_compute_hydroxyl_endpoint|str\(label\) == "CH\(OH\)CH2OH"' \
+  packages/oasa/oasa/haworth/renderer.py
+```
+
+```bash
+rg -n 'text in \("OH", "HO"\)' \
+  packages/oasa/oasa/haworth/renderer_layout.py
+```
+
+Pass criteria:
+- first command has no matches in endpoint policy paths
+- second command has no matches for layout policy branches by label text
+
+DG-2 test commands:
+
+```bash
+source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest \
+  tests/test_haworth_renderer.py \
+  tests/smoke/test_haworth_renderer_smoke.py
+```
+
+Pass criteria:
+- strict Haworth unit and smoke suites pass without exemptions
+
+### Deletion gate DG-3: removed compatibility surface names stay removed
+
+Goal:
+- Removed bbox-era compatibility APIs/fields do not reappear in production.
+
+DG-3 grep commands:
+
+```bash
+rg -n 'clip_bond_to_bbox|label_bbox_from_text_origin|label_bbox\(|label_attach_bbox_from_text_origin|label_attach_bbox\(|bbox_center\(|attach_bboxes|label_bboxes|job_text_bbox\(|text_bbox\(' \
+  packages/oasa/oasa \
+  packages/bkchem/bkchem
+```
+
+Pass criteria:
+- no matches in production paths
+
+DG-3 test commands:
+
+```bash
+source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest \
+  tests/test_attach_targets.py \
+  tests/test_connector_clipping.py
+```
+
+Pass criteria:
+- canary and attachment unit tests pass
+
+### Release gate commands (run after DG-1/2/3 pass)
+
+```bash
+source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest
+```
+
+```bash
+source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest
+```
+
+Pass criteria:
+- two consecutive full-suite green runs
+
+### Audit record template
+
+Use this template in PR description or audit notes:
+
+```text
+R0 audit date:
+Reviewer:
+
+DG-1 grep: PASS/FAIL
+DG-1 tests: PASS/FAIL
+
+DG-2 grep: PASS/FAIL
+DG-2 tests: PASS/FAIL
+
+DG-3 grep: PASS/FAIL
+DG-3 tests: PASS/FAIL
+
+Release run #1: PASS/FAIL
+Release run #2: PASS/FAIL
+
+Open blockers:
+- ...
+```
+
 ## Bbox naming inventory (tracked for refactor)
 
 This inventory is the explicit Phase B/C rename backlog for attachment-related

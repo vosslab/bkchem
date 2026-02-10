@@ -24,6 +24,7 @@
 
 
 import builtins
+import io
 import os
 import sys
 import math
@@ -56,7 +57,7 @@ import parents
 import graphics
 import messages
 import os_support
-import xml_writer
+import oasa_bridge
 import CDML_versions
 import dom_extensions
 import safe_xml
@@ -339,8 +340,7 @@ class chem_paper(Canvas, object):
 		else:
 			fid, fobj = None, None
 
-		# this may cause some trouble later on
-		# it was hacked because of the http_server2 functionality, but could break unexpected things
+		# Keep focused object stable while pointer hovers attached helper items.
 		self.__in = Store.app.mode.focused
 
 		if (fobj and
@@ -1282,15 +1282,22 @@ class chem_paper(Canvas, object):
 		self.update_scrollregion()
 
 	def selected_to_real_clipboard_as_SVG( self):
-		"""exports selected top_levels as SVG to system clipboard"""
-		cont, unique = self.selected_to_unique_top_levels()
-		exporter = xml_writer.SVG_writer( self)
-		exporter.full_size = False
-		exporter.construct_dom_tree( cont)
+		"""exports selected molecules as SVG to system clipboard"""
+		selected_mols = self.selected_mols
+		if not selected_mols:
+			Store.log( _("no molecule selected for SVG clipboard export"))
+			return
+		oasa_mols = [oasa_bridge.bkchem_mol_to_oasa_mol( mol) for mol in selected_mols]
+		merged = oasa.molecule_utils.merge_molecules( oasa_mols)
+		if merged is None:
+			Store.log( _("unable to export selected molecules to SVG"))
+			return
+		svg_buffer = io.StringIO()
+		oasa.render_out.render_to_svg( merged, svg_buffer)
 		self.clipboard_clear()
-		xml = exporter.get_nicely_formated_document()
+		xml = svg_buffer.getvalue()
 		self.clipboard_append( xml)
-		Store.log( _("selected top_levels were exported to clipboard in SVG"))
+		Store.log( _("selected molecules were exported to clipboard in SVG"))
 
 
 	def start_new_undo_record( self, name=''):

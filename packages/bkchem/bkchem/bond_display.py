@@ -27,6 +27,7 @@ class BondDisplayMixin:
     if self.items:
       list(map(self.paper.delete, self.items))
       self.items = []
+    self._render_item_ids = []
     x1, y1 = self.atom1.get_xy()
     x2, y2 = self.atom2.get_xy()
     x1, y1, x2, y2 = list(map(round, [x1, y1, x2, y2]))
@@ -44,6 +45,8 @@ class BondDisplayMixin:
 
   def visible_items(self):
     """Return a list of canvas items displayed by this bond."""
+    if getattr(self, "_render_item_ids", None):
+      return list(self._render_item_ids)
     items = []
     if self.order in (1, 3):
       if self.type in "nwba":
@@ -111,6 +114,8 @@ class BondDisplayMixin:
 
   def delete(self):
     items = [self.item] + self.second + self.third + self.items
+    if getattr(self, "_render_item_ids", None):
+      items = list(self._render_item_ids)
     if self.selector:
       items += [self.selector]
       self.selector = None
@@ -120,6 +125,7 @@ class BondDisplayMixin:
     self.second = []
     self.third = []
     self.items = []
+    self._render_item_ids = []
     list(map(self.paper.delete, items))
     return self
 
@@ -158,6 +164,15 @@ class BondDisplayMixin:
 
   def get_exportable_items(self):
     """Return (line_items, items) tuple used by exporters."""
+    if getattr(self, "_render_item_ids", None):
+      line_items = []
+      items = []
+      for item in self._render_item_ids:
+        if self.paper.type(item) == "line":
+          line_items.append(item)
+        else:
+          items.append(item)
+      return line_items, items
     if self.type == "d":
       if self.simple_double and not self.center and not self.order in (0, 1):
         line_items = [self.item]
@@ -173,7 +188,7 @@ class BondDisplayMixin:
         line_items = []
         items = self.items + self.second + self.third
     else:
-      if self.type in ("h", "l", "r"):
+      if self.type == "h":
         items = self.items
       else:
         if self.center:
