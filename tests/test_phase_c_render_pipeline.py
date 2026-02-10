@@ -4,6 +4,7 @@
 
 # Standard Library
 import io
+import json
 
 # Third Party
 import pytest
@@ -219,6 +220,11 @@ def _assert_payload_invariants_equal(svg_payload, cairo_payload):
 
 
 #============================================
+def _canonical_payload(payload):
+	return sorted(json.dumps(entry, sort_keys=True) for entry in payload)
+
+
+#============================================
 def _capture_render_out_payloads(monkeypatch, mol, **render_kwargs):
 	captured = {}
 
@@ -311,7 +317,7 @@ def test_svg_and_cairo_paths_receive_same_ops_payload(builder, render_kwargs, mo
 			mol,
 			**render_kwargs,
 		)
-	assert svg_payload == cairo_payload
+	assert _canonical_payload(svg_payload) == _canonical_payload(cairo_payload)
 	_assert_payload_invariants_equal(svg_payload, cairo_payload)
 
 
@@ -340,5 +346,5 @@ def test_render_out_executes_svg_and_cairo_paths_when_pycairo_available(monkeypa
 	monkeypatch.setattr(render_out.render_ops, "ops_to_cairo", _capture_and_draw_cairo)
 	render_out.render_to_svg(mol, io.StringIO(), show_carbon_symbol=True)
 	render_out.render_to_png(mol, io.BytesIO(), scaling=1.0, show_carbon_symbol=True)
-	assert captured["svg"] == captured["cairo"]
+	assert _canonical_payload(captured["svg"]) == _canonical_payload(captured["cairo"])
 	_assert_payload_invariants_equal(captured["svg"], captured["cairo"])

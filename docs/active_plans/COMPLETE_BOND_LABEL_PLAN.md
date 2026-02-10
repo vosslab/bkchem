@@ -24,19 +24,23 @@ was marked complete.
 
 Recovery status:
 - R2 (BKChem duplicate draw-path deletion) is complete.
-- Remaining closure work is R1/R3 hardening and naming gates.
+- R1 (Haworth endpoint text-branch policy removal) is complete.
+- R3 (bbox-compatibility surface deletion guard) is complete.
+- Release closure gate is complete: two consecutive full-suite runs are green.
 
 Reopened closure gates:
-- Remove remaining Haworth text-branch endpoint policy in
+- [x] Remove remaining Haworth text-branch endpoint policy in
   [packages/oasa/oasa/haworth/renderer.py](../../packages/oasa/oasa/haworth/renderer.py)
   (`text in ("OH", "HO")`, `_compute_hydroxyl_endpoint`, and related
   branch/fallback endpoint policy paths).
-- Keep removed bbox compatibility surfaces absent from production APIs/fields.
-- Enforce release closure by two consecutive full-suite green runs.
+- [x] Keep removed bbox compatibility surfaces absent from production APIs/fields.
+- [x] Enforce release closure by two consecutive full-suite green runs.
 
 Execution checklist:
 - Use the `R0 audit checklist commands (2026-02-10)` section below for exact
   grep/test commands for each deletion gate.
+- Completed 2026-02-10 with DG-1/2/3 grep+test gates passing and two
+  consecutive full-suite runs passing.
 
 ## R0 audit checklist commands (2026-02-10)
 

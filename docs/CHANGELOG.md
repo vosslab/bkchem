@@ -1,6 +1,34 @@
 # Changelog
 
 ## 2026-02-10
+- Close recovery gates from
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  addendum: remove Haworth renderer text-literal endpoint policy branches in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  (`text in ("OH", "HO")`, `_compute_hydroxyl_endpoint`,
+  `str(label) == "CH(OH)CH2OH"`), add label helpers in
+  [packages/oasa/oasa/haworth/renderer_text.py](packages/oasa/oasa/haworth/renderer_text.py),
+  and route hydroxyl job detection through those helpers in
+  [packages/oasa/oasa/haworth/renderer_layout.py](packages/oasa/oasa/haworth/renderer_layout.py).
+- Harden render-pipeline parity tests against operation-order nondeterminism by
+  canonicalizing payload comparisons in
+  [tests/test_phase_c_render_pipeline.py](tests/test_phase_c_render_pipeline.py)
+  while preserving geometry/content invariant checks.
+- Remove legacy BKChem fallback writer file
+  `packages/bkchem/bkchem/non_xml_writer.py` (no remaining runtime references).
+- Retire legacy BKChem HTTP export/control surface by removing
+  `packages/bkchem/bkchem/http_server.py`,
+  `packages/bkchem/bkchem/http_server2.py`, and
+  `packages/bkchem/bkchem/bkchem.js`; remove `BKChem.start_server()` wiring in
+  `packages/bkchem/bkchem/main.py`.
+- Remove legacy Tk XML/SVG writer module
+  `packages/bkchem/bkchem/xml_writer.py`; switch
+  `chem_paper.selected_to_real_clipboard_as_SVG()` in
+  `packages/bkchem/bkchem/paper.py` to OASA render output instead of GUI
+  writer internals.
+- Refresh architecture documentation in
+  [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) to describe OASA-based
+  CDML/export flow and remove stale XML-writer references.
 - Preserve
   [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
   as the full historical record and append a 2026-02-10 recovery addendum in

@@ -48,13 +48,14 @@
   - [packages/oasa/oasa/haworth.py](packages/oasa/oasa/haworth.py) provides
     Haworth layout helpers for carbohydrate projections.
 - File formats and I/O
-  - CDML serialization lives in
-    [packages/bkchem/bkchem/xml_writer.py](packages/bkchem/bkchem/xml_writer.py),
-    [packages/bkchem/bkchem/dom_extensions.py](packages/bkchem/bkchem/dom_extensions.py),
+  - CDML serialization is handled by
+    [packages/oasa/oasa/cdml_writer.py](packages/oasa/oasa/cdml_writer.py),
+    [packages/bkchem/bkchem/paper.py](packages/bkchem/bkchem/paper.py),
     and [packages/bkchem/bkchem/CDML_versions.py](packages/bkchem/bkchem/CDML_versions.py).
-  - Export helpers live in
-    [packages/bkchem/bkchem/export.py](packages/bkchem/bkchem/export.py) and
-    [packages/bkchem/bkchem/non_xml_writer.py](packages/bkchem/bkchem/non_xml_writer.py).
+  - Export routing lives in
+    [packages/bkchem/bkchem/format_loader.py](packages/bkchem/bkchem/format_loader.py),
+    [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py), and
+    [packages/bkchem/bkchem/oasa_bridge.py](packages/bkchem/bkchem/oasa_bridge.py).
   - Built-in exporters live under
     [packages/bkchem/bkchem/plugins/](packages/bkchem/bkchem/plugins/).
 - Templates and reusable structures

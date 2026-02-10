@@ -121,7 +121,7 @@ def resolve_hydroxyl_layout_jobs(
 def job_is_hydroxyl(job: dict) -> bool:
 	"""Return True when one simple-label job renders as OH/HO."""
 	text = _text.format_label_text(job["label"], anchor=job["anchor"])
-	return text in ("OH", "HO")
+	return _text.is_hydroxyl_render_text(text)
 
 
 #============================================

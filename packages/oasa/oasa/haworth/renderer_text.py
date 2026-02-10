@@ -44,6 +44,25 @@ def is_chain_like_label(label: str) -> bool:
 
 
 #============================================
+def is_two_carbon_tail_label(label: str) -> bool:
+	"""Return True for labels rendered as a two-carbon branched sidechain."""
+	segments = chain_labels(str(label or ""))
+	return bool(segments) and segments == ["CHOH", "CH2OH"]
+
+
+#============================================
+def is_hydroxyl_render_text(text: str) -> bool:
+	"""Return True when rendered text behaves as a hydroxyl token."""
+	return hydroxyl_oxygen_center(
+		text=text,
+		anchor="start",
+		text_x=0.0,
+		text_y=0.0,
+		font_size=1.0,
+	) is not None
+
+
+#============================================
 def format_label_text(label: str, anchor: str = "middle") -> str:
 	"""Convert plain labels to display text with side-aware hydroxyl ordering."""
 	text = str(label)

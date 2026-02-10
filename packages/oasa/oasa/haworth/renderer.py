@@ -273,7 +273,7 @@ def render(
 					effective_length = min_length
 			if (
 					spec.ring_type == "furanose"
-					and str(label) == "CH(OH)CH2OH"
+					and _text.is_two_carbon_tail_label(label)
 					and slot in ("ML", "MR")
 			):
 				_add_furanose_two_carbon_tail_ops(
@@ -454,12 +454,12 @@ def _add_simple_label_ops(
 		font_name=font_name,
 	)
 	target = full_target
-	is_hydroxyl = text in ("OH", "HO")
+	is_hydroxyl_label = _text.is_hydroxyl_render_text(text)
 	target_hint = None
 	oxygen_center = None
 	connector_end = None
 
-	def _compute_hydroxyl_endpoint(local_text_x: float, local_text_y: float) -> tuple[
+	def _resolve_oxygen_circle_endpoint(local_text_x: float, local_text_y: float) -> tuple[
 			tuple[float, float] | None,
 			tuple[float, float] | None]:
 		local_oxygen_center = _text.hydroxyl_oxygen_center(
@@ -483,19 +483,34 @@ def _add_simple_label_ops(
 		)
 		return (local_oxygen_center, local_connector_end)
 
-	if (not is_hydroxyl) and first_attach_target.box != last_attach_target.box:
-		attach_mode = attach_atom or "first"
-		target = _render_geometry.label_attach_target_from_text_origin(
-			text_x=text_x,
-			text_y=text_y,
-			text=text,
-			anchor=anchor,
-			font_size=draw_font_size,
-			attach_atom=attach_mode,
-			font_name=font_name,
-		)
-	if is_hydroxyl:
-		oxygen_center, connector_end = _compute_hydroxyl_endpoint(text_x, text_y)
+	if is_hydroxyl_label:
+		oxygen_center, connector_end = _resolve_oxygen_circle_endpoint(text_x, text_y)
+		if oxygen_center is None or connector_end is None:
+			target = _render_geometry.label_attach_target_from_text_origin(
+				text_x=text_x,
+				text_y=text_y,
+				text=text,
+				anchor=anchor,
+				font_size=draw_font_size,
+				attach_atom=attach_atom or "first",
+				attach_element="O",
+				font_name=font_name,
+			)
+			target_hint = target.centroid()
+			connector_end = None
+	else:
+		if first_attach_target.box != last_attach_target.box:
+			attach_mode = attach_atom or "first"
+			target = _render_geometry.label_attach_target_from_text_origin(
+				text_x=text_x,
+				text_y=text_y,
+				text=text,
+				anchor=anchor,
+				font_size=draw_font_size,
+				attach_atom=attach_mode,
+				font_name=font_name,
+			)
+	if is_hydroxyl_label and oxygen_center is not None and connector_end is not None:
 		# Upward hydroxyl labels need a deterministic escape hatch:
 		# nudge label placement and recompute connector endpoint until the
 		# connector paint no longer penetrates its own label interior.
@@ -503,8 +518,6 @@ def _add_simple_label_ops(
 				ring_type == "furanose"
 				and direction == "up"
 				and slot not in ("BL", "BR")
-				and oxygen_center is not None
-				and connector_end is not None
 		):
 			best_text_x = text_x
 			best_text_y = text_y
@@ -522,9 +535,10 @@ def _add_simple_label_ops(
 				initial_end[0], initial_end[1], best_end[0], best_end[1]
 			)
 			for offset_x, offset_y in _upward_hydroxyl_nudge_offsets(
-					text=text,
 					anchor=anchor,
-					font_size=draw_font_size):
+					font_size=draw_font_size,
+					connector_end=initial_end,
+					oxygen_center=best_center):
 				candidate_text_x = text_x + offset_x
 				candidate_text_y = text_y + offset_y
 				candidate_target = _render_geometry.label_target_from_text_origin(
@@ -535,7 +549,7 @@ def _add_simple_label_ops(
 					font_size=draw_font_size,
 					font_name=font_name,
 				)
-				candidate_center, candidate_end = _compute_hydroxyl_endpoint(
+				candidate_center, candidate_end = _resolve_oxygen_circle_endpoint(
 					candidate_text_x,
 					candidate_text_y,
 				)
@@ -570,12 +584,7 @@ def _add_simple_label_ops(
 			target = best_target
 			oxygen_center = best_center
 			connector_end = best_end
-		if (
-				ring_type != "furanose"
-				and direction == "up"
-				and oxygen_center is not None
-				and connector_end is not None
-		):
+		if ring_type != "furanose" and direction == "up":
 			connector_end = _render_geometry.retreat_endpoint_until_legal(
 				line_start=vertex,
 				line_end=connector_end,
@@ -583,13 +592,7 @@ def _add_simple_label_ops(
 				forbidden_regions=[full_target],
 				epsilon=RETREAT_SOLVER_EPSILON,
 			)
-		if (
-				ring_type == "furanose"
-				and direction == "up"
-				and slot in ("BL", "BR")
-				and oxygen_center is not None
-				and connector_end is not None
-		):
+		if ring_type == "furanose" and direction == "up" and slot in ("BL", "BR"):
 			connector_end = _render_geometry.retreat_endpoint_until_legal(
 				line_start=vertex,
 				line_end=connector_end,
@@ -597,23 +600,6 @@ def _add_simple_label_ops(
 				forbidden_regions=[full_target],
 				epsilon=RETREAT_SOLVER_EPSILON,
 			)
-		if oxygen_center is not None:
-			pass
-		else:
-			# Deterministic fallback for malformed/unexpected hydroxyl text:
-			# clip to the oxygen-token target using directional side selection.
-			fallback_mode = "first" if text == "OH" else "last"
-			target = _render_geometry.label_attach_target_from_text_origin(
-				text_x=text_x,
-				text_y=text_y,
-				text=text,
-				anchor=anchor,
-				font_size=draw_font_size,
-				attach_atom=fallback_mode,
-				font_name=font_name,
-			)
-			target_hint = target.centroid()
-			connector_end = None
 	if connector_end is None:
 		if target_hint is None:
 			target_hint = _text.leading_carbon_center(
@@ -686,16 +672,17 @@ def _hydroxyl_connector_radius(font_size: float, connector_width: float) -> floa
 
 #============================================
 def _upward_hydroxyl_nudge_offsets(
-		text: str,
 		anchor: str,
-		font_size: float) -> list[tuple[float, float]]:
+		font_size: float,
+		connector_end: tuple[float, float],
+		oxygen_center: tuple[float, float]) -> list[tuple[float, float]]:
 	"""Deterministic candidate offsets for upward hydroxyl labels."""
 	step_x = max(0.5, font_size * 0.35)
 	step_y = max(0.25, font_size * 0.08)
-	if text == "OH":
-		horizontal_sign = 1.0
-	elif text == "HO":
+	if oxygen_center[0] < connector_end[0]:
 		horizontal_sign = -1.0
+	elif oxygen_center[0] > connector_end[0]:
+		horizontal_sign = 1.0
 	elif anchor == "end":
 		horizontal_sign = -1.0
 	else:
