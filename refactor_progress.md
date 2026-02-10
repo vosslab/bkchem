@@ -1,6 +1,6 @@
 # Refactor progress
 
-Last updated: 2026-02-09
+Last updated: 2026-02-10
 
 ## Snapshot
 - Registry refactor: OASA codec registry is implemented and in use by the CLI.
@@ -42,9 +42,6 @@ Last updated: 2026-02-09
 ## In progress
 - [docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
   Phase 0 work is complete; future Phases 6/7 remain planned.
-- [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md):
-  Active follow-on plan to unify bond-label attachment across OASA, Haworth,
-  and BKChem with strict overlap gates and migration milestones.
 - [docs/active_plans/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md):
   Active policy; continue enforcing SPDX headers on new files.
 - [docs/TODO_CODE.md](docs/TODO_CODE.md):
@@ -57,6 +54,9 @@ Last updated: 2026-02-09
 - [docs/archive/ROUNDED_WEDGES_PLAN.md](docs/archive/ROUNDED_WEDGES_PLAN.md):
   Rounded wedge geometry is shared via `wedge_geometry.py` and used by render ops
   and BKChem bond rendering.
+- [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md):
+  Closed in-place as the historical source-of-record; 2026-02-10 recovery
+  addendum gates are complete and release closure is verified.
 - [docs/archive/BOND_BACKEND_ALIGNMENT_PLAN.md](docs/archive/BOND_BACKEND_ALIGNMENT_PLAN.md):
   Phases 0-5 complete; Phase 4 optional. Bond semantics normalized with tests.
 - [docs/archive/CDML_ARCHITECTURE_PLAN.md](docs/archive/CDML_ARCHITECTURE_PLAN.md):

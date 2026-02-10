@@ -277,12 +277,6 @@ class arrow( meta_enabled, drawable, with_line, line_colored, container, interac
 
   # -- private drawing methods for different arrow types --
 
-  def _draw_normal_old( self):
-    ps = tuple(j for i in [b.get_xy_on_screen() for b in self.points] for j in i)
-    item = self.paper.create_line( ps, tags='arrow', arrow=self._pins[ self.pin], arrowshape=self.shape,\
-                                   width=self.line_width, smooth=self.spline, fill=self.line_color)
-    return [item]
-
   def _draw_normal( self):
     coords = [p.get_xy_on_paper() for p in self.points]
     pins = []

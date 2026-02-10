@@ -1,6 +1,21 @@
 # Changelog
 
 ## 2026-02-10
+- Remove dormant, unregistered mode implementations from
+  [packages/bkchem/bkchem/modes.py](packages/bkchem/bkchem/modes.py):
+  `reaction_mode`, `external_data_mode`, and `rapid_draw_mode`; also remove
+  stale commented registration lines in
+  [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py).
+- Modernize launcher runtime preflight in
+  [packages/bkchem/bkchem/import_checker.py](packages/bkchem/bkchem/import_checker.py)
+  to Python 3.10+ policy, remove dead legacy PIL compatibility exports, and
+  keep explicit runtime checks for `Pmw` and `oasa`.
+- Update startup failure output in
+  [packages/bkchem/bkchem/bkchem.py](packages/bkchem/bkchem/bkchem.py) to print
+  readable text (not byte-literals) and exit with non-zero status on failed
+  prerequisite checks.
+- Remove unused dead code path `_draw_normal_old` from
+  [packages/bkchem/bkchem/arrow.py](packages/bkchem/bkchem/arrow.py).
 - Close recovery gates from
   [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
   addendum: remove Haworth renderer text-literal endpoint policy branches in
@@ -10,6 +25,11 @@
   [packages/oasa/oasa/haworth/renderer_text.py](packages/oasa/oasa/haworth/renderer_text.py),
   and route hydroxyl job detection through those helpers in
   [packages/oasa/oasa/haworth/renderer_layout.py](packages/oasa/oasa/haworth/renderer_layout.py).
+- Record explicit release-closure reruns for the recovery addendum using the
+  same full-suite command twice:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q`
+  with outcomes `510 passed, 6 skipped` (run 1) and `510 passed, 6 skipped`
+  (run 2).
 - Harden render-pipeline parity tests against operation-order nondeterminism by
   canonicalizing payload comparisons in
   [tests/test_phase_c_render_pipeline.py](tests/test_phase_c_render_pipeline.py)

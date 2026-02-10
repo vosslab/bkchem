@@ -104,21 +104,20 @@ if not config.debug:
   import import_checker
   import messages
 
-  # At least version 2.6 is required for the new exception syntax,
-  # 'with' statement, built in next() and other future compatibility goodies
+  # Keep launcher-side preflight checks for direct end-user invocation.
   if not import_checker.python_version_ok:
-    print((messages.low_python_version_text % import_checker.python_version).encode('utf-8'))
-    sys.exit()
+    print(messages.low_python_version_text % import_checker.python_version)
+    sys.exit(1)
 
   # can't do without Pmw
   if not import_checker.Pmw_available:
-    print(messages.no_pmw_text.encode('utf-8'))
-    sys.exit()
+    print(messages.no_pmw_text)
+    sys.exit(1)
 
   # oasa is the core now, we need it
   if not import_checker.oasa_available:
-    print(messages.no_oasa_text.encode('utf-8'))
-    sys.exit()
+    print(messages.no_oasa_text)
+    sys.exit(1)
 
 
 from main import BKChem
@@ -220,4 +219,3 @@ else:
   myapp.geometry(geometry)
   myapp.update_idletasks()
   myapp.deiconify()
-
