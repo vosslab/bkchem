@@ -92,7 +92,7 @@ def test_bond_clipped_to_shown_vertex():
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
 	assert line.p2 != pytest.approx((right.x, right.y))
-	full_bbox = render_geometry.label_bbox(right.x, right.y, "O", "middle", 16.0)
+	full_bbox = render_geometry.label_target(right.x, right.y, "O", "middle", 16.0).box
 	assert _is_on_box_edge(line.p2, full_bbox, tol=1e-5)
 
 
@@ -110,7 +110,7 @@ def test_double_bond_clipped():
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	lines = _line_ops(ops)
 	assert len(lines) == 2
-	full_bbox = render_geometry.label_bbox(right.x, right.y, "O", "middle", 16.0)
+	full_bbox = render_geometry.label_target(right.x, right.y, "O", "middle", 16.0).box
 	for line in lines:
 		assert line.p2 != pytest.approx((right.x, right.y))
 		assert _is_on_box_edge(line.p2, full_bbox, tol=1e-5)
@@ -121,7 +121,7 @@ def test_clipped_endpoint_on_bbox_edge():
 	mol, _left, right = _make_two_atom_mol(right_symbol="O")
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
-	full_bbox = render_geometry.label_bbox(right.x, right.y, "O", "middle", 16.0)
+	full_bbox = render_geometry.label_target(right.x, right.y, "O", "middle", 16.0).box
 	assert _is_on_box_edge(line.p2, full_bbox, tol=1e-5)
 
 
@@ -135,7 +135,7 @@ def test_charged_label_clipping():
 	charged_line = _first_line(charged_ops)
 	assert neutral_line.p2 != pytest.approx((40.0, 0.0))
 	assert charged_line.p2 != pytest.approx((40.0, 0.0))
-	charged_bbox = render_geometry.label_bbox(right_charged.x, right_charged.y, "N+", "start", 16.0)
+	charged_bbox = render_geometry.label_target(right_charged.x, right_charged.y, "N+", "start", 16.0).box
 	assert _is_on_box_edge(charged_line.p2, charged_bbox, tol=1e-5)
 
 
@@ -160,10 +160,10 @@ def test_multi_atom_label_attach_first():
 	)
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
-	full_bbox = render_geometry.label_bbox(right.x, right.y, "CH2OH", "start", 16.0)
-	attach_bbox = render_geometry.label_attach_bbox(
+	full_bbox = render_geometry.label_target(right.x, right.y, "CH2OH", "start", 16.0).box
+	attach_bbox = render_geometry.label_attach_target(
 		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="first"
-	)
+	).box
 	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
 	assert not _is_on_box_edge(line.p2, full_bbox, tol=1e-5) or line.p2[0] <= attach_bbox[2]
 
@@ -177,9 +177,9 @@ def test_multi_atom_label_attach_last():
 	)
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
-	attach_bbox = render_geometry.label_attach_bbox(
+	attach_bbox = render_geometry.label_attach_target(
 		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last"
-	)
+	).box
 	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
 
 
@@ -210,12 +210,12 @@ def test_multi_atom_label_attach_element_overrides_attach_atom_first():
 	)
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
-	attach_bbox = render_geometry.label_attach_bbox(
+	attach_bbox = render_geometry.label_attach_target(
 		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last", attach_element="C"
-	)
-	default_first_bbox = render_geometry.label_attach_bbox(
+	).box
+	default_first_bbox = render_geometry.label_attach_target(
 		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last"
-	)
+	).box
 	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
 	assert not _is_on_box_edge(line.p2, default_first_bbox, tol=1e-5)
 

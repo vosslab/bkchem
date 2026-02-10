@@ -1,6 +1,16 @@
 # Changelog
 
 ## 2026-02-10
+- Add new manager planning skill
+  [skills/plan-manager/SKILL.md](skills/plan-manager/SKILL.md)
+  with
+  [skills/plan-manager/agents/openai.yaml](skills/plan-manager/agents/openai.yaml)
+  and
+  [skills/plan-manager/references/plan_quality_standard.md](skills/plan-manager/references/plan_quality_standard.md)
+  to produce implementation-ready plan documents for coding teams (without
+  coding), using phased deliverables, acceptance gates, compatibility/migration
+  policy, risk registers, and rollout checklists derived from active/archive
+  plan conventions.
 - Add new skill
   [skills/python-code-review/SKILL.md](skills/python-code-review/SKILL.md)
   with
@@ -51,6 +61,57 @@
   listing remaining `bbox`-named APIs/fields/helpers in
   `render_geometry.py`, `haworth/renderer.py`, `haworth/renderer_layout.py`,
   and smoke/unit tests as explicit Phase B/C rename backlog.
+- Implement Phase B OASA attachment migration in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py),
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py),
+  [packages/oasa/oasa/haworth/renderer_layout.py](packages/oasa/oasa/haworth/renderer_layout.py),
+  and
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  migrate active Haworth attachment callsites to `AttachTarget`/`resolve_attach_endpoint(...)`,
+  remove renderer-local legacy attachment helpers called out by Phase B,
+  route furanose two-carbon tail OH/CH2OH connectors through
+  `label_attach_target_from_text_origin(...)` with explicit
+  `attach_element` selectors (`O`/`C`), add `job_text_target(...)` /
+  `text_target(...)` layout APIs with bbox wrappers retained for compatibility,
+  and expose target-named compatibility aliases in `haworth_renderer.py`.
+- Rename smoke attachment helpers in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  from bbox naming to target naming (`_label_target`,
+  `_connector_target_for_label`, `_hydroxyl_half_token_targets`) while
+  preserving strict overlap gate behavior.
+- Update Phase status/inventory tracking in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md)
+  to reflect completed Phase B migration items and remaining Phase B.1/Phase C
+  backlog.
+- Validate full test suite after Phase B migration:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest`
+  (`502 passed`, `6 skipped`).
+- Clarify strict-overlap policy wording in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md):
+  keep acceptance gating at `epsilon = 0.5 px`, while explicitly allowing
+  tighter internal retreat-solver tolerance for endpoint bisection stability.
+- Add direct unit coverage for
+  `retreat_endpoint_until_legal(...)` in
+  [tests/test_attach_targets.py](tests/test_attach_targets.py), including
+  legal no-op, box retreat, circle retreat, and retreat-to-start edge cases.
+- Keep Haworth retreat callsites in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  on a dedicated small solver epsilon constant (`RETREAT_SOLVER_EPSILON = 1e-3`)
+  so visual geometry remains stable while strict overlap enforcement remains
+  governed by the 0.5 px gate in shared validation.
+- Re-run full test suite after these policy/test updates:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest`
+  (`506 passed`, `6 skipped`).
+- Close Phase B.1 furanose two-carbon-tail parity in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  by removing anchor-based template fallback and enforcing deterministic
+  slot/direction mapping for branch geometry/hashed cue selection; add explicit
+  D-galactose parity-class fixture coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) and
+  smoke parity coverage in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py);
+  mark Phase B.1 complete in
+  [docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md](docs/active_plans/COMPLETE_BOND_LABEL_PLAN.md).
 
 ## 2026-02-09
 - Update [refactor_progress.md](refactor_progress.md) to include

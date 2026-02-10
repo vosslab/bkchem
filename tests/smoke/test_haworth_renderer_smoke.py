@@ -79,8 +79,8 @@ def _assert_ops_well_formed(ops: list, context: str) -> None:
 
 
 #============================================
-def _label_bbox(op: render_ops.TextOp) -> tuple[float, float, float, float]:
-	return render_geometry.label_bbox_from_text_origin(
+def _label_target(op: render_ops.TextOp) -> render_geometry.AttachTarget:
+	return render_geometry.label_target_from_text_origin(
 		text_x=op.x,
 		text_y=op.y,
 		text=op.text,
@@ -254,27 +254,27 @@ def _is_hydroxyl_label(text: str) -> bool:
 
 
 #============================================
-def _hydroxyl_half_token_bboxes(
+def _hydroxyl_half_token_targets(
 		text: str,
-		label_box: tuple[float, float, float, float]) -> tuple[
-			tuple[float, float, float, float],
-			tuple[float, float, float, float]]:
-	"""Return deterministic first/last token boxes for OH/HO when token spans collapse."""
-	x1, y1, x2, y2 = label_box
+		label_target: render_geometry.AttachTarget) -> tuple[
+			render_geometry.AttachTarget,
+			render_geometry.AttachTarget]:
+	"""Return deterministic first/last token targets for OH/HO when spans collapse."""
+	x1, y1, x2, y2 = label_target.box
 	split_x = (x1 + x2) * 0.5
-	first_box = (x1, y1, split_x, y2)
-	last_box = (split_x, y1, x2, y2)
+	first_target = render_geometry.make_box_target((x1, y1, split_x, y2))
+	last_target = render_geometry.make_box_target((split_x, y1, x2, y2))
 	if text == "OH":
-		return first_box, last_box
-	return first_box, last_box
+		return first_target, last_target
+	return first_target, last_target
 
 
 #============================================
 def _own_hydroxyl_connector_overlaps_non_oxygen_area(
 		line: render_ops.LineOp,
 		label: render_ops.TextOp,
-		label_box: tuple[float, float, float, float]) -> bool:
-	inner_box = _label_inner_box(label_box)
+		label_target: render_geometry.AttachTarget) -> bool:
+	inner_box = _label_inner_box(label_target.box)
 	if inner_box is None:
 		return False
 	oxygen_center = haworth_renderer._hydroxyl_oxygen_center(
@@ -286,10 +286,10 @@ def _own_hydroxyl_connector_overlaps_non_oxygen_area(
 	)
 	if oxygen_center is None:
 		# If oxygen center cannot be computed, fall back to strict no-overlap.
-		return _segment_distance_to_box_interior(line.p1, line.p2, label_box) < max(0.0, line.width * 0.5)
+		return _segment_distance_to_box_interior(line.p1, line.p2, label_target.box) < max(0.0, line.width * 0.5)
 	oxygen_mode = "first" if label.text == "OH" else "last"
 	non_oxygen_mode = "last" if label.text == "OH" else "first"
-	oxygen_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	oxygen_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
@@ -297,7 +297,7 @@ def _own_hydroxyl_connector_overlaps_non_oxygen_area(
 		font_size=label.font_size,
 		attach_atom=oxygen_mode,
 	)
-	non_oxygen_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	non_oxygen_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
@@ -305,14 +305,14 @@ def _own_hydroxyl_connector_overlaps_non_oxygen_area(
 		font_size=label.font_size,
 		attach_atom=non_oxygen_mode,
 	)
-	if oxygen_bbox == non_oxygen_bbox:
-		first_box, last_box = _hydroxyl_half_token_bboxes(label.text, label_box)
-		oxygen_bbox = first_box if oxygen_mode == "first" else last_box
-		non_oxygen_bbox = last_box if oxygen_mode == "first" else first_box
+	if oxygen_target.box == non_oxygen_target.box:
+		first_target, last_target = _hydroxyl_half_token_targets(label.text, label_target)
+		oxygen_target = first_target if oxygen_mode == "first" else last_target
+		non_oxygen_target = last_target if oxygen_mode == "first" else first_target
 	line_radius = max(0.0, float(getattr(line, "width", 0.0) or 0.0) * 0.5)
 	if line_radius <= 0.0:
-		return _segment_intersects_box_interior(line.p1, line.p2, non_oxygen_bbox)
-	min_distance = _segment_distance_to_box_interior(line.p1, line.p2, non_oxygen_bbox)
+		return _segment_intersects_box_interior(line.p1, line.p2, non_oxygen_target.box)
+	min_distance = _segment_distance_to_box_interior(line.p1, line.p2, non_oxygen_target.box)
 	return min_distance < line_radius
 
 
@@ -328,8 +328,8 @@ def _line_overlaps_label_interior(
 
 
 #============================================
-def _connector_bbox_for_label(label: render_ops.TextOp) -> tuple[float, float, float, float] | None:
-	first_bbox = render_geometry.label_attach_bbox_from_text_origin(
+def _connector_target_for_label(label: render_ops.TextOp) -> render_geometry.AttachTarget | None:
+	first_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
@@ -337,7 +337,7 @@ def _connector_bbox_for_label(label: render_ops.TextOp) -> tuple[float, float, f
 		font_size=label.font_size,
 		attach_atom="first",
 	)
-	last_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	last_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
@@ -345,8 +345,8 @@ def _connector_bbox_for_label(label: render_ops.TextOp) -> tuple[float, float, f
 		font_size=label.font_size,
 		attach_atom="last",
 	)
-	if first_bbox != last_bbox:
-		return first_bbox
+	if first_target.box != last_target.box:
+		return first_target
 	return None
 
 
@@ -425,7 +425,7 @@ def _assert_oxygen_adjacent_ring_edges_clear_oxygen_label(
 			oxygen_label = op
 			break
 	assert oxygen_label is not None, f"Missing oxygen_label in {context}"
-	oxygen_inner = _label_inner_box(_label_bbox(oxygen_label))
+	oxygen_inner = _label_inner_box(_label_target(oxygen_label).box)
 	if oxygen_inner is None:
 		return
 	ring_cfg = haworth_renderer.RING_RENDER_CONFIG[ring_type]
@@ -453,7 +453,8 @@ def _assert_no_bond_label_overlap(ops: list, context: str) -> None:
 	labels = [op for op in ops if isinstance(op, render_ops.TextOp)]
 	lines = [op for op in ops if isinstance(op, render_ops.LineOp)]
 	for label in labels:
-		label_box = _label_bbox(label)
+		label_target = _label_target(label)
+		label_box = label_target.box
 		label_id = getattr(label, "op_id", None)
 		own_connector_id = None
 		if label_id and label_id.endswith("_label"):
@@ -467,7 +468,7 @@ def _assert_no_bond_label_overlap(ops: list, context: str) -> None:
 						non_oxygen_overlap = _own_hydroxyl_connector_overlaps_non_oxygen_area(
 							line,
 							label,
-							label_box,
+							label_target,
 						)
 						raise AssertionError(
 							(
@@ -476,10 +477,10 @@ def _assert_no_bond_label_overlap(ops: list, context: str) -> None:
 							)
 						)
 					continue
-				own_attach_box = _connector_bbox_for_label(label)
-				if own_attach_box is None:
-					own_attach_box = label_box
-				if _segment_intersects_box_interior(line.p1, line.p2, own_attach_box):
+				own_attach_target = _connector_target_for_label(label)
+				if own_attach_target is None:
+					own_attach_target = label_target
+				if _segment_intersects_box_interior(line.p1, line.p2, own_attach_target.box):
 					raise AssertionError(
 						f"Bond/label overlap in {context}: line={line_id} label={label_name}"
 					)
@@ -597,6 +598,42 @@ def test_archive_full_matrix(tmp_path, code, ring_type, anomeric, archive_filena
 
 
 #============================================
+@pytest.mark.parametrize("code", ["ARLLDM", "ALRLDM", "ALLLDM"])
+def test_furanose_left_two_carbon_tail_parity_smoke(code):
+	"""Phase B.1 parity smoke: left-tail class keeps hashed HO branch semantics."""
+	ops = _build_ops(code, "furanose", "alpha", show_hydrogens=False)
+	context = f"{code}_furanose_alpha_left_tail_parity"
+	_assert_ops_well_formed(ops, context)
+	_assert_no_bond_label_overlap(ops, context)
+	ho_label = next(
+		op for op in ops
+		if isinstance(op, render_ops.TextOp) and op.op_id == "C4_down_chain1_oh_label"
+	)
+	ch2_label = next(
+		op for op in ops
+		if isinstance(op, render_ops.TextOp) and op.op_id == "C4_down_chain2_label"
+	)
+	ho_branch = next(
+		op for op in ops
+		if isinstance(op, render_ops.LineOp) and op.op_id == "C4_down_chain1_oh_connector"
+	)
+	ch2_branch = next(
+		op for op in ops
+		if isinstance(op, render_ops.LineOp) and op.op_id == "C4_down_chain2_connector"
+	)
+	assert ho_label.text == "HO"
+	assert ch2_label.text == "HOH<sub>2</sub>C"
+	assert any(
+		isinstance(op, render_ops.LineOp) and (op.op_id or "").startswith("C4_down_chain1_oh_connector_hatch")
+		for op in ops
+	)
+	assert ho_branch.p2[0] < ho_branch.p1[0]
+	assert ch2_branch.p2[0] < ch2_branch.p1[0]
+	assert ho_branch.p2[1] < ho_branch.p1[1]
+	assert ch2_branch.p2[1] > ch2_branch.p1[1]
+
+
+#============================================
 _HYDROXYL_OVERLAP_CASES = [
 	("ARLRDM", "pyranose", "alpha"),
 	("ARDM", "furanose", "alpha"),
@@ -631,7 +668,7 @@ def test_archive_hydroxyl_own_connector_overlap_is_detected(code, ring_type, ano
 	assert hydroxyl_line is not None
 	# Force an overlap by driving the owning connector endpoint into label interior.
 	non_oxygen_mode = "last" if hydroxyl_label.text == "OH" else "first"
-	non_oxygen_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	non_oxygen_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=hydroxyl_label.x,
 		text_y=hydroxyl_label.y,
 		text=hydroxyl_label.text,
@@ -640,7 +677,7 @@ def test_archive_hydroxyl_own_connector_overlap_is_detected(code, ring_type, ano
 		attach_atom=non_oxygen_mode,
 	)
 	oxygen_mode = "first" if hydroxyl_label.text == "OH" else "last"
-	oxygen_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	oxygen_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=hydroxyl_label.x,
 		text_y=hydroxyl_label.y,
 		text=hydroxyl_label.text,
@@ -648,15 +685,15 @@ def test_archive_hydroxyl_own_connector_overlap_is_detected(code, ring_type, ano
 		font_size=hydroxyl_label.font_size,
 		attach_atom=oxygen_mode,
 	)
-	if non_oxygen_bbox == oxygen_bbox:
-		first_box, last_box = _hydroxyl_half_token_bboxes(
+	if non_oxygen_target.box == oxygen_target.box:
+		first_target, last_target = _hydroxyl_half_token_targets(
 			hydroxyl_label.text,
-			_label_bbox(hydroxyl_label),
+			_label_target(hydroxyl_label),
 		)
-		non_oxygen_bbox = last_box if hydroxyl_label.text == "OH" else first_box
+		non_oxygen_target = last_target if hydroxyl_label.text == "OH" else first_target
 	overlap_point = (
-		(non_oxygen_bbox[0] + non_oxygen_bbox[2]) * 0.5,
-		(non_oxygen_bbox[1] + non_oxygen_bbox[3]) * 0.5,
+		(non_oxygen_target.box[0] + non_oxygen_target.box[2]) * 0.5,
+		(non_oxygen_target.box[1] + non_oxygen_target.box[3]) * 0.5,
 	)
 	replacement = render_ops.LineOp(
 		p1=hydroxyl_line.p1,

@@ -48,8 +48,6 @@ class BondRenderContext:
 	point_for_atom: object | None = None
 	label_targets: dict | None = None
 	attach_targets: dict | None = None
-	label_bboxes: dict | None = None
-	attach_bboxes: dict | None = None
 
 
 #============================================
@@ -373,24 +371,12 @@ def _double_bond_side(context, v1, v2, start, end, has_shown_vertex):
 
 
 #============================================
-def _target_from_bbox_or_none(value):
-	"""Return one normalized box target or None."""
-	if value is None:
-		return None
-	return make_box_target(value)
-
-
-#============================================
 def _context_attach_target_for_vertex(context, vertex):
-	"""Resolve attachment target for one vertex with legacy fallback."""
+	"""Resolve attachment target for one vertex."""
 	if context.attach_targets and vertex in context.attach_targets:
 		return _coerce_attach_target(context.attach_targets[vertex])
 	if context.label_targets and vertex in context.label_targets:
 		return _coerce_attach_target(context.label_targets[vertex])
-	if context.attach_bboxes and vertex in context.attach_bboxes:
-		return _target_from_bbox_or_none(context.attach_bboxes.get(vertex))
-	if context.label_bboxes and vertex in context.label_bboxes:
-		return _target_from_bbox_or_none(context.label_bboxes.get(vertex))
 	return None
 
 
@@ -607,12 +593,6 @@ def label_target(x, y, text, anchor, font_size, font_name=None):
 
 
 #============================================
-def label_bbox(x, y, text, anchor, font_size, font_name=None):
-	"""Compatibility wrapper returning axis-aligned bbox coordinates."""
-	return label_target(x, y, text, anchor, font_size, font_name=font_name).box
-
-
-#============================================
 def label_target_from_text_origin(text_x, text_y, text, anchor, font_size, font_name=None):
 	"""Compute one label attachment target from text-origin coordinates."""
 	start_offset = font_size * 0.3125
@@ -622,19 +602,6 @@ def label_target_from_text_origin(text_x, text_y, text, anchor, font_size, font_
 		label_x = text_x + start_offset
 	label_y = text_y - baseline_offset
 	return label_target(label_x, label_y, text, anchor, font_size, font_name=font_name)
-
-
-#============================================
-def label_bbox_from_text_origin(text_x, text_y, text, anchor, font_size, font_name=None):
-	"""Compatibility wrapper returning label bbox from text-origin coordinates."""
-	return label_target_from_text_origin(
-		text_x,
-		text_y,
-		text,
-		anchor,
-		font_size,
-		font_name=font_name,
-	).box
 
 
 #============================================
@@ -666,30 +633,6 @@ def label_attach_target_from_text_origin(
 	)
 
 
-#============================================
-def label_attach_bbox_from_text_origin(
-		text_x,
-		text_y,
-		text,
-		anchor,
-		font_size,
-		attach_atom="first",
-		attach_element=None,
-		font_name=None):
-	"""Compatibility wrapper returning attach bbox from text-origin coordinates."""
-	return label_attach_target_from_text_origin(
-		text_x,
-		text_y,
-		text,
-		anchor,
-		font_size,
-		attach_atom=attach_atom,
-		attach_element=attach_element,
-		font_name=font_name,
-	).box
-
-
-#============================================
 def _label_attach_box_coords(
 		x,
 		y,
@@ -762,29 +705,6 @@ def label_attach_target(
 
 
 #============================================
-def label_attach_bbox(
-		x,
-		y,
-		text,
-		anchor,
-		font_size,
-		attach_atom="first",
-		attach_element=None,
-		font_name=None):
-	"""Compatibility wrapper returning attach bbox coordinates."""
-	return label_attach_target(
-		x,
-		y,
-		text,
-		anchor,
-		font_size,
-		attach_atom=attach_atom,
-		attach_element=attach_element,
-		font_name=font_name,
-	).box
-
-
-#============================================
 def _normalize_element_symbol(symbol: str) -> str:
 	"""Normalize one element symbol to canonical letter case."""
 	text = str(symbol).strip()
@@ -813,25 +733,7 @@ def _tokenized_atom_entries(text):
 
 
 #============================================
-def clip_bond_to_bbox(bond_start, bond_end, bbox):
-	"""Compatibility wrapper: clip bond_end to one box target boundary."""
-	x1, y1, x2, y2 = misc.normalize_coords(bbox)
-	end_x, end_y = bond_end
-	is_inside = x1 <= end_x <= x2 and y1 <= end_y <= y2
-	if not is_inside:
-		return bond_end
-	target = make_box_target((x1, y1, x2, y2))
-	constraints = AttachConstraints(direction_policy="line")
-	return resolve_attach_endpoint(
-		bond_start=bond_start,
-		target=target,
-		interior_hint=bond_end,
-		constraints=constraints,
-	)
-
-
-#============================================
-def _clip_bond_to_bbox_legacy(bond_start, bond_end, bbox):
+def _clip_line_to_box(bond_start, bond_end, bbox):
 	"""Clip bond_end to bbox edge when bond_end lies inside bbox."""
 	x1, y1, x2, y2 = misc.normalize_coords(bbox)
 	end_x, end_y = bond_end
@@ -848,7 +750,7 @@ def _clip_bond_to_bbox_legacy(bond_start, bond_end, bbox):
 
 
 #============================================
-def bbox_center(bbox):
+def _box_center(bbox):
 	"""Return center point of an axis-aligned bbox."""
 	x1, y1, x2, y2 = misc.normalize_coords(bbox)
 	return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
@@ -885,7 +787,7 @@ def directional_attach_edge_intersection(
 	x1, y1, x2, y2 = misc.normalize_coords(attach_bbox)
 	target_x, target_y = attach_target
 	if not (x1 <= target_x <= x2 and y1 <= target_y <= y2):
-		target_x, target_y = bbox_center((x1, y1, x2, y2))
+		target_x, target_y = _box_center((x1, y1, x2, y2))
 	start_x, start_y = bond_start
 	dx = target_x - start_x
 	dy = target_y - start_y
@@ -894,18 +796,18 @@ def directional_attach_edge_intersection(
 	if abs_dx <= 1e-12 and abs_dy <= 1e-12:
 		return (target_x, target_y)
 	if direction_policy == "line":
-		return _clip_bond_to_bbox_legacy((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
+		return _clip_line_to_box((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
 	mode = _resolve_direction_mode(direction_policy, abs_dx, abs_dy)
 	if mode == "side":
 		if abs_dx <= 1e-12:
-			return _clip_bond_to_bbox_legacy((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
+			return _clip_line_to_box((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
 		edge_x = x1 if dx > 0.0 else x2
 		t_value = (edge_x - start_x) / dx
 		y_value = start_y + (dy * t_value)
 		y_value = min(max(y_value, y1), y2)
 		return (edge_x, y_value)
 	if abs_dy <= 1e-12:
-		return _clip_bond_to_bbox_legacy((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
+		return _clip_line_to_box((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
 	edge_y = y1 if dy > 0.0 else y2
 	t_value = (edge_y - start_y) / dy
 	x_value = start_x + (dx * t_value)
@@ -915,11 +817,9 @@ def directional_attach_edge_intersection(
 
 #============================================
 def _coerce_attach_target(target):
-	"""Normalize legacy target inputs into AttachTarget objects."""
+	"""Normalize attach target inputs into AttachTarget objects."""
 	if isinstance(target, AttachTarget):
 		return target
-	if isinstance(target, tuple) and len(target) == 4:
-		return make_box_target(target)
 	raise ValueError(f"Unsupported attach target: {target!r}")
 
 
@@ -1189,7 +1089,7 @@ def resolve_attach_endpoint(
 		raise ValueError("Composite attach target did not resolve any child target")
 	if resolved_target.kind == "box":
 		attach_bbox = _expanded_box(resolved_target.box, margin)
-		hint = interior_hint if interior_hint is not None else bbox_center(attach_bbox)
+		hint = interior_hint if interior_hint is not None else _box_center(attach_bbox)
 		if constraints.vertical_lock:
 			vertical = _vertical_box_intersection(bond_start, attach_bbox, hint)
 			if vertical is not None:
@@ -1319,6 +1219,55 @@ def validate_attachment_paint(
 
 
 #============================================
+def retreat_endpoint_until_legal(
+		line_start,
+		line_end,
+		line_width,
+		forbidden_regions,
+		allowed_regions=None,
+		epsilon=0.5,
+		max_iterations=28):
+	"""Retreat line_end toward line_start until attachment paint becomes legal."""
+	if allowed_regions is None:
+		allowed_regions = []
+	if validate_attachment_paint(
+			line_start=line_start,
+			line_end=line_end,
+			line_width=line_width,
+			forbidden_regions=forbidden_regions,
+			allowed_regions=allowed_regions,
+			epsilon=epsilon):
+		return line_end
+	x_start, y_start = line_start
+	x_end, y_end = line_end
+	low = 0.0
+	high = 1.0
+	for _ in range(max(1, int(max_iterations))):
+		mid = (low + high) * 0.5
+		candidate = (
+			x_start + ((x_end - x_start) * mid),
+			y_start + ((y_end - y_start) * mid),
+		)
+		if validate_attachment_paint(
+				line_start=line_start,
+				line_end=candidate,
+				line_width=line_width,
+				forbidden_regions=forbidden_regions,
+				allowed_regions=allowed_regions,
+				epsilon=epsilon):
+			low = mid
+		else:
+			high = mid
+	if low <= 1e-12:
+		return line_start
+	safe_t = max(0.0, low - 1e-4)
+	return (
+		x_start + ((x_end - x_start) * safe_t),
+		y_start + ((y_end - y_start) * safe_t),
+	)
+
+
+#============================================
 def _resolved_vertex_label_layout(vertex, show_hydrogens_on_hetero, font_size, font_name):
 	if not vertex_is_shown(vertex):
 		return None
@@ -1332,14 +1281,14 @@ def _resolved_vertex_label_layout(vertex, show_hydrogens_on_hetero, font_size, f
 	text_len = _visible_label_length(text)
 	if auto_anchor and text_len == 1:
 		label_anchor = "middle"
-	bbox = label_bbox(
+	bbox = label_target(
 		vertex.x,
 		vertex.y,
 		text,
 		label_anchor,
 		font_size,
 		font_name=font_name,
-	)
+	).box
 	text_origin = _label_text_origin(vertex.x, vertex.y, label_anchor, font_size, text_len)
 	return {
 		"text": text,
@@ -1508,8 +1457,6 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 	bond_coords = _edge_points(mol, transform_xy=transform_xy)
 	label_targets = {}
 	attach_targets = {}
-	label_bboxes = {}
-	attach_bboxes = {}
 	for vertex in shown_vertices:
 		layout = _resolved_vertex_label_layout(
 			vertex,
@@ -1529,7 +1476,6 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		)
 		label_target_obj = _transform_target(label_target_obj, transform_xy)
 		label_targets[vertex] = label_target_obj
-		label_bboxes[vertex] = label_target_obj.box
 		if len(_tokenized_atom_spans(layout["text"])) <= 1:
 			continue
 		attach_mode = vertex.properties_.get("attach_atom", "first")
@@ -1546,7 +1492,6 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		)
 		attach_target_obj = _transform_target(attach_target_obj, transform_xy)
 		attach_targets[vertex] = attach_target_obj
-		attach_bboxes[vertex] = attach_target_obj.box
 	context = BondRenderContext(
 		molecule=mol,
 		line_width=float(used_style["line_width"]),
@@ -1562,8 +1507,6 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		point_for_atom=None,
 		label_targets=label_targets,
 		attach_targets=attach_targets,
-		label_bboxes=label_bboxes,
-		attach_bboxes=attach_bboxes,
 	)
 	ops = []
 	for edge in mol.edges:

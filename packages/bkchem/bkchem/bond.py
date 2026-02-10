@@ -327,19 +327,27 @@ class bond( meta_enabled, line_colored, drawable, with_line, interactive, child_
 
   # THE DRAW HELPER METHODS
   def _where_to_draw_from_and_to( self):
-    #if self.atom1.show:
     x1, y1 = self.atom1.get_xy_on_paper()
     x2, y2 = self.atom2.get_xy_on_paper()
-    # at first check if the bboxes are not overlapping
     bbox1 = list( misc.normalize_coords( self.atom1.bbox( substract_font_descent=True)))
     bbox2 = list( misc.normalize_coords( self.atom2.bbox( substract_font_descent=True)))
     if geometry.do_rectangles_intersect( bbox1, bbox2):
       return None
-    # then we continue with computation
+    # Resolve clipping against shared target primitives instead of ad-hoc rect math.
     if self.atom1.show:
-      x1, y1 = geometry.intersection_of_line_and_rect( (x1,y1,x2,y2), bbox1, round_edges=0)
+      x1, y1 = render_geometry.resolve_attach_endpoint(
+        bond_start=(x2, y2),
+        target=render_geometry.make_box_target( tuple( bbox1)),
+        interior_hint=(x1, y1),
+        constraints=render_geometry.AttachConstraints( direction_policy="line"),
+      )
     if self.atom2.show:
-      x2, y2 = geometry.intersection_of_line_and_rect( (x1,y1,x2,y2), bbox2, round_edges=0)
+      x2, y2 = render_geometry.resolve_attach_endpoint(
+        bond_start=(x1, y1),
+        target=render_geometry.make_box_target( tuple( bbox2)),
+        interior_hint=(x2, y2),
+        constraints=render_geometry.AttachConstraints( direction_policy="line"),
+      )
 
     if geometry.point_distance( x1, y1, x2, y2) <= 1.0:
       return None

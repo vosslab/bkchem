@@ -72,7 +72,7 @@ def resolve_hydroxyl_layout_jobs(
 	for job in jobs:
 		if job_is_hydroxyl(job):
 			continue
-		occupied.append(job_text_bbox(job, job["length"]))
+		occupied.append(job_text_target(job, job["length"]).box)
 
 	for job in jobs:
 		if not job_is_hydroxyl(job):
@@ -95,7 +95,7 @@ def resolve_hydroxyl_layout_jobs(
 		resolved.append(best_job)
 		if job_is_internal_hydroxyl(best_job) and best_job["direction"] == "up":
 			internal_hydroxyl_up_indices.append(len(resolved) - 1)
-		occupied.append(job_text_bbox(best_job, best_job["length"]))
+		occupied.append(job_text_target(best_job, best_job["length"]).box)
 
 	if len(internal_hydroxyl_up_indices) >= 2:
 		internal_index_set = set(internal_hydroxyl_up_indices)
@@ -103,7 +103,7 @@ def resolve_hydroxyl_layout_jobs(
 		for index, fixed_job in enumerate(resolved):
 			if index in internal_index_set:
 				continue
-			fixed_occupied.append(job_text_bbox(fixed_job, fixed_job["length"]))
+			fixed_occupied.append(job_text_target(fixed_job, fixed_job["length"]).box)
 		internal_jobs = [resolved[index] for index in internal_hydroxyl_up_indices]
 		equal_length = best_equal_internal_hydroxyl_length(
 			internal_jobs=internal_jobs,
@@ -173,7 +173,7 @@ def best_equal_internal_hydroxyl_length(
 				blocked_polygons,
 				min_gap,
 			)
-			candidate_occupied.append(job_text_bbox(candidate, candidate["length"]))
+			candidate_occupied.append(job_text_target(candidate, candidate["length"]).box)
 		if total_penalty < best_penalty:
 			best_penalty = total_penalty
 			best_length = length
@@ -219,16 +219,16 @@ def job_end_point(job: dict, length: float | None = None) -> tuple[float, float]
 #============================================
 def internal_pair_overlap_area(left_job: dict, right_job: dict) -> float:
 	"""Compute overlap area between two internal hydroxyl label boxes."""
-	left_box = job_text_bbox(left_job, left_job["length"])
-	right_box = job_text_bbox(right_job, right_job["length"])
+	left_box = job_text_target(left_job, left_job["length"]).box
+	right_box = job_text_target(right_job, right_job["length"]).box
 	return _geom.intersection_area(left_box, right_box, gap=0.0)
 
 
 #============================================
 def internal_pair_horizontal_gap(left_job: dict, right_job: dict) -> float:
 	"""Return horizontal box gap between left/right internal pair labels."""
-	left_box = job_text_bbox(left_job, left_job["length"])
-	right_box = job_text_bbox(right_job, right_job["length"])
+	left_box = job_text_target(left_job, left_job["length"]).box
+	right_box = job_text_target(right_job, right_job["length"]).box
 	return right_box[0] - left_box[2]
 
 
@@ -300,15 +300,15 @@ def resolve_internal_hydroxyl_pair_overlap(jobs: list[dict]) -> None:
 
 
 #============================================
-def job_text_bbox(job: dict, length: float) -> tuple[float, float, float, float]:
-	"""Approximate text bbox for one simple-label placement job."""
+def job_text_target(job: dict, length: float) -> _render_geometry.AttachTarget:
+	"""Approximate text target for one simple-label placement job."""
 	end_x, end_y = job_end_point(job, length)
 	text = _text.format_label_text(job["label"], anchor=job["anchor"])
 	layout_font_size = job["font_size"]
 	draw_font_size = layout_font_size * float(job.get("text_scale", 1.0))
 	text_x = end_x + _text.anchor_x_offset(text, job["anchor"], layout_font_size)
 	text_y = end_y + _text.baseline_shift(job["direction"], layout_font_size, text)
-	return _render_geometry.label_bbox_from_text_origin(
+	return _render_geometry.label_target_from_text_origin(
 		text_x=text_x,
 		text_y=text_y,
 		text=text,
@@ -319,14 +319,14 @@ def job_text_bbox(job: dict, length: float) -> tuple[float, float, float, float]
 
 
 #============================================
-def text_bbox(
+def text_target(
 		text_x: float,
 		text_y: float,
 		text: str,
 		anchor: str,
-		font_size: float) -> tuple[float, float, float, float]:
-	"""Return shared label bbox from text geometry fields."""
-	return _render_geometry.label_bbox_from_text_origin(
+		font_size: float) -> _render_geometry.AttachTarget:
+	"""Return one shared label target from text geometry fields."""
+	return _render_geometry.label_target_from_text_origin(
 		text_x=text_x,
 		text_y=text_y,
 		text=text,
@@ -356,7 +356,7 @@ def hydroxyl_job_penalty(
 		blocked_polygons: list[tuple[tuple[float, float], ...]],
 		min_gap: float) -> float:
 	"""Return overlap penalty for one hydroxyl job against occupied boxes."""
-	box = job_text_bbox(job, job["length"])
+	box = job_text_target(job, job["length"]).box
 	penalty = overlap_penalty(box, occupied, min_gap)
 	if job_is_internal_hydroxyl(job):
 		for polygon in blocked_polygons:

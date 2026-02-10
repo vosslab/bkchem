@@ -1,4 +1,4 @@
-"""Unit tests for Phase A attachment target primitives and wrappers."""
+"""Unit tests for shared attachment target primitives and geometry helpers."""
 
 # Third Party
 import pytest
@@ -116,18 +116,13 @@ def test_resolve_attach_endpoint_composite_uses_fallback_children():
 
 
 #============================================
-@pytest.mark.parametrize(
-	("bond_start", "bond_end", "box"),
-	(
-		((-5.0, 5.0), (5.0, 5.0), (0.0, 0.0, 10.0, 10.0)),
-		((20.0, 5.0), (5.0, 5.0), (0.0, 0.0, 10.0, 10.0)),
-		((5.0, -10.0), (5.0, 5.0), (0.0, 0.0, 10.0, 10.0)),
-	),
-)
-def test_clip_bond_to_bbox_wrapper_parity_with_legacy(bond_start, bond_end, box):
-	wrapper_point = render_geometry.clip_bond_to_bbox(bond_start, bond_end, box)
-	legacy_point = render_geometry._clip_bond_to_bbox_legacy(bond_start, bond_end, box)
-	assert wrapper_point == pytest.approx(legacy_point)
+def test_phase_c_removed_bbox_wrappers():
+	assert not hasattr(render_geometry, "clip_bond_to_bbox")
+	assert not hasattr(render_geometry, "label_bbox")
+	assert not hasattr(render_geometry, "label_bbox_from_text_origin")
+	assert not hasattr(render_geometry, "label_attach_bbox")
+	assert not hasattr(render_geometry, "label_attach_bbox_from_text_origin")
+	assert not hasattr(render_geometry, "bbox_center")
 
 
 #============================================
@@ -141,8 +136,13 @@ def test_directional_attach_line_policy_matches_legacy_clip():
 		attach_target=target,
 		direction_policy="line",
 	)
-	legacy = render_geometry._clip_bond_to_bbox_legacy(start, target, box)
-	assert line_policy == pytest.approx(legacy)
+	resolved = render_geometry.resolve_attach_endpoint(
+		bond_start=start,
+		target=render_geometry.make_box_target(box),
+		interior_hint=target,
+		constraints=render_geometry.AttachConstraints(direction_policy="line"),
+	)
+	assert line_policy == pytest.approx(resolved)
 
 
 #============================================
@@ -156,10 +156,8 @@ def test_directional_attach_line_policy_matches_legacy_clip():
 )
 def test_label_target_legacy_geometry_values(text, anchor, x, y, font_size, expected):
 	target = render_geometry.label_target(x, y, text, anchor, font_size)
-	legacy = render_geometry.label_bbox(x, y, text, anchor, font_size)
 	assert target.kind == "box"
 	assert target.box == pytest.approx(expected)
-	assert legacy == pytest.approx(expected)
 
 
 #============================================
@@ -172,23 +170,14 @@ def test_label_attach_target_legacy_geometry_values():
 		16.0,
 		attach_atom="last",
 	)
-	legacy = render_geometry.label_attach_bbox(
-		0.0,
-		0.0,
-		"CH2OH",
-		"start",
-		16.0,
-		attach_atom="last",
-	)
 	expected = (31.0, -6.0, 55.0, 8.0)
 	assert target.kind == "box"
 	assert target.box == pytest.approx(expected)
-	assert legacy == pytest.approx(expected)
 
 
 #============================================
 def test_label_attach_selector_precedence_uses_element_before_attach_atom():
-	with_element = render_geometry.label_attach_bbox(
+	with_element = render_geometry.label_attach_target(
 		0.0,
 		0.0,
 		"COOH",
@@ -196,22 +185,22 @@ def test_label_attach_selector_precedence_uses_element_before_attach_atom():
 		16.0,
 		attach_atom="first",
 		attach_element="O",
-	)
-	default_first = render_geometry.label_attach_bbox(
+	).box
+	default_first = render_geometry.label_attach_target(
 		0.0,
 		0.0,
 		"COOH",
 		"start",
 		16.0,
 		attach_atom="first",
-	)
+	).box
 	assert with_element[0] > default_first[0]
 
 
 #============================================
 def test_label_attach_invalid_attach_atom_raises_even_with_attach_element():
 	with pytest.raises(ValueError, match=r"Invalid attach_atom value: 'frist'"):
-		render_geometry.label_attach_bbox(
+		render_geometry.label_attach_target(
 			0.0,
 			0.0,
 			"COOH",
@@ -219,4 +208,86 @@ def test_label_attach_invalid_attach_atom_raises_even_with_attach_element():
 			16.0,
 			attach_atom="frist",
 			attach_element="O",
-		)
+		).box
+
+
+#============================================
+def test_retreat_endpoint_until_legal_returns_original_when_legal():
+	forbidden = render_geometry.make_box_target((10.0, -2.0, 20.0, 2.0))
+	start = (0.0, 0.0)
+	end = (8.0, 0.0)
+	retreated = render_geometry.retreat_endpoint_until_legal(
+		line_start=start,
+		line_end=end,
+		line_width=1.0,
+		forbidden_regions=[forbidden],
+		epsilon=0.5,
+	)
+	assert retreated == pytest.approx(end)
+
+
+#============================================
+def test_retreat_endpoint_until_legal_box_penetration_retreats_and_is_legal():
+	forbidden = render_geometry.make_box_target((0.0, -2.0, 10.0, 2.0))
+	start = (-12.0, 0.0)
+	end = (5.0, 0.0)
+	retreated = render_geometry.retreat_endpoint_until_legal(
+		line_start=start,
+		line_end=end,
+		line_width=2.0,
+		forbidden_regions=[forbidden],
+		epsilon=0.5,
+	)
+	assert retreated[0] > start[0]
+	assert retreated[0] < end[0]
+	assert render_geometry.validate_attachment_paint(
+		line_start=start,
+		line_end=retreated,
+		line_width=2.0,
+		forbidden_regions=[forbidden],
+		epsilon=0.5,
+	)
+	assert not render_geometry.validate_attachment_paint(
+		line_start=start,
+		line_end=((retreated[0] + end[0]) * 0.5, (retreated[1] + end[1]) * 0.5),
+		line_width=2.0,
+		forbidden_regions=[forbidden],
+		epsilon=0.5,
+	)
+
+
+#============================================
+def test_retreat_endpoint_until_legal_circle_penetration_retreats_and_is_legal():
+	forbidden = render_geometry.make_circle_target((0.0, 0.0), 5.0)
+	start = (-12.0, 0.0)
+	end = (0.0, 0.0)
+	retreated = render_geometry.retreat_endpoint_until_legal(
+		line_start=start,
+		line_end=end,
+		line_width=1.0,
+		forbidden_regions=[forbidden],
+		epsilon=0.5,
+	)
+	assert retreated[0] < end[0]
+	assert render_geometry.validate_attachment_paint(
+		line_start=start,
+		line_end=retreated,
+		line_width=1.0,
+		forbidden_regions=[forbidden],
+		epsilon=0.5,
+	)
+
+
+#============================================
+def test_retreat_endpoint_until_legal_returns_start_when_no_legal_prefix():
+	forbidden = render_geometry.make_box_target((-1.0, -1.0, 1.0, 1.0))
+	start = (0.0, 0.0)
+	end = (10.0, 0.0)
+	retreated = render_geometry.retreat_endpoint_until_legal(
+		line_start=start,
+		line_end=end,
+		line_width=2.0,
+		forbidden_regions=[forbidden],
+		epsilon=0.5,
+	)
+	assert retreated == pytest.approx(start)

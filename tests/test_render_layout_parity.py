@@ -130,31 +130,31 @@ def _point_on_box_edge(point, box, tol=1e-6):
 
 #============================================
 def _connector_bbox_for_label(label):
-	first_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	first_bbox = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
 		attach_atom="first",
-	)
-	last_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	).box
+	last_bbox = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
 		attach_atom="last",
-	)
+	).box
 	if first_bbox != last_bbox:
 		return first_bbox
-	return render_geometry.label_bbox_from_text_origin(
+	return render_geometry.label_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
-	)
+	).box
 
 
 #============================================

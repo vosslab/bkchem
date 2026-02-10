@@ -175,13 +175,13 @@ def _edge_thicknesses(poly: render_ops.PolygonOp) -> tuple[float, float]:
 
 #============================================
 def _label_bbox(label: render_ops.TextOp) -> tuple[float, float, float, float]:
-	return haworth_renderer._text_bbox(
+	return haworth_renderer._text_target(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
-	)
+	).box
 
 
 #============================================
@@ -408,22 +408,22 @@ def _assert_hashed_connector_quality(ops: list, connector_id: str, label_id: str
 
 #============================================
 def _connector_bbox_for_label(label: render_ops.TextOp) -> tuple[float, float, float, float]:
-	first_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	first_bbox = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
 		attach_atom="first",
-	)
-	last_bbox = render_geometry.label_attach_bbox_from_text_origin(
+	).box
+	last_bbox = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
 		attach_atom="last",
-	)
+	).box
 	if first_bbox != last_bbox:
 		return first_bbox
 	return _label_bbox(label)
@@ -432,14 +432,14 @@ def _connector_bbox_for_label(label: render_ops.TextOp) -> tuple[float, float, f
 #============================================
 def _oxygen_attach_bbox_for_hydroxyl_label(label: render_ops.TextOp) -> tuple[float, float, float, float]:
 	attach_mode = "first" if label.text == "OH" else "last"
-	return render_geometry.label_attach_bbox_from_text_origin(
+	return render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
 		attach_atom=attach_mode,
-	)
+	).box
 
 
 #============================================
@@ -469,7 +469,10 @@ def _point_outside_circle_radius(
 def _assert_endpoint_matches_directional_attach_edge(
 		line: render_ops.LineOp,
 		attach_bbox: tuple[float, float, float, float]) -> None:
-	target_center = render_geometry.bbox_center(attach_bbox)
+	target_center = (
+		(attach_bbox[0] + attach_bbox[2]) * 0.5,
+		(attach_bbox[1] + attach_bbox[3]) * 0.5,
+	)
 	if _point_on_box_edge(line.p2, attach_bbox, tol=1e-5):
 		return
 	max_clearance = max(0.75, float(getattr(line, "width", 0.0) or 0.0) * 2.0)
@@ -1598,6 +1601,32 @@ def test_render_gulose_furanose_alpha_tail_branches_left_with_hoh2c_text():
 	)
 	assert _text_by_id(ops, "C4_down_chain1_oh_label").text == "HO"
 	assert _text_by_id(ops, "C4_down_chain2_label").text == "HOH<sub>2</sub>C"
+	_assert_hashed_connector_quality(
+		ops,
+		connector_id="C4_down_chain1_oh_connector",
+		label_id="C4_down_chain1_oh_label",
+	)
+
+
+#============================================
+@pytest.mark.parametrize("code", ["ARLLDM", "ALRLDM", "ALLLDM"])
+def test_render_furanose_two_carbon_tail_left_parity_class_uses_hashed_ho(code):
+	"""Phase B.1 parity fixture: left-tail class keeps hashed HO + lower CH2 lane."""
+	_, ops = _render(code, "furanose", "alpha", show_hydrogens=False)
+	trunk = _line_by_id(ops, "C4_down_chain1_connector")
+	ho_branch = _line_by_id(ops, "C4_down_chain1_oh_connector")
+	ch2_branch = _line_by_id(ops, "C4_down_chain2_connector")
+	ho_label = _text_by_id(ops, "C4_down_chain1_oh_label")
+	ch2_label = _text_by_id(ops, "C4_down_chain2_label")
+	assert ho_label.text == "HO"
+	assert ch2_label.text == "HOH<sub>2</sub>C"
+	assert ho_branch.p1 == pytest.approx(trunk.p2)
+	assert ch2_branch.p1 == pytest.approx(trunk.p2)
+	assert ho_branch.p2[0] < ho_branch.p1[0]
+	assert ch2_branch.p2[0] < ch2_branch.p1[0]
+	assert ho_branch.p2[1] < ho_branch.p1[1]
+	assert ch2_branch.p2[1] > ch2_branch.p1[1]
+	assert ch2_label.y > ho_label.y
 	_assert_hashed_connector_quality(
 		ops,
 		connector_id="C4_down_chain1_oh_connector",

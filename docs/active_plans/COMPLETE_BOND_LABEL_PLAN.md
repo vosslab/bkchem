@@ -11,9 +11,9 @@ attachment paths.
 
 ## Phase status
 
-- [ ] Phase A: Spec + engine + baseline matrix
-- [ ] Phase B: Migrate OASA renderers (molecular + Haworth)
-  - [ ] Phase B.1: Furanose side-chain stereography parity
+- [x] Phase A: Spec + engine + baseline matrix
+- [x] Phase B: Migrate OASA renderers (molecular + Haworth)
+  - [x] Phase B.1: Furanose side-chain stereography parity
 - [ ] Phase C: Migrate BKChem + decompose bond.py + delete compatibility code
 
 ## Bbox naming inventory (tracked for refactor)
@@ -29,17 +29,17 @@ This inventory is the explicit Phase B/C rename backlog for attachment-related
   - Internal variable names pending Phase B/C cleanup:
     `bbox_v1`, `bbox_v2`, `full_bbox`, `attach_bbox`, `target_bbox`.
 - `packages/oasa/oasa/haworth/renderer.py`
-  - Active usage of `label_bbox_from_text_origin(...)`,
-    `label_attach_bbox_from_text_origin(...)`, and `bbox_center(...)`.
-  - Local variable names still bbox-oriented:
-    `oxygen_label_bbox`, `full_bbox`, `target_bbox`, `*_attach_bbox`.
+  - Phase B migrated active attachment paths to target primitives and removed
+    remaining renderer-local bbox attachment calls; no active
+    `label_bbox*`/`label_attach_bbox*` attachment usage remains.
 - `packages/oasa/oasa/haworth/renderer_layout.py`
-  - Function names still pending rename:
+  - Phase B added `job_text_target(...)` and `text_target(...)`.
+  - Compatibility wrappers still present by design:
     `job_text_bbox(...)`, `text_bbox(...)`.
 - `tests/smoke/test_haworth_renderer_smoke.py`
-  - Helper names pending rename:
-    `_label_bbox`, `_connector_bbox_for_label`,
-    `_hydroxyl_half_token_bboxes`.
+  - Phase B helper renames completed:
+    `_label_target`, `_connector_target_for_label`,
+    `_hydroxyl_half_token_targets`.
 - `tests/test_label_bbox.py`
   - Entire test module is compatibility-focused and remains valid during
     wrapper phase; expected rename/split in Phase C when bbox wrappers are
@@ -1022,6 +1022,9 @@ regions:
   `epsilon = 0.5 px` into forbidden interior is a hard failure.
 - This `epsilon = 0.5 px` threshold replaces the current non-protective
   `overlap >= 0.0` assertion.
+- Endpoint-retreat search may use a tighter numeric tolerance internally for
+  binary-search stability, but acceptance/failure decisions must remain tied to
+  the strict gate threshold above (`epsilon = 0.5 px`).
 
 ### Smoke/system enforcement
 
