@@ -832,7 +832,20 @@ def test_render_furanose_left_tail_chain2_connector_stays_on_carbon_token(code):
 @pytest.mark.parametrize("code", ("ALRRLd", "ARRLLd"))
 def test_render_deoxy_terminal_methyl_uses_subscript_markup(code):
 	_, ops = _render(code, "pyranose", "alpha", show_hydrogens=False)
-	assert _text_by_id(ops, "C5_down_label").text == "H<sub>3</sub>C"
+	label = _text_by_id(ops, "C5_down_label")
+	assert label.text == "CH<sub>3</sub>"
+	assert label.font_size == pytest.approx(10.8)
+
+
+#============================================
+def test_render_l_fucose_internal_groups_scale_to_90_when_multiple():
+	_, ops = _render("ALRRLd", "pyranose", "alpha", show_hydrogens=False)
+	internal_ho = _text_by_id(ops, "C2_up_label")
+	internal_ch3 = _text_by_id(ops, "C5_down_label")
+	external_oh = _text_by_id(ops, "C1_up_label")
+	assert internal_ho.font_size == pytest.approx(10.8)
+	assert internal_ch3.font_size == pytest.approx(10.8)
+	assert external_oh.font_size == pytest.approx(12.0)
 
 
 #============================================

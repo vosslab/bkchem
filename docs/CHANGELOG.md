@@ -1,6 +1,33 @@
 # Changelog
 
 ## 2026-02-10
+- Adjust methyl readability policy in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  midpoint methyl labels now prefer `CH<sub>3</sub>` at 90% font size
+  (instead of forcing `H<sub>3</sub>C`), with `H<sub>3</sub>C` retained only as
+  overlap fallback and a no-shrink-below-90% floor.
+- Update deoxy methyl regression in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to assert
+  `CH<sub>3</sub>` rendering and 90% font-size behavior for
+  `ALRRLd`/`ARRLLd` pyranose-alpha labels.
+- Fix furanose C-target connector alignment for chain-like top-left labels in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  when vertical-lock is used (for example `ARRDM` furanose alpha `C4_up`),
+  pre-align the rendered label x-origin so the selected carbon-core attach
+  target centroid matches the locked connector x-position, preventing the bond
+  from visually landing on the C/H boundary.
+- Add regression test
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  (`test_render_ribose_furanose_alpha_c4_up_connector_x_aligns_to_carbon_center`)
+  to lock the Ribose C4-up connector x-alignment to the carbon target center.
+- Validation reruns for this fix:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py`
+  (`96 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_renderer_smoke.py`
+  (`86 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (strict checks enabled; regenerated summary previews with zero missing entries).
 - Improve methyl readability in Haworth labels by rendering midpoint methyl
   substituents as `H<sub>3</sub>C` (instead of `CH<sub>3</sub>`) in
   [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py),

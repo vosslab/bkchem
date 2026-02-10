@@ -4,6 +4,9 @@
 
 """Hydroxyl layout optimizer for Haworth rendering."""
 
+# Standard Library
+import math
+
 from .renderer_config import (
 	RING_SLOT_SEQUENCE,
 	VALID_DIRECTIONS,
@@ -114,6 +117,7 @@ def resolve_hydroxyl_layout_jobs(
 		for index in internal_hydroxyl_up_indices:
 			resolved[index]["length"] = equal_length
 	resolve_internal_hydroxyl_pair_overlap(resolved)
+	resolve_internal_group_scaling(resolved)
 	return resolved
 
 
@@ -297,6 +301,38 @@ def resolve_internal_hydroxyl_pair_overlap(jobs: list[dict]) -> None:
 				right_job["text_scale"] = INTERNAL_PAIR_LABEL_SCALE
 		jobs[left_index] = left_job
 		jobs[right_index] = right_job
+
+
+#============================================
+def job_is_internal_group(job: dict) -> bool:
+	"""Return True for non-hydrogen labels whose connector points inward."""
+	if str(job.get("label", "")) == "H":
+		return False
+	center = job.get("ring_center")
+	if center is None:
+		return job_is_internal_hydroxyl(job)
+	vertex = job["vertex"]
+	end_point = job_end_point(job, job["length"])
+	start_distance = math.hypot(vertex[0] - center[0], vertex[1] - center[1])
+	end_distance = math.hypot(end_point[0] - center[0], end_point[1] - center[1])
+	return end_distance < (start_distance - 1e-6)
+
+
+#============================================
+def resolve_internal_group_scaling(jobs: list[dict]) -> None:
+	"""Scale all internal labels to 90% when more than one internal group exists."""
+	internal_indices = [
+		index
+		for index, job in enumerate(jobs)
+		if job_is_internal_group(job)
+	]
+	if len(internal_indices) < 2:
+		return
+	for index in internal_indices:
+		job = dict(jobs[index])
+		scale = float(job.get("text_scale", 1.0))
+		job["text_scale"] = min(scale, INTERNAL_PAIR_LABEL_SCALE)
+		jobs[index] = job
 
 
 #============================================

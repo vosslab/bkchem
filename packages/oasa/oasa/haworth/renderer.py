@@ -323,6 +323,7 @@ def render(
 					"carbon": carbon,
 					"ring_type": spec.ring_type,
 					"slot": slot,
+					"ring_center": ring_center,
 					"direction": direction,
 					"vertex": vertex,
 					"dx": dx,
@@ -443,6 +444,7 @@ def _add_simple_label_ops(
 		text=text,
 		text_x=text_x,
 		text_y=text_y,
+		layout_font_size=font_size,
 		draw_font_size=draw_font_size,
 	)
 	force_vertical_chain = (
@@ -820,18 +822,23 @@ def _resolve_methyl_label_collision(
 		text: str,
 		text_x: float,
 		text_y: float,
+		layout_font_size: float,
 		draw_font_size: float) -> tuple[str, float, float, float]:
 	"""Resolve CH3-vs-neighbor label overlap with deterministic local fallbacks."""
 	canonical_ch3 = _text.apply_subscript_markup("CH3")
 	canonical_h3c = _text.apply_subscript_markup("H3C")
 	if text != canonical_ch3:
 		return (text, text_x, text_y, draw_font_size)
+	base_font_size = draw_font_size
+	# Mid-lane methyl labels are easier to read at 90% while preserving CH3
+	# ordering; keep this deterministic and avoid shrinking below 90%.
 	if anchor == "middle":
-		# Mid-lane methyl labels in Haworth projections are visually clearer as
-		# H3C than CH3; keep this deterministic and local to methyl labels.
-		mid_x = end_point[0] + _text.anchor_x_offset(canonical_h3c, anchor, draw_font_size)
-		mid_y = end_point[1] + _text.baseline_shift(direction, draw_font_size, canonical_h3c)
-		return (canonical_h3c, mid_x, mid_y, draw_font_size)
+		min_methyl_size = layout_font_size * 0.90
+		if draw_font_size > min_methyl_size:
+			base_font_size = min_methyl_size
+			text_x = end_point[0] + _text.anchor_x_offset(canonical_ch3, anchor, base_font_size)
+			text_y = end_point[1] + _text.baseline_shift(direction, base_font_size, canonical_ch3)
+			draw_font_size = base_font_size
 	current_overlap = _label_overlap_area_against_existing(
 		ops=ops,
 		text_x=text_x,
@@ -843,10 +850,11 @@ def _resolve_methyl_label_collision(
 	)
 	if current_overlap <= STRICT_OVERLAP_EPSILON:
 		return (text, text_x, text_y, draw_font_size)
+	min_font_size = base_font_size
 	candidates = [
-		(canonical_ch3, draw_font_size * 0.90),
-		(canonical_h3c, draw_font_size),
-		(canonical_h3c, draw_font_size * 0.90),
+		(canonical_ch3, max(min_font_size, draw_font_size * 0.90)),
+		(canonical_h3c, max(min_font_size, draw_font_size)),
+		(canonical_h3c, max(min_font_size, draw_font_size * 0.90)),
 	]
 	best = (text, text_x, text_y, draw_font_size, current_overlap)
 	for candidate_text, candidate_font_size in candidates:
@@ -1182,7 +1190,7 @@ def _add_furanose_two_carbon_tail_ops(
 		allowed_regions=[ho_attach_target],
 		epsilon=STRICT_OVERLAP_EPSILON,
 	)
-	ch2_x, ch2_y, ch2_attach_target, _ch2_label_target = _solve_chain2_label_for_fixed_connector(
+	ch2_x, ch2_y, ch2_attach_target, ch2_label_target = _solve_chain2_label_for_fixed_connector(
 		ops=ops,
 		branch_point=branch_point,
 		connector_end=ch2_connector_end,
@@ -1194,6 +1202,20 @@ def _add_furanose_two_carbon_tail_ops(
 		font_name=font_name,
 		peer_label_target=ho_label_target,
 	)
+	ch2_connector_end = _render_geometry.resolve_attach_endpoint(
+		bond_start=branch_point,
+		target=ch2_attach_target,
+		interior_hint=ch2_end,
+		constraints=_render_geometry.AttachConstraints(direction_policy="line"),
+	)
+	ch2_connector_end = _render_geometry.retreat_endpoint_until_legal(
+		line_start=branch_point,
+		line_end=ch2_connector_end,
+		line_width=connector_width,
+		forbidden_regions=[ch2_label_target],
+		allowed_regions=[ch2_attach_target],
+		epsilon=STRICT_OVERLAP_EPSILON,
+	)
 	_append_branch_connector_ops(
 		ops=ops,
 		start=branch_point,
@@ -1203,6 +1225,8 @@ def _add_furanose_two_carbon_tail_ops(
 		color=line_color,
 		op_id=f"C{carbon}_{direction}_chain2_connector",
 		style="hashed" if tail_profile["hashed_branch"] == "ch2" else "solid",
+		forbidden_regions=[ch2_label_target],
+		allowed_regions=[ch2_attach_target],
 	)
 	_append_branch_connector_ops(
 		ops=ops,
@@ -1213,6 +1237,8 @@ def _add_furanose_two_carbon_tail_ops(
 		color=line_color,
 		op_id=f"C{carbon}_{direction}_chain1_oh_connector",
 		style="hashed" if tail_profile["hashed_branch"] == "ho" else "solid",
+		forbidden_regions=[ho_label_target],
+		allowed_regions=[ho_attach_target],
 	)
 	ops.append(
 		render_ops.TextOp(
@@ -1314,7 +1340,9 @@ def _append_branch_connector_ops(
 		font_size: float,
 		color: str,
 		op_id: str,
-		style: str) -> None:
+		style: str,
+		forbidden_regions: list | None = None,
+		allowed_regions: list | None = None) -> None:
 	"""Add one branch connector as solid or hashed without doubling the bond."""
 	if style == "solid":
 		ops.append(
@@ -1434,6 +1462,17 @@ def _append_branch_connector_ops(
 			)
 		)
 	for index, hashed in enumerate(kept, start=1):
+		if forbidden_regions:
+			is_legal = _render_geometry.validate_attachment_paint(
+				line_start=hashed.p1,
+				line_end=hashed.p2,
+				line_width=hashed.width,
+				forbidden_regions=forbidden_regions,
+				allowed_regions=allowed_regions,
+				epsilon=STRICT_OVERLAP_EPSILON,
+			)
+			if not is_legal:
+				continue
 		ops.append(
 			render_ops.LineOp(
 				p1=hashed.p1,

@@ -680,10 +680,9 @@ def _label_attach_box_coords(
 	if visible_len <= 1:
 		return full_bbox
 	x1, y1, x2, y2 = full_bbox
-	# Use glyph-width metrics for attach-span projection instead of full bbox
-	# width so core element targeting (for example C in CH2OH) stays aligned with
-	# rendered glyph centers.
-	glyph_char_width = font_size * 0.60
+	# Keep attach-span projection on the same horizontal width model used by
+	# label boxes so element targets do not drift right relative to rendered text.
+	glyph_char_width = font_size * 0.75
 	glyph_width = glyph_char_width * float(visible_len)
 	text_x, _text_y = _label_text_origin(x, y, anchor, font_size, visible_len)
 	if anchor == "start":
