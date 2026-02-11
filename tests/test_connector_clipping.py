@@ -178,7 +178,7 @@ def test_multi_atom_label_attach_last():
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
 	attach_bbox = render_geometry.label_attach_target(
-		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last"
+		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last", font_name="Arial"
 	).box
 	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
 
@@ -211,10 +211,17 @@ def test_multi_atom_label_attach_element_overrides_attach_atom_first():
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
 	attach_bbox = render_geometry.label_attach_target(
-		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last", attach_element="C"
+		right.x,
+		right.y,
+		"CH2OH",
+		"start",
+		16.0,
+		attach_atom="last",
+		attach_element="C",
+		font_name="Arial",
 	).box
 	default_first_bbox = render_geometry.label_attach_target(
-		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last"
+		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last", font_name="Arial"
 	).box
 	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
 	assert not _is_on_box_edge(line.p2, default_first_bbox, tol=1e-5)

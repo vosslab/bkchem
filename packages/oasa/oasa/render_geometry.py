@@ -21,6 +21,7 @@
 
 # Standard Library
 import dataclasses
+import functools
 import math
 import re
 
@@ -29,6 +30,83 @@ from . import geometry
 from . import misc
 from . import render_ops
 from . import wedge_geometry
+
+try:
+	import cairo as _cairo
+except ImportError:
+	_cairo = None
+
+
+VALID_ATTACH_SITES = ("core_center", "stem_centerline", "closed_center")
+
+_OVAL_GLYPH_ELEMENTS = {"O", "C", "S"}
+_RECT_GLYPH_ELEMENTS = {"N", "H"}
+_SPECIAL_GLYPH_ELEMENTS = {"P"}
+
+
+#============================================
+@dataclasses.dataclass(frozen=True)
+class GlyphAttachPrimitive:
+	"""Analytic glyph primitive contract for element attach-site geometry."""
+	symbol: str
+	glyph_class: str
+	span_x1: float
+	span_x2: float
+	y1: float
+	y2: float
+	core_center_x: float
+	stem_centerline_x: float
+	closed_center_x: float
+	core_half_width: float
+	stem_half_width: float
+	closed_half_width: float
+
+	def center_x(self, attach_site: str) -> float:
+		"""Return centerline x for one attach site."""
+		site = _normalize_attach_site(attach_site)
+		if site == "core_center":
+			return self.core_center_x
+		if site == "stem_centerline":
+			return self.stem_centerline_x
+		if site == "closed_center":
+			return self.closed_center_x
+		raise ValueError(f"Unsupported attach_site value: {attach_site!r}")
+
+	def half_width(self, attach_site: str) -> float:
+		"""Return half-width x span for one attach site."""
+		site = _normalize_attach_site(attach_site)
+		if site == "core_center":
+			return self.core_half_width
+		if site == "stem_centerline":
+			return self.stem_half_width
+		if site == "closed_center":
+			return self.closed_half_width
+		raise ValueError(f"Unsupported attach_site value: {attach_site!r}")
+
+	def site_box(self, attach_site: str) -> tuple[float, float, float, float]:
+		"""Return attach site axis-aligned box."""
+		center_x = self.center_x(attach_site)
+		half_width = self.half_width(attach_site)
+		return misc.normalize_coords(
+			(
+				center_x - half_width,
+				self.y1,
+				center_x + half_width,
+				self.y2,
+			)
+		)
+
+	def left_boundary_x(self, attach_site: str) -> float:
+		"""Return left x boundary for one attach site."""
+		center_x = self.center_x(attach_site)
+		half_width = self.half_width(attach_site)
+		return center_x - half_width
+
+	def right_boundary_x(self, attach_site: str) -> float:
+		"""Return right x boundary for one attach site."""
+		center_x = self.center_x(attach_site)
+		half_width = self.half_width(attach_site)
+		return center_x + half_width
 
 
 #============================================
@@ -523,6 +601,157 @@ def _visible_label_length(text):
 
 
 #============================================
+def _text_char_advances(text, font_size, font_name):
+	"""Return per-visible-character x advances for one formatted text value."""
+	visible = _visible_label_text(text)
+	if not visible:
+		return []
+	fallback = [font_size * 0.60] * len(visible)
+	if _cairo is None:
+		return fallback
+	try:
+		surface = _cairo.ImageSurface(_cairo.FORMAT_A8, 1, 1)
+		context = _cairo.Context(surface)
+		context.select_font_face(font_name or "sans-serif", 0, 0)
+	except Exception:
+		return fallback
+	segments = render_ops._text_segments(str(text or ""))
+	advances = []
+	for chunk, tags in segments:
+		segment_state = render_ops._segment_baseline_state(tags)
+		segment_size = render_ops._segment_font_size(font_size, segment_state)
+		context.set_font_size(segment_size)
+		previous_advance = 0.0
+		for index in range(len(chunk)):
+			prefix = chunk[: index + 1]
+			extents = context.text_extents(prefix)
+			char_advance = max(0.0, float(extents.x_advance) - previous_advance)
+			advances.append(char_advance)
+			previous_advance = float(extents.x_advance)
+	if len(advances) != len(visible):
+		return fallback
+	return advances
+
+
+#============================================
+def _normalize_attach_site(attach_site):
+	"""Normalize attach-site selector to one supported semantic value."""
+	if attach_site is None:
+		return "core_center"
+	normalized = str(attach_site).strip().lower()
+	# Backward-compat aliases while callers migrate to canonical names.
+	alias_map = {
+		"element_core": "core_center",
+		"element_closed_center": "closed_center",
+		"element_stem": "stem_centerline",
+	}
+	normalized = alias_map.get(normalized, normalized)
+	if normalized not in VALID_ATTACH_SITES:
+		raise ValueError(f"Invalid attach_site value: {attach_site!r}")
+	return normalized
+
+
+#============================================
+def _glyph_class_for_symbol(symbol: str) -> str:
+	"""Return canonical analytic glyph primitive class for one element symbol."""
+	normalized = _normalize_element_symbol(symbol)
+	if normalized in _OVAL_GLYPH_ELEMENTS:
+		return "oval"
+	if normalized in _RECT_GLYPH_ELEMENTS:
+		return "rect"
+	if normalized in _SPECIAL_GLYPH_ELEMENTS:
+		return "special_p"
+	return "rect"
+
+
+#============================================
+@functools.lru_cache(maxsize=512)
+def _glyph_center_factor(symbol: str, font_name: str, font_size: float) -> float:
+	"""Return normalized center factor within glyph x-advance."""
+	if _cairo is None:
+		return 0.5
+	try:
+		surface = _cairo.ImageSurface(_cairo.FORMAT_A8, 1, 1)
+		context = _cairo.Context(surface)
+		context.select_font_face(font_name or "sans-serif", 0, 0)
+		context.set_font_size(float(font_size))
+		extents = context.text_extents(symbol)
+	except Exception:
+		return 0.5
+	advance = max(1e-6, float(extents.x_advance))
+	center = float(extents.x_bearing) + (float(extents.width) * 0.5)
+	factor = center / advance
+	return min(1.0, max(0.0, factor))
+
+
+#============================================
+def _glyph_closed_center_factor(symbol: str, font_name: str, font_size: float) -> float:
+	"""Return closed-center factor for one glyph symbol."""
+	normalized = _normalize_element_symbol(symbol)
+	if normalized == "C":
+		return _glyph_center_factor("O", font_name, font_size)
+	if normalized in ("O", "S"):
+		return _glyph_center_factor(normalized, font_name, font_size)
+	return _glyph_center_factor(normalized, font_name, font_size)
+
+
+#============================================
+def glyph_attach_primitive(
+		symbol: str,
+		span_x1: float,
+		span_x2: float,
+		y1: float,
+		y2: float,
+		font_size: float,
+		font_name: str | None = None) -> GlyphAttachPrimitive:
+	"""Build analytic glyph primitive for one element token span."""
+	normalized = _normalize_element_symbol(symbol)
+	glyph_class = _glyph_class_for_symbol(normalized)
+	if normalized == "P" and glyph_class != "special_p":
+		raise ValueError("Attach primitive contract requires explicit P special primitive")
+	span_width = max(1e-6, span_x2 - span_x1)
+	font_size = float(font_size)
+	font_name = font_name or "sans-serif"
+	core_factor = _glyph_center_factor(normalized, font_name, font_size)
+	closed_factor = _glyph_closed_center_factor(normalized, font_name, font_size)
+	stem_factor = 0.18
+	core_half = max(font_size * 0.08, span_width * 0.16)
+	stem_half = max(font_size * 0.06, span_width * 0.10)
+	closed_half = core_half
+	if glyph_class == "oval":
+		stem_factor = 0.12
+		core_half = max(font_size * 0.10, span_width * 0.20)
+		stem_half = max(font_size * 0.05, span_width * 0.12)
+		closed_half = max(font_size * 0.10, span_width * 0.20)
+		if normalized == "C":
+			# Keep historical core-center behavior for C while adding closed_center.
+			core_factor = _glyph_center_factor("O", font_name, font_size)
+	elif glyph_class == "special_p":
+		# P is explicit special handling (stem + bowl); never generic fallback.
+		stem_factor = 0.16
+		core_half = max(font_size * 0.09, span_width * 0.18)
+		stem_half = max(font_size * 0.05, span_width * 0.10)
+		closed_half = max(font_size * 0.08, span_width * 0.16)
+	core_center_x = span_x1 + (span_width * min(1.0, max(0.0, core_factor)))
+	stem_center_x = span_x1 + (span_width * min(1.0, max(0.0, stem_factor)))
+	closed_center_x = span_x1 + (span_width * min(1.0, max(0.0, closed_factor)))
+	return GlyphAttachPrimitive(
+		symbol=normalized,
+		glyph_class=glyph_class,
+		span_x1=span_x1,
+		span_x2=span_x2,
+		y1=y1,
+		y2=y2,
+		core_center_x=core_center_x,
+		stem_centerline_x=stem_center_x,
+		closed_center_x=closed_center_x,
+		core_half_width=core_half,
+		stem_half_width=stem_half,
+		closed_half_width=closed_half,
+	)
+
+
+#============================================
 def _label_text_origin(x, y, anchor, font_size, text_len):
 	del text_len
 	baseline_offset = font_size * 0.375
@@ -538,24 +767,27 @@ def _core_element_span_box(
 		span_x1,
 		span_x2,
 		font_size,
-		glyph_char_width):
+		glyph_char_width,
+		attach_site,
+		font_name):
 	"""Return attach box bounds for one core element glyph span."""
+	attach_site = _normalize_attach_site(attach_site)
 	symbol = str(entry.get("symbol", ""))
 	# Keep multi-letter core spans (for example Cl/Br) unchanged.
 	if len(symbol) != 1:
 		return (span_x1, span_x2)
-	# Single-letter elements use a tighter core glyph window. Carbon uses the
-	# same center factor as Haworth text anchoring so C-target connectors land
-	# on the carbon glyph, not on CH boundary whitespace.
-	if symbol == "C":
-		# Haworth text shaping places the visual center of "C" left of the full
-		# glyph cell midpoint; keep connector targeting aligned to that center.
-		center_x = span_x1 + (font_size * 0.24)
-		half_width = max(font_size * 0.24, glyph_char_width * 0.40)
-	else:
-		center_x = (span_x1 + span_x2) * 0.5
-		half_width = max(font_size * 0.16, glyph_char_width * 0.26)
-	return (center_x - half_width, center_x + half_width)
+	del glyph_char_width
+	primitive = glyph_attach_primitive(
+		symbol=symbol,
+		span_x1=span_x1,
+		span_x2=span_x2,
+		y1=0.0,
+		y2=1.0,
+		font_size=font_size,
+		font_name=font_name or "sans-serif",
+	)
+	site_box = primitive.site_box(attach_site)
+	return (site_box[0], site_box[2])
 
 
 #============================================
@@ -618,6 +850,7 @@ def label_attach_target_from_text_origin(
 		font_size,
 		attach_atom="first",
 		attach_element=None,
+		attach_site=None,
 		font_name=None):
 	"""Compute one token-attach target from text-origin coordinates."""
 	start_offset = font_size * 0.3125
@@ -634,6 +867,7 @@ def label_attach_target_from_text_origin(
 		font_size,
 		attach_atom=attach_atom,
 		attach_element=attach_element,
+		attach_site=attach_site,
 		font_name=font_name,
 	)
 
@@ -646,26 +880,36 @@ def _label_attach_box_coords(
 		font_size,
 		attach_atom="first",
 		attach_element=None,
+		attach_site=None,
 		font_name=None):
 	"""Compute box coordinates for one selected attachable atom token."""
 	if attach_atom is None:
 		attach_atom = "first"
 	if attach_atom not in ("first", "last"):
 		raise ValueError(f"Invalid attach_atom value: {attach_atom!r}")
-	full_bbox = _label_box_coords(x, y, text, anchor, font_size, font_name=font_name)
-	entries = _tokenized_atom_entries(text)
-	spans = [entry["decorated_span"] for entry in entries]
-	if len(spans) <= 1:
-		return full_bbox
-	selected_span = None
-	selected_entry = None
+	normalized_attach_element = None
 	if attach_element is not None:
 		if not isinstance(attach_element, str) or not attach_element.strip():
 			raise ValueError(f"Invalid attach_element value: {attach_element!r}")
-		normalized = _normalize_element_symbol(attach_element)
+		normalized_attach_element = _normalize_element_symbol(attach_element)
+	if attach_site is None:
+		if normalized_attach_element == "C":
+			attach_site = "closed_center"
+		else:
+			attach_site = "core_center"
+	else:
+		attach_site = _normalize_attach_site(attach_site)
+	full_bbox = _label_box_coords(x, y, text, anchor, font_size, font_name=font_name)
+	entries = _tokenized_atom_entries(text)
+	if not entries:
+		return full_bbox
+	spans = [entry["decorated_span"] for entry in entries]
+	selected_span = None
+	selected_entry = None
+	if normalized_attach_element is not None:
 		# Formula-aware attachment: attach_element resolves to the core element
 		# glyph span (for example just "C" in CH2OH), not the decorated token.
-		matched = [entry for entry in entries if entry["symbol"] == normalized]
+		matched = [entry for entry in entries if entry["symbol"] == normalized_attach_element]
 		if matched:
 			if attach_atom == "last":
 				selected_entry = matched[-1]
@@ -673,6 +917,8 @@ def _label_attach_box_coords(
 				selected_entry = matched[0]
 			selected_span = selected_entry["core_span"]
 	if selected_span is None:
+		if len(spans) <= 1:
+			return full_bbox
 		if attach_atom == "last":
 			selected_span = spans[-1]
 		else:
@@ -682,11 +928,16 @@ def _label_attach_box_coords(
 	if visible_len <= 1:
 		return full_bbox
 	x1, y1, x2, y2 = full_bbox
-	# Project attach-token spans with the same per-glyph width model used by
-	# rendered Haworth text so C-target endpoints land on the carbon glyph
-	# center (not between adjacent CH characters).
-	glyph_char_width = font_size * 0.60
-	glyph_width = glyph_char_width * float(visible_len)
+	# Project token spans using the same segmented text metrics model that
+	# render_ops uses for markup-aware text drawing.
+	char_advances = _text_char_advances(text, font_size, font_name or "sans-serif")
+	if len(char_advances) != visible_len:
+		char_advances = [font_size * 0.60] * visible_len
+	cumulative_advances = [0.0]
+	for advance in char_advances:
+		cumulative_advances.append(cumulative_advances[-1] + float(advance))
+	glyph_width = cumulative_advances[-1]
+	glyph_char_width = glyph_width / float(visible_len) if visible_len else (font_size * 0.60)
 	text_x, _text_y = _label_text_origin(x, y, anchor, font_size, visible_len)
 	if anchor == "start":
 		glyph_x1 = text_x
@@ -694,8 +945,8 @@ def _label_attach_box_coords(
 		glyph_x1 = text_x - glyph_width
 	else:
 		glyph_x1 = text_x - (glyph_width / 2.0)
-	span_x1 = glyph_x1 + start_index * glyph_char_width
-	span_x2 = glyph_x1 + end_index * glyph_char_width
+	span_x1 = glyph_x1 + cumulative_advances[start_index]
+	span_x2 = glyph_x1 + cumulative_advances[end_index]
 	if selected_entry is not None:
 		attach_x1, attach_x2 = _core_element_span_box(
 			selected_entry,
@@ -703,6 +954,8 @@ def _label_attach_box_coords(
 			span_x2,
 			font_size,
 			glyph_char_width,
+			attach_site=attach_site,
+			font_name=font_name or "sans-serif",
 		)
 	else:
 		attach_x1 = span_x1
@@ -722,6 +975,7 @@ def label_attach_target(
 		font_size,
 		attach_atom="first",
 		attach_element=None,
+		attach_site=None,
 		font_name=None):
 	"""Compute one attach-token target within a label."""
 	return make_box_target(
@@ -733,6 +987,7 @@ def label_attach_target(
 			font_size,
 			attach_atom=attach_atom,
 			attach_element=attach_element,
+			attach_site=attach_site,
 			font_name=font_name,
 		)
 	)
@@ -1218,8 +1473,84 @@ def _vertical_box_intersection(bond_start, attach_bbox, interior_hint):
 				((value - start_y) * direction) < 0.0,
 				abs(value - start_y),
 			)
-		)
+	)
 	return (start_x, candidates[0])
+
+
+#============================================
+def _target_to_box_list(target):
+	"""Return list of box primitives for one target, or None if non-box exists."""
+	resolved = _coerce_attach_target(target)
+	if resolved.kind == "box":
+		return [misc.normalize_coords(resolved.box)]
+	if resolved.kind != "composite":
+		return None
+	boxes = []
+	for child in (resolved.targets or ()):
+		child_boxes = _target_to_box_list(child)
+		if child_boxes is None:
+			return None
+		boxes.extend(child_boxes)
+	return boxes
+
+
+#============================================
+def _subtract_box_by_box(source_box, cut_box):
+	"""Subtract cut_box from source_box and return remaining box pieces."""
+	sx1, sy1, sx2, sy2 = misc.normalize_coords(source_box)
+	cx1, cy1, cx2, cy2 = misc.normalize_coords(cut_box)
+	ix1 = max(sx1, cx1)
+	iy1 = max(sy1, cy1)
+	ix2 = min(sx2, cx2)
+	iy2 = min(sy2, cy2)
+	if ix1 >= ix2 or iy1 >= iy2:
+		return [(sx1, sy1, sx2, sy2)]
+	pieces = [
+		(sx1, sy1, ix1, sy2),
+		(ix2, sy1, sx2, sy2),
+		(ix1, sy1, ix2, iy1),
+		(ix1, iy2, ix2, sy2),
+	]
+	return [
+		misc.normalize_coords(piece)
+		for piece in pieces
+		if (piece[2] - piece[0]) > 0.0 and (piece[3] - piece[1]) > 0.0
+	]
+
+
+#============================================
+def _forbidden_minus_allowed_boxes(forbidden_box, allowed_boxes):
+	"""Return pieces of forbidden_box that are outside allowed_boxes union."""
+	pieces = [misc.normalize_coords(forbidden_box)]
+	for allowed_box in allowed_boxes:
+		next_pieces = []
+		for piece in pieces:
+			next_pieces.extend(_subtract_box_by_box(piece, allowed_box))
+		pieces = next_pieces
+		if not pieces:
+			break
+	return pieces
+
+
+#============================================
+def _validate_attachment_paint_box_regions(
+		line_start,
+		line_end,
+		half_width,
+		forbidden_boxes,
+		allowed_boxes,
+		epsilon):
+	"""Validate connector paint using exact forbidden-minus-allowed box pieces."""
+	for forbidden_box in forbidden_boxes:
+		for piece in _forbidden_minus_allowed_boxes(forbidden_box, allowed_boxes):
+			if _capsule_intersects_target(
+					line_start,
+					line_end,
+					half_width,
+					make_box_target(piece),
+					epsilon):
+				return False
+	return True
 
 
 #============================================
@@ -1241,6 +1572,33 @@ def validate_attachment_paint(
 			if _capsule_intersects_target(line_start, line_end, half_width, region, epsilon):
 				return False
 		return True
+	# Exact box-primitive path with carve-outs: detect forbidden-minus-allowed
+	# penetration analytically so strict checks cannot miss narrow overlaps.
+	forbidden_boxes = []
+	allowed_boxes = []
+	use_box_solver = True
+	for region in forbidden_regions:
+		boxes = _target_to_box_list(region)
+		if boxes is None:
+			use_box_solver = False
+			break
+		forbidden_boxes.extend(boxes)
+	if use_box_solver:
+		for region in allowed_regions:
+			boxes = _target_to_box_list(region)
+			if boxes is None:
+				use_box_solver = False
+				break
+			allowed_boxes.extend(boxes)
+	if use_box_solver and forbidden_boxes:
+		return _validate_attachment_paint_box_regions(
+			line_start=line_start,
+			line_end=line_end,
+			half_width=half_width,
+			forbidden_boxes=forbidden_boxes,
+			allowed_boxes=allowed_boxes,
+			epsilon=epsilon,
+		)
 	# Fallback path with allowed carve-outs: keep explicit point checks so
 	# forbidden-minus-allowed semantics stay identical to existing behavior.
 	dx = line_end[0] - line_start[0]
@@ -1249,8 +1607,8 @@ def validate_attachment_paint(
 	if length <= 1e-12:
 		sample_points = [line_start]
 	else:
-		base_step = max(0.1, min(1.0, half_width * 0.5 if half_width > 0.0 else 0.25))
-		steps = max(16, int(math.ceil(length / base_step)))
+		base_step = max(0.02, min(0.2, half_width * 0.25 if half_width > 0.0 else 0.05))
+		steps = max(64, int(math.ceil(length / base_step)))
 		sample_points = [
 			(
 				line_start[0] + (dx * (index / float(steps))),
@@ -1266,6 +1624,8 @@ def validate_attachment_paint(
 			[
 				(nx * half_width, ny * half_width),
 				(-nx * half_width, -ny * half_width),
+				(nx * half_width * 0.5, ny * half_width * 0.5),
+				(-nx * half_width * 0.5, -ny * half_width * 0.5),
 			]
 		)
 	for base_point in sample_points:
@@ -1548,6 +1908,7 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 			continue
 		attach_mode = vertex.properties_.get("attach_atom", "first")
 		attach_element = vertex.properties_.get("attach_element")
+		attach_site = vertex.properties_.get("attach_site")
 		attach_target_obj = label_attach_target(
 			vertex.x,
 			vertex.y,
@@ -1556,6 +1917,7 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 			float(used_style["font_size"]),
 			attach_atom=attach_mode,
 			attach_element=attach_element,
+			attach_site=attach_site,
 			font_name=str(used_style["font_name"]),
 		)
 		attach_target_obj = _transform_target(attach_target_obj, transform_xy)

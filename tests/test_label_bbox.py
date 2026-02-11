@@ -172,7 +172,7 @@ def test_label_attach_bbox_multi_atom_last():
 	last_bbox = render_geometry.label_attach_target(
 		0.0, 0.0, "CH2OH", "start", 12.0, attach_atom="last"
 	).box
-	assert last_bbox[2] == pytest.approx(full_bbox[2])
+	assert last_bbox[2] < full_bbox[2]
 	assert last_bbox[0] > full_bbox[0]
 
 

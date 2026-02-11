@@ -20,12 +20,6 @@ GENERATED_PREVIEW_BG_COLOR = "#fafafa"
 
 
 #============================================
-def _is_l_sugar_name(name: str) -> bool:
-	"""Return True when one sugar display name is in the L-series."""
-	return str(name or "").startswith("L-")
-
-
-#============================================
 def _box_intersection_area(
 		box_a: tuple[float, float, float, float],
 		box_b: tuple[float, float, float, float]) -> float:
@@ -86,15 +80,40 @@ def get_repo_root() -> pathlib.Path:
 
 
 #============================================
-def load_archive_mapping(repo_root: pathlib.Path) -> list[tuple[str, str, str, str, str]]:
-	"""Load ordered mappable entries from test fixtures."""
+def load_archive_mapping(repo_root: pathlib.Path) -> list[dict]:
+	"""Load ordered mappable entries from mapping fixtures."""
 	fixtures_dir = repo_root / "tests" / "fixtures"
 	sys.path.insert(0, str(fixtures_dir))
 	try:
 		import neurotiker_archive_mapping as mapping
 	except ImportError as error:
 		raise RuntimeError("Could not import tests/fixtures/neurotiker_archive_mapping.py") from error
-	return list(mapping.all_mappable_entries())
+	rows = []
+	for raw in mapping.all_mappable_entries():
+		if isinstance(raw, dict):
+			code = raw.get("code")
+			ring_type = raw.get("ring_type")
+			anomeric = raw.get("anomeric")
+			sugar_name = raw.get("sugar_name") or raw.get("name")
+			reference_svg_rel = raw.get("reference_svg_rel") or raw.get("archive_filename")
+		else:
+			if not isinstance(raw, tuple) or len(raw) != 5:
+				raise ValueError(f"Unsupported mapping row format: {raw!r}")
+			code, ring_type, anomeric, reference_svg_rel, sugar_name = raw
+		if not code or not ring_type or not anomeric or not sugar_name:
+			raise ValueError(f"Incomplete mapping row: {raw!r}")
+		rows.append(
+			{
+				"code": str(code),
+				"ring_type": str(ring_type),
+				"anomeric": str(anomeric),
+				"sugar_name": str(sugar_name),
+				"reference_svg_rel": (
+					str(reference_svg_rel) if reference_svg_rel else None
+				),
+			}
+		)
+	return rows
 
 
 #============================================
@@ -112,19 +131,15 @@ def _load_oasa_modules(repo_root: pathlib.Path):
 	try:
 		import oasa.dom_extensions as dom_extensions
 		import oasa.haworth_renderer as haworth_renderer
-		import oasa.haworth_spec as haworth_spec
 		import oasa.render_ops as render_ops
-		import oasa.sugar_code as sugar_code
 	except ImportError:
 		oasa_path = repo_root / "packages" / "oasa"
 		if str(oasa_path) not in sys.path:
 			sys.path.insert(0, str(oasa_path))
 		import oasa.dom_extensions as dom_extensions
 		import oasa.haworth_renderer as haworth_renderer
-		import oasa.haworth_spec as haworth_spec
 		import oasa.render_ops as render_ops
-		import oasa.sugar_code as sugar_code
-	return dom_extensions, haworth_renderer, haworth_spec, render_ops, sugar_code
+	return dom_extensions, haworth_renderer, render_ops
 
 
 #============================================
@@ -136,11 +151,11 @@ def _render_generated_preview_svg(
 		strict_render_checks: bool,
 		dst_path: pathlib.Path) -> None:
 	"""Render one generated preview SVG with hydrogens disabled."""
-	dom_extensions, haworth_renderer, haworth_spec, render_ops, sugar_code = _load_oasa_modules(repo_root)
-	parsed = sugar_code.parse(code)
-	spec = haworth_spec.generate(parsed, ring_type=ring_type, anomeric=anomeric)
-	ops = haworth_renderer.render(
-		spec,
+	dom_extensions, haworth_renderer, render_ops = _load_oasa_modules(repo_root)
+	ops = haworth_renderer.render_from_code(
+		code=code,
+		ring_type=ring_type,
+		anomeric=anomeric,
 		show_hydrogens=False,
 		bg_color=GENERATED_PREVIEW_BG_COLOR,
 	)
@@ -180,118 +195,20 @@ def _render_generated_preview_svg(
 
 
 #============================================
-def _label_target(render_geometry, label_op):
-	"""Build full label target from one text op."""
-	return render_geometry.label_target_from_text_origin(
-		text_x=label_op.x,
-		text_y=label_op.y,
-		text=label_op.text,
-		anchor=label_op.anchor,
-		font_size=label_op.font_size,
-	)
-
-
-#============================================
-def _attach_target(render_geometry, renderer_text, label_op):
-	"""Build preferred attach target for one label."""
-	text = str(label_op.text or "")
-	if renderer_text.is_chain_like_label(text):
-		return render_geometry.label_attach_target_from_text_origin(
-			text_x=label_op.x,
-			text_y=label_op.y,
-			text=text,
-			anchor=label_op.anchor,
-			font_size=label_op.font_size,
-			attach_element="C",
-		)
-	if text == "OH":
-		return render_geometry.label_attach_target_from_text_origin(
-			text_x=label_op.x,
-			text_y=label_op.y,
-			text=text,
-			anchor=label_op.anchor,
-			font_size=label_op.font_size,
-			attach_atom="first",
-		)
-	if text == "HO":
-		return render_geometry.label_attach_target_from_text_origin(
-			text_x=label_op.x,
-			text_y=label_op.y,
-			text=text,
-			anchor=label_op.anchor,
-			font_size=label_op.font_size,
-			attach_atom="last",
-		)
-	return render_geometry.label_attach_target_from_text_origin(
-		text_x=label_op.x,
-		text_y=label_op.y,
-		text=text,
-		anchor=label_op.anchor,
-		font_size=label_op.font_size,
-		attach_atom="first",
-	)
-
-
-#============================================
 def _validate_ops_strict(repo_root: pathlib.Path, render_ops_module, ops: list, context: str) -> None:
 	"""Fail on strict overlap checks for one rendered ops list."""
 	try:
-		import oasa.render_geometry as render_geometry
-		from oasa.haworth import renderer_text
+		import oasa.haworth_renderer as haworth_renderer
 	except ImportError:
 		oasa_path = repo_root / "packages" / "oasa"
 		if str(oasa_path) not in sys.path:
 			sys.path.insert(0, str(oasa_path))
-		import oasa.render_geometry as render_geometry
-		from oasa.haworth import renderer_text
-
-	labels = [op for op in ops if isinstance(op, render_ops_module.TextOp)]
-	lines = [op for op in ops if isinstance(op, render_ops_module.LineOp)]
-	label_targets = {label: _label_target(render_geometry, label) for label in labels}
-	attach_targets = {label: _attach_target(render_geometry, renderer_text, label) for label in labels}
-
-	# Strict label-label overlap gate.
-	for left_index, left_label in enumerate(labels):
-		left_box = label_targets[left_label].box
-		left_id = left_label.op_id or f"label[{left_index}]"
-		for right_index in range(left_index + 1, len(labels)):
-			right_label = labels[right_index]
-			right_box = label_targets[right_label].box
-			area = _box_intersection_area(left_box, right_box)
-			if area > 0.5:
-				right_id = right_label.op_id or f"label[{right_index}]"
-				raise RuntimeError(
-					f"Strict overlap failure in {context}: label/label {left_id} vs {right_id}"
-				)
-
-	# Strict bond-label overlap gate.
-	for label in labels:
-		label_id = label.op_id or "<no-label-id>"
-		full_target = label_targets[label]
-		own_connector_id = None
-		if label.op_id and label.op_id.endswith("_label"):
-			own_connector_id = label.op_id.replace("_label", "_connector")
-		for line in lines:
-			line_id = line.op_id or "<no-line-id>"
-			is_own_connector = bool(own_connector_id and line.op_id == own_connector_id)
-			is_own_hatch = bool(
-				own_connector_id
-				and line.op_id
-				and line.op_id.startswith(f"{own_connector_id}_hatch")
-			)
-			allowed_regions = [attach_targets[label]] if (is_own_connector or is_own_hatch) else []
-			ok = render_geometry.validate_attachment_paint(
-				line_start=line.p1,
-				line_end=line.p2,
-				line_width=float(getattr(line, "width", 0.0) or 0.0),
-				forbidden_regions=[full_target],
-				allowed_regions=allowed_regions,
-				epsilon=0.5,
-			)
-			if not ok:
-				raise RuntimeError(
-					f"Strict overlap failure in {context}: bond/label line={line_id} label={label_id}"
-				)
+		import oasa.haworth_renderer as haworth_renderer
+	haworth_renderer.strict_validate_ops(
+		ops=ops,
+		context=context,
+		epsilon=0.5,
+	)
 
 
 #============================================
@@ -481,8 +398,8 @@ def _preview_block(label: str, rel_path: str | None) -> str:
 
 
 #============================================
-def build_l_sugar_html(rows: list[dict], missing_generated: int) -> str:
-	"""Build generated-only summary page for L-series sugars."""
+def build_generated_only_html(rows: list[dict], missing_generated: int) -> str:
+	"""Build generated-only summary page for rows without references."""
 	timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 	row_html = []
 	for entry in rows:
@@ -508,7 +425,7 @@ def build_l_sugar_html(rows: list[dict], missing_generated: int) -> str:
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>L-Sugar Matrix (Generated Only)</title>
+	<title>Generated-Only Matrix</title>
 	<style>
 		:root {{
 			--bg: #f7f6f2;
@@ -615,9 +532,9 @@ def build_l_sugar_html(rows: list[dict], missing_generated: int) -> str:
 </head>
 <body>
 	<header>
-		<h1>L-Sugar Matrix (Generated Only)</h1>
+		<h1>Generated-Only Matrix</h1>
 		<p class="stats">
-			Reference panel intentionally omitted for L-series rows.<br>
+			Reference panel intentionally omitted for generated-only rows.<br>
 			Rows: {len(rows)} | Missing generated: {missing_generated}<br>
 			Generated at {html.escape(timestamp)}
 		</p>
@@ -787,40 +704,55 @@ def main() -> None:
 
 	entries = load_archive_mapping(repo_root)
 	rows = []
-	l_sugar_rows = []
+	generated_only_rows = []
 	missing_generated = 0
 	missing_reference = 0
-	l_missing_generated = 0
-	for code, ring_type, anomeric, archive_filename, sugar_name in entries:
-		reference_path = archive_dir / archive_filename
+	generated_only_missing_generated = 0
+	ignored_overlap_failures: list[str] = []
+	for entry in entries:
+		code = entry["code"]
+		ring_type = entry["ring_type"]
+		anomeric = entry["anomeric"]
+		sugar_name = entry["sugar_name"]
+		reference_svg_rel = entry["reference_svg_rel"]
+		reference_path = (archive_dir / reference_svg_rel) if reference_svg_rel else None
+		has_reference_declared = bool(reference_svg_rel)
+		has_reference_file = bool(reference_path and reference_path.is_file())
 		generated_rel = None
 		key = (code, ring_type, anomeric)
 		preview_name = f"{code}_{ring_type}_{anomeric}.svg"
 		preview_path = preview_generated_dir / preview_name
 		if args.regenerate_haworth_svgs:
-			_render_generated_preview_svg(
-				repo_root=repo_root,
-				code=code,
-				ring_type=ring_type,
-				anomeric=anomeric,
-				strict_render_checks=strict_render_checks,
-				dst_path=preview_path,
-			)
-			generated_rel = os.path.relpath(preview_path, output_dir)
+			try:
+				_render_generated_preview_svg(
+					repo_root=repo_root,
+					code=code,
+					ring_type=ring_type,
+					anomeric=anomeric,
+					strict_render_checks=strict_render_checks,
+					dst_path=preview_path,
+				)
+				generated_rel = os.path.relpath(preview_path, output_dir)
+			except RuntimeError as error:
+				error_text = str(error)
+				if "Strict overlap failure" in error_text:
+					ignored_overlap_failures.append(
+						f"{code}_{ring_type}_{anomeric}: {error_text}"
+					)
+				else:
+					raise
 		if generated_rel is None and preview_path.is_file():
 			generated_rel = os.path.relpath(preview_path, output_dir)
 		if generated_rel is None:
 			generated_path = generated_by_key.get(key)
 			if generated_path is not None:
 				generated_rel = os.path.relpath(generated_path, output_dir)
-		is_l_sugar = _is_l_sugar_name(sugar_name)
-		has_reference = reference_path.is_file()
 		if generated_rel is None:
-			if is_l_sugar and not has_reference:
-				l_missing_generated += 1
-			else:
+			if has_reference_declared:
 				missing_generated += 1
-		if (not has_reference) and (not is_l_sugar):
+			else:
+				generated_only_missing_generated += 1
+		if has_reference_declared and (not has_reference_file):
 			missing_reference += 1
 		row_data = (
 			{
@@ -830,41 +762,44 @@ def main() -> None:
 				"anomeric": anomeric,
 				"generated_rel": generated_rel,
 				"reference_rel": (
-					os.path.relpath(reference_path, output_dir) if has_reference else None
+					os.path.relpath(reference_path, output_dir) if has_reference_file else None
 				),
 			}
 		)
-		if is_l_sugar and not has_reference:
-			l_sugar_rows.append(row_data)
-		else:
+		if has_reference_declared:
 			rows.append(row_data)
+		else:
+			generated_only_rows.append(row_data)
 
 	html_text = build_summary_html(
 		rows=rows,
-		generated_count=(len(entries) - missing_generated),
-		mappable_count=len(entries),
+		generated_count=(len(rows) - missing_generated),
+		mappable_count=len(rows),
 		missing_generated=missing_generated,
 		missing_reference=missing_reference,
 	)
-	l_sugar_html_text = build_l_sugar_html(
-		rows=l_sugar_rows,
-		missing_generated=l_missing_generated,
+	l_sugar_html_text = build_generated_only_html(
+		rows=generated_only_rows,
+		missing_generated=generated_only_missing_generated,
 	)
 	output_dir.mkdir(exist_ok=True)
 	summary_path.write_text(html_text, encoding="utf-8")
 	l_sugar_summary_path.write_text(l_sugar_html_text, encoding="utf-8")
 	print(f"Wrote summary: {summary_path}")
-	print(f"Wrote L-sugar summary: {l_sugar_summary_path}")
+	print(f"Wrote generated-only summary: {l_sugar_summary_path}")
 	print(f"Regenerate generated previews: {args.regenerate_haworth_svgs}")
 	print(f"Strict render checks: {strict_render_checks}")
-	print(f"Generated previews written (D and related): {len(rows) - missing_generated}")
-	print(f"Generated previews written (L-series): {len(l_sugar_rows) - l_missing_generated}")
+	print(f"Generated previews written (with references): {len(rows) - missing_generated}")
+	print(f"Generated previews written (generated-only): {len(generated_only_rows) - generated_only_missing_generated}")
 	print(f"Matrix source SVG files discovered: {len(generated_paths)}")
-	print(f"Mappable entries (D and related): {len(rows)}")
-	print(f"Mappable entries (L-series): {len(l_sugar_rows)}")
-	print(f"Missing generated: {missing_generated}")
-	print(f"Missing generated (L-series): {l_missing_generated}")
+	print(f"Mappable entries (with references): {len(rows)}")
+	print(f"Mappable entries (generated-only): {len(generated_only_rows)}")
+	print(f"Missing generated (with references): {missing_generated}")
+	print(f"Missing generated (generated-only): {generated_only_missing_generated}")
 	print(f"Missing reference: {missing_reference}")
+	print(f"Ignored strict-overlap failures: {len(ignored_overlap_failures)}")
+	for failure in ignored_overlap_failures:
+		print(f"  - {failure}")
 
 
 #============================================

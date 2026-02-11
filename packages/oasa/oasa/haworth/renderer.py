@@ -11,8 +11,10 @@ import re
 # local repo modules
 from . import _ring_template
 from .. import geometry
+from .. import sugar_code as _sugar_code
 from .. import render_ops
 from .. import render_geometry as _render_geometry
+from . import spec as _spec
 from .spec import HaworthSpec
 from . import renderer_geometry as _geom
 from . import renderer_text as _text
@@ -71,6 +73,276 @@ def carbon_slot_map(spec: HaworthSpec) -> dict[str, str]:
 
 
 #============================================
+def render_from_code(
+		code: str,
+		ring_type: str,
+		anomeric: str,
+		bond_length: float = 30.0,
+		font_size: float = 12.0,
+		font_name: str = "sans-serif",
+		show_carbon_numbers: bool = False,
+		show_hydrogens: bool = True,
+		debug_attach_overlay: bool = False,
+		line_color: str = "#000",
+		label_color: str = "#000",
+		bg_color: str = "#fff",
+		oxygen_color: str = OXYGEN_COLOR) -> list:
+	"""Render Haworth ops directly from sugar-code API inputs."""
+	parsed = _sugar_code.parse(code)
+	spec = _spec.generate(parsed, ring_type=ring_type, anomeric=anomeric)
+	return render(
+		spec,
+		bond_length=bond_length,
+		font_size=font_size,
+		font_name=font_name,
+		show_carbon_numbers=show_carbon_numbers,
+		show_hydrogens=show_hydrogens,
+		debug_attach_overlay=debug_attach_overlay,
+		line_color=line_color,
+		label_color=label_color,
+		bg_color=bg_color,
+		oxygen_color=oxygen_color,
+	)
+
+
+#============================================
+def label_target_for_text_op(label_op: render_ops.TextOp) -> _render_geometry.AttachTarget:
+	"""Build full label target for one TextOp using renderer-owned policy."""
+	return _render_geometry.label_target_from_text_origin(
+		text_x=label_op.x,
+		text_y=label_op.y,
+		text=label_op.text,
+		anchor=label_op.anchor,
+		font_size=label_op.font_size,
+		font_name=label_op.font_name,
+	)
+
+
+#============================================
+def attach_target_for_text_op(
+		label_op: render_ops.TextOp,
+		chain_attach_site: str = "core_center") -> _render_geometry.AttachTarget:
+	"""Build attach target for one TextOp using shared runtime policy."""
+	text = str(label_op.text or "")
+	if _text.is_chain_like_render_text(text):
+		return _render_geometry.label_attach_target_from_text_origin(
+			text_x=label_op.x,
+			text_y=label_op.y,
+			text=text,
+			anchor=label_op.anchor,
+			font_size=label_op.font_size,
+			attach_atom="first",
+			attach_element="C",
+			attach_site=chain_attach_site,
+			font_name=label_op.font_name,
+		)
+	if text == "OH":
+		return _render_geometry.label_attach_target_from_text_origin(
+			text_x=label_op.x,
+			text_y=label_op.y,
+			text=text,
+			anchor=label_op.anchor,
+			font_size=label_op.font_size,
+			attach_atom="first",
+			attach_element="O",
+			font_name=label_op.font_name,
+		)
+	if text == "HO":
+		return _render_geometry.label_attach_target_from_text_origin(
+			text_x=label_op.x,
+			text_y=label_op.y,
+			text=text,
+			anchor=label_op.anchor,
+			font_size=label_op.font_size,
+			attach_atom="last",
+			attach_element="O",
+			font_name=label_op.font_name,
+		)
+	return _render_geometry.label_attach_target_from_text_origin(
+		text_x=label_op.x,
+		text_y=label_op.y,
+		text=text,
+		anchor=label_op.anchor,
+		font_size=label_op.font_size,
+		attach_atom="first",
+		font_name=label_op.font_name,
+	)
+
+
+#============================================
+def _endpoint_near_label(
+		label: render_ops.TextOp,
+		connector: render_ops.LineOp) -> tuple[float, float]:
+	"""Return connector endpoint closest to the label anchor point."""
+	d1 = geometry.point_distance(connector.p1[0], connector.p1[1], label.x, label.y)
+	d2 = geometry.point_distance(connector.p2[0], connector.p2[1], label.x, label.y)
+	return connector.p1 if d1 <= d2 else connector.p2
+
+
+#============================================
+def _select_chain_attach_site_for_connector(
+		label: render_ops.TextOp,
+		connector: render_ops.LineOp) -> str:
+	"""Resolve chain attach site from connector endpoint to enforce endpoint contract."""
+	core_target = attach_target_for_text_op(label, chain_attach_site="core_center")
+	stem_target = attach_target_for_text_op(label, chain_attach_site="stem_centerline")
+	endpoint = _endpoint_near_label(label, connector)
+	core_contains = _geom.point_in_box(endpoint, core_target.box)
+	stem_contains = _geom.point_in_box(endpoint, stem_target.box)
+	if core_contains and not stem_contains:
+		return "core_center"
+	if stem_contains and not core_contains:
+		return "stem_centerline"
+	core_x, core_y = core_target.centroid()
+	stem_x, stem_y = stem_target.centroid()
+	core_distance = geometry.point_distance(endpoint[0], endpoint[1], core_x, core_y)
+	stem_distance = geometry.point_distance(endpoint[0], endpoint[1], stem_x, stem_y)
+	return "core_center" if core_distance <= stem_distance else "stem_centerline"
+
+
+#============================================
+def strict_validate_ops(
+		ops: list,
+		context: str,
+		epsilon: float = STRICT_OVERLAP_EPSILON) -> None:
+	"""Raise RuntimeError when strict overlap checks fail for one ops list."""
+	labels = [op for op in ops if isinstance(op, render_ops.TextOp)]
+	lines = [op for op in ops if isinstance(op, render_ops.LineOp)]
+	label_targets = {label: label_target_for_text_op(label) for label in labels}
+	attach_targets = {label: attach_target_for_text_op(label) for label in labels}
+
+	for left_index, left_label in enumerate(labels):
+		left_box = label_targets[left_label].box
+		left_id = left_label.op_id or f"label[{left_index}]"
+		for right_index in range(left_index + 1, len(labels)):
+			right_label = labels[right_index]
+			right_box = label_targets[right_label].box
+			overlap_area = _geom.intersection_area(left_box, right_box, gap=0.0)
+			if overlap_area > epsilon:
+				right_id = right_label.op_id or f"label[{right_index}]"
+				raise RuntimeError(
+					f"Strict overlap failure in {context}: label/label {left_id} vs {right_id}"
+				)
+
+	for label in labels:
+		label_id = label.op_id or "<no-label-id>"
+		full_target = label_targets[label]
+		own_connector_id = None
+		if label.op_id and label.op_id.endswith("_label"):
+			own_connector_id = label.op_id.replace("_label", "_connector")
+		for line in lines:
+			line_id = line.op_id or "<no-line-id>"
+			is_own_connector = bool(own_connector_id and line.op_id == own_connector_id)
+			is_own_hatch = bool(
+				own_connector_id
+				and line.op_id
+				and line.op_id.startswith(f"{own_connector_id}_hatch")
+			)
+			allowed_regions = []
+			if is_own_connector or is_own_hatch:
+				attach_target = attach_targets[label]
+				if _text.is_chain_like_render_text(str(label.text or "")):
+					chain_site = _select_chain_attach_site_for_connector(label, line)
+					attach_target = attach_target_for_text_op(label, chain_attach_site=chain_site)
+				allowed_regions = [attach_target]
+			is_legal = _render_geometry.validate_attachment_paint(
+				line_start=line.p1,
+				line_end=line.p2,
+				line_width=float(getattr(line, "width", 0.0) or 0.0),
+				forbidden_regions=[full_target],
+				allowed_regions=allowed_regions,
+				epsilon=epsilon,
+			)
+			if not is_legal:
+				raise RuntimeError(
+					f"Strict overlap failure in {context}: bond/label line={line_id} label={label_id}"
+				)
+
+
+#============================================
+def _attach_target_for_connector(
+		label: render_ops.TextOp,
+		connector: render_ops.LineOp | None) -> _render_geometry.AttachTarget:
+	"""Resolve one connector-specific attach target from shared policy."""
+	if connector is not None and _text.is_chain_like_render_text(str(label.text or "")):
+		site = _select_chain_attach_site_for_connector(label, connector)
+		return attach_target_for_text_op(label, chain_attach_site=site)
+	return attach_target_for_text_op(label)
+
+
+#============================================
+def _endpoint_for_target(
+		line: render_ops.LineOp,
+		target: _render_geometry.AttachTarget) -> tuple[float, float]:
+	"""Return line endpoint inside target when available, otherwise nearest end."""
+	x1, y1, x2, y2 = target.box
+	p1_inside = x1 <= line.p1[0] <= x2 and y1 <= line.p1[1] <= y2
+	p2_inside = x1 <= line.p2[0] <= x2 and y1 <= line.p2[1] <= y2
+	if p1_inside and not p2_inside:
+		return line.p1
+	if p2_inside and not p1_inside:
+		return line.p2
+	if p1_inside and p2_inside:
+		center_x, center_y = target.centroid()
+		d1 = geometry.point_distance(line.p1[0], line.p1[1], center_x, center_y)
+		d2 = geometry.point_distance(line.p2[0], line.p2[1], center_x, center_y)
+		return line.p1 if d1 <= d2 else line.p2
+	center_x, center_y = target.centroid()
+	d1 = geometry.point_distance(line.p1[0], line.p1[1], center_x, center_y)
+	d2 = geometry.point_distance(line.p2[0], line.p2[1], center_x, center_y)
+	return line.p1 if d1 <= d2 else line.p2
+
+
+#============================================
+def _append_attach_debug_overlay_ops(ops: list) -> None:
+	"""Append debug overlay primitives for attach target, centerline, and endpoint."""
+	lines = {op.op_id: op for op in ops if isinstance(op, render_ops.LineOp) and op.op_id}
+	for label in [op for op in ops if isinstance(op, render_ops.TextOp)]:
+		label_id = label.op_id or ""
+		if not label_id.endswith("_label"):
+			continue
+		connector = lines.get(label_id.replace("_label", "_connector"))
+		if connector is None:
+			continue
+		target = _attach_target_for_connector(label, connector)
+		x1, y1, x2, y2 = target.box
+		ops.append(
+			render_ops.PolygonOp(
+				points=((x1, y1), (x2, y1), (x2, y2), (x1, y2)),
+				fill="none",
+				stroke="#0aa",
+				stroke_width=0.45,
+				z=90,
+				op_id=f"{label_id}_debug_target",
+			)
+		)
+		center_x, _center_y = target.centroid()
+		ops.append(
+			render_ops.LineOp(
+				p1=(center_x, y1),
+				p2=(center_x, y2),
+				width=0.45,
+				cap="round",
+				color="#07a",
+				z=91,
+				op_id=f"{label_id}_debug_centerline",
+			)
+		)
+		endpoint = _endpoint_for_target(connector, target)
+		ops.append(
+			render_ops.CircleOp(
+				center=endpoint,
+				radius=0.9,
+				fill="#d12",
+				stroke="none",
+				stroke_width=0.0,
+				z=92,
+				op_id=f"{label_id}_debug_endpoint",
+			)
+		)
+
+
+#============================================
 def render(
 		spec: HaworthSpec,
 		bond_length: float = 30.0,
@@ -78,6 +350,7 @@ def render(
 		font_name: str = "sans-serif",
 		show_carbon_numbers: bool = False,
 		show_hydrogens: bool = True,
+		debug_attach_overlay: bool = False,
 		line_color: str = "#000",
 		label_color: str = "#000",
 		bg_color: str = "#fff",
@@ -390,6 +663,8 @@ def render(
 					op_id=f"C{carbon}_number",
 				)
 			)
+	if debug_attach_overlay:
+		_append_attach_debug_overlay_ops(ops)
 	return render_ops.sort_ops(ops)
 
 
@@ -454,8 +729,7 @@ def _add_simple_label_ops(
 		and is_chain_like_label
 	)
 	if force_vertical_chain:
-		# Align the chain-like carbon core center to the locked vertical connector
-		# x-position so the bond visually lands on C (not the C/H boundary).
+		# Align vertical chain-like carbon connectors to the stem centerline.
 		core_target = _render_geometry.label_attach_target_from_text_origin(
 			text_x=text_x,
 			text_y=text_y,
@@ -464,6 +738,7 @@ def _add_simple_label_ops(
 			font_size=draw_font_size,
 			attach_atom=attach_atom or "first",
 			attach_element="C",
+			attach_site="stem_centerline",
 			font_name=font_name,
 		)
 		core_center_x, _core_center_y = core_target.centroid()
@@ -550,6 +825,7 @@ def _add_simple_label_ops(
 				font_size=draw_font_size,
 				attach_atom=attach_mode,
 				attach_element="C" if is_chain_like_label else None,
+				attach_site="stem_centerline" if (is_chain_like_label and force_vertical_chain) else "core_center",
 				font_name=font_name,
 			)
 	if is_hydroxyl_label and oxygen_center is not None and connector_end is not None:
@@ -878,22 +1154,32 @@ def _resolve_methyl_label_collision(
 
 #============================================
 def _chain2_label_offset_candidates(
-		anchor: str,
-		label_direction: str,
+		connector_unit: tuple[float, float],
 		font_size: float) -> list[tuple[float, float]]:
-	"""Return deterministic candidate offsets for fixed-endpoint chain2 labels."""
-	step_x = max(0.5, font_size * 0.18)
-	step_y = max(0.5, font_size * 0.22)
-	horizontal_sign = -1.0 if anchor == "end" else 1.0
-	vertical_sign = 1.0 if label_direction == "down" else -1.0
+	"""Return connector-frame candidate offsets for fixed-endpoint chain2 labels."""
+	unit_x, unit_y = _geom.normalize_vector(connector_unit[0], connector_unit[1])
+	perp_x, perp_y = (-unit_y, unit_x)
+	step_along = max(0.5, font_size * 0.20)
+	step_perp = max(0.5, font_size * 0.18)
+
+	def _offset(along_scale: float, perp_scale: float) -> tuple[float, float]:
+		return (
+			(unit_x * step_along * along_scale) + (perp_x * step_perp * perp_scale),
+			(unit_y * step_along * along_scale) + (perp_y * step_perp * perp_scale),
+		)
+
+	# Keep ordering deterministic: no motion first, then push label outward
+	# along connector, then controlled perpendicular fan-out.
 	return [
 		(0.0, 0.0),
-		(0.0, vertical_sign * step_y),
-		(0.0, vertical_sign * step_y * 2.0),
-		(horizontal_sign * step_x, vertical_sign * step_y),
-		(horizontal_sign * step_x * 2.0, vertical_sign * step_y),
-		(-horizontal_sign * step_x, vertical_sign * step_y),
-		(-horizontal_sign * step_x * 2.0, vertical_sign * step_y),
+		_offset(1.0, 0.0),
+		_offset(1.6, 0.0),
+		_offset(1.0, 1.0),
+		_offset(1.0, -1.0),
+		_offset(1.8, 1.0),
+		_offset(1.8, -1.0),
+		_offset(0.8, 1.8),
+		_offset(0.8, -1.8),
 	]
 
 
@@ -924,6 +1210,7 @@ def _solve_chain2_label_for_fixed_connector(
 		font_size=font_size,
 		attach_atom="first",
 		attach_element="C",
+		attach_site="core_center",
 		font_name=font_name,
 	)
 	base_center_x, base_center_y = base_attach_target.centroid()
@@ -943,9 +1230,12 @@ def _solve_chain2_label_for_fixed_connector(
 		).box
 		existing_label_boxes.append(box)
 	best = None
+	connector_unit = _geom.normalize_vector(
+		connector_end[0] - branch_point[0],
+		connector_end[1] - branch_point[1],
+	)
 	for offset_x, offset_y in _chain2_label_offset_candidates(
-			anchor=anchor,
-			label_direction=label_direction,
+			connector_unit=connector_unit,
 			font_size=font_size):
 		candidate_x = aligned_base_x + offset_x
 		candidate_y = aligned_base_y + offset_y
@@ -957,6 +1247,7 @@ def _solve_chain2_label_for_fixed_connector(
 			font_size=font_size,
 			attach_atom="first",
 			attach_element="C",
+			attach_site="core_center",
 			font_name=font_name,
 		)
 		candidate_x, candidate_y = _nudge_text_origin_to_include_point(
@@ -973,6 +1264,7 @@ def _solve_chain2_label_for_fixed_connector(
 			font_size=font_size,
 			attach_atom="first",
 			attach_element="C",
+			attach_site="core_center",
 			font_name=font_name,
 		)
 		x1, y1, x2, y2 = candidate_attach.box
@@ -999,7 +1291,9 @@ def _solve_chain2_label_for_fixed_connector(
 		max_overlap = 0.0
 		for existing_box in existing_label_boxes:
 			max_overlap = max(max_overlap, _box_overlap_area(candidate_full.box, existing_box))
-		score = (max_overlap, abs(offset_x) + abs(offset_y))
+		attach_center_x, _attach_center_y = candidate_attach.centroid()
+		center_x_distance = abs(attach_center_x - connector_end[0])
+		score = (max_overlap, center_x_distance, abs(offset_x) + abs(offset_y))
 		if best is None or score < best["score"]:
 			best = {
 				"score": score,
@@ -1015,6 +1309,50 @@ def _solve_chain2_label_for_fixed_connector(
 			"No legal chain2 label placement with fixed connector "
 			f"branch={branch_point} end={connector_end} text={text!r} anchor={anchor!r}"
 		)
+	# Refine accepted placement to lock connector x on the carbon core centerline
+	# when possible, without relaxing strict overlap legality.
+	best_attach = best["attach"]
+	best_center_x, _best_center_y = best_attach.centroid()
+	if abs(best_center_x - connector_end[0]) > 1e-6:
+		aligned_x = best["text_x"] + (connector_end[0] - best_center_x)
+		aligned_y = best["text_y"]
+		aligned_attach = _render_geometry.label_attach_target_from_text_origin(
+			text_x=aligned_x,
+			text_y=aligned_y,
+			text=text,
+			anchor=anchor,
+			font_size=font_size,
+			attach_atom="first",
+			attach_element="C",
+			attach_site="core_center",
+			font_name=font_name,
+		)
+		ax1, ay1, ax2, ay2 = aligned_attach.box
+		if ax1 <= connector_end[0] <= ax2 and ay1 <= connector_end[1] <= ay2:
+			aligned_full = _render_geometry.label_target_from_text_origin(
+				text_x=aligned_x,
+				text_y=aligned_y,
+				text=text,
+				anchor=anchor,
+				font_size=font_size,
+				font_name=font_name,
+			)
+			aligned_legal = _render_geometry.validate_attachment_paint(
+				line_start=branch_point,
+				line_end=connector_end,
+				line_width=connector_width,
+				forbidden_regions=[aligned_full],
+				allowed_regions=[aligned_attach],
+				epsilon=STRICT_OVERLAP_EPSILON,
+			)
+			if aligned_legal:
+				best = {
+					"score": best["score"],
+					"text_x": aligned_x,
+					"text_y": aligned_y,
+					"attach": aligned_attach,
+					"full": aligned_full,
+				}
 	return (best["text_x"], best["text_y"], best["attach"], best["full"])
 
 
@@ -1114,7 +1452,12 @@ def _add_furanose_two_carbon_tail_ops(
 		label_color: str) -> None:
 	"""Render CH(OH)CH2OH as a branched furanose sidechain."""
 	del slot
-	branch_point = (vertex[0] + dx * segment_length, vertex[1] + dy * segment_length)
+	# Keep branched tails at a readable distance from ring edges. Down-class
+	# tails can otherwise look cramped and over-tuned when inherited length is
+	# short from generic slot layout.
+	min_standoff_factor = 1.75 if direction == "up" else 1.35
+	branch_standoff = max(segment_length, font_size * min_standoff_factor)
+	branch_point = (vertex[0] + dx * branch_standoff, vertex[1] + dy * branch_standoff)
 	ops.append(
 		render_ops.LineOp(
 			p1=vertex,
@@ -1135,8 +1478,8 @@ def _add_furanose_two_carbon_tail_ops(
 	)
 	ho_dx, ho_dy = tail_profile["ho_vector"]
 	ch2_dx, ch2_dy = tail_profile["ch2_vector"]
-	ho_length = segment_length * tail_profile["ho_length_factor"]
-	ch2_length = segment_length * tail_profile["ch2_length_factor"]
+	ho_length = branch_standoff * tail_profile["ho_length_factor"]
+	ch2_length = branch_standoff * tail_profile["ch2_length_factor"]
 	ho_anchor = tail_profile["ho_anchor"]
 	ch2_anchor = tail_profile["ch2_anchor"]
 	ho_direction = tail_profile["ho_text_direction"]
@@ -1174,6 +1517,7 @@ def _add_furanose_two_carbon_tail_ops(
 		anchor=ho_anchor,
 		font_size=font_size,
 		attach_atom=ho_attach_mode,
+		attach_element="O",
 		font_name=font_name,
 	)
 	ho_connector_end = _render_geometry.resolve_attach_endpoint(
@@ -1201,12 +1545,6 @@ def _add_furanose_two_carbon_tail_ops(
 		font_size=font_size,
 		font_name=font_name,
 		peer_label_target=ho_label_target,
-	)
-	ch2_connector_end = _render_geometry.resolve_attach_endpoint(
-		bond_start=branch_point,
-		target=ch2_attach_target,
-		interior_hint=ch2_end,
-		constraints=_render_geometry.AttachConstraints(direction_policy="line"),
 	)
 	ch2_connector_end = _render_geometry.retreat_endpoint_until_legal(
 		line_start=branch_point,
@@ -1310,7 +1648,7 @@ def _furanose_two_carbon_tail_profile(
 		ch2_tangent = 1.0
 		ch2_trunk = 0.72
 		profile = {
-			"ho_length_factor": 0.78,
+			"ho_length_factor": 1.20,
 			"ch2_length_factor": 0.95,
 			"ho_anchor": "end",
 			"ch2_anchor": "end",
@@ -1397,6 +1735,19 @@ def _append_branch_connector_ops(
 		if along > (0.97 * length):
 			continue
 		kept.append(hashed)
+	def _is_hatch_legal(hatch_line: render_ops.LineOp) -> bool:
+		if not forbidden_regions:
+			return True
+		return _render_geometry.validate_attachment_paint(
+			line_start=hatch_line.p1,
+			line_end=hatch_line.p2,
+			line_width=hatch_line.width,
+			forbidden_regions=forbidden_regions,
+			allowed_regions=allowed_regions,
+			epsilon=STRICT_OVERLAP_EPSILON,
+		)
+	if forbidden_regions:
+		kept = [line for line in kept if _is_hatch_legal(line)]
 	nearest_along = length
 	if kept:
 		nearest_along = min(
@@ -1416,22 +1767,22 @@ def _append_branch_connector_ops(
 		else:
 			stroke_width = line_width
 			stroke_cap = "round"
-		kept.append(
-			render_ops.LineOp(
-				p1=(
-					origin_center[0] + (perp_x * half_span),
-					origin_center[1] + (perp_y * half_span),
-				),
-				p2=(
-					origin_center[0] - (perp_x * half_span),
-					origin_center[1] - (perp_y * half_span),
-				),
-				width=stroke_width,
-				cap=stroke_cap,
-				color=color,
-				z=4,
-			)
+		origin_hatch = render_ops.LineOp(
+			p1=(
+				origin_center[0] + (perp_x * half_span),
+				origin_center[1] + (perp_y * half_span),
+			),
+			p2=(
+				origin_center[0] - (perp_x * half_span),
+				origin_center[1] - (perp_y * half_span),
+			),
+			width=stroke_width,
+			cap=stroke_cap,
+			color=color,
+			z=4,
 		)
+		if _is_hatch_legal(origin_hatch):
+			kept.append(origin_hatch)
 	farthest_along = 0.0
 	if kept:
 		farthest_along = max(
@@ -1440,8 +1791,6 @@ def _append_branch_connector_ops(
 			for line in kept
 		)
 	if farthest_along < (0.85 * length):
-		terminal_along = min(0.92 * length, max(0.88 * length, farthest_along))
-		center = (start[0] + (dx * terminal_along), start[1] + (dy * terminal_along))
 		perp_x, perp_y = -dy, dx
 		half_span = max(connector_width * 0.45, font_size * 0.08)
 		if kept:
@@ -1451,8 +1800,13 @@ def _append_branch_connector_ops(
 		else:
 			stroke_width = line_width
 			stroke_cap = "round"
-		kept.append(
-			render_ops.LineOp(
+		terminal_added = False
+		for percent in (0.92, 0.90, 0.88, 0.86, 0.85):
+			terminal_along = percent * length
+			if terminal_along <= farthest_along:
+				continue
+			center = (start[0] + (dx * terminal_along), start[1] + (dy * terminal_along))
+			terminal_hatch = render_ops.LineOp(
 				p1=(center[0] + (perp_x * half_span), center[1] + (perp_y * half_span)),
 				p2=(center[0] - (perp_x * half_span), center[1] - (perp_y * half_span)),
 				width=stroke_width,
@@ -1460,19 +1814,29 @@ def _append_branch_connector_ops(
 				color=color,
 				z=4,
 			)
-		)
-	for index, hashed in enumerate(kept, start=1):
-		if forbidden_regions:
-			is_legal = _render_geometry.validate_attachment_paint(
-				line_start=hashed.p1,
-				line_end=hashed.p2,
-				line_width=hashed.width,
-				forbidden_regions=forbidden_regions,
-				allowed_regions=allowed_regions,
-				epsilon=STRICT_OVERLAP_EPSILON,
-			)
-			if not is_legal:
+			if not _is_hatch_legal(terminal_hatch):
 				continue
+			kept.append(terminal_hatch)
+			terminal_added = True
+			break
+		if not terminal_added:
+			for percent in (0.84, 0.82):
+				terminal_along = percent * length
+				if terminal_along <= farthest_along:
+					continue
+				center = (start[0] + (dx * terminal_along), start[1] + (dy * terminal_along))
+				terminal_hatch = render_ops.LineOp(
+					p1=(center[0] + (perp_x * half_span), center[1] + (perp_y * half_span)),
+					p2=(center[0] - (perp_x * half_span), center[1] - (perp_y * half_span)),
+					width=stroke_width,
+					cap=stroke_cap,
+					color=color,
+					z=4,
+				)
+				if _is_hatch_legal(terminal_hatch):
+					kept.append(terminal_hatch)
+					break
+	for index, hashed in enumerate(kept, start=1):
 		ops.append(
 			render_ops.LineOp(
 				p1=hashed.p1,

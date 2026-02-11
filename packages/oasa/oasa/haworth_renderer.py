@@ -13,7 +13,11 @@ from .haworth import renderer as _renderer
 
 # -- public API ---------------------------------------------------------------
 render = _renderer.render
+render_from_code = _renderer.render_from_code
 carbon_slot_map = _renderer.carbon_slot_map
+label_target_for_text_op = _renderer.label_target_for_text_op
+attach_target_for_text_op = _renderer.attach_target_for_text_op
+strict_validate_ops = _renderer.strict_validate_ops
 
 # -- constants ----------------------------------------------------------------
 PYRANOSE_SLOTS = _cfg.PYRANOSE_SLOTS
@@ -87,3 +91,4 @@ _job_text_target = _layout.job_text_target
 _text_target = _layout.text_target
 _overlap_penalty = _layout.overlap_penalty
 _hydroxyl_job_penalty = _layout.hydroxyl_job_penalty
+_attach_target_for_connector = _renderer._attach_target_for_connector

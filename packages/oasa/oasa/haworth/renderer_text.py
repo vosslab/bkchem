@@ -44,6 +44,20 @@ def is_chain_like_label(label: str) -> bool:
 
 
 #============================================
+def is_chain_like_render_text(text: str) -> bool:
+	"""Return True for rendered chain-like labels, including flipped CH2OH text."""
+	value = str(text or "")
+	if is_chain_like_label(value):
+		return True
+	visible = re.sub(r"<[^>]+>", "", value)
+	if is_chain_like_label(visible):
+		return True
+	# Left-anchored CH2OH labels render as HOH2C but should keep chain-like
+	# carbon-target attachment semantics.
+	return visible.endswith("C") and ("H2" in visible)
+
+
+#============================================
 def is_two_carbon_tail_label(label: str) -> bool:
 	"""Return True for labels rendered as a two-carbon branched sidechain."""
 	segments = chain_labels(str(label or ""))

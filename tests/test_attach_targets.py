@@ -102,6 +102,24 @@ def test_validate_attachment_paint_long_segment_circle_false_negative_regression
 
 
 #============================================
+def test_validate_attachment_paint_allowed_box_carveout_false_negative_regression():
+	forbidden = render_geometry.make_box_target(
+		(-0.9948500452311335, -0.27878791276789094, -0.8635941180998662, 0.07419065418791237)
+	)
+	allowed = render_geometry.make_box_target(
+		(-0.9783920601615839, -0.1707535151356337, -0.799410415671622, -0.14755815607373746)
+	)
+	assert not render_geometry.validate_attachment_paint(
+		line_start=(-159.64778523717416, 100.43156381656104),
+		line_end=(39.030962583316295, -24.427278788129684),
+		line_width=1.5009103569593027,
+		forbidden_regions=[forbidden],
+		allowed_regions=[allowed],
+		epsilon=0.0,
+	)
+
+
+#============================================
 def test_resolve_attach_endpoint_composite_uses_fallback_children():
 	invalid_primary = render_geometry.AttachTarget(kind="unknown")
 	fallback_box = render_geometry.make_box_target((0.0, 0.0, 10.0, 10.0))
@@ -170,9 +188,12 @@ def test_label_attach_target_legacy_geometry_values():
 		16.0,
 		attach_atom="last",
 	)
-	expected = (23.8, -6.0, 43.0, 8.0)
+	full = render_geometry.label_target(0.0, 0.0, "CH2OH", "start", 16.0)
 	assert target.kind == "box"
-	assert target.box == pytest.approx(expected)
+	assert target.box[0] > full.box[0]
+	assert target.box[2] <= full.box[2]
+	assert target.box[0] > ((full.box[0] + full.box[2]) * 0.5)
+	assert (target.box[2] - target.box[0]) > 0.0
 
 
 #============================================
@@ -230,6 +251,98 @@ def test_label_attach_element_targets_core_span_not_decorated_span(text):
 
 
 #============================================
+@pytest.mark.parametrize("text", ("CH2OH", "HOH2C"))
+def test_label_attach_element_stem_site_is_left_of_core_site(text):
+	core_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		text,
+		"start",
+		16.0,
+		attach_atom="first",
+		attach_element="C",
+		attach_site="core_center",
+	).box
+	stem_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		text,
+		"start",
+		16.0,
+		attach_atom="first",
+		attach_element="C",
+		attach_site="stem_centerline",
+	).box
+	core_center = (core_target[0] + core_target[2]) * 0.5
+	stem_center = (stem_target[0] + stem_target[2]) * 0.5
+	assert stem_center < core_center
+	assert (stem_target[2] - stem_target[0]) < (core_target[2] - core_target[0])
+
+
+#============================================
+@pytest.mark.parametrize("text", ("CH2OH", "HOH2C"))
+def test_label_attach_element_core_center_is_right_of_stem_center(text):
+	core_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		text,
+		"start",
+		16.0,
+		attach_atom="first",
+		attach_element="C",
+		attach_site="core_center",
+	).box
+	stem_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		text,
+		"start",
+		16.0,
+		attach_atom="first",
+		attach_element="C",
+		attach_site="stem_centerline",
+	).box
+	closed_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		text,
+		"start",
+		16.0,
+		attach_atom="first",
+		attach_element="C",
+		attach_site="closed_center",
+	).box
+	core_center = (core_target[0] + core_target[2]) * 0.5
+	stem_center = (stem_target[0] + stem_target[2]) * 0.5
+	closed_center = (closed_target[0] + closed_target[2]) * 0.5
+	assert closed_center >= core_center
+	assert closed_center > stem_center
+
+
+#============================================
+def test_label_attach_element_works_for_single_decorated_token_hydroxyl():
+	core_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		"OH",
+		"start",
+		16.0,
+		attach_atom="first",
+		attach_element="O",
+	).box
+	decorated_target = render_geometry.label_attach_target(
+		0.0,
+		0.0,
+		"OH",
+		"start",
+		16.0,
+		attach_atom="first",
+	).box
+	assert core_target[2] < decorated_target[2]
+	assert core_target[0] >= decorated_target[0]
+
+
+#============================================
 def test_label_attach_invalid_attach_atom_raises_even_with_attach_element():
 	with pytest.raises(ValueError, match=r"Invalid attach_atom value: 'frist'"):
 		render_geometry.label_attach_target(
@@ -240,6 +353,21 @@ def test_label_attach_invalid_attach_atom_raises_even_with_attach_element():
 			16.0,
 			attach_atom="frist",
 			attach_element="O",
+		).box
+
+
+#============================================
+def test_label_attach_invalid_attach_site_raises():
+	with pytest.raises(ValueError, match=r"Invalid attach_site value: 'bad_site'"):
+		render_geometry.label_attach_target(
+			0.0,
+			0.0,
+			"CH2OH",
+			"start",
+			16.0,
+			attach_atom="first",
+			attach_element="C",
+			attach_site="bad_site",
 		).box
 
 

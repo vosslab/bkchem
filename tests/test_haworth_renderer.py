@@ -381,27 +381,8 @@ def _allowed_attach_target_for_connector(
 		label: render_ops.TextOp,
 		connector_id: str) -> render_geometry.AttachTarget | None:
 	"""Return attach-token carve-out target for explicit token-based connectors."""
-	if "_chain2_" in connector_id:
-		return render_geometry.label_attach_target_from_text_origin(
-			text_x=label.x,
-			text_y=label.y,
-			text=label.text,
-			anchor=label.anchor,
-			font_size=label.font_size,
-			attach_atom="first",
-			attach_element="C",
-		)
-	if "_chain1_oh_" in connector_id or label.text in ("OH", "HO"):
-		return render_geometry.label_attach_target_from_text_origin(
-			text_x=label.x,
-			text_y=label.y,
-			text=label.text,
-			anchor=label.anchor,
-			font_size=label.font_size,
-			attach_atom="first",
-			attach_element="O",
-		)
-	return None
+	del connector_id
+	return haworth_renderer.attach_target_for_text_op(label)
 
 
 #============================================
@@ -511,9 +492,12 @@ def _assert_connector_endpoint_on_attach_element(
 		ops: list,
 		label_id: str,
 		connector_id: str,
-		attach_element: str) -> None:
+		attach_element: str,
+		attach_site: str | None = None) -> None:
 	label = _text_by_id(ops, label_id)
 	connector = _line_by_id(ops, connector_id)
+	if attach_site is None:
+		attach_site = "core_center"
 	attach_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
@@ -522,6 +506,7 @@ def _assert_connector_endpoint_on_attach_element(
 		font_size=label.font_size,
 		attach_atom="first",
 		attach_element=attach_element,
+		attach_site=attach_site,
 	)
 	assert _point_in_box(connector.p2, attach_target.box), (
 		f"{connector_id} endpoint {connector.p2} not inside {label_id} "
@@ -774,6 +759,14 @@ def test_render_aldohexose_furanose():
 
 
 #============================================
+def test_render_debug_attach_overlay_emits_overlay_ops():
+	_, ops = _render("ARRDM", "furanose", "alpha", show_hydrogens=False, debug_attach_overlay=True)
+	assert any((op.op_id or "").endswith("_debug_target") for op in ops)
+	assert any((op.op_id or "").endswith("_debug_centerline") for op in ops)
+	assert any((op.op_id or "").endswith("_debug_endpoint") for op in ops)
+
+
+#============================================
 def test_render_ribose_pyranose():
 	_, ops = _render("ARRDM", "pyranose", "alpha")
 	chain_ops = [op for op in ops if "chain" in (op.op_id or "")]
@@ -788,22 +781,24 @@ def test_render_erythrose_furanose():
 
 
 #============================================
-def test_render_ribose_furanose_alpha_c4_up_connector_attaches_to_carbon_core():
+def test_render_ribose_furanose_alpha_c4_up_connector_attaches_to_closed_carbon_center():
 	_, ops = _render("ARRDM", "furanose", "alpha", show_hydrogens=False)
 	_assert_connector_endpoint_on_attach_element(
 		ops,
 		label_id="C4_up_label",
 		connector_id="C4_up_connector",
 		attach_element="C",
+		attach_site="stem_centerline",
 	)
 
 
 #============================================
-def test_render_ribose_furanose_alpha_c4_up_connector_x_aligns_to_carbon_center():
-	_, ops = _render("ARRDM", "furanose", "alpha", show_hydrogens=False)
+@pytest.mark.parametrize("anomeric", ("alpha", "beta"))
+def test_render_ribose_furanose_c4_up_connector_vertical_and_x_aligned_to_carbon_stem_centerline(anomeric):
+	_, ops = _render("ARRDM", "furanose", anomeric, show_hydrogens=False)
 	label = _text_by_id(ops, "C4_up_label")
 	line = _line_by_id(ops, "C4_up_connector")
-	carbon_target = render_geometry.label_attach_target_from_text_origin(
+	stem_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
@@ -811,9 +806,12 @@ def test_render_ribose_furanose_alpha_c4_up_connector_x_aligns_to_carbon_center(
 		font_size=label.font_size,
 		attach_atom="first",
 		attach_element="C",
+		attach_site="stem_centerline",
 	)
-	carbon_center_x, _carbon_center_y = carbon_target.centroid()
-	assert line.p2[0] == pytest.approx(carbon_center_x, abs=0.35)
+	stem_center_x, _stem_center_y = stem_target.centroid()
+	assert abs(line.p2[0] - line.p1[0]) <= 0.05
+	assert line.p2[0] == pytest.approx(stem_center_x, abs=0.20)
+	assert line.p2[0] <= (stem_center_x + 1e-6)
 
 
 #============================================
@@ -1785,6 +1783,62 @@ def test_render_gulose_furanose_alpha_tail_branches_left_with_hoh2c_text():
 		connector_id="C4_down_chain1_oh_connector",
 		label_id="C4_down_chain1_oh_label",
 	)
+
+
+#============================================
+_TWO_CARBON_DOWN_CLASS_CODES = (
+	"ARRLDM",
+	"ALRLDM",
+	"ARLLDM",
+	"ALLLDM",
+	"ARRLLM",
+	"ALRLLM",
+	"ARLLLM",
+	"ALLLLM",
+)
+
+
+@pytest.mark.parametrize("code", _TWO_CARBON_DOWN_CLASS_CODES)
+@pytest.mark.parametrize("anomeric", ("alpha", "beta"))
+def test_render_furanose_two_carbon_down_class_uses_c4_down_tail(code, anomeric):
+	_, ops = _render(code, "furanose", anomeric, show_hydrogens=False)
+	line_ids = {
+		op.op_id for op in _lines(ops)
+		if op.op_id
+	}
+	assert "C4_down_chain2_connector" in line_ids
+	assert "C4_up_chain2_connector" not in line_ids
+	assert _text_by_id(ops, "C4_down_chain1_oh_label").text == "HO"
+	assert _text_by_id(ops, "C4_down_chain2_label").text == "HOH<sub>2</sub>C"
+	assert any(line_id.startswith("C4_down_chain1_oh_connector_hatch") for line_id in line_ids)
+
+
+#============================================
+_TWO_CARBON_UP_CLASS_CODES = (
+	"ALLRDM",
+	"ARLRDM",
+	"ALRRDM",
+	"ARRRDM",
+	"ALLRLM",
+	"ARLRLM",
+	"ALRRLM",
+	"ARRRLM",
+)
+
+
+@pytest.mark.parametrize("code", _TWO_CARBON_UP_CLASS_CODES)
+@pytest.mark.parametrize("anomeric", ("alpha", "beta"))
+def test_render_furanose_two_carbon_up_class_uses_c4_up_tail(code, anomeric):
+	_, ops = _render(code, "furanose", anomeric, show_hydrogens=False)
+	line_ids = {
+		op.op_id for op in _lines(ops)
+		if op.op_id
+	}
+	assert "C4_up_chain2_connector" in line_ids
+	assert "C4_down_chain2_connector" not in line_ids
+	assert _text_by_id(ops, "C4_up_chain1_oh_label").text in ("OH", "HO")
+	assert _text_by_id(ops, "C4_up_chain2_label").text == "CH<sub>2</sub>OH"
+	assert any(line_id.startswith("C4_up_chain2_connector_hatch") for line_id in line_ids)
 
 
 #============================================

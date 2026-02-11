@@ -2,6 +2,7 @@
 
 # Standard Library
 import math
+import pathlib
 import sys
 from xml.dom import minidom as xml_minidom
 
@@ -86,6 +87,7 @@ def _label_target(op: render_ops.TextOp) -> render_geometry.AttachTarget:
 		text=op.text,
 		anchor=op.anchor,
 		font_size=op.font_size,
+		font_name=op.font_name,
 	)
 
 
@@ -296,6 +298,7 @@ def _own_hydroxyl_connector_overlaps_non_oxygen_area(
 		anchor=label.anchor,
 		font_size=label.font_size,
 		attach_atom=oxygen_mode,
+		font_name=label.font_name,
 	)
 	non_oxygen_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
@@ -304,6 +307,7 @@ def _own_hydroxyl_connector_overlaps_non_oxygen_area(
 		anchor=label.anchor,
 		font_size=label.font_size,
 		attach_atom=non_oxygen_mode,
+		font_name=label.font_name,
 	)
 	if oxygen_target.box == non_oxygen_target.box:
 		first_target, last_target = _hydroxyl_half_token_targets(label.text, label_target)
@@ -328,26 +332,11 @@ def _line_overlaps_label_interior(
 
 
 #============================================
-def _connector_target_for_label(label: render_ops.TextOp) -> render_geometry.AttachTarget | None:
-	first_target = render_geometry.label_attach_target_from_text_origin(
-		text_x=label.x,
-		text_y=label.y,
-		text=label.text,
-		anchor=label.anchor,
-		font_size=label.font_size,
-		attach_atom="first",
-	)
-	last_target = render_geometry.label_attach_target_from_text_origin(
-		text_x=label.x,
-		text_y=label.y,
-		text=label.text,
-		anchor=label.anchor,
-		font_size=label.font_size,
-		attach_atom="last",
-	)
-	if first_target.box != last_target.box:
-		return first_target
-	return None
+def _connector_target_for_label(
+		label: render_ops.TextOp,
+		connector: render_ops.LineOp | None = None) -> render_geometry.AttachTarget | None:
+	"""Resolve own-connector target with runtime connector attach-site policy."""
+	return haworth_renderer._attach_target_for_connector(label, connector)
 
 
 #============================================
@@ -484,10 +473,18 @@ def _assert_no_bond_label_overlap(ops: list, context: str) -> None:
 								)
 							)
 					continue
-				own_attach_target = _connector_target_for_label(label)
+				own_attach_target = _connector_target_for_label(label, line)
 				if own_attach_target is None:
 					own_attach_target = label_target
-				if _segment_intersects_box_interior(line.p1, line.p2, own_attach_target.box):
+				ok = render_geometry.validate_attachment_paint(
+					line_start=line.p1,
+					line_end=line.p2,
+					line_width=float(getattr(line, "width", 0.0) or 0.0),
+					forbidden_regions=[label_target],
+					allowed_regions=[own_attach_target],
+					epsilon=0.5,
+				)
+				if not ok:
 					raise AssertionError(
 						f"Bond/label overlap in {context}: line={line_id} label={label_name}"
 					)
@@ -681,6 +678,8 @@ def test_archive_matrix_chain2_connectors_end_on_selected_carbon_token():
 				font_size=label.font_size,
 				attach_atom="first",
 				attach_element="C",
+				attach_site="core_center",
+				font_name=label.font_name,
 			)
 			assert _point_in_box(connector.p2, attach_target.box), (
 				f"{code}_{ring_type}_{anomeric} {connector_id} endpoint {connector.p2} "
@@ -730,6 +729,7 @@ def test_archive_hydroxyl_own_connector_overlap_is_detected(code, ring_type, ano
 		anchor=hydroxyl_label.anchor,
 		font_size=hydroxyl_label.font_size,
 		attach_atom=non_oxygen_mode,
+		font_name=hydroxyl_label.font_name,
 	)
 	oxygen_mode = "first" if hydroxyl_label.text == "OH" else "last"
 	oxygen_target = render_geometry.label_attach_target_from_text_origin(
@@ -739,6 +739,7 @@ def test_archive_hydroxyl_own_connector_overlap_is_detected(code, ring_type, ano
 		anchor=hydroxyl_label.anchor,
 		font_size=hydroxyl_label.font_size,
 		attach_atom=oxygen_mode,
+		font_name=hydroxyl_label.font_name,
 	)
 	if non_oxygen_target.box == oxygen_target.box:
 		first_target, last_target = _hydroxyl_half_token_targets(
@@ -766,3 +767,76 @@ def test_archive_hydroxyl_own_connector_overlap_is_detected(code, ring_type, ano
 			AssertionError,
 			match=rf"Bond/label overlap in {case_id}: line={hydroxyl_line.op_id} label={hydroxyl_label.op_id}"):
 		_assert_no_bond_label_overlap(mutated_ops, case_id)
+
+
+#============================================
+def test_archive_matrix_strict_validator_rejects_induced_hydroxyl_overlap():
+	"""Ensure archive_matrix strict gate hard-fails on visible own-label overlap."""
+	import tools.archive_matrix_summary as archive_matrix_summary
+
+	ops = _build_ops("ARLRDM", "pyranose", "alpha", show_hydrogens=False)
+	hydroxyl_label = None
+	hydroxyl_line = None
+	for label in [op for op in ops if isinstance(op, render_ops.TextOp)]:
+		label_id = label.op_id or ""
+		if not label_id.endswith("_label"):
+			continue
+		if not _is_hydroxyl_label(label.text):
+			continue
+		connector_id = label_id.replace("_label", "_connector")
+		for line in [candidate for candidate in ops if isinstance(candidate, render_ops.LineOp)]:
+			if line.op_id == connector_id:
+				hydroxyl_label = label
+				hydroxyl_line = line
+				break
+		if hydroxyl_line is not None:
+			break
+	assert hydroxyl_label is not None
+	assert hydroxyl_line is not None
+	non_oxygen_mode = "last" if hydroxyl_label.text == "OH" else "first"
+	non_oxygen_target = render_geometry.label_attach_target_from_text_origin(
+		text_x=hydroxyl_label.x,
+		text_y=hydroxyl_label.y,
+		text=hydroxyl_label.text,
+		anchor=hydroxyl_label.anchor,
+		font_size=hydroxyl_label.font_size,
+		attach_atom=non_oxygen_mode,
+		font_name=hydroxyl_label.font_name,
+	)
+	oxygen_mode = "first" if hydroxyl_label.text == "OH" else "last"
+	oxygen_target = render_geometry.label_attach_target_from_text_origin(
+		text_x=hydroxyl_label.x,
+		text_y=hydroxyl_label.y,
+		text=hydroxyl_label.text,
+		anchor=hydroxyl_label.anchor,
+		font_size=hydroxyl_label.font_size,
+		attach_atom=oxygen_mode,
+		font_name=hydroxyl_label.font_name,
+	)
+	if non_oxygen_target.box == oxygen_target.box:
+		first_target, last_target = _hydroxyl_half_token_targets(
+			hydroxyl_label.text,
+			_label_target(hydroxyl_label),
+		)
+		non_oxygen_target = last_target if hydroxyl_label.text == "OH" else first_target
+	overlap_point = (
+		(non_oxygen_target.box[0] + non_oxygen_target.box[2]) * 0.5,
+		(non_oxygen_target.box[1] + non_oxygen_target.box[3]) * 0.5,
+	)
+	replacement = render_ops.LineOp(
+		p1=hydroxyl_line.p1,
+		p2=overlap_point,
+		width=hydroxyl_line.width,
+		cap=hydroxyl_line.cap,
+		join=hydroxyl_line.join,
+		color=hydroxyl_line.color,
+		z=hydroxyl_line.z,
+		op_id=hydroxyl_line.op_id,
+	)
+	mutated_ops = [replacement if op is hydroxyl_line else op for op in ops]
+	repo_root = pathlib.Path(conftest.repo_root())
+	case_id = "ARLRDM_pyranose_alpha_forced_overlap"
+	with pytest.raises(
+			RuntimeError,
+			match=rf"Strict overlap failure in {case_id}: bond/label line={hydroxyl_line.op_id} label={hydroxyl_label.op_id}"):
+		archive_matrix_summary._validate_ops_strict(repo_root, render_ops, mutated_ops, case_id)

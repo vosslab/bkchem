@@ -1,6 +1,174 @@
 # Changelog
 
+## 2026-02-11
+- Tighten
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  with an explicit analytic-primitive measurement contract:
+  each glyph primitive must expose a canonical center point, measurable area,
+  and deterministic boundary projection so alignment and legality checks are
+  numerically precise and testable.
+- Clarify terminology in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  by explicitly using "glyph convex hull" language in the design philosophy to
+  anchor the attachment-model intent.
+- Add a top-level design philosophy section to
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  to prevent implementation drift by enforcing one shared geometry truth,
+  calibrated analytic glyph primitives, connector-first authority, and
+  fixed-length policy with explicit exception tagging.
+- Add new manager-level execution plan
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  to reset bond-label recovery around one shared glyph attachment contract and
+  one fixed bond-length policy, with explicit phase gates, exception tagging,
+  Haworth-first validation, and minimal non-Haworth sentinel coverage.
+- Fix chain attach-site contract selection in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  by replacing vertical-orientation routing with endpoint-driven site
+  resolution: the runtime now selects `core_center` vs `stem_centerline` from
+  the actual connector endpoint contract against both attach regions.
+- Update strict overlap gating in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  to consume that same endpoint-driven resolver for own chain-like connectors,
+  preventing regressions where non-lock vertical connectors were forced into
+  stem-only validation.
+- Re-export the shared connector target resolver in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py)
+  and use it in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  so smoke checks and runtime strict policy stay identical.
+- Fix a smoke-test collection break and policy drift in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py):
+  correct indentation, add font-aware target calls, and remove duplicated
+  attach-site heuristics from test code.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_attach_targets.py tests/test_haworth_renderer.py tests/smoke/test_haworth_renderer_smoke.py tests/test_connector_clipping.py tests/test_phase_c_render_pipeline.py`
+  (`266 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`472 passed, 6 skipped`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (strict checks enabled; regenerated previews with no missing/generated gaps).
+
 ## 2026-02-10
+- Enforce architecture direction in
+  [docs/active_plans/CODER_GUIDE_FEB_10.md](docs/active_plans/CODER_GUIDE_FEB_10.md):
+  tools must consume a stable top-level Haworth API (`code`, `ring_type`,
+  `anomeric`) and must not implement attach-target or strict-overlap policy via
+  tool-local heuristics (for example op-id substring checks).
+- Implement the runtime API and shared strict-policy surface in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  and re-export it in
+  [packages/oasa/oasa/haworth_renderer.py](packages/oasa/oasa/haworth_renderer.py):
+  add `render_from_code(...)`, `label_target_for_text_op(...)`,
+  `attach_target_for_text_op(...)`, and `strict_validate_ops(...)` so tools
+  consume renderer-owned attach/strict behavior instead of duplicating policy.
+- Remove duplicated tool-local attach/strict logic from
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py) and route
+  generated preview rendering through `haworth_renderer.render_from_code(...)`
+  plus strict validation through `haworth_renderer.strict_validate_ops(...)`,
+  eliminating banned tool heuristics and keeping runtime/tool behavior aligned.
+- Fix false-pass geometry for Ribose furanose C4-up attachment in runtime-only
+  modules by introducing explicit attach-site semantics in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
+  `attach_site="element_core"` (default) versus
+  `attach_site="element_stem"` and `attach_site="element_closed_center"` for
+  explicit carbon-glyph attachment semantics.
+- Add automatic closed-center attachment in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  using runtime font metrics (`O` center factor for `C`) so "closed C as O"
+  centerline targeting is derived from glyph geometry, not per-case constants.
+- Unify carbon attach-site defaults in shared geometry runtime:
+  when `attach_element="C"` and no explicit attach-site override is provided,
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  now defaults to `attach_site="element_closed_center"` so shared molecular
+  rendering and Haworth rendering consume one carbon-center contract.
+- Apply `element_closed_center` to chain-like first-carbon Haworth vertical-lock
+  placement paths in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py),
+  removing the self-referential "core-target centroid == endpoint" pass mode
+  for `ARRDM | furanose | alpha/beta`.
+- Keep strict overlap legality meaningful in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  by using closed-center allowed regions for own chain-like vertical connectors
+  when the endpoint lands in that region (geometry-based, no tool hacks), while
+  preserving core-target legality for other chain-like connectors.
+- Replace brittle "legacy fixed numbers" attach-box assertions and add
+  attach-site regression coverage in
+  [tests/test_attach_targets.py](tests/test_attach_targets.py), and update
+  Ribose C4-up tests in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to assert
+  closed-center vertical attachment behavior.
+- Align contract tests with runtime attach-target policy source of truth:
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  and [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) now use
+  `haworth_renderer.attach_target_for_text_op(...)` for own-connector allowed
+  regions instead of duplicating local selector logic.
+- Update connector clipping regression in
+  [tests/test_connector_clipping.py](tests/test_connector_clipping.py) to use
+  explicit runtime font context (`Arial`) for attach-target expectations now
+  that attach spans are derived from font metrics.
+- Normalize furanose two-carbon branch readability in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  the down-class hashed branch (C4_down chain1 OH) was visually too short
+  compared with the up-class hashed branch (C4_up chain2), so down-class
+  branch geometry now uses a larger branch-arm factor (`ho_length_factor`
+  `0.78 -> 1.20`) while keeping stereochemical hashed-vs-solid assignment
+  unchanged.
+- Keep branched-tail placement non-cramped in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  by enforcing direction-aware minimum branch standoff from the ring before
+  branch vectors are solved, reducing the "custom hack" appearance for both
+  two-carbon direction classes.
+- Add explicit two-carbon class parity coverage for the full D/L code sets
+  (up/down classes, alpha/beta) in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py), including
+  fixed `C4_up` vs `C4_down` chain2-op routing and hashed-branch placement
+  expectations.
+- Strengthen own-connector overlap gating in
+  [tests/smoke/test_haworth_renderer_smoke.py](tests/smoke/test_haworth_renderer_smoke.py)
+  so token-specific attach carve-outs are validated via
+  `validate_attachment_paint(...)` for chain-like labels, matching strict
+  runtime semantics.
+- Fix strict overlap target selection for generated matrix validation in
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py):
+  chain2 labels are now recognized even when markup text is reversed
+  (`HOH<sub>2</sub>C`), and hydroxyl attach carve-outs use `attach_element="O"`
+  consistently.
+- Harden attachment geometry in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  by adding exact box-region forbidden-minus-allowed validation and by fixing
+  single-token `attach_element` selection (for example `OH` + `attach_element="O"`).
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py`
+  (`130 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_renderer_smoke.py`
+  (`87 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`469 passed, 6 skipped`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (strict checks enabled; regenerated previews with `Missing generated: 0`).
+- Update
+  [docs/active_plans/CODER_GUIDE_FEB_10.md](docs/active_plans/CODER_GUIDE_FEB_10.md)
+  with a root-cause clarification for `CH<sub>2</sub>OH` connector misses:
+  endpoint hits can still be visually wrong when attach targets are estimated
+  too broadly, so acceptance now explicitly distinguishes "inside target" from
+  true carbon-centerline attachment.
+- Reorganize
+  [docs/active_plans/CODER_GUIDE_FEB_10.md](docs/active_plans/CODER_GUIDE_FEB_10.md)
+  into a clean execution format with explicit scope, non-negotiable rules,
+  case-by-case expected visuals, measured pass/fail gates, required command
+  sequence, and a required reporting template for coder submissions.
+- Add a dedicated design-philosophy section to
+  [docs/active_plans/CODER_GUIDE_FEB_10.md](docs/active_plans/CODER_GUIDE_FEB_10.md)
+  to anchor implementation decisions on structural correctness, single-source
+  geometry semantics, connector-first behavior, explicit failure visibility,
+  and universal (non-sugar-specific) fixes.
+- Extend
+  [docs/active_plans/CODER_GUIDE_FEB_10.md](docs/active_plans/CODER_GUIDE_FEB_10.md)
+  with explicit two-carbon furanose direction families (down/up), including
+  the D and L code/name sets that should follow each branch-orientation policy
+  in both alpha and beta forms.
 - Refine formula-aware carbon attach targeting in
   [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
   so core-token span projection follows rendered Haworth glyph spacing
