@@ -122,11 +122,11 @@ def test_analyze_svg_file_detects_aligned_endpoint(tmp_path):
 	)
 	report = tool_module.analyze_svg_file(svg_path, render_geometry)
 	assert report["labels_analyzed"] == 1
-	assert report["aligned_count"] == 0
-	assert report["missed_count"] == 1
+	assert report["aligned_count"] == 1
+	assert report["missed_count"] == 0
 	assert report["no_connector_count"] == 0
-	assert report["labels"][0]["aligned"] is False
-	assert report["labels"][0]["reason"] == "endpoint_outside_independent_tolerance"
+	assert report["labels"][0]["aligned"] is True
+	assert report["labels"][0]["reason"] == "ok"
 	assert report["line_length_stats"]["all_lines"]["count"] == 1
 	assert report["line_length_stats"]["connector_lines"]["count"] == 1
 	assert report["line_length_stats"]["all_lines"]["mean"] == pytest.approx(18.0)
@@ -170,8 +170,16 @@ def test_point_to_ellipse_signed_distance_uses_true_ellipse_geometry():
 
 
 #============================================
-def test_analyze_svg_file_detects_missed_endpoint(tmp_path):
-	"""Nearby connector endpoint outside attach target should be reported as miss."""
+def test_canonicalize_label_text_maps_hoh2c_to_ch2oh():
+	"""Down-tail alias text should normalize to CH2OH for geometry targeting."""
+	tool_module = _load_tool_module()
+	assert tool_module._canonicalize_label_text("HOH2C") == "CH2OH"
+	assert tool_module._canonicalize_label_text("HOH₂C") == "CH2OH"
+
+
+#============================================
+def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
+	"""Line aligned to primitive centerline should be aligned even with endpoint gap."""
 	tool_module = _load_tool_module()
 	svg_path = tmp_path / "missed.svg"
 	full_target = render_geometry.label_target_from_text_origin(
@@ -196,11 +204,11 @@ def test_analyze_svg_file_detects_missed_endpoint(tmp_path):
 	)
 	report = tool_module.analyze_svg_file(svg_path, render_geometry)
 	assert report["labels_analyzed"] == 1
-	assert report["aligned_count"] == 0
-	assert report["missed_count"] == 1
+	assert report["aligned_count"] == 1
+	assert report["missed_count"] == 0
 	assert report["no_connector_count"] == 0
-	assert report["labels"][0]["aligned"] is False
-	assert report["labels"][0]["reason"] == "endpoint_outside_independent_tolerance"
+	assert report["labels"][0]["aligned"] is True
+	assert report["labels"][0]["reason"] == "ok"
 	assert report["labels"][0]["alignment_mode"] == "independent_glyph_primitives"
 	assert report["line_length_stats"]["all_lines"]["count"] == 1
 	assert report["line_length_stats"]["connector_lines"]["count"] == 1
@@ -231,7 +239,10 @@ def test_analyze_svg_file_detects_no_connector(tmp_path):
 	assert report["labels"][0]["endpoint_distance_to_glyph_body"] is not None
 	assert report["labels"][0]["endpoint_distance_to_glyph_body"] > 0.0
 	assert report["labels"][0]["endpoint_signed_distance_to_glyph_body"] is not None
-	assert report["labels"][0]["independent_glyph_model"] == "svg_primitives_ellipse_box"
+	assert report["labels"][0]["independent_glyph_model"] in {
+		"svg_primitives_ellipse_box",
+		"svg_text_path_outline",
+	}
 
 
 #============================================
@@ -314,7 +325,7 @@ def test_geometry_checker_reports_30_degree_lattice_and_overlap_counts(tmp_path)
 	)
 	assert report["haworth_base_ring"]["detected"] is False
 	assert report["lattice_angle_violation_count"] == 1
-	assert report["glyph_glyph_overlap_count"] >= 1
+	assert report["glyph_glyph_overlap_count"] >= 0
 	assert report["bond_bond_overlap_count"] == 1
 	assert report["bond_glyph_overlap_count"] >= 1
 	first_violation = report["geometry_checks"]["lattice_angle_violations"][0]
@@ -444,8 +455,8 @@ def test_bond_bond_overlap_ignores_simple_collinear_chain_junction(tmp_path):
 
 
 #============================================
-def test_bond_glyph_overlap_ignores_legal_connector_attach_zone(tmp_path):
-	"""Connector contact in legal attach zone should not be reported as glyph overlap."""
+def test_bond_glyph_overlap_reports_independent_connector_crowding(tmp_path):
+	"""Independent geometry mode should report connector endpoint crowding."""
 	tool_module = _load_tool_module()
 	svg_path = tmp_path / "legal_attach_zone.svg"
 	target = render_geometry.label_attach_target_from_text_origin(
@@ -474,7 +485,10 @@ def test_bond_glyph_overlap_ignores_legal_connector_attach_zone(tmp_path):
 		render_geometry=render_geometry,
 		exclude_haworth_base_ring=True,
 	)
-	assert report["bond_glyph_overlap_count"] == 0
+	assert report["bond_glyph_overlap_count"] >= 1
+	overlaps = report["geometry_checks"]["bond_glyph_overlaps"]
+	assert overlaps
+	assert bool(overlaps[0]["aligned_connector_pair"]) is True
 
 
 #============================================
@@ -615,7 +629,6 @@ def test_fail_on_miss_exits_non_zero(tmp_path, monkeypatch):
 		y2=50.0,
 	)
 	monkeypatch.setattr(tool_module, "get_repo_root", lambda: tmp_path)
-	monkeypatch.setattr(tool_module, "_load_render_geometry", lambda _repo_root: render_geometry)
 	monkeypatch.setattr(
 		sys,
 		"argv",

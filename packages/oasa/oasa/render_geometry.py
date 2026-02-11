@@ -1257,8 +1257,11 @@ def _oxygen_circle_target_from_attach_target(
 	x1, y1, x2, y2 = attach_target.box
 	center = ((x1 + x2) * 0.5, (y1 + y2) * 0.5)
 	base_radius = max(max(0.0, x2 - x1), max(0.0, y2 - y1)) * 0.5
-	safety_margin = max(0.25, float(font_size) * 0.05)
-	radius = base_radius + (max(0.0, float(line_width)) * 0.5) + safety_margin
+	# Keep hydroxyl endpoint targeting near the glyph perimeter so connector
+	# endpoints remain visually attached to the oxygen shape in matrix output.
+	safety_margin = max(0.05, float(font_size) * 0.005)
+	line_margin = max(0.0, float(line_width)) * 0.05
+	radius = base_radius + line_margin + safety_margin
 	return make_circle_target(center, radius)
 
 

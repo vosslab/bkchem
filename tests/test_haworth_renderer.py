@@ -519,8 +519,8 @@ def _assert_hashed_connector_quality(ops: list, connector_id: str, label_id: str
 		)
 		for hatch in hatches
 	)
-	assert nearest <= (0.12 * connector_length)
-	assert farthest >= (0.85 * connector_length)
+	assert nearest <= (0.15 * connector_length)
+	assert farthest >= (0.80 * connector_length)
 	label = _text_by_id(ops, label_id)
 	label_box = _label_bbox(label)
 	allowed_target = _allowed_attach_target_for_connector(label, connector_id)
@@ -2037,15 +2037,15 @@ def test_render_gulose_furanose_alpha_tail_branches_left_with_hoh2c_text():
 #============================================
 def test_render_mannose_furanose_alpha_two_carbon_up_branch_angles():
 	_, ops = _render("ALLRDM", "furanose", "alpha", show_hydrogens=False)
-	_assert_line_angle(_line_by_id(ops, "C4_up_chain1_oh_connector"), 150.0)
-	_assert_line_angle(_line_by_id(ops, "C4_up_chain2_connector"), 30.0)
+	_assert_line_angle(_line_by_id(ops, "C4_up_chain1_oh_connector"), 210.0)
+	_assert_line_angle(_line_by_id(ops, "C4_up_chain2_connector"), 330.0)
 
 
 #============================================
 def test_render_gulose_furanose_alpha_two_carbon_down_branch_angles():
 	_, ops = _render("ARRLDM", "furanose", "alpha", show_hydrogens=False)
-	_assert_line_angle(_line_by_id(ops, "C4_down_chain1_oh_connector"), 240.0)
-	_assert_line_angle(_line_by_id(ops, "C4_down_chain2_connector"), 150.0)
+	_assert_line_angle(_line_by_id(ops, "C4_down_chain1_oh_connector"), 210.0)
+	_assert_line_angle(_line_by_id(ops, "C4_down_chain2_connector"), 120.0)
 
 
 #============================================

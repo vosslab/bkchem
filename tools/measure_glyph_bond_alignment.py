@@ -10,10 +10,22 @@ import math
 import pathlib
 import re
 import subprocess
-import sys
+import xml.etree.ElementTree as StdET
 
 # Third Party
 import defusedxml.ElementTree as ET
+try:
+	from matplotlib.font_manager import FontProperties
+	from matplotlib.path import Path as MplPath
+	from matplotlib.textpath import TextPath
+	from matplotlib.transforms import Affine2D
+	MATPLOTLIB_TEXTPATH_AVAILABLE = True
+except Exception:
+	FontProperties = None
+	MplPath = None
+	TextPath = None
+	Affine2D = None
+	MATPLOTLIB_TEXTPATH_AVAILABLE = False
 
 MAX_ENDPOINT_TO_LABEL_DISTANCE_FACTOR = 2.6
 MIN_ALIGNMENT_DISTANCE_TOLERANCE = 0.5
@@ -40,9 +52,11 @@ HASHED_PERPENDICULAR_TOLERANCE_DEGREES = 25.0
 HASHED_SHARED_ENDPOINT_PARALLEL_TOLERANCE_DEGREES = 35.0
 GLYPH_CURVED_CHAR_SET = set("OCSQGDU0698")
 GLYPH_STEM_CHAR_SET = set("HNMITFLKEXY147")
+ALIGNMENT_INFINITE_LINE_FONT_TOLERANCE_FACTOR = 0.09
 DEFAULT_INPUT_GLOB = "output_smoke/archive_matrix_previews/generated/*.svg"
 DEFAULT_JSON_REPORT = "output_smoke/glyph_bond_alignment_report.json"
 DEFAULT_TEXT_REPORT = "output_smoke/glyph_bond_alignment_report.txt"
+DEFAULT_DIAGNOSTIC_SVG_DIR = "output_smoke/glyph_bond_alignment_diagnostics"
 
 
 #============================================
@@ -76,6 +90,13 @@ def parse_args() -> argparse.Namespace:
 		help="Output path for text summary report.",
 	)
 	parser.add_argument(
+		"--diagnostic-svg-dir",
+		dest="diagnostic_svg_dir",
+		type=str,
+		default=DEFAULT_DIAGNOSTIC_SVG_DIR,
+		help="Output directory for diagnostic SVG overlays (one file per input SVG).",
+	)
+	parser.add_argument(
 		"-f",
 		"--fail-on-miss",
 		dest="fail_on_miss",
@@ -102,6 +123,18 @@ def parse_args() -> argparse.Namespace:
 		help="Include detected Haworth base-ring template geometry in checks.",
 	)
 	parser.add_argument(
+		"--write-diagnostic-svg",
+		dest="write_diagnostic_svg",
+		action="store_true",
+		help="Write diagnostic SVG overlays (default: on).",
+	)
+	parser.add_argument(
+		"--no-diagnostic-svg",
+		dest="write_diagnostic_svg",
+		action="store_false",
+		help="Disable diagnostic SVG overlay output.",
+	)
+	parser.add_argument(
 		"--bond-glyph-gap-tolerance",
 		dest="bond_glyph_gap_tolerance",
 		type=float,
@@ -113,6 +146,7 @@ def parse_args() -> argparse.Namespace:
 	)
 	parser.set_defaults(fail_on_miss=False)
 	parser.set_defaults(exclude_haworth_base_ring=True)
+	parser.set_defaults(write_diagnostic_svg=True)
 	return parser.parse_args()
 
 
@@ -130,20 +164,6 @@ def get_repo_root() -> pathlib.Path:
 	return pathlib.Path(result.stdout.strip())
 
 
-#============================================
-def _load_render_geometry(repo_root: pathlib.Path):
-	"""Import shared render geometry module used for attach-target definitions."""
-	try:
-		import oasa.render_geometry as render_geometry
-	except ImportError:
-		oasa_path = repo_root / "packages" / "oasa"
-		if str(oasa_path) not in sys.path:
-			sys.path.insert(0, str(oasa_path))
-		import oasa.render_geometry as render_geometry
-	return render_geometry
-
-
-#============================================
 def _local_tag_name(tag: str) -> str:
 	"""Return local XML tag name without namespace prefix."""
 	if "}" in tag:
@@ -229,6 +249,24 @@ def _compact_float(value: float | None) -> float | None:
 	if value is None:
 		return None
 	return float(f"{float(value):.12g}")
+
+
+#============================================
+def _display_float(value: float | None, decimals: int = 3) -> float | None:
+	"""Return rounded float for human-facing report data points."""
+	if value is None:
+		return None
+	return round(float(value), int(decimals))
+
+
+#============================================
+def _display_point(point, decimals: int = 3):
+	"""Return rounded [x, y] point for human-facing report data points."""
+	if point is None:
+		return None
+	if not isinstance(point, (list, tuple)) or len(point) != 2:
+		return point
+	return [_display_float(point[0], decimals=decimals), _display_float(point[1], decimals=decimals)]
 
 
 #============================================
@@ -489,6 +527,219 @@ def _is_measurement_label(visible_text: str) -> bool:
 
 
 #============================================
+def _canonicalize_label_text(visible_text: str) -> str:
+	"""Return canonical label text for geometry targeting and grouping."""
+	text = str(visible_text or "")
+	normalized = text.replace("₂", "2").replace("₃", "3")
+	if normalized in ("HOH2C", "H2COH", "C2HOH"):
+		return "CH2OH"
+	return normalized
+
+
+#============================================
+def _label_geometry_text(label: dict) -> str:
+	"""Return label text that matches displayed SVG glyph order for geometry."""
+	return str(label.get("text_display") or label.get("text_raw") or label.get("text") or "")
+
+
+#============================================
+def _font_family_candidates(font_name: str) -> list[str]:
+	"""Return prioritized font-family candidates parsed from SVG font-family."""
+	raw = str(font_name or "")
+	parts = []
+	for token in raw.split(","):
+		clean = token.strip().strip("'").strip('"')
+		if clean:
+			parts.append(clean)
+	if not parts:
+		parts.append("sans-serif")
+	parts.extend(["DejaVu Sans", "Arial", "sans-serif"])
+	seen = set()
+	unique = []
+	for item in parts:
+		key = item.lower()
+		if key in seen:
+			continue
+		seen.add(key)
+		unique.append(item)
+	return unique
+
+
+#============================================
+def _label_text_path(label: dict):
+	"""Return transformed matplotlib text path for one SVG label when available."""
+	if not MATPLOTLIB_TEXTPATH_AVAILABLE:
+		return None
+	text = _label_geometry_text(label)
+	if not text:
+		return None
+	font_size = max(1.0, float(label.get("font_size", 12.0)))
+	families = _font_family_candidates(str(label.get("font_name", "sans-serif")))
+	try:
+		prop = FontProperties(family=families)
+		base_path = TextPath((0.0, 0.0), text, size=font_size, prop=prop)
+	except Exception:
+		return None
+	bbox = base_path.get_extents()
+	x = float(label.get("x", 0.0))
+	y = float(label.get("y", 0.0))
+	anchor = str(label.get("anchor", "start")).strip().lower()
+	if anchor == "middle":
+		tx = x - ((bbox.xmin + bbox.xmax) * 0.5)
+	elif anchor == "end":
+		tx = x - bbox.xmax
+	else:
+		tx = x - bbox.xmin
+	ty = y
+	try:
+		# Matplotlib text path uses Y-up coordinates, while SVG uses Y-down.
+		# Mirror across baseline before placing at SVG text origin.
+		return base_path.transformed(Affine2D().scale(1.0, -1.0).translate(tx, ty))
+	except Exception:
+		return None
+
+
+#============================================
+def _path_line_segments(path_obj) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+	"""Return piecewise-linear boundary segments from one matplotlib path."""
+	if path_obj is None:
+		return []
+	try:
+		linear = path_obj.interpolated(8)
+	except Exception:
+		linear = path_obj
+	vertices = getattr(linear, "vertices", None)
+	codes = getattr(linear, "codes", None)
+	if vertices is None or len(vertices) < 2:
+		return []
+	segments = []
+	if codes is None:
+		for index in range(1, len(vertices)):
+			p1 = (float(vertices[index - 1][0]), float(vertices[index - 1][1]))
+			p2 = (float(vertices[index][0]), float(vertices[index][1]))
+			segments.append((p1, p2))
+		return segments
+	sub_start = None
+	prev = None
+	for vertex, code in zip(vertices, codes):
+		point = (float(vertex[0]), float(vertex[1]))
+		if code == MplPath.MOVETO:
+			sub_start = point
+			prev = point
+			continue
+		if code == MplPath.LINETO:
+			if prev is not None:
+				segments.append((prev, point))
+			prev = point
+			continue
+		if code == MplPath.CLOSEPOLY:
+			if prev is not None and sub_start is not None:
+				segments.append((prev, sub_start))
+			prev = sub_start
+			continue
+	return segments
+
+
+#============================================
+def _point_to_text_path_signed_distance(point: tuple[float, float], path_obj) -> float:
+	"""Return signed distance from one point to one glyph text path."""
+	if path_obj is None:
+		return float("inf")
+	segments = _path_line_segments(path_obj)
+	if not segments:
+		return float("inf")
+	min_distance_sq = float("inf")
+	for seg_start, seg_end in segments:
+		distance_sq = _point_to_segment_distance_sq(point, seg_start, seg_end)
+		if distance_sq < min_distance_sq:
+			min_distance_sq = distance_sq
+	distance = math.sqrt(max(0.0, min_distance_sq))
+	inside = False
+	try:
+		inside = bool(path_obj.contains_point(point))
+	except Exception:
+		inside = False
+	return -distance if inside else distance
+
+
+#============================================
+def _point_to_label_signed_distance(point: tuple[float, float], label: dict) -> float:
+	"""Return signed point distance to one label using best independent geometry."""
+	text_path = label.get("svg_text_path")
+	if text_path is not None:
+		signed = _point_to_text_path_signed_distance(point, text_path)
+		if math.isfinite(signed):
+			return signed
+	primitives = label.get("svg_estimated_primitives", [])
+	if primitives:
+		signed = _point_to_glyph_primitives_signed_distance(point, primitives)
+		if math.isfinite(signed):
+			return signed
+	box = label.get("svg_estimated_box")
+	if box is not None:
+		return _point_to_box_signed_distance(point, box)
+	return float("inf")
+
+
+#============================================
+def _nearest_endpoint_to_text_path(
+		lines: list[dict],
+		line_indexes: list[int],
+		path_obj) -> tuple[tuple[float, float] | None, float | None, int | None, float | None]:
+	"""Return nearest endpoint to one text path across candidate lines."""
+	best_endpoint = None
+	best_distance = float("inf")
+	best_far_distance = float("-inf")
+	best_length = float("-inf")
+	best_line_index = None
+	best_signed_distance = None
+	for line_index in line_indexes:
+		if line_index < 0 or line_index >= len(lines):
+			continue
+		line = lines[line_index]
+		p1 = (line["x1"], line["y1"])
+		p2 = (line["x2"], line["y2"])
+		s1 = _point_to_text_path_signed_distance(p1, path_obj)
+		s2 = _point_to_text_path_signed_distance(p2, path_obj)
+		if not math.isfinite(s1) or not math.isfinite(s2):
+			continue
+		d1 = abs(s1)
+		d2 = abs(s2)
+		if d1 <= d2:
+			endpoint = p1
+			distance = d1
+			signed_distance = s1
+			far_distance = d2
+		else:
+			endpoint = p2
+			distance = d2
+			signed_distance = s2
+			far_distance = d1
+		line_length = _line_length(line)
+		if (
+				distance < best_distance
+				or (
+					math.isclose(distance, best_distance, abs_tol=1e-9)
+					and far_distance > best_far_distance
+				)
+				or (
+					math.isclose(distance, best_distance, abs_tol=1e-9)
+					and math.isclose(far_distance, best_far_distance, abs_tol=1e-9)
+					and line_length > best_length
+				)
+		):
+			best_endpoint = endpoint
+			best_distance = distance
+			best_far_distance = far_distance
+			best_length = line_length
+			best_line_index = line_index
+			best_signed_distance = signed_distance
+	if best_endpoint is None:
+		return None, None, None, None
+	return best_endpoint, best_distance, best_line_index, best_signed_distance
+
+
+#============================================
 def _resolve_svg_paths(repo_root: pathlib.Path, input_glob: str) -> list[pathlib.Path]:
 	"""Resolve sorted SVG paths from one glob pattern."""
 	pattern = str(input_glob)
@@ -586,14 +837,14 @@ def _nearest_endpoint_to_glyph_primitives(
 		d2 = max(0.0, s2)
 		if d1 <= d2:
 			endpoint = p1
-			distance = d1
+			distance = abs(s1)
 			signed_distance = s1
-			far_distance = d2
+			far_distance = abs(s2)
 		else:
 			endpoint = p2
-			distance = d2
+			distance = abs(s2)
 			signed_distance = s2
-			far_distance = d1
+			far_distance = abs(s1)
 		line_length = _line_length(line)
 		if (
 				distance < best_distance
@@ -660,15 +911,19 @@ def _collect_svg_labels(svg_root) -> list[dict]:
 		visible_text = _visible_text(node)
 		if not visible_text:
 			continue
+		canonical_text = _canonicalize_label_text(visible_text)
 		labels.append(
 			{
-				"text": visible_text,
+				"text": canonical_text,
+				"text_raw": visible_text,
+				"text_display": visible_text,
+				"canonical_text": canonical_text,
 				"x": _parse_float(node.get("x"), 0.0),
 				"y": _parse_float(node.get("y"), 0.0),
 				"anchor": str(node.get("text-anchor") or "start"),
 				"font_size": _parse_float(node.get("font-size"), 12.0),
 				"font_name": str(node.get("font-family") or "sans-serif"),
-				"is_measurement_label": _is_measurement_label(visible_text),
+				"is_measurement_label": _is_measurement_label(canonical_text),
 			}
 		)
 	return labels
@@ -939,6 +1194,240 @@ def _line_endpoints(line: dict) -> tuple[tuple[float, float], tuple[float, float
 
 
 #============================================
+def _svg_tag_with_namespace(svg_root, local_name: str) -> str:
+	"""Return namespaced tag when the parsed SVG root has one."""
+	root_tag = str(svg_root.tag)
+	if root_tag.startswith("{") and "}" in root_tag:
+		namespace = root_tag[1:].split("}", 1)[0]
+		return f"{{{namespace}}}{local_name}"
+	return local_name
+
+
+#============================================
+def _viewbox_bounds(svg_root) -> tuple[float, float, float, float] | None:
+	"""Return viewBox bounds as (min_x, min_y, max_x, max_y) when available."""
+	values = _svg_number_tokens(str(svg_root.get("viewBox") or ""))
+	if len(values) != 4:
+		return None
+	min_x, min_y, width, height = values
+	if width <= 0.0 or height <= 0.0:
+		return None
+	return (min_x, min_y, min_x + width, min_y + height)
+
+
+#============================================
+def _diagnostic_bounds(svg_root, lines: list[dict], labels: list[dict]) -> tuple[float, float, float, float]:
+	"""Return drawing bounds for diagnostic overlays."""
+	viewbox = _viewbox_bounds(svg_root)
+	if viewbox is not None:
+		return viewbox
+	x_values = []
+	y_values = []
+	for line in lines:
+		x_values.extend([float(line["x1"]), float(line["x2"])])
+		y_values.extend([float(line["y1"]), float(line["y2"])])
+	for label in labels:
+		box = label.get("svg_estimated_box")
+		if box is not None:
+			x1, y1, x2, y2 = _normalize_box(box)
+			x_values.extend([x1, x2])
+			y_values.extend([y1, y2])
+	if not x_values or not y_values:
+		return (-100.0, -100.0, 100.0, 100.0)
+	margin = 8.0
+	return (
+		min(x_values) - margin,
+		min(y_values) - margin,
+		max(x_values) + margin,
+		max(y_values) + margin,
+	)
+
+
+#============================================
+def _clip_infinite_line_to_bounds(
+		line_start: tuple[float, float],
+		line_end: tuple[float, float],
+		bounds: tuple[float, float, float, float]) -> tuple[tuple[float, float], tuple[float, float]] | None:
+	"""Return endpoints where one infinite line crosses one bounds box."""
+	x1, y1 = line_start
+	x2, y2 = line_end
+	min_x, min_y, max_x, max_y = _normalize_box(bounds)
+	dx = x2 - x1
+	dy = y2 - y1
+	if math.hypot(dx, dy) <= 1e-12:
+		return None
+	points: list[tuple[float, float]] = []
+	if abs(dx) > 1e-12:
+		for x_edge in (min_x, max_x):
+			t = (x_edge - x1) / dx
+			y_value = y1 + (t * dy)
+			if min_y - 1e-9 <= y_value <= max_y + 1e-9:
+				points.append((x_edge, y_value))
+	if abs(dy) > 1e-12:
+		for y_edge in (min_y, max_y):
+			t = (y_edge - y1) / dy
+			x_value = x1 + (t * dx)
+			if min_x - 1e-9 <= x_value <= max_x + 1e-9:
+				points.append((x_value, y_edge))
+	if len(points) < 2:
+		return None
+	unique: list[tuple[float, float]] = []
+	for point in points:
+		if any(_points_close(point, other, tol=1e-5) for other in unique):
+			continue
+		unique.append(point)
+	if len(unique) < 2:
+		return None
+	best_pair = (unique[0], unique[1])
+	best_dist_sq = _point_distance_sq(unique[0], unique[1])
+	for idx_a in range(len(unique)):
+		for idx_b in range(idx_a + 1, len(unique)):
+			dist_sq = _point_distance_sq(unique[idx_a], unique[idx_b])
+			if dist_sq > best_dist_sq:
+				best_pair = (unique[idx_a], unique[idx_b])
+				best_dist_sq = dist_sq
+	return best_pair
+
+
+#============================================
+def _diagnostic_color(index: int) -> str:
+	"""Return deterministic color for one label overlay."""
+	palette = ["#ff006e", "#3a86ff", "#ffbe0b", "#2a9d8f", "#8338ec", "#fb5607"]
+	return palette[index % len(palette)]
+
+
+#============================================
+def _write_diagnostic_svg(
+		svg_path: pathlib.Path,
+		output_path: pathlib.Path,
+		lines: list[dict],
+		labels: list[dict],
+		label_metrics: list[dict]) -> None:
+	"""Write diagnostic overlay SVG with primitives and alignment guide lines."""
+	svg_root = ET.parse(svg_path).getroot()
+	tag_group = _svg_tag_with_namespace(svg_root, "g")
+	tag_rect = _svg_tag_with_namespace(svg_root, "rect")
+	tag_ellipse = _svg_tag_with_namespace(svg_root, "ellipse")
+	tag_line = _svg_tag_with_namespace(svg_root, "line")
+	tag_circle = _svg_tag_with_namespace(svg_root, "circle")
+	bounds = _diagnostic_bounds(svg_root, lines=lines, labels=labels)
+	overlay_group = StdET.Element(
+		tag_group,
+		attrib={
+			"id": "codex-glyph-bond-diagnostic-overlay",
+			"fill": "none",
+			"stroke-linecap": "round",
+			"stroke-linejoin": "round",
+		},
+	)
+	for metric in label_metrics:
+		label_index = metric.get("label_index")
+		line_index = metric.get("connector_line_index")
+		endpoint = metric.get("endpoint")
+		if label_index is None or line_index is None:
+			continue
+		if not (0 <= int(label_index) < len(labels) and 0 <= int(line_index) < len(lines)):
+			continue
+		label = labels[int(label_index)]
+		line = lines[int(line_index)]
+		color = _diagnostic_color(int(label_index))
+		group = StdET.Element(tag_group, attrib={"id": f"codex-label-diag-{int(label_index)}"})
+		for primitive in label.get("svg_estimated_primitives", []):
+			kind = str(primitive.get("kind", ""))
+			if kind == "box" and primitive.get("box") is not None:
+				x1, y1, x2, y2 = _normalize_box(primitive["box"])
+				group.append(
+					StdET.Element(
+						tag_rect,
+						attrib={
+							"x": f"{x1:.6f}",
+							"y": f"{y1:.6f}",
+							"width": f"{max(0.0, x2 - x1):.6f}",
+							"height": f"{max(0.0, y2 - y1):.6f}",
+							"stroke": color,
+							"stroke-width": "0.8",
+							"stroke-dasharray": "2 2",
+						},
+					)
+				)
+			if kind == "ellipse":
+				group.append(
+					StdET.Element(
+						tag_ellipse,
+						attrib={
+							"cx": f"{float(primitive.get('cx', 0.0)):.6f}",
+							"cy": f"{float(primitive.get('cy', 0.0)):.6f}",
+							"rx": f"{float(primitive.get('rx', 0.0)):.6f}",
+							"ry": f"{float(primitive.get('ry', 0.0)):.6f}",
+							"stroke": color,
+							"stroke-width": "0.8",
+							"stroke-dasharray": "2 2",
+						},
+					)
+				)
+		start = (float(line["x1"]), float(line["y1"]))
+		end = (float(line["x2"]), float(line["y2"]))
+		infinite = _clip_infinite_line_to_bounds(start, end, bounds)
+		if infinite is not None:
+			pa, pb = infinite
+			group.append(
+				StdET.Element(
+					tag_line,
+					attrib={
+						"x1": f"{pa[0]:.6f}",
+						"y1": f"{pa[1]:.6f}",
+						"x2": f"{pb[0]:.6f}",
+						"y2": f"{pb[1]:.6f}",
+						"stroke": "#00a6fb",
+						"stroke-width": "1",
+					},
+				)
+			)
+		if isinstance(endpoint, (list, tuple)) and len(endpoint) == 2:
+			ep_x = float(endpoint[0])
+			ep_y = float(endpoint[1])
+			dx = end[0] - start[0]
+			dy = end[1] - start[1]
+			length = math.hypot(dx, dy)
+			if length > 1e-12:
+				nx = -dy / length
+				ny = dx / length
+				half = 6.0
+				p1 = (ep_x - (nx * half), ep_y - (ny * half))
+				p2 = (ep_x + (nx * half), ep_y + (ny * half))
+				group.append(
+					StdET.Element(
+						tag_line,
+						attrib={
+							"x1": f"{p1[0]:.6f}",
+							"y1": f"{p1[1]:.6f}",
+							"x2": f"{p2[0]:.6f}",
+							"y2": f"{p2[1]:.6f}",
+							"stroke": "#ff5400",
+							"stroke-width": "1.2",
+						},
+					)
+				)
+			group.append(
+				StdET.Element(
+					tag_circle,
+					attrib={
+						"cx": f"{ep_x:.6f}",
+						"cy": f"{ep_y:.6f}",
+						"r": "1.8",
+						"stroke": "#ff5400",
+						"fill": "#ff5400",
+						"stroke-width": "0.4",
+					},
+				)
+			)
+		overlay_group.append(group)
+	svg_root.append(overlay_group)
+	output_path.parent.mkdir(parents=True, exist_ok=True)
+	StdET.ElementTree(svg_root).write(output_path, encoding="utf-8", xml_declaration=True)
+
+
+#============================================
 def _lines_share_endpoint(line_a: dict, line_b: dict, tol: float = 0.75) -> bool:
 	"""Return True when two lines share one endpoint within tolerance."""
 	a1, a2 = _line_endpoints(line_a)
@@ -1171,54 +1660,6 @@ def _increment_counter(counter: dict[str, int], key: str) -> None:
 	counter[key] = int(counter.get(key, 0)) + 1
 
 
-#============================================
-def _target_bounds(target):
-	"""Return bounding box for one attach target, or None when unsupported."""
-	if target.kind == "box":
-		return _normalize_box(target.box)
-	if target.kind == "circle":
-		cx, cy = target.center
-		radius = max(0.0, float(target.radius))
-		return (cx - radius, cy - radius, cx + radius, cy + radius)
-	if target.kind == "composite":
-		boxes = []
-		for child in target.targets or ():
-			child_box = _target_bounds(child)
-			if child_box is None:
-				continue
-			boxes.append(child_box)
-		if not boxes:
-			return None
-		return (
-			min(box[0] for box in boxes),
-			min(box[1] for box in boxes),
-			max(box[2] for box in boxes),
-			max(box[3] for box in boxes),
-		)
-	if target.kind == "segment":
-		x1, y1 = target.p1
-		x2, y2 = target.p2
-		return _normalize_box((x1, y1, x2, y2))
-	return None
-
-
-#============================================
-def _label_box(render_geometry, label: dict):
-	"""Return one label bounding box from one label full-target object."""
-	target = label.get("full_target")
-	if target is None:
-		target = render_geometry.label_target_from_text_origin(
-			text_x=label["x"],
-			text_y=label["y"],
-			text=label["text"],
-			anchor=label["anchor"],
-			font_size=label["font_size"],
-			font_name=label["font_name"],
-		)
-	return _target_bounds(target)
-
-
-#============================================
 def _glyph_char_advance(font_size: float, char: str) -> float:
 	"""Return estimated horizontal advance for one glyph character."""
 	size = max(1.0, float(font_size))
@@ -1284,8 +1725,19 @@ def _glyph_primitive_from_char(
 	width = max(0.2, right_x - left_x)
 	height = max(0.2, bottom_y - top_y)
 	if upper in GLYPH_CURVED_CHAR_SET:
-		rx = max(0.3, width * 0.42)
-		ry = max(0.3, height * 0.47)
+		# Tune curved glyph hulls so O-like labels are less under-sized and
+		# C-like labels do not over-expand into apparent whitespace gaps.
+		if upper == "C":
+			rx_factor = 0.35
+			ry_factor = 0.43
+		elif upper in ("O", "Q"):
+			rx_factor = 0.47
+			ry_factor = 0.53
+		else:
+			rx_factor = 0.43
+			ry_factor = 0.49
+		rx = max(0.3, width * rx_factor)
+		ry = max(0.3, height * ry_factor)
 		return {
 			"kind": "ellipse",
 			"char": char,
@@ -1314,7 +1766,7 @@ def _glyph_primitive_from_char(
 def _label_svg_estimated_primitives(label: dict) -> list[dict]:
 	"""Return renderer-independent glyph primitives derived from SVG text attrs."""
 	font_size = max(1.0, float(label.get("font_size", 12.0)))
-	text = str(label.get("text", ""))
+	text = _label_geometry_text(label)
 	if not text:
 		return []
 	text_width = _glyph_text_width(text, font_size)
@@ -1378,6 +1830,98 @@ def _glyph_primitives_bounds(primitives: list[dict]) -> tuple[float, float, floa
 
 
 #============================================
+def _primitive_center(primitive: dict) -> tuple[float, float] | None:
+	"""Return center point for one glyph primitive."""
+	kind = str(primitive.get("kind", ""))
+	if kind == "ellipse":
+		return (
+			float(primitive.get("cx", 0.0)),
+			float(primitive.get("cy", 0.0)),
+		)
+	if kind == "box":
+		box = primitive.get("box")
+		if box is None:
+			return None
+		x1, y1, x2, y2 = _normalize_box(box)
+		return ((x1 + x2) * 0.5, (y1 + y2) * 0.5)
+	return None
+
+
+#============================================
+def _first_carbon_primitive_center(primitives: list[dict]) -> tuple[float, float] | None:
+	"""Return center of first carbon glyph primitive, when present."""
+	carbon_primitives = [
+		primitive
+		for primitive in primitives
+		if str(primitive.get("char", "")).upper() == "C"
+	]
+	carbon_primitives.sort(key=lambda primitive: int(primitive.get("char_index", 10**9)))
+	for primitive in carbon_primitives:
+		center = _primitive_center(primitive)
+		if center is not None:
+			return center
+	return None
+
+
+#============================================
+def _first_primitive_center_for_char(primitives: list[dict], target_char: str) -> tuple[float, float] | None:
+	"""Return center of first primitive matching one character."""
+	candidates = [
+		primitive
+		for primitive in primitives
+		if str(primitive.get("char", "")).upper() == str(target_char).upper()
+	]
+	candidates.sort(key=lambda primitive: int(primitive.get("char_index", 10**9)))
+	for primitive in candidates:
+		center = _primitive_center(primitive)
+		if center is not None:
+			return center
+	return None
+
+
+#============================================
+def _alignment_primitive_center(primitives: list[dict], canonical_text: str) -> tuple[tuple[float, float] | None, str | None]:
+	"""Return preferred glyph-primitive center for alignment checks."""
+	text = str(canonical_text or "").upper()
+	priority = []
+	if "C" in text:
+		priority.append("C")
+	if "O" in text:
+		priority.append("O")
+	if "N" in text:
+		priority.append("N")
+	if "S" in text:
+		priority.append("S")
+	for target_char in priority:
+		center = _first_primitive_center_for_char(primitives, target_char)
+		if center is not None:
+			return center, target_char
+	for primitive in sorted(primitives, key=lambda item: int(item.get("char_index", 10**9))):
+		center = _primitive_center(primitive)
+		if center is not None:
+			return center, str(primitive.get("char", "")) or None
+	return None, None
+
+
+#============================================
+def _point_to_infinite_line_distance(
+		point: tuple[float, float],
+		line_start: tuple[float, float],
+		line_end: tuple[float, float]) -> float:
+	"""Return perpendicular distance from one point to one infinite line."""
+	x0, y0 = point
+	x1, y1 = line_start
+	x2, y2 = line_end
+	dx = x2 - x1
+	dy = y2 - y1
+	denominator = math.hypot(dx, dy)
+	if denominator <= 1e-12:
+		return math.hypot(x0 - x1, y0 - y1)
+	numerator = abs((dy * x0) - (dx * y0) + (x2 * y1) - (y2 * x1))
+	return numerator / denominator
+
+
+#============================================
 def _label_svg_estimated_box(label: dict) -> tuple[float, float, float, float]:
 	"""Return renderer-independent estimated glyph-union box from text primitives."""
 	primitives = _label_svg_estimated_primitives(label)
@@ -1385,7 +1929,7 @@ def _label_svg_estimated_box(label: dict) -> tuple[float, float, float, float]:
 	if box is not None:
 		return box
 	font_size = max(1.0, float(label.get("font_size", 12.0)))
-	text = str(label.get("text", ""))
+	text = _label_geometry_text(label)
 	estimated_width = _glyph_text_width(text, font_size)
 	x = float(label.get("x", 0.0))
 	y = float(label.get("y", 0.0))
@@ -1402,20 +1946,6 @@ def _label_svg_estimated_box(label: dict) -> tuple[float, float, float, float]:
 	return _normalize_box((x1, y - (font_size * 0.80), x2, y + (font_size * 0.20)))
 
 
-#============================================
-def _label_full_target(render_geometry, label: dict):
-	"""Return one label full target using shared runtime geometry APIs."""
-	return render_geometry.label_target_from_text_origin(
-		text_x=label["x"],
-		text_y=label["y"],
-		text=label["text"],
-		anchor=label["anchor"],
-		font_size=label["font_size"],
-		font_name=label["font_name"],
-	)
-
-
-#============================================
 def _canonical_cycle_key(node_indexes: list[int]) -> tuple[int, ...]:
 	"""Return rotation- and direction-invariant tuple for one cycle."""
 	sequence = tuple(node_indexes)
@@ -1833,7 +2363,6 @@ def _count_hatched_thin_conflicts(
 
 #============================================
 def _count_bond_glyph_overlaps(
-		render_geometry,
 		lines: list[dict],
 		labels: list[dict],
 		checked_line_indexes: list[int],
@@ -1841,94 +2370,57 @@ def _count_bond_glyph_overlaps(
 		aligned_connector_pairs: set[tuple[int, int]],
 		haworth_base_ring: dict,
 		gap_tolerance: float) -> tuple[int, list[dict]]:
-	"""Count bond-vs-glyph penetrations with attach-target legality checks."""
+	"""Count bond-vs-glyph overlaps from independent SVG geometry only."""
 	overlaps = []
 	origin = _overlap_origin(lines, haworth_base_ring)
-	contract_cache: dict[tuple[int, float], object | None] = {}
 	for line_index in checked_line_indexes:
 		line = lines[line_index]
-		line_start = (line["x1"], line["y1"])
-		line_end = (line["x2"], line["y2"])
-		line_width = max(0.0, float(line.get("width", 1.0)))
 		for label_index in checked_label_indexes:
 			label = labels[label_index]
-			full_target = label.get("full_target")
-			if full_target is None:
-				full_target = _label_full_target(render_geometry, label)
-				label["full_target"] = full_target
-			label_box = label.get("box")
+			label_box = label.get("svg_estimated_box")
 			if label_box is None:
-				label_box = _target_bounds(full_target)
-				label["box"] = label_box
-			cache_key = (label_index, round(line_width, 3))
-			if cache_key not in contract_cache:
-				try:
-					contract_cache[cache_key] = _label_attach_contract(
-						render_geometry=render_geometry,
-						label=label,
-						line_width=line_width,
-					)
-				except Exception:
-					contract_cache[cache_key] = None
-			contract = contract_cache.get(cache_key)
+				continue
 			is_aligned_connector = (line_index, label_index) in aligned_connector_pairs
-			allowed_regions = []
-			if contract is not None and is_aligned_connector:
-				# For diagnostics, allow only the strict endpoint target footprint,
-				# not full broad allowed corridors, so near-glyph crowding is visible.
-				allowed_regions = [contract.endpoint_target]
-			is_legal = False
-			try:
-				is_legal = render_geometry.validate_attachment_paint(
-					line_start=line_start,
-					line_end=line_end,
-					line_width=line_width,
-					forbidden_regions=[full_target],
-					allowed_regions=allowed_regions,
-					epsilon=BOND_GLYPH_INTERIOR_EPSILON,
-				)
-			except Exception:
-				if label_box is None:
-					continue
-				is_legal = not _line_intersects_box_interior(
-					line,
-					label_box,
-					epsilon=BOND_GLYPH_INTERIOR_EPSILON,
-				)
-			overlap_classification = "interior_overlap"
-			if is_legal:
-				is_gap_legal = True
-				try:
-					is_gap_legal = render_geometry.validate_attachment_paint(
-						line_start=line_start,
-						line_end=line_end,
-						line_width=line_width,
-						forbidden_regions=[full_target],
-						allowed_regions=allowed_regions,
-						epsilon=-float(gap_tolerance),
-					)
-				except Exception:
-					if label_box is not None:
-						is_gap_legal = not _line_intersects_box_interior(
-							line,
-							label_box,
-							epsilon=-float(gap_tolerance),
-						)
-				if is_gap_legal:
-					continue
-				overlap_classification = "gap_tolerance_violation"
-			bond_end_point, _, _ = _line_closest_endpoint_to_target(
-				line=line,
-				target=full_target,
+			bond_end_point, _ = _line_closest_endpoint_to_box(line=line, box=label_box)
+			bond_end_signed_distance = _point_to_label_signed_distance(
+				point=bond_end_point,
+				label=label,
 			)
-			bond_end_signed_distance = _point_to_target_signed_distance(
-				bond_end_point,
-				full_target,
-			)
+			if not math.isfinite(bond_end_signed_distance):
+				bond_end_signed_distance = _point_to_box_signed_distance(bond_end_point, label_box)
 			bond_end_overlap = bond_end_signed_distance <= 0.0
 			bond_end_too_close = (bond_end_signed_distance > 0.0) and (
 				bond_end_signed_distance <= float(gap_tolerance)
 			)
+			interior_overlap = (
+				bond_end_overlap
+				or _line_intersects_box_interior(
+					line,
+					label_box,
+					epsilon=BOND_GLYPH_INTERIOR_EPSILON,
+				)
+			)
+			near_overlap = (
+				bond_end_too_close
+				or _line_intersects_box_interior(
+					line,
+					label_box,
+					epsilon=-float(gap_tolerance),
+				)
+			)
+			overlap_classification = None
+			if is_aligned_connector:
+				if bond_end_overlap:
+					overlap_classification = "interior_overlap"
+				elif bond_end_too_close:
+					overlap_classification = "gap_tolerance_violation"
+			else:
+				if interior_overlap:
+					overlap_classification = "interior_overlap"
+				elif near_overlap:
+					overlap_classification = "gap_tolerance_violation"
+			if overlap_classification is None:
+				continue
 			box_x1, box_y1, box_x2, box_y2 = _normalize_box(label_box)
 			glyph_center = (
 				(box_x1 + box_x2) * 0.5,
@@ -1952,41 +2444,27 @@ def _count_bond_glyph_overlaps(
 					"bond_end_distance_tolerance": float(gap_tolerance),
 					"bond_end_overlap": bool(bond_end_overlap),
 					"bond_end_too_close": bool(bond_end_too_close),
-					"overlap_detection_mode": "target_paint_validation",
+					"overlap_detection_mode": "independent_svg_geometry",
 				}
 			)
 	return len(overlaps), overlaps
 
 
 #============================================
-def _label_attach_contract(render_geometry, label: dict, line_width: float):
-	"""Resolve one deterministic runtime attach contract for one SVG label."""
-	return render_geometry.label_attach_contract_from_text_origin(
-		text_x=label["x"],
-		text_y=label["y"],
-		text=label["text"],
-		anchor=label["anchor"],
-		font_size=label["font_size"],
-		line_width=max(0.0, float(line_width)),
-		chain_attach_site="core_center",
-		font_name=label["font_name"],
-	)
-
-
-#============================================
 def analyze_svg_file(
 		svg_path: pathlib.Path,
-		render_geometry,
+		render_geometry=None,
 		exclude_haworth_base_ring: bool = True,
-		bond_glyph_gap_tolerance: float = BOND_GLYPH_GAP_TOLERANCE) -> dict:
+		bond_glyph_gap_tolerance: float = BOND_GLYPH_GAP_TOLERANCE,
+		write_diagnostic_svg: bool = False,
+		diagnostic_svg_dir: pathlib.Path | None = None) -> dict:
 	"""Analyze one SVG file and return independent geometry and alignment metrics."""
 	root = ET.parse(svg_path).getroot()
 	lines = _collect_svg_lines(root)
 	labels = _collect_svg_labels(root)
 	ring_primitives = _collect_svg_ring_primitives(root)
 	for label in labels:
-		label["full_target"] = _label_full_target(render_geometry, label)
-		label["box"] = _label_box(render_geometry, label)
+		label["svg_text_path"] = _label_text_path(label)
 		label["svg_estimated_primitives"] = _label_svg_estimated_primitives(label)
 		label["svg_estimated_box"] = _label_svg_estimated_box(label)
 	measurement_label_indexes = [
@@ -2015,16 +2493,37 @@ def analyze_svg_file(
 		label = labels[label_index]
 		independent_primitives = label.get("svg_estimated_primitives", [])
 		independent_box = label.get("svg_estimated_box")
-		independent_endpoint, independent_distance, independent_line_index, independent_signed_distance = _nearest_endpoint_to_glyph_primitives(
-			lines=lines,
-			line_indexes=checked_line_indexes,
+		alignment_center, alignment_center_char = _alignment_primitive_center(
 			primitives=independent_primitives,
+			canonical_text=str(label.get("canonical_text", label.get("text", ""))),
 		)
-		if independent_endpoint is not None and independent_signed_distance is None:
-			independent_signed_distance = _point_to_box_signed_distance(
+		independent_text_path = label.get("svg_text_path")
+		independent_model_name = "svg_text_path_outline"
+		if independent_text_path is not None:
+			(
 				independent_endpoint,
-				independent_box,
+				independent_distance,
+				independent_line_index,
+				independent_signed_distance,
+			) = _nearest_endpoint_to_text_path(
+				lines=lines,
+				line_indexes=checked_line_indexes,
+				path_obj=independent_text_path,
 			)
+		else:
+			(
+				independent_endpoint,
+				independent_distance,
+				independent_line_index,
+				independent_signed_distance,
+			) = _nearest_endpoint_to_glyph_primitives(
+				lines=lines,
+				line_indexes=checked_line_indexes,
+				primitives=independent_primitives,
+			)
+			independent_model_name = "svg_primitives_ellipse_box"
+		if independent_endpoint is not None and independent_signed_distance is None:
+			independent_signed_distance = _point_to_label_signed_distance(independent_endpoint, label)
 		search_limit = max(6.0, float(label["font_size"]) * MAX_ENDPOINT_TO_LABEL_DISTANCE_FACTOR)
 		best_endpoint = independent_endpoint
 		best_distance = independent_distance
@@ -2034,10 +2533,16 @@ def analyze_svg_file(
 			best_line_width = float(lines[best_line_index].get("width", 1.0))
 		if best_endpoint is None or best_distance is None or best_distance > search_limit:
 			no_connector_count += 1
+			independent_gap_distance = None
+			independent_penetration_depth = None
+			if independent_signed_distance is not None:
+				independent_gap_distance = max(0.0, float(independent_signed_distance))
+				independent_penetration_depth = max(0.0, -float(independent_signed_distance))
 			label_metrics.append(
 				{
 					"label_index": label_index,
 					"text": label["text"],
+					"text_raw": label.get("text_raw", label["text"]),
 					"anchor": label["anchor"],
 					"font_size": label["font_size"],
 						"endpoint": None,
@@ -2046,6 +2551,16 @@ def analyze_svg_file(
 					"endpoint_alignment_error": None,
 					"endpoint_distance_to_glyph_body": independent_distance,
 					"endpoint_signed_distance_to_glyph_body": independent_signed_distance,
+					"endpoint_distance_to_c_center": None,
+					"c_center_point": None,
+					"endpoint_perpendicular_distance_to_alignment_center": None,
+					"alignment_center_point": (
+						[alignment_center[0], alignment_center[1]]
+						if alignment_center is not None else None
+					),
+					"alignment_center_char": alignment_center_char,
+					"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
+					"endpoint_penetration_depth_to_glyph_body": independent_penetration_depth,
 					"endpoint_distance_to_glyph_body_independent": independent_distance,
 					"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
 						"independent_connector_line_index": independent_line_index,
@@ -2053,7 +2568,7 @@ def analyze_svg_file(
 							[independent_endpoint[0], independent_endpoint[1]]
 							if independent_endpoint is not None else None
 						),
-						"independent_glyph_model": "svg_primitives_ellipse_box",
+						"independent_glyph_model": independent_model_name,
 					"aligned": False,
 					"reason": "no_nearby_connector",
 					"connector_line_index": None,
@@ -2065,20 +2580,40 @@ def analyze_svg_file(
 			continue
 		if best_line_index is not None:
 			connector_line_indexes.add(best_line_index)
-		alignment_tolerance = max(MIN_ALIGNMENT_DISTANCE_TOLERANCE, best_line_width * 0.55)
-		if independent_signed_distance is None:
-			alignment_error = float(best_distance)
+		alignment_tolerance = max(
+			MIN_ALIGNMENT_DISTANCE_TOLERANCE,
+			best_line_width * 0.55,
+			float(label["font_size"]) * ALIGNMENT_INFINITE_LINE_FONT_TOLERANCE_FACTOR,
+		)
+		alignment_error = None
+		if best_line_index is not None and 0 <= best_line_index < len(lines) and alignment_center is not None:
+			line = lines[best_line_index]
+			alignment_error = _point_to_infinite_line_distance(
+				point=alignment_center,
+				line_start=(line["x1"], line["y1"]),
+				line_end=(line["x2"], line["y2"]),
+			)
 		else:
-			alignment_error = abs(float(independent_signed_distance))
+			alignment_error = float(best_distance)
 		is_aligned = alignment_error <= alignment_tolerance
+		if not is_aligned:
+			alignment_reason = "bond_line_not_pointing_to_primitive_center"
+		else:
+			alignment_reason = "ok"
+		independent_gap_distance = None
+		independent_penetration_depth = None
+		if independent_signed_distance is not None:
+			independent_gap_distance = max(0.0, float(independent_signed_distance))
+			independent_penetration_depth = max(0.0, -float(independent_signed_distance))
 		if is_aligned:
 			aligned_count += 1
 		else:
 			missed_count += 1
 		label_metrics.append(
-			{
-				"label_index": label_index,
-				"text": label["text"],
+				{
+					"label_index": label_index,
+					"text": label["text"],
+					"text_raw": label.get("text_raw", label["text"]),
 					"anchor": label["anchor"],
 					"font_size": label["font_size"],
 					"endpoint": [best_endpoint[0], best_endpoint[1]],
@@ -2087,6 +2622,16 @@ def analyze_svg_file(
 					"endpoint_alignment_error": alignment_error,
 					"endpoint_distance_to_glyph_body": independent_distance,
 					"endpoint_signed_distance_to_glyph_body": independent_signed_distance,
+					"endpoint_distance_to_c_center": None,
+					"c_center_point": None,
+					"endpoint_perpendicular_distance_to_alignment_center": alignment_error,
+					"alignment_center_point": (
+						[alignment_center[0], alignment_center[1]]
+						if alignment_center is not None else None
+					),
+					"alignment_center_char": alignment_center_char,
+					"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
+					"endpoint_penetration_depth_to_glyph_body": independent_penetration_depth,
 					"endpoint_distance_to_glyph_body_independent": independent_distance,
 					"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
 					"independent_connector_line_index": independent_line_index,
@@ -2094,10 +2639,10 @@ def analyze_svg_file(
 						[independent_endpoint[0], independent_endpoint[1]]
 						if independent_endpoint is not None else None
 					),
-					"independent_glyph_model": "svg_primitives_ellipse_box",
+					"independent_glyph_model": independent_model_name,
 					"alignment_tolerance": alignment_tolerance,
 					"aligned": bool(is_aligned),
-					"reason": "ok" if is_aligned else "endpoint_outside_independent_tolerance",
+					"reason": alignment_reason,
 					"connector_line_index": best_line_index,
 					"attach_policy": None,
 					"endpoint_target_kind": None,
@@ -2186,7 +2731,6 @@ def analyze_svg_file(
 		if 0 <= index < len(line_lengths_all)
 	]
 	bond_glyph_overlap_count, bond_glyph_overlaps = _count_bond_glyph_overlaps(
-		render_geometry=render_geometry,
 		lines=lines,
 		labels=labels,
 		checked_line_indexes=checked_line_indexes,
@@ -2195,8 +2739,20 @@ def analyze_svg_file(
 		haworth_base_ring=haworth_base_ring,
 		gap_tolerance=float(bond_glyph_gap_tolerance),
 	)
+	diagnostic_svg_path = None
+	if write_diagnostic_svg and diagnostic_svg_dir is not None:
+		diagnostic_svg_name = f"{svg_path.stem}.diagnostic.svg"
+		diagnostic_svg_path = (diagnostic_svg_dir / diagnostic_svg_name).resolve()
+		_write_diagnostic_svg(
+			svg_path=svg_path,
+			output_path=diagnostic_svg_path,
+			lines=lines,
+			labels=labels,
+			label_metrics=label_metrics,
+		)
 	return {
 		"svg": str(svg_path),
+		"diagnostic_svg": str(diagnostic_svg_path) if diagnostic_svg_path is not None else None,
 		"text_labels_total": len(labels),
 		"text_label_values": [str(label.get("text", "")) for label in labels],
 		"labels_analyzed": len(measurement_label_indexes),
@@ -2421,11 +2977,20 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 					"svg": report.get("svg"),
 					"label_index": label.get("label_index"),
 					"text": glyph_text,
+					"text_raw": label.get("text_raw", glyph_text),
 					"aligned": bool(label.get("aligned", False)),
 					"reason": str(label.get("reason", "unknown")),
 					"distance_to_target": distance_value,
+					"alignment_error": distance_value,
 					"distance_to_glyph_body": glyph_body_distance_value,
 					"signed_distance_to_glyph_body": glyph_body_signed_distance_value,
+					"gap_distance_to_glyph_body": label.get("endpoint_gap_distance_to_glyph_body"),
+					"penetration_depth_to_glyph_body": label.get("endpoint_penetration_depth_to_glyph_body"),
+					"perpendicular_distance_to_alignment_center": (
+						label.get("endpoint_perpendicular_distance_to_alignment_center")
+					),
+					"alignment_center_point": label.get("alignment_center_point"),
+					"alignment_center_char": label.get("alignment_center_char"),
 					"alignment_tolerance": tolerance_value,
 					"distance_to_tolerance_ratio": ratio_value,
 					"alignment_score": score_value,
@@ -2629,6 +3194,16 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 			for item in measurements
 			if item.get("distance_to_glyph_body") is not None
 		]
+		glyph_body_gap_distances = []
+		for item in measurements:
+			gap_value = item.get("gap_distance_to_glyph_body")
+			if gap_value is None:
+				signed_value = item.get("signed_distance_to_glyph_body")
+				if signed_value is not None:
+					gap_value = max(0.0, float(signed_value))
+			if gap_value is None:
+				continue
+			glyph_body_gap_distances.append(float(gap_value))
 		scores = [float(item.get("alignment_score", 0.0)) for item in measurements]
 		aligned_count = sum(1 for item in measurements if item.get("aligned"))
 		no_connector_count = sum(
@@ -2639,17 +3214,26 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 			row = {
 				"label_index": item.get("label_index"),
 				"text": item.get("text", glyph_text),
+				"text_raw": item.get("text_raw", item.get("text", glyph_text)),
+				"pass": bool(item.get("aligned")),
 				"aligned": item.get("aligned"),
 				"reason": item.get("reason"),
-				"distance_to_target": _compact_float(item.get("distance_to_target")),
-				"distance_to_glyph_body": _compact_float(item.get("distance_to_glyph_body")),
-				"signed_distance_to_glyph_body": _compact_float(item.get("signed_distance_to_glyph_body")),
-				"alignment_tolerance": _compact_float(item.get("alignment_tolerance")),
-				"distance_to_tolerance_ratio": _compact_float(item.get("distance_to_tolerance_ratio")),
-				"alignment_score": _compact_float(item.get("alignment_score")),
+				"distance_to_target": _display_float(item.get("distance_to_target")),
+				"alignment_error": _display_float(item.get("alignment_error")),
+				"distance_to_glyph_body": _display_float(item.get("distance_to_glyph_body")),
+				"signed_distance_to_glyph_body": _display_float(item.get("signed_distance_to_glyph_body")),
+				"gap_distance_to_glyph_body": _display_float(item.get("gap_distance_to_glyph_body")),
+				"penetration_depth_to_glyph_body": _display_float(item.get("penetration_depth_to_glyph_body")),
+				"perpendicular_distance_to_alignment_center": _display_float(
+					item.get("perpendicular_distance_to_alignment_center")
+				),
+				"alignment_center_point": _display_point(item.get("alignment_center_point")),
+				"alignment_center_char": item.get("alignment_center_char"),
+				"alignment_tolerance": _display_float(item.get("alignment_tolerance")),
+				"distance_to_tolerance_ratio": _display_float(item.get("distance_to_tolerance_ratio")),
+				"alignment_score": _display_float(item.get("alignment_score")),
 				"connector_line_index": item.get("connector_line_index"),
-				"endpoint": item.get("endpoint"),
-				"alignment_mode": item.get("alignment_mode"),
+				"endpoint": _display_point(item.get("endpoint")),
 			}
 			if not single_file:
 				row["svg"] = item.get("svg")
@@ -2660,13 +3244,17 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 					for key in (
 						"label_index",
 						"text",
+						"text_raw",
+						"pass",
 						"aligned",
 						"reason",
 						"distance_to_target",
 						"alignment_tolerance",
+						"perpendicular_distance_to_alignment_center",
+						"alignment_center_point",
+						"alignment_center_char",
 						"connector_line_index",
 						"endpoint",
-						"alignment_mode",
 					)
 				}
 			)
@@ -2676,12 +3264,16 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 					for key in (
 						"label_index",
 						"text",
+						"text_raw",
+						"pass",
 						"distance_to_glyph_body",
 						"signed_distance_to_glyph_body",
 						"alignment_tolerance",
+						"perpendicular_distance_to_alignment_center",
+						"alignment_center_point",
+						"alignment_center_char",
 						"connector_line_index",
 						"endpoint",
-						"alignment_mode",
 					)
 				}
 			)
@@ -2701,7 +3293,10 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 			"score_mean": _compact_float(sum(scores) / float(len(scores))) if scores else None,
 			"measurements": measurement_rows,
 		}
-		glyph_text_to_bond_end_distance[glyph_text] = _compact_sorted_values(glyph_body_distances)
+		glyph_text_to_bond_end_distance[glyph_text] = sorted(
+			_display_float(value)
+			for value in glyph_body_gap_distances
+		)
 	unique_text_labels = sorted(text_label_counts.keys())
 	return {
 		"files_analyzed": len(file_reports),
@@ -2867,7 +3462,9 @@ def _text_report(
 	lines.append("Glyph-to-bond-end distance data points (independent glyph primitives):")
 	for item in summary.get("glyph_to_bond_end_data_points", []):
 		lines.append(f"- {item}")
-	lines.append(f"Glyph text -> bond-end distances: {summary.get('glyph_text_to_bond_end_distance', {})}")
+	lines.append(
+		f"Glyph text -> bond-end whitespace gaps: {summary.get('glyph_text_to_bond_end_distance', {})}"
+	)
 	lines.append("")
 	lines.append("Standalone geometry checks:")
 	lines.append(
@@ -2992,8 +3589,8 @@ def _text_report(
 				f"line={item.get('line_index')} label={item.get('label_text')} "
 				f"class={item.get('classification')} "
 				f"quadrant={item.get('quadrant')} region={item.get('ring_region')} "
-				f"bond_end_distance={item.get('bond_end_to_glyph_distance')} "
-				f"tolerance={item.get('bond_end_distance_tolerance')} "
+				f"bond_end_distance={_display_float(item.get('bond_end_to_glyph_distance'))} "
+				f"tolerance={_display_float(item.get('bond_end_distance_tolerance'))} "
 				f"overlap={item.get('bond_end_overlap')} "
 				f"too_close={item.get('bond_end_too_close')} "
 				f"point={item.get('overlap_point')}"
@@ -3099,16 +3696,19 @@ def main() -> None:
 	"""Run SVG alignment measurement and write reports."""
 	args = parse_args()
 	repo_root = get_repo_root()
-	render_geometry = _load_render_geometry(repo_root)
 	svg_paths = _resolve_svg_paths(repo_root, args.input_glob)
 	if not svg_paths:
 		raise RuntimeError(f"No SVG files matched input_glob: {args.input_glob!r}")
+	diagnostic_svg_dir = pathlib.Path(args.diagnostic_svg_dir)
+	if not diagnostic_svg_dir.is_absolute():
+		diagnostic_svg_dir = (repo_root / diagnostic_svg_dir).resolve()
 	file_reports = [
 		analyze_svg_file(
 			path,
-			render_geometry,
 			exclude_haworth_base_ring=args.exclude_haworth_base_ring,
 			bond_glyph_gap_tolerance=args.bond_glyph_gap_tolerance,
+			write_diagnostic_svg=bool(args.write_diagnostic_svg),
+			diagnostic_svg_dir=diagnostic_svg_dir,
 		)
 		for path in svg_paths
 	]
@@ -3142,6 +3742,15 @@ def main() -> None:
 	text_report_path.write_text(text_report, encoding="utf-8")
 	print(f"Wrote JSON report: {json_report_path}")
 	print(f"Wrote text report: {text_report_path}")
+	if args.write_diagnostic_svg:
+		print(f"Wrote diagnostic SVG overlays to: {diagnostic_svg_dir}")
+		diagnostic_files = [
+			report.get("diagnostic_svg")
+			for report in file_reports
+			if report.get("diagnostic_svg")
+		]
+		if diagnostic_files:
+			print(f"- diagnostic SVG files: {diagnostic_files}")
 	print("Key stats:")
 	print(f"- files analyzed: {summary['files_analyzed']}")
 	print(f"- text labels seen: {summary['text_labels_total']}")
@@ -3178,7 +3787,7 @@ def main() -> None:
 	print("- glyph-to-bond-end distance data points:")
 	for item in summary.get("glyph_to_bond_end_data_points", []):
 		print(f"  - {item}")
-	print(f"- glyph text -> bond-end distances: {summary.get('glyph_text_to_bond_end_distance', {})}")
+	print(f"- glyph text -> bond-end whitespace gaps: {summary.get('glyph_text_to_bond_end_distance', {})}")
 	print(f"- lattice angle violations: {summary['lattice_angle_violation_count']}")
 	print(f"  quadrants: {summary.get('lattice_angle_violation_quadrants', {})}")
 	print(f"  ring regions: {summary.get('lattice_angle_violation_ring_regions', {})}")
@@ -3241,8 +3850,8 @@ def main() -> None:
 		for item in summary["bond_glyph_overlap_examples"][:3]:
 			examples.append(
 				f"label={item.get('label_text')} "
-				f"distance={item.get('bond_end_to_glyph_distance')} "
-				f"tol={item.get('bond_end_distance_tolerance')} "
+				f"distance={_display_float(item.get('bond_end_to_glyph_distance'))} "
+				f"tol={_display_float(item.get('bond_end_distance_tolerance'))} "
 				f"overlap={item.get('bond_end_overlap')} "
 				f"too_close={item.get('bond_end_too_close')}"
 			)

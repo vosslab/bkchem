@@ -1,6 +1,131 @@
 # Changelog
 
 ## 2026-02-11
+- Make `tools/measure_glyph_bond_alignment.py` fully independent of
+  `packages/oasa`/BKChem runtime geometry for checker execution: remove
+  render-geometry imports and use only SVG-derived text primitives/text-path
+  outlines for bond/glyph overlap and distance diagnostics.
+- Add diagnostic SVG overlay output to the same tool (default ON) with one
+  file per analyzed SVG under
+  `output_smoke/glyph_bond_alignment_diagnostics/`, showing:
+  color-coded glyph primitives, a 1 pt infinite bond-line extension, and an
+  orange perpendicular marker at each measured bond endpoint.
+- Add CLI options for diagnostic overlays:
+  `--write-diagnostic-svg`/`--no-diagnostic-svg` and
+  `--diagnostic-svg-dir`.
+- Update focused checker tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  for independent-geometry behavior and CLI flow without render-geometry
+  loading.
+- Validation run for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_measure_glyph_bond_alignment.py`
+  (`14 passed`).
+- Improve independent glyph geometry in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  use SVG-positioned `matplotlib.textpath.TextPath` outlines (with SVG Y-axis
+  transform) as the primary geometry for bond-end distance checks, fall back to
+  primitive hulls only when text-path extraction is unavailable, and apply the
+  same independent signed-distance model to bond/glyph endpoint diagnostics.
+- Reduce endpoint diagnostic verbosity in text/terminal reports by rounding
+  sample `bond_end_distance` and `tolerance` values to concise display floats.
+- Update
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to accept either independent geometry backend (`svg_text_path_outline` or
+  primitive fallback) for no-connector scenarios.
+- Validation run for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_measure_glyph_bond_alignment.py`
+  (`14 passed`).
+- Add a complete Haworth override catalog in
+  [docs/HAWORTH_OVERRIDES.md](docs/HAWORTH_OVERRIDES.md) with line-anchored
+  runtime/spec/tooling overrides, explicit justifications, and keep/remove
+  guidance so override cleanup can be planned without losing contract coverage.
+- Fix grouped glyph whitespace-gap reporting in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  build `glyph text -> bond-end whitespace gaps` from true non-negative gap
+  values (`max(0, signed_distance)`) instead of absolute boundary error so
+  overlap cases correctly report `0.0` whitespace.
+- Calibrate curved glyph primitive hulls in the same tool (`O` larger, `C`
+  smaller) to better match visual gap ordering for HO/OH versus CH2OH labels.
+- Simplify glyph data-point rows in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  remove redundant `alignment_mode` from reported data points and add explicit
+  boolean `pass` values for quick scan of per-label alignment outcomes.
+- Relax infinite-line alignment tolerance in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  with a font-size-scaled term so visually aligned OH/HO/CH2OH connector
+  lines are not over-failed by a fixed narrow tolerance band.
+- Switch Haworth hashed branch rendering to the standard BKChem hashed
+  primitive sequence in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  remove Haworth-specific hatch post-processing/synthetic endpoint hatch
+  injection and keep only shared `_hashed_ops` generation plus legality
+  filtering.
+- De-brittle hashed-coverage expectation in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to accept
+  standard BKChem hatch coverage bounds (`nearest <= 15%`, `farthest >= 80%`)
+  instead of legacy Haworth-specific endpoint fill behavior.
+- Validation runs for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py -k "hashed_connector_quality or furanose_two_carbon_tail_left_parity_class_uses_hashed_ho or allose_furanose_alpha_tail_branches_right_with_ch2oh_text"`
+  (`4 passed, 132 deselected`) and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`).
+- Redefine independent glyph alignment metric in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  alignment now uses perpendicular distance from the selected glyph primitive
+  center to the connector bond's infinite line, with explicit data-point
+  fields `perpendicular_distance_to_alignment_center`,
+  `alignment_center_point`, and `alignment_center_char`.
+- Use displayed SVG text order for primitive geometry placement while keeping
+  canonical text for grouping/target naming, preventing center-point
+  distortions for aliases such as `HOH2C`.
+- Apply y-axis-flipped down-tail angle mapping for left-side furanose
+  two-carbon branches in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  set `OH` to `210 deg` and `CH2OH` to `120 deg` for left-side `direction="down"`
+  tails (matching requested visual targets `150 deg` and `240 deg` under SVG
+  screen-space coordinates).
+- Update Gulose down-tail angle assertion in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py):
+  `C4_down_chain1_oh_connector` -> `210 deg`,
+  `C4_down_chain2_connector` -> `120 deg`.
+- Validation runs for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py -k "gulose_furanose_alpha_two_carbon_down_branch_angles or gulose_furanose_alpha_tail_branches_left_with_hoh2c_text or furanose_two_carbon_tail_left_parity_class_uses_hashed_ho"`
+  (`5 passed, 131 deselected`) and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`).
+- Clarify independent glyph-distance semantics in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  report `distance_to_glyph_body` as absolute boundary error (including overlap
+  penetration), keep signed values in `signed_distance_to_glyph_body`, and add
+  explicit miss reason `endpoint_penetrates_glyph_body` when endpoint lies
+  inside the glyph primitive hull.
+- Correct furanose two-carbon `up` branch orientation in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  map the requested visual targets (OH up-left, CH2OH up-right) into SVG
+  screen-space vectors for the `up` tail profile (`210 deg` and `330 deg`).
+- Update targeted angle expectation in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  (`test_render_mannose_furanose_alpha_two_carbon_up_branch_angles`) to match
+  the corrected runtime vectors.
+- Validation runs for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py -k "mannose_furanose_alpha_two_carbon_up_branch_angles or allose_furanose_alpha_tail_branches_right_with_ch2oh_text"`
+  (`2 passed, 134 deselected`) and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`).
+- Normalize down-tail alias text for geometry targeting in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  map `HOH2C`/subscript variants to canonical `CH2OH` so independent glyph
+  alignment and bond-end distance checks do not miss chain2 labels due to
+  text-order variants.
+- Include both canonical and raw SVG label text in glyph data-point rows
+  (`text`, `text_raw`) for easier diagnosis of renderer-emitted label strings.
+- Calibrate independent glyph-alignment tolerance in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  add a font-size-scaled tolerance term so visually valid OH/HO connector
+  placements are not over-flagged by an overly tight primitive-hull threshold.
+- Improve report readability in the same tool by reducing decimal precision for
+  human-facing glyph alignment/distance data points and endpoint coordinates
+  while keeping raw point-wise output structure.
 - De-brittle Phase 4 guard tests while preserving contract coverage:
   - In [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py),
     relax text-report assertions to section-level checks (not exact wording),

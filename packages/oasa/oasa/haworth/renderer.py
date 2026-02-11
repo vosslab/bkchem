@@ -1580,8 +1580,10 @@ def _furanose_two_carbon_tail_profile(
 	if direction not in ("up", "down"):
 		raise ValueError(f"Unsupported two-carbon-tail direction: {direction!r}")
 	# Two-carbon furanose tails follow one explicit branch-angle contract:
-	# - "up":   OH at 150 deg, CH2OH at 30 deg
+	# - "up":   OH at 150 deg, CH2OH at 30 deg (visual Cartesian)
 	# - "down": OH at 150 deg, CH2OH at 240 deg
+	# Renderer coordinates are SVG screen-space (+y downward), so the visual
+	# Cartesian targets for the "up" case map to 210 deg and 330 deg.
 	if direction == "up":
 		profile = {
 			"ho_length_factor": 0.72,
@@ -1593,8 +1595,8 @@ def _furanose_two_carbon_tail_profile(
 			"ch2_canonical_text": True,
 			"hashed_branch": "ch2",
 		}
-		profile["ho_vector"] = _unit_vector_from_degrees(150.0)
-		profile["ch2_vector"] = _unit_vector_from_degrees(30.0)
+		profile["ho_vector"] = _unit_vector_from_degrees(210.0)
+		profile["ch2_vector"] = _unit_vector_from_degrees(330.0)
 	else:
 		profile = {
 			"ho_length_factor": 1.20,
@@ -1609,8 +1611,8 @@ def _furanose_two_carbon_tail_profile(
 		# Right-side down tails keep historical orientation.
 		is_left_side_tail = vertex[0] <= ring_center[0]
 		if is_left_side_tail:
-			profile["ho_vector"] = _unit_vector_from_degrees(240.0)
-			profile["ch2_vector"] = _unit_vector_from_degrees(150.0)
+			profile["ho_vector"] = _unit_vector_from_degrees(210.0)
+			profile["ch2_vector"] = _unit_vector_from_degrees(120.0)
 		else:
 			profile["ho_vector"] = _unit_vector_from_degrees(150.0)
 			profile["ch2_vector"] = _unit_vector_from_degrees(240.0)
@@ -1645,7 +1647,6 @@ def _append_branch_connector_ops(
 		return
 	if style != "hashed":
 		raise ValueError(f"Unsupported branch connector style '{style}'")
-	dx, dy = _geom.normalize_vector(end[0] - start[0], end[1] - start[1])
 	length = math.hypot(end[0] - start[0], end[1] - start[1])
 	if length <= 1e-9:
 		return
@@ -1673,16 +1674,7 @@ def _append_branch_connector_ops(
 	)
 	if not hashed_ops:
 		return
-	kept = []
-	for hashed in hashed_ops:
-		mid_x = (hashed.p1[0] + hashed.p2[0]) * 0.5
-		mid_y = (hashed.p1[1] + hashed.p2[1]) * 0.5
-		along = ((mid_x - start[0]) * dx) + ((mid_y - start[1]) * dy)
-		if along < (0.03 * length):
-			continue
-		if along > (0.97 * length):
-			continue
-		kept.append(hashed)
+	kept = list(hashed_ops)
 	def _is_hatch_legal(hatch_line: render_ops.LineOp) -> bool:
 		if not forbidden_regions:
 			return True
@@ -1696,94 +1688,6 @@ def _append_branch_connector_ops(
 		)
 	if forbidden_regions:
 		kept = [line for line in kept if _is_hatch_legal(line)]
-	nearest_along = length
-	if kept:
-		nearest_along = min(
-			(((line.p1[0] + line.p2[0]) * 0.5 - start[0]) * dx)
-			+ (((line.p1[1] + line.p2[1]) * 0.5 - start[1]) * dy)
-			for line in kept
-		)
-	if nearest_along > (0.10 * length):
-		origin_along = 0.04 * length
-		origin_center = (start[0] + (dx * origin_along), start[1] + (dy * origin_along))
-		perp_x, perp_y = -dy, dx
-		half_span = max(connector_width * 0.35, font_size * 0.06)
-		if kept:
-			template = kept[0]
-			stroke_width = template.width
-			stroke_cap = template.cap
-		else:
-			stroke_width = line_width
-			stroke_cap = "round"
-		origin_hatch = render_ops.LineOp(
-			p1=(
-				origin_center[0] + (perp_x * half_span),
-				origin_center[1] + (perp_y * half_span),
-			),
-			p2=(
-				origin_center[0] - (perp_x * half_span),
-				origin_center[1] - (perp_y * half_span),
-			),
-			width=stroke_width,
-			cap=stroke_cap,
-			color=color,
-			z=4,
-		)
-		if _is_hatch_legal(origin_hatch):
-			kept.append(origin_hatch)
-	farthest_along = 0.0
-	if kept:
-		farthest_along = max(
-			(((line.p1[0] + line.p2[0]) * 0.5 - start[0]) * dx)
-			+ (((line.p1[1] + line.p2[1]) * 0.5 - start[1]) * dy)
-			for line in kept
-		)
-	if farthest_along < (0.85 * length):
-		perp_x, perp_y = -dy, dx
-		half_span = max(connector_width * 0.45, font_size * 0.08)
-		if kept:
-			template = kept[-1]
-			stroke_width = template.width
-			stroke_cap = template.cap
-		else:
-			stroke_width = line_width
-			stroke_cap = "round"
-		terminal_added = False
-		for percent in (0.92, 0.90, 0.88, 0.86, 0.85):
-			terminal_along = percent * length
-			if terminal_along <= farthest_along:
-				continue
-			center = (start[0] + (dx * terminal_along), start[1] + (dy * terminal_along))
-			terminal_hatch = render_ops.LineOp(
-				p1=(center[0] + (perp_x * half_span), center[1] + (perp_y * half_span)),
-				p2=(center[0] - (perp_x * half_span), center[1] - (perp_y * half_span)),
-				width=stroke_width,
-				cap=stroke_cap,
-				color=color,
-				z=4,
-			)
-			if not _is_hatch_legal(terminal_hatch):
-				continue
-			kept.append(terminal_hatch)
-			terminal_added = True
-			break
-		if not terminal_added:
-			for percent in (0.84, 0.82):
-				terminal_along = percent * length
-				if terminal_along <= farthest_along:
-					continue
-				center = (start[0] + (dx * terminal_along), start[1] + (dy * terminal_along))
-				terminal_hatch = render_ops.LineOp(
-					p1=(center[0] + (perp_x * half_span), center[1] + (perp_y * half_span)),
-					p2=(center[0] - (perp_x * half_span), center[1] - (perp_y * half_span)),
-					width=stroke_width,
-					cap=stroke_cap,
-					color=color,
-					z=4,
-				)
-				if _is_hatch_legal(terminal_hatch):
-					kept.append(terminal_hatch)
-					break
 	for index, hashed in enumerate(kept, start=1):
 		ops.append(
 			render_ops.LineOp(
