@@ -1575,8 +1575,6 @@ def _furanose_two_carbon_tail_profile(
 		dx: float,
 		dy: float) -> dict:
 	"""Build branched-tail geometry from one ring-local frame and face rule."""
-	del vertex
-	del ring_center
 	del dx
 	del dy
 	if direction not in ("up", "down"):
@@ -1607,8 +1605,15 @@ def _furanose_two_carbon_tail_profile(
 			"ch2_text_direction": "down",
 			"hashed_branch": "ho",
 		}
-		profile["ho_vector"] = _unit_vector_from_degrees(150.0)
-		profile["ch2_vector"] = _unit_vector_from_degrees(240.0)
+		# Left-side down tails (as in ARLLDM reference) place OH above CH2OH.
+		# Right-side down tails keep historical orientation.
+		is_left_side_tail = vertex[0] <= ring_center[0]
+		if is_left_side_tail:
+			profile["ho_vector"] = _unit_vector_from_degrees(240.0)
+			profile["ch2_vector"] = _unit_vector_from_degrees(150.0)
+		else:
+			profile["ho_vector"] = _unit_vector_from_degrees(150.0)
+			profile["ch2_vector"] = _unit_vector_from_degrees(240.0)
 	return profile
 
 

@@ -1,6 +1,50 @@
 # Changelog
 
 ## 2026-02-11
+- De-brittle Phase 4 guard tests while preserving contract coverage:
+  - In [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py),
+    relax text-report assertions to section-level checks (not exact wording),
+    replace fixed hatched-conflict index assumptions with conflict-type/set
+    assertions, and keep schema/metric coverage via required-key checks.
+  - In [tests/smoke/test_haworth_phase4_known_failures.py](tests/smoke/test_haworth_phase4_known_failures.py),
+    replace fixed magic connector-length targets for CH3/COOH with a
+    ring-relative baseline-band check (`_assert_connector_length_tracks_ring_band`)
+    so runtime contract regressions are caught without over-coupling to one
+    exact numeric rendering.
+- Validation runs for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_measure_glyph_bond_alignment.py`
+  (`13 passed`) and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_phase4_known_failures.py`
+  (`45 passed`).
+- Flip left-side furanose down-tail branch placement to match reference visuals in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  for left-side (`vertex.x <= ring_center.x`) two-carbon down tails, place
+  `OH` on the upper-left branch and `CH2OH` on the lower-left branch; keep
+  right-side down-tail orientation unchanged.
+- Update branch-angle/parity assertions in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) for the
+  left-side down-tail flip (`C4_down_chain1_oh_connector` now `240 deg`,
+  `C4_down_chain2_connector` now `150 deg`, and `CH2OH` label lane below `HO`).
+- Validation runs for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py -k "gulose_furanose_alpha_two_carbon_down_branch_angles or furanose_two_carbon_tail_left_parity_class_uses_hashed_ho or gulose_furanose_alpha_tail_branches_left_with_hoh2c_text"`
+  (`5 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_phase4_known_failures.py`
+  (`45 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`).
+- Make glyph alignment evaluation renderer-independent in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  choose connector endpoints by nearest distance to independent glyph
+  primitives (ellipse/box model) and score alignment from independent
+  primitive-boundary error instead of renderer attach-target distance.
+- Reduce glyph alignment report over-aggregation in the same tool:
+  replace summary-stat-heavy text/terminal sections with raw per-label data
+  points for both `Glyph-to-bond alignment` and `Glyph-to-bond-end distance`,
+  while retaining concise `glyph text -> bond-end distances` mappings.
+- Update focused coverage in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  for independent-alignment reasons/mode and raw-data-point report text.
 - Improve renderer-independent glyph proximity diagnostics in
   [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
   replace box-only independent distance checks with per-character glyph

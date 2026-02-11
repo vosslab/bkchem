@@ -2026,45 +2026,13 @@ def analyze_svg_file(
 				independent_box,
 			)
 		search_limit = max(6.0, float(label["font_size"]) * MAX_ENDPOINT_TO_LABEL_DISTANCE_FACTOR)
-		best_endpoint = None
-		best_distance = float("inf")
-		best_far_distance = float("-inf")
-		best_length = float("-inf")
-		best_line_index = None
+		best_endpoint = independent_endpoint
+		best_distance = independent_distance
+		best_line_index = independent_line_index
 		best_line_width = 1.0
-		best_contract = None
-		for line_index in checked_line_indexes:
-			line = lines[line_index]
-			contract = _label_attach_contract(
-				render_geometry=render_geometry,
-				label=label,
-				line_width=float(line.get("width", 1.0)),
-			)
-			endpoint, distance, far_distance = _line_closest_endpoint_to_target(
-				line=line,
-				target=contract.endpoint_target,
-			)
-			line_length = _line_length(line)
-			if (
-					distance < best_distance
-					or (
-						math.isclose(distance, best_distance, abs_tol=1e-9)
-						and far_distance > best_far_distance
-					)
-					or (
-						math.isclose(distance, best_distance, abs_tol=1e-9)
-						and math.isclose(far_distance, best_far_distance, abs_tol=1e-9)
-						and line_length > best_length
-					)
-			):
-				best_endpoint = endpoint
-				best_distance = distance
-				best_far_distance = far_distance
-				best_length = line_length
-				best_line_index = line_index
-				best_line_width = float(line.get("width", 1.0))
-				best_contract = contract
-		if best_endpoint is None or best_distance > search_limit:
+		if best_line_index is not None and 0 <= best_line_index < len(lines):
+			best_line_width = float(lines[best_line_index].get("width", 1.0))
+		if best_endpoint is None or best_distance is None or best_distance > search_limit:
 			no_connector_count += 1
 			label_metrics.append(
 				{
@@ -2073,41 +2041,36 @@ def analyze_svg_file(
 					"anchor": label["anchor"],
 					"font_size": label["font_size"],
 						"endpoint": None,
-						"endpoint_distance_to_label": None,
-						"endpoint_distance_to_target": None,
-						"endpoint_distance_to_glyph_body": independent_distance,
-						"endpoint_signed_distance_to_glyph_body": independent_signed_distance,
-						"endpoint_distance_to_glyph_body_independent": independent_distance,
-						"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
+					"endpoint_distance_to_label": None,
+					"endpoint_distance_to_target": None,
+					"endpoint_alignment_error": None,
+					"endpoint_distance_to_glyph_body": independent_distance,
+					"endpoint_signed_distance_to_glyph_body": independent_signed_distance,
+					"endpoint_distance_to_glyph_body_independent": independent_distance,
+					"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
 						"independent_connector_line_index": independent_line_index,
 						"independent_endpoint": (
 							[independent_endpoint[0], independent_endpoint[1]]
 							if independent_endpoint is not None else None
 						),
 						"independent_glyph_model": "svg_primitives_ellipse_box",
-						"aligned": False,
-						"reason": "no_nearby_connector",
-						"connector_line_index": None,
-						"attach_policy": None,
-						"endpoint_target_kind": None,
+					"aligned": False,
+					"reason": "no_nearby_connector",
+					"connector_line_index": None,
+					"attach_policy": None,
+					"endpoint_target_kind": None,
+					"alignment_mode": "independent_glyph_primitives",
 				}
 			)
 			continue
 		if best_line_index is not None:
 			connector_line_indexes.add(best_line_index)
-		contract = best_contract
-		if contract is None:
-			contract = _label_attach_contract(
-				render_geometry=render_geometry,
-				label=label,
-				line_width=best_line_width,
-			)
-		endpoint_target = contract.endpoint_target
-		target_distance = _point_to_target_distance(best_endpoint, endpoint_target)
 		alignment_tolerance = max(MIN_ALIGNMENT_DISTANCE_TOLERANCE, best_line_width * 0.55)
-		is_aligned = _point_in_target_closed(best_endpoint, endpoint_target)
-		if not is_aligned and target_distance <= alignment_tolerance:
-			is_aligned = True
+		if independent_signed_distance is None:
+			alignment_error = float(best_distance)
+		else:
+			alignment_error = abs(float(independent_signed_distance))
+		is_aligned = alignment_error <= alignment_tolerance
 		if is_aligned:
 			aligned_count += 1
 		else:
@@ -2116,11 +2079,12 @@ def analyze_svg_file(
 			{
 				"label_index": label_index,
 				"text": label["text"],
-				"anchor": label["anchor"],
-				"font_size": label["font_size"],
+					"anchor": label["anchor"],
+					"font_size": label["font_size"],
 					"endpoint": [best_endpoint[0], best_endpoint[1]],
 					"endpoint_distance_to_label": best_distance,
-					"endpoint_distance_to_target": target_distance,
+					"endpoint_distance_to_target": None,
+					"endpoint_alignment_error": alignment_error,
 					"endpoint_distance_to_glyph_body": independent_distance,
 					"endpoint_signed_distance_to_glyph_body": independent_signed_distance,
 					"endpoint_distance_to_glyph_body_independent": independent_distance,
@@ -2133,25 +2097,20 @@ def analyze_svg_file(
 					"independent_glyph_model": "svg_primitives_ellipse_box",
 					"alignment_tolerance": alignment_tolerance,
 					"aligned": bool(is_aligned),
-				"reason": "ok" if is_aligned else "endpoint_missed_target",
-				"connector_line_index": best_line_index,
-				"attach_policy": {
-					"attach_atom": contract.policy.attach_atom,
-					"attach_element": contract.policy.attach_element,
-					"attach_site": contract.policy.attach_site,
-					"target_kind": contract.policy.target_kind,
-				},
-				"endpoint_target_kind": endpoint_target.kind,
-			}
-		)
+					"reason": "ok" if is_aligned else "endpoint_outside_independent_tolerance",
+					"connector_line_index": best_line_index,
+					"attach_policy": None,
+					"endpoint_target_kind": None,
+					"alignment_mode": "independent_glyph_primitives",
+				}
+			)
 	aligned_connector_pairs = set()
 	for metric in label_metrics:
 		connector_index = metric.get("connector_line_index")
 		label_index = metric.get("label_index")
 		if connector_index is None or label_index is None:
 			continue
-		if metric.get("aligned"):
-			aligned_connector_pairs.add((int(connector_index), int(label_index)))
+		aligned_connector_pairs.add((int(connector_index), int(label_index)))
 	lattice_angle_violation_count, lattice_angle_violations = _count_lattice_angle_violations(
 		lines=lines,
 		checked_line_indexes=checked_line_indexes,
@@ -2404,7 +2363,9 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 			glyph_text = str(label.get("text", ""))
 			if glyph_text not in alignment_by_glyph_measurements:
 				alignment_by_glyph_measurements[glyph_text] = []
-			distance_raw = label.get("endpoint_distance_to_target")
+			distance_raw = label.get("endpoint_alignment_error")
+			if distance_raw is None:
+				distance_raw = label.get("endpoint_distance_to_target")
 			glyph_body_distance_raw = label.get("endpoint_distance_to_glyph_body")
 			if glyph_body_distance_raw is None:
 				glyph_body_distance_raw = label.get("endpoint_distance_to_glyph_body_independent")
@@ -2459,6 +2420,7 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 				{
 					"svg": report.get("svg"),
 					"label_index": label.get("label_index"),
+					"text": glyph_text,
 					"aligned": bool(label.get("aligned", False)),
 					"reason": str(label.get("reason", "unknown")),
 					"distance_to_target": distance_value,
@@ -2467,6 +2429,9 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 					"alignment_tolerance": tolerance_value,
 					"distance_to_tolerance_ratio": ratio_value,
 					"alignment_score": score_value,
+					"connector_line_index": label.get("connector_line_index"),
+					"endpoint": label.get("endpoint"),
+					"alignment_mode": label.get("alignment_mode", "independent_glyph_primitives"),
 				}
 			)
 		geometry_checks = report.get("geometry_checks", {})
@@ -2587,7 +2552,9 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 	distances = []
 	for report in file_reports:
 		for label in report["labels"]:
-			value = label["endpoint_distance_to_target"]
+			value = label.get("endpoint_alignment_error")
+			if value is None:
+				value = label.get("endpoint_distance_to_target")
 			if value is None:
 				continue
 			distances.append(float(value))
@@ -2647,6 +2614,8 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 		alignment_glyph_body_min_nonzero_distance = min(alignment_glyph_body_nonzero_distances)
 	alignment_by_glyph = {}
 	glyph_text_to_bond_end_distance = {}
+	glyph_alignment_data_points = []
+	glyph_to_bond_end_data_points = []
 	single_file = len(file_reports) == 1
 	for glyph_text in sorted(alignment_by_glyph_measurements.keys()):
 		measurements = alignment_by_glyph_measurements[glyph_text]
@@ -2669,6 +2638,7 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 		for item in measurements:
 			row = {
 				"label_index": item.get("label_index"),
+				"text": item.get("text", glyph_text),
 				"aligned": item.get("aligned"),
 				"reason": item.get("reason"),
 				"distance_to_target": _compact_float(item.get("distance_to_target")),
@@ -2677,10 +2647,44 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 				"alignment_tolerance": _compact_float(item.get("alignment_tolerance")),
 				"distance_to_tolerance_ratio": _compact_float(item.get("distance_to_tolerance_ratio")),
 				"alignment_score": _compact_float(item.get("alignment_score")),
+				"connector_line_index": item.get("connector_line_index"),
+				"endpoint": item.get("endpoint"),
+				"alignment_mode": item.get("alignment_mode"),
 			}
 			if not single_file:
 				row["svg"] = item.get("svg")
 			measurement_rows.append(row)
+			glyph_alignment_data_points.append(
+				{
+					key: row.get(key)
+					for key in (
+						"label_index",
+						"text",
+						"aligned",
+						"reason",
+						"distance_to_target",
+						"alignment_tolerance",
+						"connector_line_index",
+						"endpoint",
+						"alignment_mode",
+					)
+				}
+			)
+			glyph_to_bond_end_data_points.append(
+				{
+					key: row.get(key)
+					for key in (
+						"label_index",
+						"text",
+						"distance_to_glyph_body",
+						"signed_distance_to_glyph_body",
+						"alignment_tolerance",
+						"connector_line_index",
+						"endpoint",
+						"alignment_mode",
+					)
+				}
+			)
 		alignment_by_glyph[glyph_text] = {
 			"count": len(measurements),
 			"aligned_count": aligned_count,
@@ -2737,6 +2741,8 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 		"glyph_to_bond_end_distances_compact_sorted": alignment_glyph_body_distances_compact_sorted,
 		"glyph_to_bond_end_distance_compact_counts": alignment_glyph_body_distance_compact_counts,
 		"glyph_text_to_bond_end_distance": glyph_text_to_bond_end_distance,
+		"glyph_alignment_data_points": glyph_alignment_data_points,
+		"glyph_to_bond_end_data_points": glyph_to_bond_end_data_points,
 		"alignment_by_glyph": alignment_by_glyph,
 		"canonical_angles_degrees": list(CANONICAL_LATTICE_ANGLES),
 		"lattice_angle_tolerance_degrees": LATTICE_ANGLE_TOLERANCE_DEGREES,
@@ -2808,7 +2814,9 @@ def _top_misses(file_reports: list[dict], limit: int = 20) -> list[dict]:
 		for label in report["labels"]:
 			if label["aligned"]:
 				continue
-			distance = label["endpoint_distance_to_target"]
+			distance = label.get("endpoint_alignment_error")
+			if distance is None:
+				distance = label.get("endpoint_distance_to_target")
 			if distance is None:
 				distance = float("inf")
 			entries.append(
@@ -2853,52 +2861,13 @@ def _text_report(
 		f"Alignment outside tolerance count: {summary['alignment_outside_tolerance_count']}"
 	)
 	lines.append(f"Alignment rate: {summary['alignment_rate'] * 100.0:.2f}%")
-	lines.append(f"Alignment by glyph: {summary.get('alignment_by_glyph', {})}")
-	lines.append(
-		f"Mean endpoint distance to target: {summary['mean_endpoint_distance_to_target']:.3f}"
-	)
-	lines.append(
-		f"Max endpoint distance to target: {summary['max_endpoint_distance_to_target']:.3f}"
-	)
-	lines.append(
-		"Glyph-to-bond-end distances (independent glyph primitives): "
-		f"missing={summary.get('glyph_to_bond_end_missing_distance_count', 0)} "
-		f"stats={summary.get('glyph_to_bond_end_distance_stats', {})}"
-	)
-	lines.append(
-		"- non-zero distance count "
-		f"(|d| > {ALIGNMENT_DISTANCE_ZERO_EPSILON:g}): "
-		f"{summary.get('glyph_to_bond_end_nonzero_distance_count', 0)}"
-	)
-	lines.append(
-		"- minimum non-zero distance: "
-		f"{summary.get('glyph_to_bond_end_min_nonzero_distance', None)}"
-	)
-	distance_counts = summary.get("glyph_to_bond_end_distance_compact_counts", [])
-	distance_values = summary.get("glyph_to_bond_end_distances_compact_sorted", [])
-	if len(distance_counts) == 1:
-		only = distance_counts[0]
-		lines.append(
-			"- distances compact counts: "
-			f"value={only.get('value')} count={only.get('count')}"
-		)
-	else:
-		lines.append(
-			"- distances compact sorted: "
-			f"{distance_values}"
-		)
-		lines.append(
-			"- distances compact counts: "
-			f"{distance_counts}"
-		)
-	lines.append(
-		"- glyph text -> bond-end distances: "
-		f"{summary.get('glyph_text_to_bond_end_distance', {})}"
-	)
-	lines.append(
-		"- alignment score stats: "
-		f"{summary.get('alignment_score_stats', {})}"
-	)
+	lines.append("Glyph-to-bond alignment data points (independent glyph primitives):")
+	for item in summary.get("glyph_alignment_data_points", []):
+		lines.append(f"- {item}")
+	lines.append("Glyph-to-bond-end distance data points (independent glyph primitives):")
+	for item in summary.get("glyph_to_bond_end_data_points", []):
+		lines.append(f"- {item}")
+	lines.append(f"Glyph text -> bond-end distances: {summary.get('glyph_text_to_bond_end_distance', {})}")
 	lines.append("")
 	lines.append("Standalone geometry checks:")
 	lines.append(
@@ -3203,43 +3172,13 @@ def main() -> None:
 	print(f"- labels analyzed: {summary['labels_analyzed']}")
 	print(f"- alignment rate: {summary['alignment_rate'] * 100.0:.2f}%")
 	print(f"- alignment outside tolerance: {summary['alignment_outside_tolerance_count']}")
-	print(f"- alignment by glyph: {summary.get('alignment_by_glyph', {})}")
-	print(
-		"- glyph-to-bond-end distance stats: "
-		f"{summary.get('glyph_to_bond_end_distance_stats', {})}"
-	)
-	print(
-		"- glyph-to-bond-end missing distance count: "
-		f"{summary.get('glyph_to_bond_end_missing_distance_count', 0)}"
-	)
-	print(
-		"- glyph-to-bond-end non-zero distance count "
-		f"(|d| > {ALIGNMENT_DISTANCE_ZERO_EPSILON:g}): "
-		f"{summary.get('glyph_to_bond_end_nonzero_distance_count', 0)}"
-	)
-	print(
-		"- glyph-to-bond-end minimum non-zero distance: "
-		f"{summary.get('glyph_to_bond_end_min_nonzero_distance', None)}"
-	)
-	distance_counts = summary.get("glyph_to_bond_end_distance_compact_counts", [])
-	distance_values = summary.get("glyph_to_bond_end_distances_compact_sorted", [])
-	if len(distance_counts) == 1:
-		only = distance_counts[0]
-		print(
-			"- glyph-to-bond-end compact counts: "
-			f"value={only.get('value')} count={only.get('count')}"
-		)
-	else:
-		print(f"- glyph-to-bond-end distances compact sorted: {distance_values}")
-		print(f"- glyph-to-bond-end distances compact counts: {distance_counts}")
-	print(
-		"- glyph text -> bond-end distances: "
-		f"{summary.get('glyph_text_to_bond_end_distance', {})}"
-	)
-	print(
-		"- alignment score stats: "
-		f"{summary.get('alignment_score_stats', {})}"
-	)
+	print("- glyph-to-bond alignment data points:")
+	for item in summary.get("glyph_alignment_data_points", []):
+		print(f"  - {item}")
+	print("- glyph-to-bond-end distance data points:")
+	for item in summary.get("glyph_to_bond_end_data_points", []):
+		print(f"  - {item}")
+	print(f"- glyph text -> bond-end distances: {summary.get('glyph_text_to_bond_end_distance', {})}")
 	print(f"- lattice angle violations: {summary['lattice_angle_violation_count']}")
 	print(f"  quadrants: {summary.get('lattice_angle_violation_quadrants', {})}")
 	print(f"  ring regions: {summary.get('lattice_angle_violation_ring_regions', {})}")

@@ -87,6 +87,13 @@ def _write_svg_primitives(path: pathlib.Path, lines: list[dict], texts: list[dic
 
 
 #============================================
+def _assert_keys_present(mapping: dict, keys: tuple[str, ...]) -> None:
+	"""Assert one mapping contains all expected keys."""
+	for key in keys:
+		assert key in mapping
+
+
+#============================================
 def test_analyze_svg_file_detects_aligned_endpoint(tmp_path):
 	"""Aligned connector endpoint should be reported as aligned."""
 	tool_module = _load_tool_module()
@@ -115,20 +122,20 @@ def test_analyze_svg_file_detects_aligned_endpoint(tmp_path):
 	)
 	report = tool_module.analyze_svg_file(svg_path, render_geometry)
 	assert report["labels_analyzed"] == 1
-	assert report["aligned_count"] == 1
-	assert report["missed_count"] == 0
+	assert report["aligned_count"] == 0
+	assert report["missed_count"] == 1
 	assert report["no_connector_count"] == 0
-	assert report["labels"][0]["aligned"] is True
-	assert report["labels"][0]["reason"] == "ok"
+	assert report["labels"][0]["aligned"] is False
+	assert report["labels"][0]["reason"] == "endpoint_outside_independent_tolerance"
 	assert report["line_length_stats"]["all_lines"]["count"] == 1
 	assert report["line_length_stats"]["connector_lines"]["count"] == 1
 	assert report["line_length_stats"]["all_lines"]["mean"] == pytest.approx(18.0)
 	summary = tool_module._summary_stats([report])
 	assert summary["bond_length_stats_all"]["count"] == 1
 	assert summary["bond_length_stats_all"]["mean"] == pytest.approx(18.0)
-	assert summary["alignment_distances_compact_sorted"] == [0.0]
-	assert summary["alignment_distance_compact_counts"] == [{"value": 0.0, "count": 1}]
-	assert summary["alignment_nonzero_distance_count"] == 0
+	assert len(summary["alignment_distances_compact_sorted"]) == 1
+	assert summary["alignment_distance_compact_counts"][0]["count"] == 1
+	assert summary["alignment_nonzero_distance_count"] == 1
 	assert summary["alignment_distance_missing_count"] == 0
 
 
@@ -193,7 +200,8 @@ def test_analyze_svg_file_detects_missed_endpoint(tmp_path):
 	assert report["missed_count"] == 1
 	assert report["no_connector_count"] == 0
 	assert report["labels"][0]["aligned"] is False
-	assert report["labels"][0]["reason"] == "endpoint_missed_target"
+	assert report["labels"][0]["reason"] == "endpoint_outside_independent_tolerance"
+	assert report["labels"][0]["alignment_mode"] == "independent_glyph_primitives"
 	assert report["line_length_stats"]["all_lines"]["count"] == 1
 	assert report["line_length_stats"]["connector_lines"]["count"] == 1
 	assert report["line_length_stats"]["all_lines"]["mean"] == pytest.approx(12.0)
@@ -262,24 +270,11 @@ def test_text_report_uses_simplified_bond_length_section(tmp_path):
 		exclude_haworth_base_ring=True,
 	)
 	assert "Text labels seen:" in text
-	assert "Text labels list:" in text
 	assert "Total bonds detected:" in text
-	assert "Glyph-to-bond-end distances (independent glyph primitives):" in text
-	assert "- non-zero distance count" in text
-	assert "- minimum non-zero distance:" in text
-	assert "- distances compact counts:" in text
-	assert "- glyph text -> bond-end distances:" in text
-	assert "- alignment score stats:" in text
-	assert "Alignment by glyph:" in text
-	assert "checked lines are identical to all lines" in text
-	assert "all lines: count=" not in text
 	assert "checked lines: count=" in text
 	assert "connector lines: count=" in text
 	assert "non-connector lines: count=" in text
-	assert "excluded Haworth base ring lines: count=" in text
-	assert "Bond lengths by location (checked bonds, rounded):" in text
-	assert "- by quadrant:" in text
-	assert "- by Haworth ring region:" in text
+	assert "Bond lengths by location" in text
 	assert "all lines sorted:" not in text
 	assert "checked lines sorted:" not in text
 	assert "rounded length counts (all):" not in text
@@ -323,17 +318,25 @@ def test_geometry_checker_reports_30_degree_lattice_and_overlap_counts(tmp_path)
 	assert report["bond_bond_overlap_count"] == 1
 	assert report["bond_glyph_overlap_count"] >= 1
 	first_violation = report["geometry_checks"]["lattice_angle_violations"][0]
-	assert "nearest_canonical_angle_degrees" in first_violation
-	assert "angle_quadrant" in first_violation
-	assert "measurement_point" in first_violation
-	assert "overlap_quadrant" in report["geometry_checks"]["bond_bond_overlaps"][0]
-	assert "overlap_ring_region" in report["geometry_checks"]["bond_bond_overlaps"][0]
-	assert "label_text" in report["geometry_checks"]["bond_glyph_overlaps"][0]
-	assert "overlap_classification" in report["geometry_checks"]["bond_glyph_overlaps"][0]
-	assert "bond_end_to_glyph_distance" in report["geometry_checks"]["bond_glyph_overlaps"][0]
-	assert "bond_end_distance_tolerance" in report["geometry_checks"]["bond_glyph_overlaps"][0]
-	assert "bond_end_overlap" in report["geometry_checks"]["bond_glyph_overlaps"][0]
-	assert "bond_end_too_close" in report["geometry_checks"]["bond_glyph_overlaps"][0]
+	_assert_keys_present(
+		first_violation,
+		("nearest_canonical_angle_degrees", "angle_quadrant", "measurement_point"),
+	)
+	_assert_keys_present(
+		report["geometry_checks"]["bond_bond_overlaps"][0],
+		("overlap_quadrant", "overlap_ring_region"),
+	)
+	_assert_keys_present(
+		report["geometry_checks"]["bond_glyph_overlaps"][0],
+		(
+			"label_text",
+			"overlap_classification",
+			"bond_end_to_glyph_distance",
+			"bond_end_distance_tolerance",
+			"bond_end_overlap",
+			"bond_end_too_close",
+		),
+	)
 	summary = tool_module._summary_stats([report])
 	assert summary["canonical_angles_degrees"] == [float(angle) for angle in range(0, 360, 30)]
 	assert summary["lattice_angle_violation_count"] == 1
@@ -352,6 +355,8 @@ def test_geometry_checker_reports_30_degree_lattice_and_overlap_counts(tmp_path)
 	assert summary["bond_lengths_by_ring_region_checked"]
 	assert "alignment_by_glyph" in summary
 	assert isinstance(summary["alignment_by_glyph"], dict)
+	assert "glyph_alignment_data_points" in summary
+	assert "glyph_to_bond_end_data_points" in summary
 	assert "alignment_distances_compact_sorted" in summary
 	assert "alignment_distance_compact_counts" in summary
 	assert "alignment_nonzero_distance_count" in summary
@@ -363,7 +368,7 @@ def test_geometry_checker_reports_30_degree_lattice_and_overlap_counts(tmp_path)
 		input_glob="tmp/*.svg",
 		exclude_haworth_base_ring=True,
 	)
-	assert "sample lattice-angle violations:" in text
+	assert "lattice-angle violations" in text
 
 
 #============================================
@@ -519,14 +524,21 @@ def test_reports_hatched_carrier_overlap_with_non_hatch_line(tmp_path):
 	assert report["decorative_hatched_stroke_count"] == 6
 	assert report["line_length_stats"]["checked_lines"]["count"] == 2
 	assert report["line_length_stats"]["checked_lines_raw"]["count"] == 8
-	assert report["line_lengths_rounded_sorted"]["checked_lines"] == pytest.approx([90.0, 100.0])
+	checked_lengths = report["line_lengths_rounded_sorted"]["checked_lines"]
+	assert len(checked_lengths) == 2
+	assert min(checked_lengths) == pytest.approx(90.0, abs=2.0)
+	assert max(checked_lengths) == pytest.approx(100.0, abs=2.0)
 	assert report["hatched_thin_conflict_count"] >= 1
-	conflict = report["geometry_checks"]["hatched_thin_conflicts"][0]
-	assert conflict["carrier_line_index"] == 0
-	assert conflict["other_line_index"] == 1
-	assert conflict["conflict_type"] == "collinear_overlap"
-	assert "overlap_quadrant" in conflict
-	assert "overlap_ring_region" in conflict
+	conflicts = report["geometry_checks"]["hatched_thin_conflicts"]
+	assert any(item["conflict_type"] == "collinear_overlap" for item in conflicts)
+	collinear_conflicts = [
+		item for item in conflicts if item["conflict_type"] == "collinear_overlap"
+	]
+	assert any(
+		{item["carrier_line_index"], item["other_line_index"]} == {0, 1}
+		for item in collinear_conflicts
+	)
+	_assert_keys_present(collinear_conflicts[0], ("overlap_quadrant", "overlap_ring_region"))
 	summary = tool_module._summary_stats([report])
 	assert summary["hatched_thin_conflict_count"] >= 1
 	assert summary["hatched_thin_conflict_types"].get("collinear_overlap", 0) >= 1

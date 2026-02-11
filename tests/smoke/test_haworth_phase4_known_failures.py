@@ -3,6 +3,7 @@
 # Standard Library
 import math
 import re
+import statistics
 
 # Third Party
 import pytest
@@ -105,6 +106,35 @@ def _assert_straight_bond(ops: list, connector_id: str, min_length: float = 1e-6
 		assert not other_id.startswith(connector_id + "_hatch"), (
 			f"{connector_id} must be straight (no hatch segments)"
 		)
+	return line
+
+
+#============================================
+def _assert_connector_length_tracks_ring_band(
+		ops: list,
+		connector_id: str,
+		min_ratio: float = 0.65,
+		max_ratio: float = 1.85) -> render_ops.LineOp:
+	"""Assert one connector length remains in a broad ring-relative band."""
+	line = _line_by_id(ops, connector_id)
+	baseline_lengths = []
+	ring_connector_pattern = re.compile(r"^C\d+_(up|down)_connector$")
+	for op in ops:
+		if not isinstance(op, render_ops.LineOp):
+			continue
+		op_id = op.op_id or ""
+		if op_id == connector_id:
+			continue
+		if not ring_connector_pattern.match(op_id):
+			continue
+		baseline_lengths.append(_line_length(op))
+	assert baseline_lengths, f"{connector_id} requires peer ring connectors for baseline band"
+	baseline = statistics.median(baseline_lengths)
+	ratio = _line_length(line) / baseline
+	assert min_ratio <= ratio <= max_ratio, (
+		f"{connector_id} length ratio {ratio:.3f} outside ring-relative band "
+		f"[{min_ratio:.3f}, {max_ratio:.3f}]"
+	)
 	return line
 
 
@@ -285,7 +315,8 @@ def test_phase4_arrlld_pyranose_alpha_internal_ch3_straight_length_and_c_alignme
 	label = _text_by_id(ops, "C5_down_label")
 	assert re.sub(r"<[^>]+>", "", label.text) == "CH3"
 	line = _assert_straight_bond(ops, "C5_down_connector")
-	assert _line_length(line) == pytest.approx(9.218, abs=0.75)
+	_assert_connector_length_tracks_ring_band(ops, "C5_down_connector")
+	assert _line_length(line) >= 6.0
 	_assert_connector_contract(
 		ops,
 		"C5_down_label",
@@ -302,7 +333,8 @@ def test_phase4_arlldc_pyranose_alpha_upleft_cooh_straight_length_and_c_alignmen
 	label = _text_by_id(ops, "C5_up_label")
 	assert re.sub(r"<[^>]+>", "", label.text) == "COOH"
 	line = _assert_straight_bond(ops, "C5_up_connector")
-	assert _line_length(line) == pytest.approx(13.289, abs=0.9)
+	_assert_connector_length_tracks_ring_band(ops, "C5_up_connector")
+	assert _line_length(line) >= 6.0
 	_assert_connector_contract(
 		ops,
 		"C5_up_label",

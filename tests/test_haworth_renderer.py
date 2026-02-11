@@ -2044,8 +2044,8 @@ def test_render_mannose_furanose_alpha_two_carbon_up_branch_angles():
 #============================================
 def test_render_gulose_furanose_alpha_two_carbon_down_branch_angles():
 	_, ops = _render("ARRLDM", "furanose", "alpha", show_hydrogens=False)
-	_assert_line_angle(_line_by_id(ops, "C4_down_chain1_oh_connector"), 150.0)
-	_assert_line_angle(_line_by_id(ops, "C4_down_chain2_connector"), 240.0)
+	_assert_line_angle(_line_by_id(ops, "C4_down_chain1_oh_connector"), 240.0)
+	_assert_line_angle(_line_by_id(ops, "C4_down_chain2_connector"), 150.0)
 
 
 #============================================
@@ -2122,7 +2122,7 @@ def test_render_furanose_two_carbon_tail_left_parity_class_uses_hashed_ho(code):
 	assert ch2_branch.p2[0] < ch2_branch.p1[0]
 	_assert_line_on_lattice(ho_branch)
 	_assert_line_on_lattice(ch2_branch)
-	assert ch2_label.y < ho_label.y
+	assert ch2_label.y > ho_label.y
 	_assert_hashed_connector_quality(
 		ops,
 		connector_id="C4_down_chain1_oh_connector",
