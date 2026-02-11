@@ -272,9 +272,29 @@ def test_haworth_connector_endpoints_land_on_label_boundaries(code, ring_type, a
 			continue
 		label = _text_by_id(ops, op_id.replace("_connector", "_label"))
 		if label.text in ("OH", "HO"):
-			oxygen_center = _hydroxyl_oxygen_center(label)
-			min_radius = haworth_renderer._hydroxyl_oxygen_radius(label.font_size) + (line.width * 0.5)
-			assert _distance(line.p2, oxygen_center) >= (min_radius - 1e-3)
+			contract = render_geometry.label_attach_contract_from_text_origin(
+				text_x=label.x,
+				text_y=label.y,
+				text=label.text,
+				anchor=label.anchor,
+				font_size=label.font_size,
+				line_width=line.width,
+				chain_attach_site="core_center",
+				font_name=label.font_name,
+			)
+			assert render_geometry._point_in_attach_target_closed(
+				line.p2,
+				contract.endpoint_target,
+				epsilon=1e-6,
+			)
+			assert render_geometry.validate_attachment_paint(
+				line_start=line.p1,
+				line_end=line.p2,
+				line_width=line.width,
+				forbidden_regions=[contract.full_target],
+				allowed_regions=[contract.allowed_target],
+				epsilon=0.5,
+			)
 			continue
 		label_box = _connector_bbox_for_label(label)
 		assert _point_on_box_edge(line.p2, label_box, tol=1e-5)

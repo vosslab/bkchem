@@ -41,8 +41,12 @@ Last updated: 2026-02-11
 
 ## In progress
 - [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
-  Phase 3 (fixed bond-length policy) is complete in runtime/tests; Phase 4
-  validation scope remains the next active step.
+  Phases 3 and 4 are complete in runtime/tests and matrix validation,
+  including manager checklist fixture coverage plus straightness/lattice
+  geometry gates; independent measurement gate is green (`--fail-on-miss`,
+  alignment rate `100.00%`); latest closure reruns are green
+  (`Strict-overlap failures: 0`, `524 passed, 6 skipped` twice consecutively);
+  Phase 5 rollout and close-out is next and not started.
 - [docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
   Phase 0 work is complete; future Phases 6/7 remain planned.
 - [docs/active_plans/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md):
@@ -52,6 +56,9 @@ Last updated: 2026-02-11
 - OASA CLI expansion: Planned next step is to broaden `packages/oasa/oasa_cli.py` once the public CLI surface is finalized.
 
 ## Completed
+- [docs/active_plans/CODER_GUIDE_FEB_10.md](docs/active_plans/CODER_GUIDE_FEB_10.md):
+  Marked legacy and superseded by
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md).
 - [docs/archive/RENDER_BACKEND_UNIFICATION.md](docs/archive/RENDER_BACKEND_UNIFICATION.md):
   Render ops, SVG/Cairo thin painters, ops snapshots, and drift tests are in place.
 - [docs/archive/ROUNDED_WEDGES_PLAN.md](docs/archive/ROUNDED_WEDGES_PLAN.md):

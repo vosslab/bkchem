@@ -443,12 +443,58 @@ def _line_projection_along(line: render_ops.LineOp, point: tuple[float, float]) 
 
 
 #============================================
+def _line_angle_degrees(line: render_ops.LineOp) -> float:
+	"""Return one line angle in degrees in [0, 360)."""
+	return math.degrees(math.atan2(line.p2[1] - line.p1[1], line.p2[0] - line.p1[0])) % 360.0
+
+
+#============================================
+def _lattice_angle_error(angle_degrees: float) -> float:
+	"""Return minimum angular error to canonical 30-degree lattice."""
+	lattice_angles = tuple(float(angle) for angle in range(0, 360, 30))
+	return min(
+		abs(((angle_degrees - lattice_angle + 180.0) % 360.0) - 180.0)
+		for lattice_angle in lattice_angles
+	)
+
+
+#============================================
+def _assert_line_on_lattice(line: render_ops.LineOp, tolerance_degrees: float = 10.0) -> None:
+	"""Assert that one line direction is within tolerance of lattice angles."""
+	angle = _line_angle_degrees(line)
+	error = _lattice_angle_error(angle)
+	assert error <= tolerance_degrees, (
+		f"{line.op_id} angle={angle:.3f} error={error:.3f} exceeds {tolerance_degrees:.3f}"
+	)
+
+
+#============================================
+def _assert_line_angle(line: render_ops.LineOp, expected_degrees: float, tolerance_degrees: float = 1e-6) -> None:
+	"""Assert one line direction angle with wrap-around tolerance."""
+	angle = _line_angle_degrees(line)
+	error = abs(((angle - expected_degrees + 180.0) % 360.0) - 180.0)
+	assert error <= tolerance_degrees, (
+		f"{line.op_id} angle={angle:.6f} expected={expected_degrees:.6f} error={error:.6f}"
+	)
+
+
+#============================================
 def _allowed_attach_target_for_connector(
 		label: render_ops.TextOp,
 		connector_id: str) -> render_geometry.AttachTarget | None:
 	"""Return attach-token carve-out target for explicit token-based connectors."""
 	del connector_id
-	return haworth_renderer.attach_target_for_text_op(label)
+	contract = render_geometry.label_attach_contract_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		line_width=0.0,
+		chain_attach_site="core_center",
+		font_name=label.font_name,
+	)
+	return contract.allowed_target
 
 
 #============================================
@@ -564,33 +610,29 @@ def _assert_connector_endpoint_on_attach_element(
 	connector = _line_by_id(ops, connector_id)
 	if attach_site is None:
 		attach_site = "core_center"
-	attach_target = render_geometry.label_attach_target_from_text_origin(
+	contract = render_geometry.label_attach_contract_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
+		line_width=connector.width,
 		attach_atom="first",
 		attach_element=attach_element,
 		attach_site=attach_site,
+		chain_attach_site="core_center",
+		font_name=label.font_name,
 	)
-	assert _point_in_box(connector.p2, attach_target.box), (
+	assert render_geometry._point_in_attach_target_closed(connector.p2, contract.endpoint_target, epsilon=1e-6), (
 		f"{connector_id} endpoint {connector.p2} not inside {label_id} "
-		f"{attach_element}-target {attach_target.box}"
-	)
-	full_target = render_geometry.label_target_from_text_origin(
-		text_x=label.x,
-		text_y=label.y,
-		text=label.text,
-		anchor=label.anchor,
-		font_size=label.font_size,
+		f"{attach_element}-target {contract.endpoint_target}"
 	)
 	assert render_geometry.validate_attachment_paint(
 		line_start=connector.p1,
 		line_end=connector.p2,
 		line_width=connector.width,
-		forbidden_regions=[full_target],
-		allowed_regions=[attach_target],
+		forbidden_regions=[contract.full_target],
+		allowed_regions=[contract.allowed_target],
 		epsilon=0.5,
 	)
 
@@ -854,17 +896,17 @@ def test_render_ribose_furanose_alpha_c4_up_connector_attaches_to_closed_carbon_
 		label_id="C4_up_label",
 		connector_id="C4_up_connector",
 		attach_element="C",
-		attach_site="stem_centerline",
+		attach_site="core_center",
 	)
 
 
 #============================================
 @pytest.mark.parametrize("anomeric", ("alpha", "beta"))
-def test_render_ribose_furanose_c4_up_connector_vertical_and_x_aligned_to_carbon_stem_centerline(anomeric):
+def test_render_ribose_furanose_c4_up_connector_vertical_and_x_aligned_to_carbon_core_centerline(anomeric):
 	_, ops = _render("ARRDM", "furanose", anomeric, show_hydrogens=False)
 	label = _text_by_id(ops, "C4_up_label")
 	line = _line_by_id(ops, "C4_up_connector")
-	stem_target = render_geometry.label_attach_target_from_text_origin(
+	core_target = render_geometry.label_attach_target_from_text_origin(
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
@@ -872,17 +914,17 @@ def test_render_ribose_furanose_c4_up_connector_vertical_and_x_aligned_to_carbon
 		font_size=label.font_size,
 		attach_atom="first",
 		attach_element="C",
-		attach_site="stem_centerline",
+		attach_site="core_center",
 	)
-	stem_center_x, _stem_center_y = stem_target.centroid()
+	core_center_x, _core_center_y = core_target.centroid()
 	assert abs(line.p2[0] - line.p1[0]) <= 0.05
-	assert line.p2[0] == pytest.approx(stem_center_x, abs=0.20)
-	assert line.p2[0] <= (stem_center_x + 1e-6)
+	assert line.p2[0] == pytest.approx(core_center_x, abs=0.20)
+	assert line.p2[0] <= (core_center_x + 1e-6)
 
 
 #============================================
 def test_render_ribose_furanose_alpha_c4_up_connector_raster_probe_hits_c_stem_band():
-	"""Independent raster probe: endpoint must fall inside first-glyph C stem band."""
+	"""Independent raster probe: endpoint must avoid first-glyph C left stem edge."""
 	_, ops = _render("ARRDM", "furanose", "alpha", show_hydrogens=False)
 	label = _text_by_id(ops, "C4_up_label")
 	line = _line_by_id(ops, "C4_up_connector")
@@ -901,8 +943,8 @@ def test_render_ribose_furanose_alpha_c4_up_connector_raster_probe_hits_c_stem_b
 	assert stem_band, "No C-stem band found in raster probe"
 	stem_min = min(stem_band)
 	stem_max = max(stem_band)
-	assert (stem_min - 2.0) <= probe_x <= (stem_max + 2.0), (
-		f"Ribose raster probe failed: endpoint_x_px={probe_x:.2f} outside C stem band "
+	assert probe_x > (stem_max + 12.0), (
+		f"Ribose raster probe failed: endpoint_x_px={probe_x:.2f} still on C stem band "
 		f"[{stem_min:.2f}, {stem_max:.2f}]"
 	)
 
@@ -924,40 +966,23 @@ def test_render_furanose_chain2_connector_matches_shared_resolver_endpoint():
 	_, ops = _render("ARLLDM", "furanose", "alpha", show_hydrogens=False)
 	line = _line_by_id(ops, "C4_down_chain2_connector")
 	label = _text_by_id(ops, "C4_down_chain2_label")
-	attach_target = render_geometry.label_attach_target_from_text_origin(
+	resolved, _contract = render_geometry.resolve_label_connector_endpoint_from_text_origin(
+		bond_start=line.p1,
 		text_x=label.x,
 		text_y=label.y,
 		text=label.text,
 		anchor=label.anchor,
 		font_size=label.font_size,
+		line_width=line.width,
+		constraints=render_geometry.AttachConstraints(direction_policy="auto"),
+		epsilon=0.5,
 		attach_atom="first",
 		attach_element="C",
 		attach_site="core_center",
+		chain_attach_site="core_center",
 		font_name=label.font_name,
 	)
-	full_target = render_geometry.label_target_from_text_origin(
-		text_x=label.x,
-		text_y=label.y,
-		text=label.text,
-		anchor=label.anchor,
-		font_size=label.font_size,
-		font_name=label.font_name,
-	)
-	resolved = render_geometry.resolve_attach_endpoint(
-		bond_start=line.p1,
-		target=attach_target,
-		interior_hint=attach_target.centroid(),
-		constraints=render_geometry.AttachConstraints(direction_policy="auto"),
-	)
-	legal = render_geometry.retreat_endpoint_until_legal(
-		line_start=line.p1,
-		line_end=resolved,
-		line_width=line.width,
-		forbidden_regions=[full_target],
-		allowed_regions=[attach_target],
-		epsilon=0.5,
-	)
-	assert line.p2 == pytest.approx(legal)
+	assert line.p2 == pytest.approx(resolved)
 
 
 #============================================
@@ -1156,13 +1181,25 @@ def test_render_right_anchor_hydroxyl_connector_hits_o_center():
 	line = _line_by_id(ops, "C2_down_connector")
 	assert label.text == "OH"
 	assert label.anchor == "start"
-	oxygen_center = _hydroxyl_oxygen_center(label)
-	assert line.p1[0] == pytest.approx(line.p2[0], abs=1e-5)
-	assert line.p2[0] == pytest.approx(oxygen_center[0], abs=1e-3)
-	assert _point_outside_circle_radius(
-		line.p2,
-		oxygen_center,
-		haworth_renderer._hydroxyl_oxygen_radius(label.font_size) + (line.width * 0.5),
+	contract = render_geometry.label_attach_contract_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		line_width=line.width,
+		chain_attach_site="core_center",
+		font_name=label.font_name,
+	)
+	assert contract.policy.target_kind == "oxygen_circle"
+	assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=1e-6)
+	assert render_geometry.validate_attachment_paint(
+		line_start=line.p1,
+		line_end=line.p2,
+		line_width=line.width,
+		forbidden_regions=[contract.full_target],
+		allowed_regions=[contract.allowed_target],
+		epsilon=0.5,
 	)
 
 
@@ -1173,20 +1210,31 @@ def test_render_left_anchor_hydroxyl_connector_hits_o_center():
 	line = _line_by_id(ops, "C4_down_connector")
 	assert label.text == "HO"
 	assert label.anchor == "end"
-	oxygen_center = _hydroxyl_oxygen_center(label)
-	assert line.p1[0] == pytest.approx(line.p2[0], abs=1e-5)
-	assert line.p2[0] == pytest.approx(oxygen_center[0], abs=1e-3)
-	assert _point_outside_circle_radius(
-		line.p2,
-		oxygen_center,
-		haworth_renderer._hydroxyl_oxygen_radius(label.font_size) + (line.width * 0.5),
+	contract = render_geometry.label_attach_contract_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		line_width=line.width,
+		chain_attach_site="core_center",
+		font_name=label.font_name,
+	)
+	assert contract.policy.target_kind == "oxygen_circle"
+	assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=1e-6)
+	assert render_geometry.validate_attachment_paint(
+		line_start=line.p1,
+		line_end=line.p2,
+		line_width=line.width,
+		forbidden_regions=[contract.full_target],
+		allowed_regions=[contract.allowed_target],
+		epsilon=0.5,
 	)
 
 
 #============================================
 def test_render_hydroxyl_connectors_do_not_overlap_oxygen_glyph():
-	spec, ops = _render("ARLRDM", "pyranose", "alpha")
-	slot_map = haworth_renderer.carbon_slot_map(spec)
+	_, ops = _render("ARLRDM", "pyranose", "alpha")
 	for label in _texts(ops):
 		op_id = label.op_id or ""
 		if not op_id.endswith("_label"):
@@ -1194,15 +1242,24 @@ def test_render_hydroxyl_connectors_do_not_overlap_oxygen_glyph():
 		if label.text not in ("OH", "HO"):
 			continue
 		line = _line_by_id(ops, op_id.replace("_label", "_connector"))
-		oxygen_center = _hydroxyl_oxygen_center(label)
-		carbon = int(op_id.split("_")[0][1:])
-		slot = slot_map.get(f"C{carbon}")
-		if slot not in ("BR", "BL", "TL"):
-			assert line.p2[0] == pytest.approx(oxygen_center[0], abs=1e-3)
-		assert _point_outside_circle_radius(
-			line.p2,
-			oxygen_center,
-			haworth_renderer._hydroxyl_oxygen_radius(label.font_size) + (line.width * 0.5),
+		contract = render_geometry.label_attach_contract_from_text_origin(
+			text_x=label.x,
+			text_y=label.y,
+			text=label.text,
+			anchor=label.anchor,
+			font_size=label.font_size,
+			line_width=line.width,
+			chain_attach_site="core_center",
+			font_name=label.font_name,
+		)
+		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=1e-6)
+		assert render_geometry.validate_attachment_paint(
+			line_start=line.p1,
+			line_end=line.p2,
+			line_width=line.width,
+			forbidden_regions=[contract.full_target],
+			allowed_regions=[contract.allowed_target],
+			epsilon=0.5,
 		)
 
 
@@ -1265,13 +1322,24 @@ def test_furanose_alpha_hydroxyl_connectors_remain_vertical_and_o_centered():
 		label = _text_by_id(ops, f"{op_id}_label")
 		line = _line_by_id(ops, f"{op_id}_connector")
 		assert label.text in ("OH", "HO")
-		oxygen_center = _hydroxyl_oxygen_center(label)
-		assert line.p1[0] == pytest.approx(line.p2[0], abs=1e-5)
-		assert line.p2[0] == pytest.approx(oxygen_center[0], abs=1e-3)
-		assert _point_outside_circle_radius(
-			line.p2,
-			oxygen_center,
-			haworth_renderer._hydroxyl_oxygen_radius(label.font_size) + (line.width * 0.5),
+		contract = render_geometry.label_attach_contract_from_text_origin(
+			text_x=label.x,
+			text_y=label.y,
+			text=label.text,
+			anchor=label.anchor,
+			font_size=label.font_size,
+			line_width=line.width,
+			chain_attach_site="core_center",
+			font_name=label.font_name,
+		)
+		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=1e-6)
+		assert render_geometry.validate_attachment_paint(
+			line_start=line.p1,
+			line_end=line.p2,
+			line_width=line.width,
+			forbidden_regions=[contract.full_target],
+			allowed_regions=[contract.allowed_target],
+			epsilon=0.5,
 		)
 
 
@@ -1631,10 +1699,24 @@ def test_render_ketopentose_furanose_down_ch2oh_connector_hits_leading_carbon_ce
 def test_render_furanose_top_up_connectors_above_oxygen_label():
 	_, ops = _render("MKLRDM", "furanose", "beta", show_hydrogens=False)
 	oxygen = _text_by_id(ops, "oxygen_label")
-	oxygen_top = oxygen.y - oxygen.font_size
+	oxygen_target = render_geometry.label_target_from_text_origin(
+		text_x=oxygen.x,
+		text_y=oxygen.y,
+		text=oxygen.text,
+		anchor=oxygen.anchor,
+		font_size=oxygen.font_size,
+		font_name=oxygen.font_name,
+	)
 	for op_id in ("C2_up_connector", "C5_up_connector"):
 		line = _line_by_id(ops, op_id)
-		assert line.p2[1] < (oxygen_top - 0.05)
+		assert render_geometry.validate_attachment_paint(
+			line_start=line.p1,
+			line_end=line.p2,
+			line_width=line.width,
+			forbidden_regions=[oxygen_target],
+			allowed_regions=[],
+			epsilon=0.5,
+		)
 
 
 #============================================
@@ -1825,11 +1907,24 @@ def test_sub_length_default_single_wide():
 	line = _line_by_id(ops, "C1_down_connector")
 	label = _text_by_id(ops, "C1_down_label")
 	if label.text in ("OH", "HO"):
-		oxygen_center = _hydroxyl_oxygen_center(label)
-		assert _point_outside_circle_radius(
-			line.p2,
-			oxygen_center,
-			haworth_renderer._hydroxyl_oxygen_radius(label.font_size) + (line.width * 0.5),
+		contract = render_geometry.label_attach_contract_from_text_origin(
+			text_x=label.x,
+			text_y=label.y,
+			text=label.text,
+			anchor=label.anchor,
+			font_size=label.font_size,
+			line_width=line.width,
+			chain_attach_site="core_center",
+			font_name=label.font_name,
+		)
+		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=1e-6)
+		assert render_geometry.validate_attachment_paint(
+			line_start=line.p1,
+			line_end=line.p2,
+			line_width=line.width,
+			forbidden_regions=[contract.full_target],
+			allowed_regions=[contract.allowed_target],
+			epsilon=0.5,
 		)
 	else:
 		label_box = _connector_bbox_for_label(label)
@@ -1896,7 +1991,8 @@ def _assert_furanose_tail_branch_geometry(
 		assert ch2_branch.p2[0] > ch2_branch.p1[0]
 	else:
 		raise AssertionError(f"Unsupported expected CH2 side: {expect_ch2_side}")
-	assert ho_branch.p2[1] < ho_branch.p1[1]
+	_assert_line_on_lattice(ho_branch)
+	_assert_line_on_lattice(ch2_branch)
 
 
 #============================================
@@ -1936,6 +2032,20 @@ def test_render_gulose_furanose_alpha_tail_branches_left_with_hoh2c_text():
 		connector_id="C4_down_chain1_oh_connector",
 		label_id="C4_down_chain1_oh_label",
 	)
+
+
+#============================================
+def test_render_mannose_furanose_alpha_two_carbon_up_branch_angles():
+	_, ops = _render("ALLRDM", "furanose", "alpha", show_hydrogens=False)
+	_assert_line_angle(_line_by_id(ops, "C4_up_chain1_oh_connector"), 150.0)
+	_assert_line_angle(_line_by_id(ops, "C4_up_chain2_connector"), 30.0)
+
+
+#============================================
+def test_render_gulose_furanose_alpha_two_carbon_down_branch_angles():
+	_, ops = _render("ARRLDM", "furanose", "alpha", show_hydrogens=False)
+	_assert_line_angle(_line_by_id(ops, "C4_down_chain1_oh_connector"), 150.0)
+	_assert_line_angle(_line_by_id(ops, "C4_down_chain2_connector"), 240.0)
 
 
 #============================================
@@ -2010,9 +2120,9 @@ def test_render_furanose_two_carbon_tail_left_parity_class_uses_hashed_ho(code):
 	assert ch2_branch.p1 == pytest.approx(trunk.p2)
 	assert ho_branch.p2[0] < ho_branch.p1[0]
 	assert ch2_branch.p2[0] < ch2_branch.p1[0]
-	assert ho_branch.p2[1] < ho_branch.p1[1]
-	assert ch2_branch.p2[1] > ch2_branch.p1[1]
-	assert ch2_label.y > ho_label.y
+	_assert_line_on_lattice(ho_branch)
+	_assert_line_on_lattice(ch2_branch)
+	assert ch2_label.y < ho_label.y
 	_assert_hashed_connector_quality(
 		ops,
 		connector_id="C4_down_chain1_oh_connector",

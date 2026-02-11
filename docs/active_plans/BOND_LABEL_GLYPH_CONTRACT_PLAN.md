@@ -4,6 +4,8 @@
 
 Objective: define and implement one universal, renderer-level bond-to-label contract so connectors attach to intended element glyphs deterministically, with fixed bond-length policy by bond style and tightly controlled exceptions.
 
+Status: Phase 4 complete on 2026-02-11 after independent alignment gate closure; Phase 5 next (not started).
+
 ## Design philosophy
 
 - One geometry truth: attachment legality and endpoint selection are defined in shared runtime geometry, never in caller or tool heuristics.
@@ -11,6 +13,12 @@ Objective: define and implement one universal, renderer-level bond-to-label cont
 - Primitive realism with calibration: treat each target element as a glyph convex hull proxy via analytic primitives, and allow this only when calibrated against true glyph outlines within explicit error budgets.
 - Measurable primitives: every analytic glyph primitive must expose one explicit center point and one explicit measurable area so alignment and legality checks can be computed precisely and consistently.
 - Fixed defaults, explicit exceptions: bond lengths are policy-driven by style with tagged, auditable exceptions only.
+- Direction lattice contract: bond directions must be constrained to canonical
+  30-degree lattice angles (`30*n mod 360`; i.e. `0, 30, 60, ..., 330`)
+  unless an explicit, documented exception is approved.
+  This contract applies to generated/template geometry paths (Haworth and
+  non-Haworth ring generation), not to BKChem GUI freehand draw-mode snapping
+  options (`30/18/6/1` and `freestyle`).
 - Connector authority: bond geometry is authoritative and labels adapt; labels do not relocate chemically meaningful endpoints.
 - Drift prevention by evidence: visual acceptance must include external reference metrics, not only self-derived internal centroids.
 
@@ -31,10 +39,10 @@ Non-goals:
 
 ## Current state summary
 
-- Current behavior passes many gates but still shows visual endpoint misses in Haworth, especially chain-like labels such as `CH2OH`.
-- Existing success metrics can be self-referential (endpoint validated against a target model that is itself offset).
-- Repeated local tuning improves one case and regresses another.
-- The repository has a strong archived attachment plan, but closure criteria were weighted toward migration/deletion gates and not enough toward explicit visual endpoint contracts for key failing cases.
+- Shared runtime endpoint authority now covers Haworth connector paths, including chain2 and hydroxyl branch connectors.
+- Independent SVG-only measurement reports are generated from existing matrix outputs and now pass hard gate (`--fail-on-miss`).
+- Matrix regeneration strict checks are green (`Strict-overlap failures: 0`) with known Haworth alignment blockers corrected.
+- Phase 4 closure evidence includes two consecutive full `tests/test*.py` runs with no regressions.
 
 ## Architecture boundaries and ownership
 
@@ -54,7 +62,9 @@ Ownership:
 
 Current phase status:
 - Phase 3 is complete.
-- Phase 4 is the next active phase.
+- Phase 4 is complete with manager-defined alignment target checks and
+  straightness/lattice gates passing (2026-02-11).
+- Phase 5 is next and remains blocked until explicitly started.
 
 ### Phase 0: contract freeze and baseline
 
@@ -130,10 +140,65 @@ Deliverables:
   - one `CH3` attach-to-`C`,
   - one `OH/HO` attach-to-`O`.
 - Regenerate matrix via top-level renderer interface only.
+- Add independent measurement tool
+  `tools/measure_glyph_bond_alignment.py` that analyzes existing generated
+  SVGs from `output_smoke/archive_matrix_previews/generated/*.svg` without
+  calling `haworth_renderer.render_from_code(...)`, and reports per-label
+  endpoint-to-target distances plus top misses.
+- Independent measurement report includes bond-length distribution metrics
+  (all lines, connector lines, non-connector lines) to detect style drift.
 
 Done checks:
 - Known Haworth failures are corrected without regressions in previously correct cases.
 - Sentinel tests prove contract is shared beyond Haworth.
+- Independent measurement tool reports alignment rate and miss inventory, and
+  supports non-zero exit (`--fail-on-miss`) for gate enforcement.
+- All manager-defined Phase 4 alignment targets pass exactly as specified.
+- Ring-connected bond straightness contract is satisfied:
+  any bond segment that directly connects to a Haworth ring must be straight.
+- Off-ring branch angle contract is satisfied:
+  bonds that connect to bonds off the ring follow
+  canonical `30*n mod 360` angle rules.
+- Non-Haworth ring bond angle contract is satisfied:
+  non-Haworth ring bonds also follow canonical `30*n mod 360`.
+
+Phase 4 passing checklist (required target fixtures):
+- `ARDM` | `D-Erythrose` | `furanose` | `alpha`: check all three `OH` groups.
+- `ARRDM` | `D-Ribose` | `furanose` | `beta`: check upward `CH2OH` group.
+- `ARRDM` | `D-Ribose` | `pyranose` | `alpha`: check all downward `OH` groups.
+- `ALLDM` | `D-Lyxose` | `furanose` | `beta`: check internal `OH` groups.
+- `ALLDM` | `D-Lyxose` | `pyranose` | `alpha`: check internal `OH` groups.
+- `ARRRDM` | `D-Allose` | `furanose` | `alpha`: check two-carbon up-left `OH` and `CH2OH`.
+- `ARRRDM` | `D-Allose` | `pyranose` | `alpha`: check upward `CH2OH` group.
+- `ARRLDM` | `D-Gulose` | `furanose` | `alpha`: check two-carbon down-left `OH` and `CH2OH`.
+- `MKRDM` | `D-Ribulose` | `furanose` | `alpha`: check right-side `CH2OH` and `OH`; bonds must be straight.
+- `ARRLLd` | `L-Rhamnose` | `pyranose` | `alpha`: check internal `CH3` group for straight bond, correct bond length, and `C` label-to-bond alignment.
+- `ARLLDc` | `D-Galacturonic Acid` | `pyranose` | `alpha`: check up-left `COOH` group for straight bond, correct bond length, and `C` label-to-bond alignment.
+- Global Phase 4 geometry checks:
+  - Any bond that connects to a Haworth ring MUST be straight.
+  - Any bond that connects to bonds off the ring MUST follow canonical
+    `30*n mod 360` (`0, 30, 60, ..., 330`).
+  - Non-Haworth ring bonds MUST follow canonical
+    `30*n mod 360` (`0, 30, 60, ..., 330`).
+
+Side goal (assigned to junior coder, independent execution):
+- Add one standalone SVG checker mode (or tool) that runs multiple checks on a
+  provided input SVG file and writes a report.
+- Required report checks:
+  1. number of bonds outside canonical lattice angles
+     (`30*n mod 360`; `0, 30, 60, ..., 330`);
+  2. glyph/glyph overlap count;
+  3. bond/bond overlap count;
+  4. bond/glyph overlap count;
+  5. glyph-bond alignment count outside tolerance spec;
+  6. Haworth base ring template detection and exclusion from checks.
+- CLI requirement:
+  - add boolean argparse flag `--exclude-haworth-base-ring` with default ON;
+  - add paired opt-out flag (for example `--include-haworth-base-ring`) that
+    disables exclusion.
+- Independence requirement:
+  - this side-goal checker must analyze input SVG geometry directly and run
+    independently of generation-time rendering code paths.
 
 ### Phase 5: rollout and close-out
 
@@ -162,10 +227,10 @@ Done checks:
   - Done: complete; untagged length deviations are disallowed.
 - Phase 4:
   - Deliverables: Haworth regressions fixed + 3 non-Haworth sentinel proofs.
-  - Done: next; not complete yet.
+  - Done: complete; manager checklist targets and geometry gates are green.
 - Phase 5:
   - Deliverables: close-out docs and status alignment.
-  - Done: plan can be marked complete with evidence.
+  - Done: next; not complete yet.
 
 ## Acceptance criteria and gates
 
@@ -175,10 +240,17 @@ Unit gate:
 
 Integration gate:
 - `tools/archive_matrix_summary.py -r` succeeds using renderer-owned APIs only.
+- `tools/measure_glyph_bond_alignment.py --fail-on-miss` runs on existing
+  generated SVG outputs and exits zero only when no misses are detected.
 
 Regression gate:
 - Full `tests/test*.py` passes.
 - Haworth targeted visuals no longer show C/H boundary misses in the baseline failure set.
+- Phase 4 required target fixtures (manager checklist) pass and are recorded with
+  per-target evidence.
+- Straightness and lattice-angle rules pass:
+  Haworth ring-connected bonds are straight, and off-ring/non-Haworth ring
+  bonds comply with canonical `30*n mod 360`.
 
 Release gate:
 - Two consecutive full-suite green runs.
@@ -189,6 +261,11 @@ Release gate:
 
 Primary verification:
 - Haworth matrix (because it currently exposes failures clearly).
+
+Independent verification:
+- Run `tools/measure_glyph_bond_alignment.py` against existing generated SVGs
+  (no re-render in this tool), and persist JSON/TXT metric artifacts under
+  `output_smoke/`.
 
 Minimal non-Haworth verification:
 - Add only three sentinel tests outside Haworth (contract smoke, not full expansion).
@@ -202,6 +279,10 @@ Failure semantics:
 - Any visual regression in baseline fixtures blocks progression.
 - Any untagged bond-length exception blocks progression.
 - Any tool-level geometry heuristic blocks progression.
+- Any independent measurement miss (or missing connector assignment) blocks
+  Phase 4 closure.
+- Any violation of straightness or 30-degree lattice-angle rules blocks
+  Phase 4 closure.
 
 ## Migration and compatibility policy
 
@@ -254,15 +335,18 @@ Rollback strategy:
 
 ## Rollout and release checklist
 
-- [ ] Contract vocabulary frozen and approved.
-- [ ] Glyph primitive model implemented (`O/C/S`, `N/H`, `P` special).
-- [ ] Shared endpoint resolver used by runtime and strict validator.
+- [x] Contract vocabulary frozen and approved.
+- [x] Glyph primitive model implemented (`O/C/S`, `N/H`, `P` special).
+- [x] Shared endpoint resolver used by runtime and strict validator.
 - [x] Fixed style-length table implemented and documented.
 - [x] Exception tags implemented and audited.
-- [ ] Baseline Haworth failures corrected with before/after evidence.
-- [ ] Minimal non-Haworth sentinel tests passing.
+- [x] Baseline Haworth failures corrected with before/after evidence.
+- [x] Minimal non-Haworth sentinel tests passing.
 - [x] Full suite passes twice consecutively.
 - [x] Changelog and progress docs updated.
+- [x] Independent glyph-bond alignment tool implemented and green
+      (`tools/measure_glyph_bond_alignment.py --fail-on-miss`).
+- [x] Phase 4 manager checklist targets pass (all 11 required fixtures above).
 
 ## Documentation close-out requirements
 
@@ -278,3 +362,5 @@ Rollback strategy:
    - Recommendation: not in this phase. Start with deterministic analytic primitives per element class, then consider outline mode as a later optional accuracy phase.
 3. What exact default length ratios should we lock for double, triple, dashed_hbond, rounded_wedge, and hashed_wedge?
 4. Should exception tags be surfaced in debug artifacts by default, or only in strict/debug mode?
+5. What Phase 4 closure threshold should independent alignment use:
+   strict zero misses or a temporary bounded miss budget?

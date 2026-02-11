@@ -32,6 +32,33 @@ FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR,
 # overlap acceptance gate remains 0.5 px in validate_attachment_paint.
 RETREAT_SOLVER_EPSILON = 1e-3
 STRICT_OVERLAP_EPSILON = 0.5
+CANONICAL_LATTICE_ANGLES = (0.0, 60.0, 120.0, 180.0, 240.0, 300.0)
+
+
+#============================================
+def _snap_unit_vector_to_lattice(dx: float, dy: float) -> tuple[float, float]:
+	"""Snap one direction vector to the nearest canonical 60-degree lattice angle."""
+	unit_dx, unit_dy = _geom.normalize_vector(dx, dy)
+	if abs(unit_dx) <= 1e-12 and abs(unit_dy) <= 1e-12:
+		return (1.0, 0.0)
+	angle = math.degrees(math.atan2(unit_dy, unit_dx)) % 360.0
+
+	def _angle_distance(value_a: float, value_b: float) -> float:
+		return abs(((value_a - value_b + 180.0) % 360.0) - 180.0)
+
+	nearest = min(
+		CANONICAL_LATTICE_ANGLES,
+		key=lambda lattice_angle: _angle_distance(angle, lattice_angle),
+	)
+	radians = math.radians(nearest)
+	return _geom.normalize_vector(math.cos(radians), math.sin(radians))
+
+
+#============================================
+def _unit_vector_from_degrees(angle_degrees: float) -> tuple[float, float]:
+	"""Return one unit vector for one absolute degree angle."""
+	radians = math.radians(float(angle_degrees))
+	return _geom.normalize_vector(math.cos(radians), math.sin(radians))
 
 
 #============================================
@@ -123,50 +150,17 @@ def attach_target_for_text_op(
 		label_op: render_ops.TextOp,
 		chain_attach_site: str = "core_center") -> _render_geometry.AttachTarget:
 	"""Build attach target for one TextOp using shared runtime policy."""
-	text = str(label_op.text or "")
-	if _text.is_chain_like_render_text(text):
-		return _render_geometry.label_attach_target_from_text_origin(
-			text_x=label_op.x,
-			text_y=label_op.y,
-			text=text,
-			anchor=label_op.anchor,
-			font_size=label_op.font_size,
-			attach_atom="first",
-			attach_element="C",
-			attach_site=chain_attach_site,
-			font_name=label_op.font_name,
-		)
-	if text == "OH":
-		return _render_geometry.label_attach_target_from_text_origin(
-			text_x=label_op.x,
-			text_y=label_op.y,
-			text=text,
-			anchor=label_op.anchor,
-			font_size=label_op.font_size,
-			attach_atom="first",
-			attach_element="O",
-			font_name=label_op.font_name,
-		)
-	if text == "HO":
-		return _render_geometry.label_attach_target_from_text_origin(
-			text_x=label_op.x,
-			text_y=label_op.y,
-			text=text,
-			anchor=label_op.anchor,
-			font_size=label_op.font_size,
-			attach_atom="last",
-			attach_element="O",
-			font_name=label_op.font_name,
-		)
-	return _render_geometry.label_attach_target_from_text_origin(
+	contract = _render_geometry.label_attach_contract_from_text_origin(
 		text_x=label_op.x,
 		text_y=label_op.y,
-		text=text,
+		text=str(label_op.text or ""),
 		anchor=label_op.anchor,
 		font_size=label_op.font_size,
-		attach_atom="first",
+		chain_attach_site=chain_attach_site,
+		line_width=0.0,
 		font_name=label_op.font_name,
 	)
+	return contract.endpoint_target
 
 
 #============================================
@@ -177,27 +171,6 @@ def _endpoint_near_label(
 	d1 = geometry.point_distance(connector.p1[0], connector.p1[1], label.x, label.y)
 	d2 = geometry.point_distance(connector.p2[0], connector.p2[1], label.x, label.y)
 	return connector.p1 if d1 <= d2 else connector.p2
-
-
-#============================================
-def _select_chain_attach_site_for_connector(
-		label: render_ops.TextOp,
-		connector: render_ops.LineOp) -> str:
-	"""Resolve chain attach site from connector endpoint to enforce endpoint contract."""
-	core_target = attach_target_for_text_op(label, chain_attach_site="core_center")
-	stem_target = attach_target_for_text_op(label, chain_attach_site="stem_centerline")
-	endpoint = _endpoint_near_label(label, connector)
-	core_contains = _geom.point_in_box(endpoint, core_target.box)
-	stem_contains = _geom.point_in_box(endpoint, stem_target.box)
-	if core_contains and not stem_contains:
-		return "core_center"
-	if stem_contains and not core_contains:
-		return "stem_centerline"
-	core_x, core_y = core_target.centroid()
-	stem_x, stem_y = stem_target.centroid()
-	core_distance = geometry.point_distance(endpoint[0], endpoint[1], core_x, core_y)
-	stem_distance = geometry.point_distance(endpoint[0], endpoint[1], stem_x, stem_y)
-	return "core_center" if core_distance <= stem_distance else "stem_centerline"
 
 
 #============================================
@@ -332,10 +305,18 @@ def _attach_target_for_connector(
 		label: render_ops.TextOp,
 		connector: render_ops.LineOp | None) -> _render_geometry.AttachTarget:
 	"""Resolve one connector-specific attach target from shared policy."""
-	if connector is not None and _text.is_chain_like_render_text(str(label.text or "")):
-		site = _select_chain_attach_site_for_connector(label, connector)
-		return attach_target_for_text_op(label, chain_attach_site=site)
-	return attach_target_for_text_op(label)
+	if connector is None:
+		return attach_target_for_text_op(label)
+	return _render_geometry.label_allowed_target_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=str(label.text or ""),
+		anchor=label.anchor,
+		font_size=label.font_size,
+		line_width=float(getattr(connector, "width", 0.0) or 0.0),
+		chain_attach_site="core_center",
+		font_name=label.font_name,
+	)
 
 
 #============================================
@@ -343,9 +324,8 @@ def _endpoint_for_target(
 		line: render_ops.LineOp,
 		target: _render_geometry.AttachTarget) -> tuple[float, float]:
 	"""Return line endpoint inside target when available, otherwise nearest end."""
-	x1, y1, x2, y2 = target.box
-	p1_inside = x1 <= line.p1[0] <= x2 and y1 <= line.p1[1] <= y2
-	p2_inside = x1 <= line.p2[0] <= x2 and y1 <= line.p2[1] <= y2
+	p1_inside = _point_in_target_closed(line.p1, target)
+	p2_inside = _point_in_target_closed(line.p2, target)
 	if p1_inside and not p2_inside:
 		return line.p1
 	if p2_inside and not p1_inside:
@@ -362,6 +342,33 @@ def _endpoint_for_target(
 
 
 #============================================
+def _target_debug_box(
+		target: _render_geometry.AttachTarget) -> tuple[float, float, float, float] | None:
+	"""Return debug-overlay box for target when representable."""
+	if target.kind == "box":
+		return target.box
+	if target.kind == "circle":
+		cx, cy = target.center
+		radius = float(target.radius)
+		return (cx - radius, cy - radius, cx + radius, cy + radius)
+	if target.kind == "composite":
+		boxes = []
+		for child in (target.targets or ()):
+			child_box = _target_debug_box(_render_geometry._coerce_attach_target(child))
+			if child_box is None:
+				continue
+			boxes.append(child_box)
+		if not boxes:
+			return None
+		x1 = min(box[0] for box in boxes)
+		y1 = min(box[1] for box in boxes)
+		x2 = max(box[2] for box in boxes)
+		y2 = max(box[3] for box in boxes)
+		return (x1, y1, x2, y2)
+	return None
+
+
+#============================================
 def _append_attach_debug_overlay_ops(ops: list) -> None:
 	"""Append debug overlay primitives for attach target, centerline, and endpoint."""
 	lines = {op.op_id: op for op in ops if isinstance(op, render_ops.LineOp) and op.op_id}
@@ -373,7 +380,10 @@ def _append_attach_debug_overlay_ops(ops: list) -> None:
 		if connector is None:
 			continue
 		target = _attach_target_for_connector(label, connector)
-		x1, y1, x2, y2 = target.box
+		target_box = _target_debug_box(target)
+		if target_box is None:
+			continue
+		x1, y1, x2, y2 = target_box
 		ops.append(
 			render_ops.PolygonOp(
 				points=((x1, y1), (x2, y1), (x2, y2), (x1, y2)),
@@ -579,6 +589,7 @@ def render(
 	default_sub_length = bond_length * 0.45
 	connector_width = back_thickness
 	simple_jobs = []
+	two_carbon_tail_jobs = []
 
 	for carbon in sorted(_ring_carbons(spec)):
 		carbon_key = f"C{carbon}"
@@ -595,10 +606,18 @@ def render(
 			raw_dx, raw_dy = slot_label_cfg[slot][dir_key]
 			dx, dy = _geom.normalize_vector(raw_dx, raw_dy)
 			anchor = slot_label_cfg[slot]["anchor"]
+			label_policy = _render_geometry.default_label_attach_policy(
+				text=str(label),
+				chain_attach_site="core_center",
+			)
+			is_first_hydroxyl = (
+				label_policy.attach_element == "O"
+				and label_policy.attach_atom == "first"
+			)
 			if (
 					spec.ring_type == "pyranose"
 					and direction == "up"
-					and str(label) == "OH"
+					and is_first_hydroxyl
 					and slot in ("BL", "BR")
 			):
 				# Interior pyranose hydroxyl labels should face ring center.
@@ -610,7 +629,7 @@ def render(
 				if (
 						slot == "MR"
 						and left_top_is_chain_like
-						and str(label) == "OH"
+						and is_first_hydroxyl
 						and down_label == "H"
 				):
 					# Keep right-top OH visually separate from left CH2OH
@@ -624,22 +643,25 @@ def render(
 					and _text.is_two_carbon_tail_label(label)
 					and slot in ("ML", "MR")
 			):
-				_add_furanose_two_carbon_tail_ops(
-					ops=ops,
-					carbon=carbon,
-					slot=slot,
-					direction=direction,
-					vertex=vertex,
-					ring_center=ring_center,
-					dx=dx,
-					dy=dy,
-					segment_length=effective_length,
-					connector_width=connector_width,
-					font_size=font_size,
-					font_name=font_name,
-					anchor=anchor,
-					line_color=line_color,
-					label_color=label_color,
+				# Defer branched tail placement until simple labels are finalized so
+				# chain2 collision search can see full label occupancy.
+				two_carbon_tail_jobs.append(
+					{
+						"carbon": carbon,
+						"slot": slot,
+						"direction": direction,
+						"vertex": vertex,
+						"ring_center": ring_center,
+						"dx": dx,
+						"dy": dy,
+						"segment_length": effective_length,
+						"connector_width": connector_width,
+						"font_size": font_size,
+						"font_name": font_name,
+						"anchor": anchor,
+						"line_color": line_color,
+						"label_color": label_color,
+					}
 				)
 				continue
 			chain_label_list = _text.chain_labels(label)
@@ -701,6 +723,24 @@ def render(
 			font_name=job["font_name"],
 			anchor=job["anchor"],
 			attach_atom=job.get("attach_atom"),
+			line_color=job["line_color"],
+			label_color=job["label_color"],
+		)
+	for job in two_carbon_tail_jobs:
+		_add_furanose_two_carbon_tail_ops(
+			ops=ops,
+			carbon=job["carbon"],
+			slot=job["slot"],
+			direction=job["direction"],
+			vertex=job["vertex"],
+			ring_center=job["ring_center"],
+			dx=job["dx"],
+			dy=job["dy"],
+			segment_length=job["segment_length"],
+			connector_width=job["connector_width"],
+			font_size=job["font_size"],
+			font_name=job["font_name"],
+			anchor=job["anchor"],
 			line_color=job["line_color"],
 			label_color=job["label_color"],
 		)
@@ -798,236 +838,68 @@ def _add_simple_label_ops(
 		and slot == "ML"
 		and is_chain_like_label
 	)
+	nominal_vertical_direction = abs(dx) <= 1e-9 and abs(dy) > 1e-9
+	attach_element = "C" if is_chain_like_label else None
+	attach_site = "core_center" if is_chain_like_label else None
+	attach_atom_for_policy = attach_atom if attach_atom is not None else ("first" if is_chain_like_label else None)
+	if nominal_vertical_direction:
+		text_x, text_y = _align_text_origin_to_attach_centerline(
+			text_x=text_x,
+			text_y=text_y,
+			text=text,
+			anchor=anchor,
+			font_size=draw_font_size,
+			target_center_x=vertex[0],
+			attach_atom=attach_atom_for_policy,
+			attach_element=attach_element,
+			attach_site=attach_site,
+			chain_attach_site="core_center",
+			font_name=font_name,
+		)
 	if force_vertical_chain:
-		# Align vertical chain-like carbon connectors to the stem centerline.
+		# Align vertical chain-like carbon connectors to the carbon core centerline.
 		core_target = _render_geometry.label_attach_target_from_text_origin(
 			text_x=text_x,
 			text_y=text_y,
 			text=text,
 			anchor=anchor,
 			font_size=draw_font_size,
-			attach_atom=attach_atom or "first",
+			attach_atom=attach_atom_for_policy,
 			attach_element="C",
-			attach_site="stem_centerline",
+			attach_site="core_center",
 			font_name=font_name,
 		)
 		core_center_x, _core_center_y = core_target.centroid()
 		text_x += vertex[0] - core_center_x
-	first_attach_target = _render_geometry.label_attach_target_from_text_origin(
-		text_x=text_x,
-		text_y=text_y,
-		text=text,
-		anchor=anchor,
-		font_size=draw_font_size,
-		attach_atom="first",
-		font_name=font_name,
-	)
-	last_attach_target = _render_geometry.label_attach_target_from_text_origin(
-		text_x=text_x,
-		text_y=text_y,
-		text=text,
-		anchor=anchor,
-		font_size=draw_font_size,
-		attach_atom="last",
-		font_name=font_name,
-	)
-	full_target = _render_geometry.label_target_from_text_origin(
-		text_x=text_x,
-		text_y=text_y,
-		text=text,
-		anchor=anchor,
-		font_size=draw_font_size,
-		font_name=font_name,
-	)
-	target = full_target
 	is_hydroxyl_label = _text.is_hydroxyl_render_text(text)
-	target_hint = None
-	oxygen_center = None
-	connector_end = None
-
-	def _resolve_oxygen_circle_endpoint(
-			local_text_x: float,
-			local_text_y: float,
-			forbidden_regions: list[_render_geometry.AttachTarget] | None = None) -> tuple[
-			tuple[float, float] | None,
-			tuple[float, float] | None]:
-		local_oxygen_center = _text.hydroxyl_oxygen_center(
-			text=text,
-			anchor=anchor,
-			text_x=local_text_x,
-			text_y=local_text_y,
-			font_size=draw_font_size,
-		)
-		if local_oxygen_center is None:
-			return (None, None)
-		local_oxygen_radius = _hydroxyl_connector_radius(draw_font_size, connector_width)
-		local_circle_target = _render_geometry.make_circle_target(local_oxygen_center, local_oxygen_radius)
-		local_connector_end = _resolve_legal_attach_endpoint(
-			bond_start=vertex,
-			attach_target=local_circle_target,
-			interior_hint=local_oxygen_center,
-			constraints=_render_geometry.AttachConstraints(
-				vertical_lock=slot in ("BR", "BL", "TL"),
-				direction_policy="line",
-			),
-			line_width=connector_width,
-			forbidden_regions=forbidden_regions,
-			epsilon=RETREAT_SOLVER_EPSILON,
-		)
-		return (local_oxygen_center, local_connector_end)
-
+	force_vertical = force_vertical_chain or nominal_vertical_direction
+	constraints = _render_geometry.AttachConstraints(direction_policy="auto")
 	if is_hydroxyl_label:
-		oxygen_center, connector_end = _resolve_oxygen_circle_endpoint(text_x, text_y)
-		if oxygen_center is None or connector_end is None:
-			target = _render_geometry.label_attach_target_from_text_origin(
-				text_x=text_x,
-				text_y=text_y,
-				text=text,
-				anchor=anchor,
-				font_size=draw_font_size,
-				attach_atom=attach_atom or "first",
-				attach_element="O",
-				font_name=font_name,
-			)
-			target_hint = target.centroid()
-			connector_end = None
-	else:
-		if first_attach_target.box != last_attach_target.box:
-			attach_mode = attach_atom or "first"
-			target = _render_geometry.label_attach_target_from_text_origin(
-				text_x=text_x,
-				text_y=text_y,
-				text=text,
-				anchor=anchor,
-				font_size=draw_font_size,
-				attach_atom=attach_mode,
-				attach_element="C" if is_chain_like_label else None,
-				attach_site="stem_centerline" if (is_chain_like_label and force_vertical_chain) else "core_center",
-				font_name=font_name,
-			)
-	if is_hydroxyl_label and oxygen_center is not None and connector_end is not None:
-		# Upward hydroxyl labels need a deterministic escape hatch:
-		# nudge label placement and recompute connector endpoint until the
-		# connector paint no longer penetrates its own label interior.
-		if (
-				ring_type == "furanose"
-				and direction == "up"
-				and slot not in ("BL", "BR")
-		):
-			best_text_x = text_x
-			best_text_y = text_y
-			best_target = full_target
-			best_center = oxygen_center
-			initial_end = connector_end
-			best_end = _resolve_oxygen_circle_endpoint(
-				best_text_x,
-				best_text_y,
-				forbidden_regions=[full_target],
-			)[1]
-			if best_end is None:
-				best_end = initial_end
-			best_retreat = geometry.point_distance(
-				initial_end[0], initial_end[1], best_end[0], best_end[1]
-			)
-			for offset_x, offset_y in _upward_hydroxyl_nudge_offsets(
-					anchor=anchor,
-					font_size=draw_font_size,
-					connector_end=initial_end,
-					oxygen_center=best_center):
-				candidate_text_x = text_x + offset_x
-				candidate_text_y = text_y + offset_y
-				candidate_target = _render_geometry.label_target_from_text_origin(
-					text_x=candidate_text_x,
-					text_y=candidate_text_y,
-					text=text,
-					anchor=anchor,
-					font_size=draw_font_size,
-					font_name=font_name,
-				)
-				_raw_candidate_center, raw_candidate_end = _resolve_oxygen_circle_endpoint(
-					candidate_text_x,
-					candidate_text_y,
-				)
-				if raw_candidate_end is None:
-					continue
-				candidate_center, candidate_end = _resolve_oxygen_circle_endpoint(
-					candidate_text_x,
-					candidate_text_y,
-					forbidden_regions=[candidate_target],
-				)
-				if candidate_center is None or candidate_end is None:
-					continue
-				candidate_retreat = geometry.point_distance(
-					raw_candidate_end[0],
-					raw_candidate_end[1],
-					candidate_end[0],
-					candidate_end[1],
-				)
-				if candidate_retreat < best_retreat:
-					best_text_x = candidate_text_x
-					best_text_y = candidate_text_y
-					best_target = candidate_target
-					best_center = candidate_center
-					best_end = candidate_end
-					best_retreat = candidate_retreat
-				if candidate_retreat <= 1e-9:
-					break
-			text_x = best_text_x
-			text_y = best_text_y
-			full_target = best_target
-			target = best_target
-			oxygen_center = best_center
-			connector_end = best_end
-		if ring_type != "furanose" and direction == "up":
-			recomputed_end = _resolve_oxygen_circle_endpoint(
-				text_x,
-				text_y,
-				forbidden_regions=[full_target],
-			)[1]
-			if recomputed_end is not None:
-				connector_end = recomputed_end
-		if ring_type == "furanose" and direction == "up" and slot in ("BL", "BR"):
-			recomputed_end = _resolve_oxygen_circle_endpoint(
-				text_x,
-				text_y,
-				forbidden_regions=[full_target],
-			)[1]
-			if recomputed_end is not None:
-				connector_end = recomputed_end
-	if connector_end is None:
-		if target_hint is None:
-			target_hint = _text.leading_carbon_center(
-				text=text,
-				anchor=anchor,
-				text_x=text_x,
-				text_y=text_y,
-				font_size=draw_font_size,
-			)
-			if target_hint is None:
-				target_hint = target.centroid()
-			x1, y1, x2, y2 = target.box
-			is_inside = x1 <= target_hint[0] <= x2 and y1 <= target_hint[1] <= y2
-			if not is_inside:
-				target_hint = target.centroid()
-		force_vertical = (
-			ring_type == "furanose"
-			and direction == "up"
-			and slot == "ML"
-			and is_chain_like_label
+		constraints = _render_geometry.AttachConstraints(
+			direction_policy="line",
+			vertical_lock=nominal_vertical_direction or slot in ("BR", "BL", "TL"),
 		)
-		connector_end = _resolve_legal_attach_endpoint(
-			bond_start=vertex,
-			attach_target=target,
-			interior_hint=target_hint,
-			constraints=_render_geometry.AttachConstraints(
-				direction_policy="line" if force_vertical else "auto",
-				vertical_lock=force_vertical,
-			),
-			line_width=connector_width,
-			forbidden_regions=[full_target] if ((not is_hydroxyl_label) and is_chain_like_label) else [],
-			allowed_regions=[target] if ((not is_hydroxyl_label) and is_chain_like_label) else [],
-			epsilon=STRICT_OVERLAP_EPSILON,
+	elif force_vertical:
+		constraints = _render_geometry.AttachConstraints(
+			direction_policy="line",
+			vertical_lock=True,
 		)
+	connector_end, _contract = _render_geometry.resolve_label_connector_endpoint_from_text_origin(
+		bond_start=vertex,
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=draw_font_size,
+		line_width=connector_width,
+		constraints=constraints,
+		epsilon=RETREAT_SOLVER_EPSILON,
+		attach_atom=attach_atom,
+		attach_element=attach_element,
+		attach_site=attach_site,
+		chain_attach_site="core_center",
+		font_name=font_name,
+	)
 	ops.append(
 		render_ops.LineOp(
 			p1=vertex,
@@ -1205,19 +1077,18 @@ def _chain2_label_offset_candidates(
 			(unit_y * step_along * along_scale) + (perp_y * step_perp * perp_scale),
 		)
 
-	# Keep ordering deterministic: no motion first, then push label outward
-	# along connector, then controlled perpendicular fan-out.
-	return [
-		(0.0, 0.0),
-		_offset(1.0, 0.0),
-		_offset(1.6, 0.0),
-		_offset(1.0, 1.0),
-		_offset(1.0, -1.0),
-		_offset(1.8, 1.0),
-		_offset(1.8, -1.0),
-		_offset(0.8, 1.8),
-		_offset(0.8, -1.8),
-	]
+	# Keep ordering deterministic: start near preferred endpoint and expand
+	# outward along the connector with a bounded fan-out to clear label crowding.
+	offsets = [(0.0, 0.0)]
+	for along_scale in (1.0, 1.6, 2.4, 3.2, 4.0, 5.0, 6.5, 8.0, 9.5):
+		offsets.append(_offset(along_scale, 0.0))
+		offsets.append(_offset(along_scale, 1.0))
+		offsets.append(_offset(along_scale, -1.0))
+		offsets.append(_offset(along_scale, 2.0))
+		offsets.append(_offset(along_scale, -2.0))
+	offsets.append(_offset(0.0, 2.5))
+	offsets.append(_offset(0.0, -2.5))
+	return offsets
 
 
 #============================================
@@ -1277,35 +1148,25 @@ def _solve_chain2_label_with_resolver(
 			font_size=font_size):
 		candidate_x = aligned_base_x + offset_x
 		candidate_y = aligned_base_y + offset_y
-		candidate_attach = _render_geometry.label_attach_target_from_text_origin(
+		candidate_endpoint, contract = _render_geometry.resolve_label_connector_endpoint_from_text_origin(
+			bond_start=branch_point,
 			text_x=candidate_x,
 			text_y=candidate_y,
 			text=text,
 			anchor=anchor,
 			font_size=font_size,
+			line_width=connector_width,
+			constraints=_render_geometry.AttachConstraints(direction_policy="auto"),
+			epsilon=RETREAT_SOLVER_EPSILON,
 			attach_atom="first",
 			attach_element="C",
 			attach_site="core_center",
+			chain_attach_site="core_center",
 			font_name=font_name,
 		)
-		candidate_full = _render_geometry.label_target_from_text_origin(
-			text_x=candidate_x,
-			text_y=candidate_y,
-			text=text,
-			anchor=anchor,
-			font_size=font_size,
-			font_name=font_name,
-		)
-		candidate_endpoint = _resolve_legal_attach_endpoint(
-			bond_start=branch_point,
-			attach_target=candidate_attach,
-			interior_hint=candidate_attach.centroid(),
-			constraints=_render_geometry.AttachConstraints(direction_policy="auto"),
-			line_width=connector_width,
-			forbidden_regions=[candidate_full],
-			allowed_regions=[candidate_attach],
-			epsilon=STRICT_OVERLAP_EPSILON,
-		)
+		candidate_attach = contract.endpoint_target
+		candidate_allowed = contract.allowed_target
+		candidate_full = contract.full_target
 		if not _point_in_target_closed(candidate_endpoint, candidate_attach):
 			continue
 		max_overlap = 0.0
@@ -1326,6 +1187,7 @@ def _solve_chain2_label_with_resolver(
 				"text_x": candidate_x,
 				"text_y": candidate_y,
 				"attach": candidate_attach,
+				"allowed": candidate_allowed,
 				"full": candidate_full,
 				"endpoint": candidate_endpoint,
 			}
@@ -1336,7 +1198,7 @@ def _solve_chain2_label_with_resolver(
 			"No legal chain2 label placement with resolver-owned endpoint "
 			f"branch={branch_point} preferred_end={preferred_endpoint} text={text!r} anchor={anchor!r}"
 		)
-	return (best["text_x"], best["text_y"], best["attach"], best["full"], best["endpoint"])
+	return (best["text_x"], best["text_y"], best["allowed"], best["full"], best["endpoint"])
 
 
 #============================================
@@ -1365,6 +1227,94 @@ def _upward_hydroxyl_nudge_offsets(
 
 
 #============================================
+def _text_origin_for_hydroxyl_oxygen_center(
+		text: str,
+		anchor: str,
+		font_size: float,
+		oxygen_center: tuple[float, float]) -> tuple[float, float]:
+	"""Return text origin that places hydroxyl oxygen center at target point."""
+	base_center = _text.hydroxyl_oxygen_center(
+		text=text,
+		anchor=anchor,
+		text_x=0.0,
+		text_y=0.0,
+		font_size=font_size,
+	)
+	if base_center is None:
+		raise ValueError(f"Expected hydroxyl text for oxygen-center placement, got {text!r}")
+	return (
+		oxygen_center[0] - base_center[0],
+		oxygen_center[1] - base_center[1],
+	)
+
+
+#============================================
+def _align_text_origin_to_attach_centerline(
+		text_x: float,
+		text_y: float,
+		text: str,
+		anchor: str,
+		font_size: float,
+		target_center_x: float,
+		attach_atom: str | None = None,
+		attach_element: str | None = None,
+		attach_site: str | None = None,
+		chain_attach_site: str = "core_center",
+		font_name: str = "sans-serif") -> tuple[float, float]:
+	"""Shift text origin so runtime attach target centerline lands on target x."""
+	attach_contract = _render_geometry.label_attach_contract_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+		line_width=0.0,
+		attach_atom=attach_atom,
+		attach_element=attach_element,
+		attach_site=attach_site,
+		chain_attach_site=chain_attach_site,
+		font_name=font_name,
+	)
+	center_x, _center_y = attach_contract.endpoint_target.centroid()
+	return (text_x + (target_center_x - center_x), text_y)
+
+
+#============================================
+def _align_text_origin_to_endpoint_target_centroid(
+		text_x: float,
+		text_y: float,
+		text: str,
+		anchor: str,
+		font_size: float,
+		target_centroid: tuple[float, float],
+		line_width: float = 0.0,
+		attach_atom: str | None = None,
+		attach_element: str | None = None,
+		attach_site: str | None = None,
+		chain_attach_site: str = "core_center",
+		font_name: str = "sans-serif") -> tuple[float, float]:
+	"""Shift text origin so runtime endpoint-target centroid matches one point."""
+	attach_contract = _render_geometry.label_attach_contract_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+		line_width=line_width,
+		attach_atom=attach_atom,
+		attach_element=attach_element,
+		attach_site=attach_site,
+		chain_attach_site=chain_attach_site,
+		font_name=font_name,
+	)
+	center_x, center_y = attach_contract.endpoint_target.centroid()
+	return (
+		text_x + (target_centroid[0] - center_x),
+		text_y + (target_centroid[1] - center_y),
+	)
+
+
+#============================================
 def _add_chain_ops(
 		ops: list,
 		carbon: int,
@@ -1388,34 +1338,21 @@ def _add_chain_ops(
 		anchor_x = _text.anchor_x_offset(text, anchor, font_size)
 		text_x = nominal_end[0] + anchor_x
 		text_y = nominal_end[1] + _text.baseline_shift(direction, font_size, text)
-		label_target = _render_geometry.label_target_from_text_origin(
+		connector_end, _contract = _render_geometry.resolve_label_connector_endpoint_from_text_origin(
+			bond_start=start,
 			text_x=text_x,
 			text_y=text_y,
 			text=text,
 			anchor=anchor,
 			font_size=font_size,
-			font_name=font_name,
-		)
-		attach_target = _render_geometry.label_attach_target_from_text_origin(
-			text_x=text_x,
-			text_y=text_y,
-			text=text,
-			anchor=anchor,
-			font_size=font_size,
+			line_width=connector_width,
+			constraints=_render_geometry.AttachConstraints(direction_policy="auto"),
+			epsilon=RETREAT_SOLVER_EPSILON,
 			attach_atom="first",
 			attach_element="C",
 			attach_site="core_center",
+			chain_attach_site="core_center",
 			font_name=font_name,
-		)
-		connector_end = _resolve_legal_attach_endpoint(
-			bond_start=start,
-			attach_target=attach_target,
-			interior_hint=attach_target.centroid(),
-			constraints=_render_geometry.AttachConstraints(direction_policy="auto"),
-			line_width=connector_width,
-			forbidden_regions=[label_target],
-			allowed_regions=[attach_target],
-			epsilon=STRICT_OVERLAP_EPSILON,
 		)
 		ops.append(
 			render_ops.LineOp(
@@ -1494,9 +1431,16 @@ def _add_furanose_two_carbon_tail_ops(
 	ch2_length = branch_standoff * tail_profile["ch2_length_factor"]
 	ho_anchor = tail_profile["ho_anchor"]
 	ch2_anchor = tail_profile["ch2_anchor"]
-	ho_direction = tail_profile["ho_text_direction"]
 	ch2_direction = tail_profile["ch2_text_direction"]
 	ch2_canonical_text = bool(tail_profile.get("ch2_canonical_text", False))
+	ho_style = "hashed" if tail_profile["hashed_branch"] == "ho" else "solid"
+	ch2_style = "hashed" if tail_profile["hashed_branch"] == "ch2" else "solid"
+	ho_resolver_width = connector_width
+	ch2_resolver_width = connector_width
+	if ho_style == "hashed":
+		ho_resolver_width = max(0.18, connector_width * 0.22)
+	if ch2_style == "hashed":
+		ch2_resolver_width = max(0.18, connector_width * 0.22)
 	ho_end = (
 		branch_point[0] + (ho_dx * ho_length),
 		branch_point[1] + (ho_dy * ho_length),
@@ -1506,8 +1450,30 @@ def _add_furanose_two_carbon_tail_ops(
 		branch_point[1] + (ch2_dy * ch2_length),
 	)
 	ho_text = _text.format_label_text("OH", anchor=ho_anchor)
-	ho_x = ho_end[0] + _text.anchor_x_offset(ho_text, ho_anchor, font_size)
-	ho_y = ho_end[1] + _text.baseline_shift(ho_direction, font_size, ho_text)
+	ho_x, ho_y = _text_origin_for_hydroxyl_oxygen_center(
+		text=ho_text,
+		anchor=ho_anchor,
+		font_size=font_size,
+		oxygen_center=ho_end,
+	)
+	ho_attach_mode = _render_geometry.default_label_attach_policy(
+		text=ho_text,
+		chain_attach_site="core_center",
+	).attach_atom
+	ho_x, ho_y = _align_text_origin_to_endpoint_target_centroid(
+		text_x=ho_x,
+		text_y=ho_y,
+		text=ho_text,
+		anchor=ho_anchor,
+		font_size=font_size,
+		target_centroid=ho_end,
+		line_width=ho_resolver_width,
+		attach_atom=ho_attach_mode,
+		attach_element="O",
+		attach_site="core_center",
+		chain_attach_site="core_center",
+		font_name=font_name,
+	)
 	ho_label_target = _render_geometry.label_target_from_text_origin(
 		text_x=ho_x,
 		text_y=ho_y,
@@ -1520,32 +1486,26 @@ def _add_furanose_two_carbon_tail_ops(
 		ch2_text = _text.apply_subscript_markup("CH2OH")
 	else:
 		ch2_text = _text.format_chain_label_text("CH2OH", anchor=ch2_anchor)
-	ho_attach_mode = "first" if ho_text == "OH" else "last"
-	ho_attach_target = _render_geometry.label_attach_target_from_text_origin(
+	ho_connector_end, ho_contract = _render_geometry.resolve_label_connector_endpoint_from_text_origin(
+		bond_start=branch_point,
 		text_x=ho_x,
 		text_y=ho_y,
 		text=ho_text,
 		anchor=ho_anchor,
 		font_size=font_size,
+		line_width=ho_resolver_width,
+		constraints=_render_geometry.AttachConstraints(direction_policy="line"),
+		epsilon=RETREAT_SOLVER_EPSILON,
 		attach_atom=ho_attach_mode,
 		attach_element="O",
+		chain_attach_site="core_center",
 		font_name=font_name,
-	)
-	ho_connector_end = _resolve_legal_attach_endpoint(
-		bond_start=branch_point,
-		attach_target=ho_attach_target,
-		interior_hint=ho_attach_target.centroid(),
-		constraints=_render_geometry.AttachConstraints(direction_policy="auto"),
-		line_width=connector_width,
-		forbidden_regions=[ho_label_target],
-		allowed_regions=[ho_attach_target],
-		epsilon=STRICT_OVERLAP_EPSILON,
 	)
 	ch2_x, ch2_y, ch2_attach_target, ch2_label_target, ch2_connector_end = _solve_chain2_label_with_resolver(
 		ops=ops,
 		branch_point=branch_point,
 		preferred_endpoint=ch2_end,
-		connector_width=connector_width,
+		connector_width=ch2_resolver_width,
 		text=ch2_text,
 		anchor=ch2_anchor,
 		label_direction=ch2_direction,
@@ -1561,7 +1521,7 @@ def _add_furanose_two_carbon_tail_ops(
 		font_size=font_size,
 		color=line_color,
 		op_id=f"C{carbon}_{direction}_chain2_connector",
-		style="hashed" if tail_profile["hashed_branch"] == "ch2" else "solid",
+		style=ch2_style,
 		forbidden_regions=[ch2_label_target],
 		allowed_regions=[ch2_attach_target],
 	)
@@ -1573,9 +1533,9 @@ def _add_furanose_two_carbon_tail_ops(
 		font_size=font_size,
 		color=line_color,
 		op_id=f"C{carbon}_{direction}_chain1_oh_connector",
-		style="hashed" if tail_profile["hashed_branch"] == "ho" else "solid",
+		style=ho_style,
 		forbidden_regions=[ho_label_target],
-		allowed_regions=[ho_attach_target],
+		allowed_regions=[ho_contract.allowed_target],
 	)
 	ops.append(
 		render_ops.TextOp(
@@ -1615,22 +1575,16 @@ def _furanose_two_carbon_tail_profile(
 		dx: float,
 		dy: float) -> dict:
 	"""Build branched-tail geometry from one ring-local frame and face rule."""
+	del vertex
+	del ring_center
+	del dx
+	del dy
 	if direction not in ("up", "down"):
 		raise ValueError(f"Unsupported two-carbon-tail direction: {direction!r}")
-	trunk_dx, trunk_dy = _geom.normalize_vector(dx, dy)
-	if abs(trunk_dx) <= 1e-9 and abs(trunk_dy) <= 1e-9:
-		center_dx = vertex[0] - ring_center[0]
-		center_dy = vertex[1] - ring_center[1]
-		trunk_dx, trunk_dy = _geom.normalize_vector(center_dx, center_dy)
-	tangent_dx, tangent_dy = (-trunk_dy, trunk_dx)
-	# Stereochemical face rule for two-carbon tails:
-	# "up" face keeps CH2 branch on the positive tangent side and hashes CH2;
-	# "down" face keeps both branches on the negative x-facing side and hashes HO.
+	# Two-carbon furanose tails follow one explicit branch-angle contract:
+	# - "up":   OH at 150 deg, CH2OH at 30 deg
+	# - "down": OH at 150 deg, CH2OH at 240 deg
 	if direction == "up":
-		ho_tangent = -1.0
-		ho_trunk = 0.50
-		ch2_tangent = 1.0
-		ch2_trunk = 0.95
 		profile = {
 			"ho_length_factor": 0.72,
 			"ch2_length_factor": 1.08,
@@ -1641,11 +1595,9 @@ def _furanose_two_carbon_tail_profile(
 			"ch2_canonical_text": True,
 			"hashed_branch": "ch2",
 		}
+		profile["ho_vector"] = _unit_vector_from_degrees(150.0)
+		profile["ch2_vector"] = _unit_vector_from_degrees(30.0)
 	else:
-		ho_tangent = 1.0
-		ho_trunk = -0.55
-		ch2_tangent = 1.0
-		ch2_trunk = 0.72
 		profile = {
 			"ho_length_factor": 1.20,
 			"ch2_length_factor": 0.95,
@@ -1655,16 +1607,8 @@ def _furanose_two_carbon_tail_profile(
 			"ch2_text_direction": "down",
 			"hashed_branch": "ho",
 		}
-	ho_vector = _geom.normalize_vector(
-		(ho_tangent * tangent_dx) + (ho_trunk * trunk_dx),
-		(ho_tangent * tangent_dy) + (ho_trunk * trunk_dy),
-	)
-	ch2_vector = _geom.normalize_vector(
-		(ch2_tangent * tangent_dx) + (ch2_trunk * trunk_dx),
-		(ch2_tangent * tangent_dy) + (ch2_trunk * trunk_dy),
-	)
-	profile["ho_vector"] = ho_vector
-	profile["ch2_vector"] = ch2_vector
+		profile["ho_vector"] = _unit_vector_from_degrees(150.0)
+		profile["ch2_vector"] = _unit_vector_from_degrees(240.0)
 	return profile
 
 

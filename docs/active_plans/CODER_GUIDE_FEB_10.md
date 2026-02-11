@@ -1,5 +1,8 @@
 # Haworth Coder Guide (Feb 10)
 
+Status: Legacy guidance as of 2026-02-11.
+Superseded by: [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+
 ## Objective
 Deliver a universal, no-hack fix for Haworth connector-to-label attachment quality, with strict overlap enforcement and clear visual parity to references.
 

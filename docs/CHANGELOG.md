@@ -1,6 +1,365 @@
 # Changelog
 
 ## 2026-02-11
+- Improve renderer-independent glyph proximity diagnostics in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  replace box-only independent distance checks with per-character glyph
+  primitives (true ellipses for curved glyphs like O/C/S and boxes for stem
+  glyphs), compute bond-end distances against the primitive union, and expose
+  concise `glyph text -> bond-end distances` maps in text/terminal summary
+  output while keeping detailed per-measurement values in JSON.
+- Extend focused checks in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to validate true-ellipse signed-distance behavior and independent glyph-body
+  distance population in no-connector cases.
+- Fix reopened Phase 4 Haworth overlap blockers in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  defer furanose two-carbon-tail rendering until after simple-label layout so
+  chain2 label endpoint/placement solving sees final OH/HO occupancy and avoids
+  strict label-label collisions without sugar/text/op-id special cases.
+- Fix pyflakes blocker in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  remove one unused local (`centroid`) in Haworth ring detection.
+- Update Phase 4 closure status/checklist in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  and [refactor_progress.md](refactor_progress.md) with the latest green-gate evidence.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_phase4_known_failures.py`
+  (`45 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/measure_glyph_bond_alignment.py --fail-on-miss`
+  (`files analyzed: 78`, `alignment rate: 100.00%`, `alignment outside tolerance: 0`,
+  `lattice angle violations: 0`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_attach_targets.py tests/test_haworth_renderer.py tests/test_measure_glyph_bond_alignment.py tests/test_phase4_heuristic_grep_gate.py tests/test_phase4_non_haworth_sentinels.py`
+  (`183 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`524 passed, 6 skipped`) twice consecutively.
+- De-redundify and de-coarsen alignment-distance reporting in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  replace coarse rounded distance lists/counts with compact high-precision
+  value/count output, add explicit non-zero distance diagnostics
+  (`alignment_nonzero_distance_count`, `alignment_min_nonzero_distance`), and
+  collapse single-value count output to one concise line when applicable.
+- Update focused checker tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  for compact-count and non-zero alignment-distance fields.
+- Improve alignment-by-glyph readability in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  preserve higher precision for alignment distance/ratio/score values
+  (scientific notation for tiny non-zero values) and suppress redundant `svg`
+  fields in per-measurement rows when only one file is analyzed.
+- Update focused checker assertions in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to keep coverage for alignment-by-glyph structure after precision/readability
+  updates.
+- Expand alignment distance reporting in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  add full glyph-to-bond-end distance distributions (sorted rounded values,
+  rounded frequency counts, stats, and missing-distance count) to summary JSON,
+  text report, and terminal key stats, alongside existing `alignment_by_glyph`
+  measurement dictionaries.
+- Update focused checker tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to validate new alignment distance distribution fields in summary/text output.
+- Expand alignment diagnostics in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  add `alignment_by_glyph` summary data with per-glyph measurement dictionaries
+  (distance, tolerance, ratio, score, reason, aligned flag), and print the
+  same dictionary in text and terminal output near alignment rate/outside
+  tolerance lines.
+- Update checker tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to validate presence of the `alignment_by_glyph` report field.
+- Fix hashed/thin false negatives at shared endpoints in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  report `shared_endpoint_near_parallel` conflicts when a hashed carrier
+  intersects a non-hatch line at a shared endpoint with near-parallel
+  direction, instead of suppressing all shared-endpoint cases.
+- Add regression coverage in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  for shared-endpoint near-parallel hashed/thin conflicts.
+- Add location-bucketed bond-length lists to text reports in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  include checked-bond lengths grouped by quadrant and by Haworth ring region
+  (`inside_base_ring` / `outside_base_ring`) in
+  `glyph_bond_alignment_report.txt`, with matching summary/json structures for
+  aggregation across files.
+- Extend checker tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to assert presence of the new bond-length location buckets.
+- Refine bond-length accounting in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  exclude decorative hashed hatch-stroke mini-segments from `checked` bond
+  length stats/lists (countable-bond view), keep full primitive detail in
+  `all_lines` and new `checked_lines_raw`/`decorative_hatched_stroke_lines`
+  JSON fields, and add a summary count of excluded decorative hashed strokes.
+- Clarify terminal bond-length output in the same tool:
+  label primitive-only arrays as `all primitives` and add separate
+  `checked bonds` arrays/counts so hashed mini-strokes are not confused with
+  actual bond lengths.
+- Extend checker tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to verify decorative hashed stroke exclusion from checked bond-length stats.
+- Clarify bond/glyph diagnostics in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  add endpoint-to-glyph signed distance fields per overlap
+  (`bond_end_to_glyph_distance`, `bond_end_distance_tolerance`,
+  `bond_end_overlap`, `bond_end_too_close`), plus readable terminal/text
+  summary counters for endpoint overlap vs too-close cases and sample endpoint
+  diagnostics.
+- Extend checker assertions in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to cover the new bond/glyph endpoint-distance fields and summary counters.
+- Simplify text-report bond-length section in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  keep checked/connector/non-connector/excluded Haworth stats
+  (count/min/max/mean/stddev/cv), remove verbose sorted arrays and rounded
+  count tables from text output, suppress duplicate all-vs-checked blocks when
+  identical, and add the note
+  `checked lines are identical to all lines` when applicable.
+- Update text-report expectations in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to enforce simplified bond-length output while keeping JSON detail unchanged.
+- Add hashed-bond collision diagnostics in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  detect hashed carrier lines from direct SVG primitives (carrier + short
+  perpendicular hatch strokes) and report overlaps with non-hatch lines as a
+  separate `hatched/thin` conflict metric with per-conflict type, line-index
+  pairs, overlap point, quadrant, and base-ring region in JSON, text, and
+  terminal key stats.
+- Expand checker test coverage in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py):
+  add a synthetic hashed-carrier overlap fixture that verifies the new
+  `hatched_thin_conflict_count` and conflict metadata fields.
+- Improve near-glyph connector crowding detection in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  evaluate aligned connector pairs with strict endpoint-target carve-outs (no
+  broad allowed corridors), add gap-tolerance proximity checks, and expose
+  overlap classifications (`interior_overlap` vs `gap_tolerance_violation`).
+- Add configurable CLI control in the same tool:
+  `--bond-glyph-gap-tolerance` (default `0.65`) to tune near-miss
+  bond/glyph diagnostics.
+- Update diagnostic quadrant naming in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  replace `Q1/Q2/Q3/Q4` labels with explicit
+  `upper-right/upper-left/lower-left/lower-right` text for clearer triage
+  output in terminal, text, and JSON reports.
+- Reduce bond/glyph false positives in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  replace box-only overlap checks with shared target-paint legality
+  (`validate_attachment_paint`) and apply attach-zone carve-outs only for
+  connector-candidate line/label pairs, so legal endpoint contact is not
+  miscounted as overlap.
+- Add regression coverage in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py):
+  verify legal `OH` connector attach-zone contact does not count as
+  bond/glyph overlap.
+- Expand bond-length diagnostics in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  add sorted rounded individual bond-length lists and rounded frequency tables
+  for all/checked/connector/non-connector/excluded groups in JSON, text
+  reports, and terminal key stats.
+- Improve canonical-angle precision diagnostics in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  report per-violation measured angle, nearest canonical lattice angle, error,
+  and measurement quadrant/ring-region in JSON/text/terminal summaries.
+- Improve checker run summaries in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  add full text-label inventory output (`Text labels list: [...]`) and
+  aggregate bond counters (`total bonds detected`, `total bonds checked`) in
+  both terminal key stats and text reports.
+- Extend standalone SVG checker in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  enforce strict canonical lattice-angle matching with `30*n mod 360` and
+  `0.0` degree tolerance, add recursive glob support for `--input-glob`, and
+  keep independent SVG-only analysis paths.
+- Add richer overlap diagnostics in the same tool:
+  key terminal stats now include bond/glyph glyph-text counts plus quadrant and
+  base-ring region breakdowns, and text/JSON reports now include overlap
+  metadata examples (point, quadrant, ring region).
+- Harden Haworth base-ring detection in the same tool:
+  support both line-cycle detection and filled polygon/path clustering so
+  `output_smoke/archive_matrix/**/*.svg` files reliably detect Haworth base
+  rings for exclusion/classification metrics.
+- Expand tool tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py):
+  cover strict-lattice behavior, overlap counters, Haworth include/exclude
+  mode behavior, and collinear shared-endpoint non-overlap handling.
+- Validation runs for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_measure_glyph_bond_alignment.py`
+  (`11 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`519 passed, 6 skipped`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/measure_glyph_bond_alignment.py --input-glob "output_smoke/archive_matrix_previews/generated/ALRLDM_furanose_alpha.svg" --json-report /tmp/alrldm_diag_hatch.json --text-report /tmp/alrldm_diag_hatch.txt`
+  (`hatched/thin conflicts: 0`; metric present in key stats),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_measure_glyph_bond_alignment.py`
+  (`9 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`517 passed, 6 skipped`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/measure_glyph_bond_alignment.py --input-glob "output_smoke/archive_matrix/test_archive_full_matrix_ALRRD1/ALRRDM_furanose_beta.svg" --json-report /tmp/alrr_diag.json --text-report /tmp/alrr_diag.txt`
+  (`bond/bond overlaps: 0`, `bond/glyph overlaps: 2`,
+  `Haworth base ring detected files: 1`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/measure_glyph_bond_alignment.py --input-glob "output_smoke/archive_matrix/test_archive_full_matrix_ALDM_1/ALDM_furanose_beta.svg" --json-report /tmp/aldm_diag.json --text-report /tmp/aldm_diag.txt`
+  (`Haworth base ring detected files: 1`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/measure_glyph_bond_alignment.py --input-glob "output_smoke/archive_matrix/**/*.svg" --json-report /tmp/archive_matrix_diag.json --text-report /tmp/archive_matrix_diag.txt`
+  (`files analyzed: 100`, `Haworth base ring detected files: 100`).
+- Manager spec adjustment in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  change canonical lattice-angle definition from 60-degree steps to
+  30-degree steps (`30*n mod 360`; `0, 30, 60, ..., 330`) for generated/template geometry checks.
+- Manager task assignment update in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  add a junior-coder side goal for an independent input-SVG multi-check report
+  mode covering lattice-angle violations, glyph/glyph overlap, bond/bond
+  overlap, bond/glyph overlap, glyph-bond alignment misses, and Haworth base
+  ring detection/exclusion with `--exclude-haworth-base-ring` default ON.
+- Clarify scope of the 60-degree direction lattice contract in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  it applies to generated/template geometry paths, while BKChem GUI freehand
+  draw-mode snap options (`30/18/6/1` and `freestyle`) remain separate behavior.
+- Manager spec update in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  require straight bonds for any segment directly connected to Haworth rings,
+  require `0, 60, 120, 180, 240, 300` angle compliance for off-ring branches,
+  and require the same 60-degree angle lattice for non-Haworth ring bonds.
+- Manager plan update for Phase 4 gate clarity in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  reopen Phase 4, block Phase 5 until closure, and add an explicit
+  11-target mandatory fixture checklist (including straightness, bond-length,
+  and label-to-bond alignment checks for the specified `CH3`/`COOH` cases).
+- Implement the manager-defined 11-target Phase 4 checklist and geometry gates:
+  replace
+  [tests/smoke/test_haworth_phase4_known_failures.py](tests/smoke/test_haworth_phase4_known_failures.py)
+  with explicit per-fixture assertions for ARDM/ARRDM/ALLDM/ARRRDM/ARRLDM/MKRDM/ARRLLd/ARLLDc,
+  including required `OH`/`CH2OH`/`CH3`/`COOH` endpoint-contract checks plus
+  straightness and lattice-angle gates.
+- Enforce canonical off-ring branch-lattice behavior in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  snap two-carbon-tail branch vectors to nearest canonical 60-degree lattice
+  direction and place branch hydroxyl labels by oxygen-center inversion, with
+  hashed-branch endpoint resolution using rendered carrier width.
+- Update branch parity assertions in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py)
+  to follow lattice-angle rules instead of fixed vertical HO direction.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_phase4_known_failures.py`
+  (`45 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py tests/smoke/test_haworth_phase4_known_failures.py tests/test_measure_glyph_bond_alignment.py tests/test_phase4_non_haworth_sentinels.py tests/test_phase4_heuristic_grep_gate.py tests/test_render_layout_parity.py`
+  (`201 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/measure_glyph_bond_alignment.py --fail-on-miss`
+  (`Labels analyzed: 362`, `Alignment rate: 100.00%`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`514 passed, 6 skipped`) twice consecutively.
+- Reopen-and-close Phase 4 with independent metrics green:
+  move connector endpoint authority to shared runtime contracts in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  and consume those contracts in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  for chain and hydroxyl connector paths (including branch connectors and strict
+  legality carve-outs).
+- Harden and verify independent measurement gate in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  target-aware connector selection, endpoint-target distance tolerance floor,
+  and report metadata retained in
+  `output_smoke/glyph_bond_alignment_report.json` and
+  `output_smoke/glyph_bond_alignment_report.txt`.
+- Add heuristic regression grep gates in
+  [tests/test_phase4_heuristic_grep_gate.py](tests/test_phase4_heuristic_grep_gate.py)
+  to block reintroduction of text/op-id/sugar-name conditional policy branches
+  in renderer/tool surfaces.
+- Update Haworth/parity tests to assert shared label-attach contract semantics
+  (endpoint target + allowed-target legality) in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) and
+  [tests/test_render_layout_parity.py](tests/test_render_layout_parity.py).
+- Update plan/progress status for honest closure in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  and [refactor_progress.md](refactor_progress.md): Phase 4 complete, Phase 5 next.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/measure_glyph_bond_alignment.py --fail-on-miss`
+  (`Labels analyzed: 362`, `Alignment rate: 100.00%`, exit `0`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py tests/smoke/test_haworth_phase4_known_failures.py tests/test_measure_glyph_bond_alignment.py tests/test_phase4_non_haworth_sentinels.py`
+  (`157 passed`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`514 passed, 6 skipped`) twice consecutively.
+- Add independent SVG-only glyph-bond measurement tool
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  to analyze existing generated Haworth previews without calling
+  `haworth_renderer.render_from_code(...)`, and emit JSON/TXT miss metrics for
+  endpoint-to-target alignment.
+- Extend the same measurement tool to report bond-length statistics from static
+  SVG line segments (all lines, connector lines, and non-connector lines) so
+  alignment regressions can be interpreted alongside length drift.
+- Add tool regression tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to verify aligned and missed endpoint classification against static SVG inputs.
+- Update
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  to reopen Phase 4 until independent alignment metrics are green and to add
+  a new gating command for the measurement tool.
+- Reopen and re-close Phase 4 alignment blockers from
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  fix furanose upward chain-like `CH2OH` endpoint targeting in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  by enforcing carbon `core_center` alignment (not `stem_centerline`) for the
+  vertical-chain placement path.
+- Tighten Haworth regression expectations in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py):
+  C4-up chain connector assertions now require carbon `core_center` alignment,
+  and raster probe checks now fail when endpoint lands on the C stem edge.
+- Expand Phase 4 blocker coverage in
+  [tests/smoke/test_haworth_phase4_known_failures.py](tests/smoke/test_haworth_phase4_known_failures.py):
+  include Arabinose and Lyxose furanose-alpha fixtures and require chain/methyl
+  connector endpoints to land on carbon core targets.
+- Reconcile plan/progress docs after Phase 4 reopen:
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  now records Phase 4 complete with Phase 5 next, and
+  [refactor_progress.md](refactor_progress.md) reflects reopened-and-closed
+  Phase 4 status with Phase 5 still active.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py tests/smoke/test_haworth_phase4_known_failures.py tests/test_phase4_non_haworth_sentinels.py`
+  (`151 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_renderer_smoke.py tests/smoke/test_haworth_phase4_known_failures.py`
+  (`101 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`506 passed, 6 skipped`) twice consecutively.
+- Complete Phase 4 (validation and stabilization) from
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  add Haworth-first known-failure smoke coverage in
+  [tests/smoke/test_haworth_phase4_known_failures.py](tests/smoke/test_haworth_phase4_known_failures.py)
+  for Ribose, Galactose, Gulose, Fucose, and Rhamnose fixtures, including
+  strict-op validation and chain/methyl carbon-target endpoint checks.
+- Add minimal non-Haworth sentinel contract proofs in
+  [tests/test_phase4_non_haworth_sentinels.py](tests/test_phase4_non_haworth_sentinels.py):
+  exactly three sentinel tests for `CH2OH` attach-to-`C`, `CH3` attach-to-`C`,
+  and `OH/HO` attach-to-`O` using shared attach-target and legality APIs.
+- Update plan/progress status for Phase 4 completion in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  and [refactor_progress.md](refactor_progress.md):
+  Phase 4 marked complete and Phase 5 marked next.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_phase4_non_haworth_sentinels.py tests/smoke/test_haworth_phase4_known_failures.py`
+  (`13 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_haworth_renderer.py`
+  (`134 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/smoke/test_haworth_renderer_smoke.py tests/smoke/test_haworth_phase4_known_failures.py`
+  (`97 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`506 passed, 6 skipped`) twice consecutively.
 - Update Phase status wording/checklist in
   [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
   to state "Phase 3 complete; Phase 4 next" and mark only evidenced checklist

@@ -164,6 +164,33 @@ def test_directional_attach_line_policy_matches_legacy_clip():
 
 
 #============================================
+def test_directional_attach_auto_policy_snaps_to_canonical_lattice_for_box():
+	box = (0.0, 0.0, 10.0, 10.0)
+	start = (-10.0, 1.0)
+	target = (5.0, 5.0)
+	endpoint = render_geometry.directional_attach_edge_intersection(
+		bond_start=start,
+		attach_bbox=box,
+		attach_target=target,
+		direction_policy="auto",
+	)
+	assert endpoint == pytest.approx((0.0, 1.0))
+
+
+#============================================
+def test_resolve_attach_endpoint_circle_auto_policy_snaps_to_canonical_lattice():
+	target = render_geometry.make_circle_target((0.0, 0.0), 5.0)
+	endpoint = render_geometry.resolve_attach_endpoint(
+		bond_start=(-10.0, 2.0),
+		target=target,
+		interior_hint=(0.0, 0.0),
+		constraints=render_geometry.AttachConstraints(direction_policy="auto"),
+	)
+	assert endpoint[1] == pytest.approx(2.0)
+	assert endpoint[0] == pytest.approx(-(21.0 ** 0.5))
+
+
+#============================================
 @pytest.mark.parametrize(
 	("text", "anchor", "x", "y", "font_size", "expected"),
 	(

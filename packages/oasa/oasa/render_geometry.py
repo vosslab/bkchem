@@ -285,6 +285,27 @@ class AttachTarget:
 
 
 #============================================
+@dataclasses.dataclass(frozen=True)
+class LabelAttachPolicy:
+	"""Runtime contract describing one label attachment policy."""
+	attach_atom: str = "first"
+	attach_element: str | None = None
+	attach_site: str = "core_center"
+	target_kind: str = "attach_box"
+
+
+#============================================
+@dataclasses.dataclass(frozen=True)
+class LabelAttachContract:
+	"""Resolved runtime contract for one label connector endpoint."""
+	policy: LabelAttachPolicy
+	full_target: AttachTarget
+	attach_target: AttachTarget
+	endpoint_target: AttachTarget
+	allowed_target: AttachTarget
+
+
+#============================================
 def make_box_target(bbox: tuple[float, float, float, float]) -> AttachTarget:
 	"""Construct one box attachment target."""
 	return AttachTarget(kind="box", box=misc.normalize_coords(bbox))
@@ -755,6 +776,23 @@ def _visible_label_length(text):
 
 
 #============================================
+def _is_hydroxyl_render_text(text):
+	"""Return True when visible text is one hydroxyl token."""
+	visible = _visible_label_text(text)
+	return visible in ("OH", "HO")
+
+
+#============================================
+def _is_chain_like_render_text(text):
+	"""Return True for rendered chain-like carbon labels."""
+	visible = _visible_label_text(text)
+	if visible.startswith("CH"):
+		return True
+	# Left-anchored CH2OH labels can render as HOH2C while still attaching to C.
+	return visible.endswith("C") and ("H2" in visible)
+
+
+#============================================
 def _text_char_advances(text, font_size, font_name):
 	"""Return per-visible-character x advances for one formatted text value."""
 	visible = _visible_label_text(text)
@@ -1148,6 +1186,271 @@ def label_attach_target(
 
 
 #============================================
+def default_label_attach_policy(text, chain_attach_site="core_center") -> LabelAttachPolicy:
+	"""Return runtime-default attach policy for one rendered label text."""
+	site = _normalize_attach_site(chain_attach_site)
+	visible = _visible_label_text(text)
+	if _is_hydroxyl_render_text(visible):
+		attach_atom = "first" if visible == "OH" else "last"
+		return LabelAttachPolicy(
+			attach_atom=attach_atom,
+			attach_element="O",
+			attach_site="core_center",
+			target_kind="oxygen_circle",
+		)
+	if _is_chain_like_render_text(visible):
+		return LabelAttachPolicy(
+			attach_atom="first",
+			attach_element="C",
+			attach_site=site,
+			target_kind="attach_box",
+		)
+	return LabelAttachPolicy(
+		attach_atom="first",
+		attach_element=None,
+		attach_site="core_center",
+		target_kind="attach_box",
+	)
+
+
+#============================================
+def _resolve_label_attach_policy(
+		text,
+		attach_atom=None,
+		attach_element=None,
+		attach_site=None,
+		chain_attach_site="core_center",
+		target_kind=None):
+	"""Resolve one explicit-or-default label attach policy."""
+	default_policy = default_label_attach_policy(
+		text=text,
+		chain_attach_site=chain_attach_site,
+	)
+	resolved_atom = default_policy.attach_atom if attach_atom is None else attach_atom
+	if resolved_atom not in ("first", "last"):
+		raise ValueError(f"Invalid attach_atom value: {attach_atom!r}")
+	resolved_element = default_policy.attach_element if attach_element is None else attach_element
+	normalized_element = None
+	if resolved_element is not None:
+		normalized_element = _normalize_element_symbol(resolved_element)
+	if attach_site is None:
+		resolved_site = default_policy.attach_site
+	else:
+		resolved_site = _normalize_attach_site(attach_site)
+	resolved_target_kind = default_policy.target_kind if target_kind is None else str(target_kind).strip().lower()
+	if resolved_target_kind not in ("attach_box", "oxygen_circle"):
+		raise ValueError(f"Unsupported label endpoint target_kind: {target_kind!r}")
+	return LabelAttachPolicy(
+		attach_atom=resolved_atom,
+		attach_element=normalized_element,
+		attach_site=resolved_site,
+		target_kind=resolved_target_kind,
+	)
+
+
+#============================================
+def _oxygen_circle_target_from_attach_target(
+		attach_target,
+		font_size,
+		line_width):
+	"""Return hydroxyl O-centered circle target from one attach box."""
+	x1, y1, x2, y2 = attach_target.box
+	center = ((x1 + x2) * 0.5, (y1 + y2) * 0.5)
+	base_radius = max(max(0.0, x2 - x1), max(0.0, y2 - y1)) * 0.5
+	safety_margin = max(0.25, float(font_size) * 0.05)
+	radius = base_radius + (max(0.0, float(line_width)) * 0.5) + safety_margin
+	return make_circle_target(center, radius)
+
+
+#============================================
+def _oxygen_allowed_target(full_target, endpoint_target):
+	"""Return paint-allowed target for hydroxyl oxygen circles."""
+	if full_target.kind != "box" or endpoint_target.kind != "circle":
+		return endpoint_target
+	return make_composite_target((endpoint_target, full_target))
+
+
+#============================================
+def _chain_attach_allowed_target(
+		full_target,
+		attach_target):
+	"""Return paint-allowed target corridors for chain-like C attachment."""
+	if full_target.kind != "box" or attach_target.kind != "box":
+		return attach_target
+	full_x1, full_y1, full_x2, full_y2 = full_target.box
+	attach_x1, attach_y1, attach_x2, attach_y2 = attach_target.box
+	targets = [attach_target]
+	if full_x1 < attach_x1:
+		targets.append(make_box_target((full_x1, attach_y1, attach_x1, attach_y2)))
+	if attach_x2 < full_x2:
+		targets.append(make_box_target((attach_x2, attach_y1, full_x2, attach_y2)))
+	if full_y1 < attach_y1:
+		targets.append(make_box_target((attach_x1, full_y1, attach_x2, attach_y1)))
+	if attach_y2 < full_y2:
+		targets.append(make_box_target((attach_x1, attach_y2, attach_x2, full_y2)))
+	if len(targets) == 1:
+		return attach_target
+	return make_composite_target(tuple(targets))
+
+
+#============================================
+def label_allowed_target_from_text_origin(
+		text_x,
+		text_y,
+		text,
+		anchor,
+		font_size,
+		line_width=0.0,
+		attach_atom=None,
+		attach_element=None,
+		attach_site=None,
+		chain_attach_site="core_center",
+		target_kind=None,
+		font_name=None):
+	"""Resolve one paint-allowed label target from text-origin inputs."""
+	contract = label_attach_contract_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+		line_width=line_width,
+		attach_atom=attach_atom,
+		attach_element=attach_element,
+		attach_site=attach_site,
+		chain_attach_site=chain_attach_site,
+		target_kind=target_kind,
+		font_name=font_name,
+	)
+	return contract.allowed_target
+
+
+#============================================
+def label_attach_contract_from_text_origin(
+		text_x,
+		text_y,
+		text,
+		anchor,
+		font_size,
+		line_width=0.0,
+		attach_atom=None,
+		attach_element=None,
+		attach_site=None,
+		chain_attach_site="core_center",
+		target_kind=None,
+		font_name=None):
+	"""Resolve full runtime attach contract for one label at text origin."""
+	policy = _resolve_label_attach_policy(
+		text=text,
+		attach_atom=attach_atom,
+		attach_element=attach_element,
+		attach_site=attach_site,
+		chain_attach_site=chain_attach_site,
+		target_kind=target_kind,
+	)
+	full_target = label_target_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+		font_name=font_name,
+	)
+	attach_target = label_attach_target_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+		attach_atom=policy.attach_atom,
+		attach_element=policy.attach_element,
+		attach_site=policy.attach_site,
+		font_name=font_name,
+	)
+	endpoint_target = attach_target
+	if policy.target_kind == "oxygen_circle":
+		endpoint_target = _oxygen_circle_target_from_attach_target(
+			attach_target=attach_target,
+			font_size=font_size,
+			line_width=line_width,
+		)
+	allowed_target = endpoint_target
+	if policy.target_kind == "oxygen_circle":
+		allowed_target = _oxygen_allowed_target(
+			full_target=full_target,
+			endpoint_target=endpoint_target,
+		)
+	elif (
+			policy.target_kind == "attach_box"
+			and policy.attach_element == "C"
+			and endpoint_target.kind == "box"
+			and full_target.kind == "box"
+	):
+		allowed_target = _chain_attach_allowed_target(
+			full_target=full_target,
+			attach_target=endpoint_target,
+		)
+	return LabelAttachContract(
+		policy=policy,
+		full_target=full_target,
+		attach_target=attach_target,
+		endpoint_target=endpoint_target,
+		allowed_target=allowed_target,
+	)
+
+
+#============================================
+def resolve_label_connector_endpoint_from_text_origin(
+		bond_start,
+		text_x,
+		text_y,
+		text,
+		anchor,
+		font_size,
+		line_width=0.0,
+		constraints=None,
+		epsilon=0.5,
+		attach_atom=None,
+		attach_element=None,
+		attach_site=None,
+		chain_attach_site="core_center",
+		target_kind=None,
+		font_name=None):
+	"""Resolve one connector endpoint via the shared label attach contract."""
+	contract = label_attach_contract_from_text_origin(
+		text_x=text_x,
+		text_y=text_y,
+		text=text,
+		anchor=anchor,
+		font_size=font_size,
+		line_width=line_width,
+		attach_atom=attach_atom,
+		attach_element=attach_element,
+		attach_site=attach_site,
+		chain_attach_site=chain_attach_site,
+		target_kind=target_kind,
+		font_name=font_name,
+	)
+	if constraints is None:
+		constraints = AttachConstraints()
+	endpoint = resolve_attach_endpoint(
+		bond_start=bond_start,
+		target=contract.endpoint_target,
+		interior_hint=contract.endpoint_target.centroid(),
+		constraints=constraints,
+	)
+	endpoint = retreat_endpoint_until_legal(
+		line_start=bond_start,
+		line_end=endpoint,
+		line_width=line_width,
+		forbidden_regions=[contract.full_target],
+		allowed_regions=[contract.allowed_target],
+		epsilon=epsilon,
+	)
+	return endpoint, contract
+
+
+#============================================
 def _normalize_element_symbol(symbol: str) -> str:
 	"""Normalize one element symbol to canonical letter case."""
 	text = str(symbol).strip()
@@ -1251,6 +1554,66 @@ def _resolve_direction_mode(direction_policy, dx, dy):
 
 
 #============================================
+def _lattice_step_for_direction_policy(direction_policy):
+	"""Return lattice snap step in degrees for one direction policy, if any."""
+	if direction_policy == "auto":
+		return 30.0
+	return None
+
+
+#============================================
+def _snapped_direction_unit(dx, dy, step_degrees):
+	"""Return unit direction snapped to nearest lattice angle step."""
+	if abs(dx) <= 1e-12 and abs(dy) <= 1e-12:
+		return None
+	angle_degrees = math.degrees(math.atan2(dy, dx))
+	snapped_angle = round(angle_degrees / step_degrees) * step_degrees
+	radians = math.radians(snapped_angle)
+	return (math.cos(radians), math.sin(radians))
+
+
+#============================================
+def _ray_box_boundary_intersection(start, direction, box):
+	"""Return first forward ray intersection with one axis-aligned box boundary."""
+	x1, y1, x2, y2 = misc.normalize_coords(box)
+	start_x, start_y = start
+	dir_x, dir_y = direction
+	candidates = []
+	if abs(dir_x) > 1e-12:
+		for edge_x in (x1, x2):
+			t_value = (edge_x - start_x) / dir_x
+			if t_value <= 1e-12:
+				continue
+			y_value = start_y + (dir_y * t_value)
+			if (y1 - 1e-9) <= y_value <= (y2 + 1e-9):
+				candidates.append((t_value, edge_x, y_value))
+	if abs(dir_y) > 1e-12:
+		for edge_y in (y1, y2):
+			t_value = (edge_y - start_y) / dir_y
+			if t_value <= 1e-12:
+				continue
+			x_value = start_x + (dir_x * t_value)
+			if (x1 - 1e-9) <= x_value <= (x2 + 1e-9):
+				candidates.append((t_value, x_value, edge_y))
+	if not candidates:
+		return None
+	candidates.sort(key=lambda item: item[0])
+	_closest_t, hit_x, hit_y = candidates[0]
+	return (hit_x, hit_y)
+
+
+#============================================
+def _ray_circle_boundary_intersection(start, center, radius, direction):
+	"""Return first forward ray intersection with one circle boundary."""
+	far_scale = max(4096.0, float(radius) * 256.0)
+	far_point = (
+		start[0] + (direction[0] * far_scale),
+		start[1] + (direction[1] * far_scale),
+	)
+	return _line_circle_intersection(start, far_point, center, radius)
+
+
+#============================================
 def directional_attach_edge_intersection(
 		bond_start,
 		attach_bbox,
@@ -1274,6 +1637,17 @@ def directional_attach_edge_intersection(
 		return (target_x, target_y)
 	if direction_policy == "line":
 		return _clip_line_to_box((start_x, start_y), (target_x, target_y), (x1, y1, x2, y2))
+	lattice_step = _lattice_step_for_direction_policy(direction_policy)
+	if lattice_step is not None:
+		snapped_direction = _snapped_direction_unit(dx, dy, lattice_step)
+		if snapped_direction is not None:
+			hit = _ray_box_boundary_intersection(
+				start=(start_x, start_y),
+				direction=snapped_direction,
+				box=(x1, y1, x2, y2),
+			)
+			if hit is not None:
+				return hit
 	mode = _resolve_direction_mode(direction_policy, abs_dx, abs_dy)
 	if mode == "side":
 		if abs_dx <= 1e-12:
@@ -1533,6 +1907,27 @@ def _point_in_attach_target(point, target, epsilon=0.0):
 
 
 #============================================
+def _point_in_attach_target_closed(point, target, epsilon=0.0):
+	"""Return True when point is inside one target primitive (closed boundary)."""
+	resolved = _coerce_attach_target(target)
+	if resolved.kind == "box":
+		x1, y1, x2, y2 = misc.normalize_coords(resolved.box)
+		return (x1 - epsilon) <= point[0] <= (x2 + epsilon) and (y1 - epsilon) <= point[1] <= (y2 + epsilon)
+	if resolved.kind == "circle":
+		center_x, center_y = resolved.center
+		distance = math.hypot(point[0] - center_x, point[1] - center_y)
+		return distance <= (max(0.0, float(resolved.radius)) + epsilon)
+	if resolved.kind == "segment":
+		return False
+	if resolved.kind == "composite":
+		return any(
+			_point_in_attach_target_closed(point, child, epsilon=epsilon)
+			for child in (resolved.targets or ())
+		)
+	raise ValueError(f"Unsupported attach target kind: {resolved.kind!r}")
+
+
+#============================================
 def resolve_attach_endpoint(
 		bond_start,
 		target,
@@ -1585,6 +1980,20 @@ def resolve_attach_endpoint(
 			vertical = _vertical_circle_boundary(bond_start, center, radius, hint=hint)
 			if vertical is not None:
 				return vertical
+		lattice_step = _lattice_step_for_direction_policy(constraints.direction_policy)
+		if lattice_step is not None:
+			dx = hint[0] - bond_start[0]
+			dy = hint[1] - bond_start[1]
+			snapped_direction = _snapped_direction_unit(dx, dy, lattice_step)
+			if snapped_direction is not None:
+				hit = _ray_circle_boundary_intersection(
+					start=bond_start,
+					center=center,
+					radius=radius,
+					direction=snapped_direction,
+				)
+				if hit is not None:
+					return hit
 		return _circle_boundary_toward_target(bond_start, center, radius, target=hint)
 	if resolved_target.kind == "segment":
 		p1 = resolved_target.p1
@@ -1812,13 +2221,22 @@ def retreat_endpoint_until_legal(
 	"""Retreat line_end toward line_start until attachment paint becomes legal."""
 	if allowed_regions is None:
 		allowed_regions = []
+
+	def _endpoint_in_allowed(point):
+		if not allowed_regions:
+			return True
+		return any(
+			_point_in_attach_target_closed(point, region, epsilon=max(0.0, float(epsilon)))
+			for region in allowed_regions
+		)
+
 	if validate_attachment_paint(
 			line_start=line_start,
 			line_end=line_end,
 			line_width=line_width,
 			forbidden_regions=forbidden_regions,
 			allowed_regions=allowed_regions,
-			epsilon=epsilon):
+			epsilon=epsilon) and _endpoint_in_allowed(line_end):
 		return line_end
 	x_start, y_start = line_start
 	x_end, y_end = line_end
@@ -1836,16 +2254,15 @@ def retreat_endpoint_until_legal(
 				line_width=line_width,
 				forbidden_regions=forbidden_regions,
 				allowed_regions=allowed_regions,
-				epsilon=epsilon):
+				epsilon=epsilon) and _endpoint_in_allowed(candidate):
 			low = mid
 		else:
 			high = mid
 	if low <= 1e-12:
 		return line_start
-	safe_t = max(0.0, low - 1e-4)
 	return (
-		x_start + ((x_end - x_start) * safe_t),
-		y_start + ((y_end - y_start) * safe_t),
+		x_start + ((x_end - x_start) * low),
+		y_start + ((y_end - y_start) * low),
 	)
 
 
