@@ -1297,6 +1297,65 @@ def _diagnostic_color(index: int) -> str:
 
 
 #============================================
+def _convex_hull(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+	"""Return convex hull points in counter-clockwise order."""
+	unique = sorted({(float(point[0]), float(point[1])) for point in points})
+	if len(unique) <= 1:
+		return unique
+	def _cross(o: tuple[float, float], a: tuple[float, float], b: tuple[float, float]) -> float:
+		return ((a[0] - o[0]) * (b[1] - o[1])) - ((a[1] - o[1]) * (b[0] - o[0]))
+	lower: list[tuple[float, float]] = []
+	for point in unique:
+		while len(lower) >= 2 and _cross(lower[-2], lower[-1], point) <= 0.0:
+			lower.pop()
+		lower.append(point)
+	upper: list[tuple[float, float]] = []
+	for point in reversed(unique):
+		while len(upper) >= 2 and _cross(upper[-2], upper[-1], point) <= 0.0:
+			upper.pop()
+		upper.append(point)
+	return lower[:-1] + upper[:-1]
+
+
+#============================================
+def _metric_alignment_center(metric: dict) -> tuple[float, float] | None:
+	"""Return alignment center from one metric row when available."""
+	point = metric.get("alignment_center_point")
+	if not isinstance(point, (list, tuple)) or len(point) != 2:
+		return None
+	try:
+		return (float(point[0]), float(point[1]))
+	except (TypeError, ValueError):
+		return None
+
+
+#============================================
+def _select_alignment_primitive(label: dict, metric: dict) -> dict | None:
+	"""Return primitive corresponding to alignment character/center for diagnostics."""
+	primitives = list(label.get("svg_estimated_primitives", []))
+	if not primitives:
+		return None
+	target_char = str(metric.get("alignment_center_char") or "").upper()
+	target_center = _metric_alignment_center(metric)
+	if target_char:
+		filtered = [
+			primitive
+			for primitive in primitives
+			if str(primitive.get("char", "")).upper() == target_char
+		]
+		if filtered:
+			primitives = filtered
+	if target_center is not None:
+		def _distance_sq(primitive: dict) -> float:
+			center = _primitive_center(primitive)
+			if center is None:
+				return float("inf")
+			return _point_distance_sq(center, target_center)
+		primitives = sorted(primitives, key=_distance_sq)
+	return primitives[0] if primitives else None
+
+
+#============================================
 def _write_diagnostic_svg(
 		svg_path: pathlib.Path,
 		output_path: pathlib.Path,
@@ -1332,10 +1391,28 @@ def _write_diagnostic_svg(
 		line = lines[int(line_index)]
 		color = _diagnostic_color(int(label_index))
 		group = StdET.Element(tag_group, attrib={"id": f"codex-label-diag-{int(label_index)}"})
-		for primitive in label.get("svg_estimated_primitives", []):
-			kind = str(primitive.get("kind", ""))
-			if kind == "box" and primitive.get("box") is not None:
-				x1, y1, x2, y2 = _normalize_box(primitive["box"])
+		alignment_primitive = _select_alignment_primitive(label, metric)
+		drawn_target = False
+		if alignment_primitive is not None:
+			kind = str(alignment_primitive.get("kind", ""))
+			if kind == "ellipse":
+				group.append(
+					StdET.Element(
+						tag_ellipse,
+						attrib={
+							"cx": f"{float(alignment_primitive.get('cx', 0.0)):.6f}",
+							"cy": f"{float(alignment_primitive.get('cy', 0.0)):.6f}",
+							"rx": f"{max(0.0, float(alignment_primitive.get('rx', 0.0))):.6f}",
+							"ry": f"{max(0.0, float(alignment_primitive.get('ry', 0.0))):.6f}",
+							"stroke": color,
+							"stroke-width": "0.4",
+							"stroke-dasharray": "2 1",
+						},
+					)
+				)
+				drawn_target = True
+			elif kind == "box" and alignment_primitive.get("box") is not None:
+				x1, y1, x2, y2 = _normalize_box(alignment_primitive["box"])
 				group.append(
 					StdET.Element(
 						tag_rect,
@@ -1345,26 +1422,89 @@ def _write_diagnostic_svg(
 							"width": f"{max(0.0, x2 - x1):.6f}",
 							"height": f"{max(0.0, y2 - y1):.6f}",
 							"stroke": color,
-							"stroke-width": "0.8",
-							"stroke-dasharray": "2 2",
+							"stroke-width": "0.4",
+							"stroke-dasharray": "2 1",
 						},
 					)
 				)
-			if kind == "ellipse":
+				drawn_target = True
+		if not drawn_target:
+			drawn_outline = False
+			text_path = label.get("svg_text_path")
+			hull_points: list[tuple[float, float]] = []
+			path_vertices = getattr(text_path, "vertices", None)
+			if path_vertices is not None:
+				for vertex in path_vertices:
+					hull_points.append((float(vertex[0]), float(vertex[1])))
+			else:
+				for seg_start, seg_end in _path_line_segments(text_path):
+					hull_points.append((float(seg_start[0]), float(seg_start[1])))
+					hull_points.append((float(seg_end[0]), float(seg_end[1])))
+			hull = _convex_hull(hull_points)
+			if len(hull) >= 3:
 				group.append(
 					StdET.Element(
-						tag_ellipse,
+						tag_rect,
 						attrib={
-							"cx": f"{float(primitive.get('cx', 0.0)):.6f}",
-							"cy": f"{float(primitive.get('cy', 0.0)):.6f}",
-							"rx": f"{float(primitive.get('rx', 0.0)):.6f}",
-							"ry": f"{float(primitive.get('ry', 0.0)):.6f}",
+							"x": f"{min(point[0] for point in hull):.6f}",
+							"y": f"{min(point[1] for point in hull):.6f}",
+							"width": f"{max(point[0] for point in hull) - min(point[0] for point in hull):.6f}",
+							"height": f"{max(point[1] for point in hull) - min(point[1] for point in hull):.6f}",
 							"stroke": color,
-							"stroke-width": "0.8",
-							"stroke-dasharray": "2 2",
+							"stroke-width": "0.4",
+							"stroke-dasharray": "2 1",
 						},
 					)
 				)
+				drawn_outline = True
+			if not drawn_outline:
+				for primitive in label.get("svg_estimated_primitives", []):
+					kind = str(primitive.get("kind", ""))
+					if kind == "box" and primitive.get("box") is not None:
+						x1, y1, x2, y2 = _normalize_box(primitive["box"])
+						group.append(
+							StdET.Element(
+								tag_rect,
+								attrib={
+									"x": f"{x1:.6f}",
+									"y": f"{y1:.6f}",
+									"width": f"{max(0.0, x2 - x1):.6f}",
+									"height": f"{max(0.0, y2 - y1):.6f}",
+									"stroke": color,
+									"stroke-width": "0.4",
+									"stroke-dasharray": "2 1",
+								},
+							)
+						)
+					if kind == "ellipse":
+						group.append(
+							StdET.Element(
+								tag_ellipse,
+								attrib={
+									"cx": f"{float(primitive.get('cx', 0.0)):.6f}",
+									"cy": f"{float(primitive.get('cy', 0.0)):.6f}",
+									"rx": f"{float(primitive.get('rx', 0.0)):.6f}",
+									"ry": f"{float(primitive.get('ry', 0.0)):.6f}",
+									"stroke": color,
+									"stroke-width": "0.4",
+									"stroke-dasharray": "2 1",
+								},
+							)
+						)
+		center_point = _metric_alignment_center(metric)
+		if center_point is not None:
+			group.append(
+				StdET.Element(
+					tag_circle,
+					attrib={
+						"cx": f"{center_point[0]:.6f}",
+						"cy": f"{center_point[1]:.6f}",
+						"r": "1.0",
+						"fill": color,
+						"stroke-width": "0.4",
+					},
+				)
+			)
 		start = (float(line["x1"]), float(line["y1"]))
 		end = (float(line["x2"]), float(line["y2"]))
 		infinite = _clip_infinite_line_to_bounds(start, end, bounds)
@@ -1376,13 +1516,13 @@ def _write_diagnostic_svg(
 					attrib={
 						"x1": f"{pa[0]:.6f}",
 						"y1": f"{pa[1]:.6f}",
-						"x2": f"{pb[0]:.6f}",
-						"y2": f"{pb[1]:.6f}",
-						"stroke": "#00a6fb",
-						"stroke-width": "1",
-					},
+							"x2": f"{pb[0]:.6f}",
+							"y2": f"{pb[1]:.6f}",
+							"stroke": "#00a6fb",
+							"stroke-width": "0.2",
+						},
+					)
 				)
-			)
 		if isinstance(endpoint, (list, tuple)) and len(endpoint) == 2:
 			ep_x = float(endpoint[0])
 			ep_y = float(endpoint[1])
@@ -1401,26 +1541,13 @@ def _write_diagnostic_svg(
 						attrib={
 							"x1": f"{p1[0]:.6f}",
 							"y1": f"{p1[1]:.6f}",
-							"x2": f"{p2[0]:.6f}",
-							"y2": f"{p2[1]:.6f}",
-							"stroke": "#ff5400",
-							"stroke-width": "1.2",
-						},
+								"x2": f"{p2[0]:.6f}",
+								"y2": f"{p2[1]:.6f}",
+								"stroke": "#ff5400",
+								"stroke-width": "0.4",
+							},
+						)
 					)
-				)
-			group.append(
-				StdET.Element(
-					tag_circle,
-					attrib={
-						"cx": f"{ep_x:.6f}",
-						"cy": f"{ep_y:.6f}",
-						"r": "1.8",
-						"stroke": "#ff5400",
-						"fill": "#ff5400",
-						"stroke-width": "0.4",
-					},
-				)
-			)
 		overlay_group.append(group)
 	svg_root.append(overlay_group)
 	output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2477,6 +2604,17 @@ def analyze_svg_file(
 	checked_line_indexes = [
 		index for index in range(len(lines)) if index not in excluded_line_indexes
 	]
+	pre_hashed_carrier_map = _detect_hashed_carrier_map(lines, checked_line_indexes)
+	pre_decorative_hatched_stroke_index_set = {
+		stroke_index
+		for stroke_indexes in pre_hashed_carrier_map.values()
+		for stroke_index in stroke_indexes
+	}
+	connector_candidate_line_indexes = [
+		index for index in checked_line_indexes if index not in pre_decorative_hatched_stroke_index_set
+	]
+	if not connector_candidate_line_indexes:
+		connector_candidate_line_indexes = list(checked_line_indexes)
 	checked_label_indexes = list(range(len(labels)))
 	line_lengths_all = [_line_length(line) for line in lines]
 	line_lengths_checked_raw = [
@@ -2507,7 +2645,7 @@ def analyze_svg_file(
 				independent_signed_distance,
 			) = _nearest_endpoint_to_text_path(
 				lines=lines,
-				line_indexes=checked_line_indexes,
+				line_indexes=connector_candidate_line_indexes,
 				path_obj=independent_text_path,
 			)
 		else:
@@ -2518,7 +2656,7 @@ def analyze_svg_file(
 				independent_signed_distance,
 			) = _nearest_endpoint_to_glyph_primitives(
 				lines=lines,
-				line_indexes=checked_line_indexes,
+				line_indexes=connector_candidate_line_indexes,
 				primitives=independent_primitives,
 			)
 			independent_model_name = "svg_primitives_ellipse_box"

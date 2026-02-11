@@ -1,6 +1,26 @@
 # Changelog
 
 ## 2026-02-11
+- Improve alignment-center diagnostics in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  target diagnostic glyph overlays to the selected alignment character
+  primitive (for example `O` in `OH`) and add a 1pt center dot at
+  `alignment_center_point` for direct visual confirmation.
+- Fix hatched-bond connector matching in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  exclude decorative hatch micro-strokes from connector-candidate line
+  selection so label alignment/gap checks attach to hashed carrier lines
+  instead of hatch fragments.
+- Reclassify [docs/HAWORTH_OVERRIDES.md](docs/HAWORTH_OVERRIDES.md) into
+  explicit `Required Contract`, `Hack Debt`, and `Validate-only` buckets, and
+  add per-hack-debt convergence targets, replacement mechanisms, removal-gate
+  tests, and target deletion milestones for Phase 4 cleanup planning.
+- Refine diagnostic SVG overlay visuals in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  reduce infinite-line stroke width from `1.0` to `0.2`, remove the endpoint
+  circle marker, and render glyph overlays from text-path outlines (with
+  primitive-box/ellipse fallback only when no path is available) for much
+  tighter visual correspondence to the drawn glyphs.
 - Make `tools/measure_glyph_bond_alignment.py` fully independent of
   `packages/oasa`/BKChem runtime geometry for checker execution: remove
   render-geometry imports and use only SVG-derived text primitives/text-path

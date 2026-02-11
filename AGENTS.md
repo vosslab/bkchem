@@ -10,6 +10,8 @@ When making edits, document them in docs/CHANGELOG.md.
 Agents may run programs in the tests folder, including smoke tests and pyflakes runner scripts.
 
 ## Environment
+Codex must run Python using `/opt/homebrew/opt/python@3.12/bin/python3.12` (use Python 3.12 only).
+This is only for Codex's runtime, not a requirement for repo scripts.
 Codex must run Python using Python 3.12 only, exe can but found in source_me.sh
 please use source source_me.sh when running python commands.
 On this user's macOS (Homebrew Python 3.12), Python modules are installed to `/opt/homebrew/lib/python3.12/site-packages/`.

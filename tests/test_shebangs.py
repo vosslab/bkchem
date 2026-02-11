@@ -3,10 +3,9 @@ import stat
 from typing import Optional
 
 import git_file_utils
-from get_repo_root import get_repo_root
 
 
-REPO_ROOT = get_repo_root()
+REPO_ROOT = git_file_utils.get_repo_root()
 SKIP_DIRS = {
 	".git",
 	".venv",

@@ -1,7 +1,24 @@
+import os
 import subprocess
 from typing import Optional
 
-DEFAULT_SKIP_DIRS = {"old_shell_folder"}
+SCOPE_ENV = "REPO_HYGIENE_SCOPE"
+FAST_ENV = "FAST_REPO_HYGIENE"
+SKIP_ENV = "SKIP_REPO_HYGIENE"
+
+
+#============================================
+def get_repo_root() -> str:
+	"""
+	Get the repository root using git rev-parse --show-toplevel.
+
+	Returns:
+		str: Absolute path to the repository root.
+	"""
+	return subprocess.check_output(
+		["git", "rev-parse", "--show-toplevel"],
+		text=True,
+	).strip()
 
 
 #============================================
@@ -43,39 +60,9 @@ def _split_null(output: str) -> list[str]:
 
 
 #============================================
-def _path_has_skip_dir(path: str, skip_dirs: set[str]) -> bool:
-	"""
-	Check whether a path includes one of the skipped directories.
-	"""
-	normalized = path.replace("\\", "/")
-	for part in normalized.split("/"):
-		if part in skip_dirs:
-			return True
-	return False
-
-
-#============================================
-def _filter_skip_dirs(paths: list[str], skip_dirs: Optional[set[str]]) -> list[str]:
-	"""
-	Filter path list by skipped directory names.
-	"""
-	if skip_dirs is None:
-		skip_dirs = DEFAULT_SKIP_DIRS
-	if not skip_dirs:
-		return paths
-	filtered_paths = []
-	for path in paths:
-		if _path_has_skip_dir(path, skip_dirs):
-			continue
-		filtered_paths.append(path)
-	return filtered_paths
-
-
-#============================================
 def list_tracked_files(
 	repo_root: str,
 	patterns: Optional[list[str]] = None,
-	skip_dirs: Optional[set[str]] = None,
 	error_message: Optional[str] = None,
 ) -> list[str]:
 	"""
@@ -87,14 +74,13 @@ def list_tracked_files(
 	if patterns:
 		command += ["--"] + patterns
 	output = _run_git(repo_root, command, error_message)
-	return _filter_skip_dirs(_split_null(output), skip_dirs)
+	return _split_null(output)
 
 
 #============================================
 def list_changed_files(
 	repo_root: str,
 	diff_filter: str = "ACMRTUXB",
-	skip_dirs: Optional[set[str]] = None,
 	error_message: Optional[str] = None,
 ) -> list[str]:
 	"""
@@ -110,4 +96,45 @@ def list_changed_files(
 	for command in commands:
 		output = _run_git(repo_root, command, error_message)
 		paths.extend(_split_null(output))
-	return _filter_skip_dirs(paths, skip_dirs)
+	return paths
+
+
+#============================================
+def resolve_scope() -> str:
+	"""
+	Resolve the scan scope from environment.
+
+	Returns:
+		str: "all" or "changed".
+	"""
+	scope = os.environ.get(SCOPE_ENV, "").strip().lower()
+	if not scope and os.environ.get(FAST_ENV) == "1":
+		scope = "changed"
+	if scope in ("all", "changed"):
+		return scope
+	return "all"
+
+
+#============================================
+def collect_files(
+	repo_root: str,
+	gather_all_fn: callable,
+	gather_changed_fn: callable,
+) -> list[str]:
+	"""
+	Collect files based on scope, returning empty list when skipped.
+
+	Args:
+		repo_root: Absolute path to the repository root.
+		gather_all_fn: Callable that takes repo_root and returns all files.
+		gather_changed_fn: Callable that takes repo_root and returns changed files.
+
+	Returns:
+		list[str]: File paths to process.
+	"""
+	if os.environ.get(SKIP_ENV) == "1":
+		return []
+	scope = resolve_scope()
+	if scope == "changed":
+		return gather_changed_fn(repo_root)
+	return gather_all_fn(repo_root)

@@ -5,13 +5,12 @@ import sys
 import tokenize
 
 import git_file_utils
-from get_repo_root import get_repo_root
 
 SCOPE_ENV = "REPO_HYGIENE_SCOPE"
 FAST_ENV = "FAST_REPO_HYGIENE"
 SKIP_ENV = "SKIP_REPO_HYGIENE"
 CHECK_OPTIONAL_IMPORTS_ENV = "CHECK_OPTIONAL_IMPORTS"
-REPO_ROOT = get_repo_root()
+REPO_ROOT = git_file_utils.get_repo_root()
 SKIP_DIRS = {".git", ".venv", "__pycache__", "old_shell_folder"}
 REPORT_NAME = "report_imports.txt"
 REQUIREMENT_FILES = (
