@@ -207,6 +207,7 @@ def _build_case_ops(case, show_carbon_numbers=False):
 		spec,
 		bond_length=30.0,
 		show_carbon_numbers=show_carbon_numbers,
+		show_hydrogens=False,
 		bg_color=case.get("bg_color", "#fff"),
 		line_color="#000",
 		label_color="#000",

@@ -1,6 +1,7 @@
 """Unit tests for Haworth schematic render_ops output."""
 
 # Standard Library
+import dataclasses
 import math
 from xml.dom import minidom as xml_minidom
 
@@ -118,6 +119,71 @@ def _ring_center(spec: haworth_spec.HaworthSpec, bond_length: float = 30.0) -> t
 #============================================
 def _distance(p1: tuple[float, float], p2: tuple[float, float]) -> float:
 	return math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+
+
+#============================================
+def _raster_text_column_histogram(
+		text_op: render_ops.TextOp,
+		probe_point: tuple[float, float],
+		scale: float = 16.0,
+		padding: float = 24.0) -> tuple[dict[int, int], float]:
+	"""Rasterize one text op and return per-column ink counts plus probe x in px."""
+	try:
+		import cairo
+	except ImportError:
+		pytest.skip("pycairo is required for raster-grounded glyph probe")
+	min_x = min(text_op.x, probe_point[0]) - (text_op.font_size * 3.0)
+	max_x = max(text_op.x, probe_point[0]) + (text_op.font_size * 9.0)
+	min_y = min(text_op.y, probe_point[1]) - (text_op.font_size * 3.0)
+	max_y = max(text_op.y, probe_point[1]) + (text_op.font_size * 2.0)
+	width = int(math.ceil(((max_x - min_x) * scale) + (2.0 * padding)))
+	height = int(math.ceil(((max_y - min_y) * scale) + (2.0 * padding)))
+	surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, max(1, width), max(1, height))
+	context = cairo.Context(surface)
+	context.set_source_rgb(1.0, 1.0, 1.0)
+	context.paint()
+	tx = padding - (min_x * scale)
+	ty = padding - (min_y * scale)
+	context.translate(tx, ty)
+	context.scale(scale, scale)
+	render_ops.ops_to_cairo(context, [text_op])
+	buffer = surface.get_data()
+	stride = surface.get_stride()
+	histogram = {}
+	for y_pos in range(surface.get_height()):
+		row = y_pos * stride
+		for x_pos in range(surface.get_width()):
+			base = row + (x_pos * 4)
+			blue = buffer[base + 0]
+			green = buffer[base + 1]
+			red = buffer[base + 2]
+			alpha = buffer[base + 3]
+			if alpha == 0:
+				continue
+			if red >= 245 and green >= 245 and blue >= 245:
+				continue
+			histogram[x_pos] = histogram.get(x_pos, 0) + 1
+	probe_x = (probe_point[0] * scale) + tx
+	return histogram, probe_x
+
+
+#============================================
+def _contiguous_int_ranges(values: list[int]) -> list[tuple[int, int]]:
+	"""Return sorted contiguous [start, end] ranges for integer values."""
+	if not values:
+		return []
+	ranges = []
+	start = values[0]
+	end = values[0]
+	for value in values[1:]:
+		if value == (end + 1):
+			end = value
+			continue
+		ranges.append((start, end))
+		start = value
+		end = value
+	ranges.append((start, end))
+	return ranges
 
 
 #============================================
@@ -815,6 +881,33 @@ def test_render_ribose_furanose_c4_up_connector_vertical_and_x_aligned_to_carbon
 
 
 #============================================
+def test_render_ribose_furanose_alpha_c4_up_connector_raster_probe_hits_c_stem_band():
+	"""Independent raster probe: endpoint must fall inside first-glyph C stem band."""
+	_, ops = _render("ARRDM", "furanose", "alpha", show_hydrogens=False)
+	label = _text_by_id(ops, "C4_up_label")
+	line = _line_by_id(ops, "C4_up_connector")
+	histogram, probe_x = _raster_text_column_histogram(label, line.p2, scale=16.0, padding=24.0)
+	assert histogram, "No label ink captured for raster probe"
+	columns = sorted(histogram)
+	groups = _contiguous_int_ranges(columns)
+	assert groups, "No glyph column groups found in raster probe"
+	# C is the first glyph in CH2OH, so the left-most contiguous ink group is C.
+	c_group_start, c_group_end = groups[0]
+	c_columns = [x_value for x_value in columns if c_group_start <= x_value <= c_group_end]
+	assert c_columns, "No columns found for first glyph group"
+	max_count = max(histogram[x_value] for x_value in c_columns)
+	stem_threshold = max_count * 0.70
+	stem_band = [x_value for x_value in c_columns if histogram[x_value] >= stem_threshold]
+	assert stem_band, "No C-stem band found in raster probe"
+	stem_min = min(stem_band)
+	stem_max = max(stem_band)
+	assert (stem_min - 2.0) <= probe_x <= (stem_max + 2.0), (
+		f"Ribose raster probe failed: endpoint_x_px={probe_x:.2f} outside C stem band "
+		f"[{stem_min:.2f}, {stem_max:.2f}]"
+	)
+
+
+#============================================
 @pytest.mark.parametrize("code", ("ARLLDM", "ARRLDM"))
 def test_render_furanose_left_tail_chain2_connector_stays_on_carbon_token(code):
 	_, ops = _render(code, "furanose", "alpha", show_hydrogens=False)
@@ -823,6 +916,66 @@ def test_render_furanose_left_tail_chain2_connector_stays_on_carbon_token(code):
 		label_id="C4_down_chain2_label",
 		connector_id="C4_down_chain2_connector",
 		attach_element="C",
+	)
+
+
+#============================================
+def test_render_furanose_chain2_connector_matches_shared_resolver_endpoint():
+	_, ops = _render("ARLLDM", "furanose", "alpha", show_hydrogens=False)
+	line = _line_by_id(ops, "C4_down_chain2_connector")
+	label = _text_by_id(ops, "C4_down_chain2_label")
+	attach_target = render_geometry.label_attach_target_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		attach_atom="first",
+		attach_element="C",
+		attach_site="core_center",
+		font_name=label.font_name,
+	)
+	full_target = render_geometry.label_target_from_text_origin(
+		text_x=label.x,
+		text_y=label.y,
+		text=label.text,
+		anchor=label.anchor,
+		font_size=label.font_size,
+		font_name=label.font_name,
+	)
+	resolved = render_geometry.resolve_attach_endpoint(
+		bond_start=line.p1,
+		target=attach_target,
+		interior_hint=attach_target.centroid(),
+		constraints=render_geometry.AttachConstraints(direction_policy="auto"),
+	)
+	legal = render_geometry.retreat_endpoint_until_legal(
+		line_start=line.p1,
+		line_end=resolved,
+		line_width=line.width,
+		forbidden_regions=[full_target],
+		allowed_regions=[attach_target],
+		epsilon=0.5,
+	)
+	assert line.p2 == pytest.approx(legal)
+
+
+#============================================
+def test_strict_validate_ops_is_not_dependent_on_connector_op_id_suffixes():
+	_, ops = _render("ARLLDM", "furanose", "alpha", show_hydrogens=False)
+	rewritten = []
+	for index, op in enumerate(ops):
+		if isinstance(op, render_ops.LineOp):
+			rewritten.append(dataclasses.replace(op, op_id=f"line_{index}"))
+			continue
+		if isinstance(op, render_ops.TextOp):
+			rewritten.append(dataclasses.replace(op, op_id=f"text_{index}"))
+			continue
+		rewritten.append(op)
+	haworth_renderer.strict_validate_ops(
+		rewritten,
+		context="phase2_op_id_contract",
+		epsilon=0.5,
 	)
 
 

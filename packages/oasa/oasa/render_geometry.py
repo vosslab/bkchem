@@ -38,10 +38,92 @@ except ImportError:
 
 
 VALID_ATTACH_SITES = ("core_center", "stem_centerline", "closed_center")
+VALID_BOND_STYLES = (
+	"single",
+	"double",
+	"triple",
+	"dashed_hbond",
+	"rounded_wedge",
+	"hashed_wedge",
+	"wavy",
+)
+BOND_LENGTH_PROFILE = {
+	"single": 1.00,
+	"double": 0.98,
+	"triple": 0.96,
+	"dashed_hbond": 1.08,
+	"rounded_wedge": 1.00,
+	"hashed_wedge": 1.00,
+	"wavy": 1.00,
+}
+BOND_LENGTH_EXCEPTION_TAGS = (
+	"EXC_OXYGEN_AVOID_UP",
+	"EXC_RING_INTERIOR_CLEARANCE",
+)
 
 _OVAL_GLYPH_ELEMENTS = {"O", "C", "S"}
 _RECT_GLYPH_ELEMENTS = {"N", "H"}
 _SPECIAL_GLYPH_ELEMENTS = {"P"}
+
+
+#============================================
+def bond_length_profile() -> dict[str, float]:
+	"""Return immutable-copy style-length profile ratios."""
+	return dict(BOND_LENGTH_PROFILE)
+
+
+#============================================
+def _normalize_bond_style(bond_style: str) -> str:
+	"""Normalize one bond-style selector to canonical style key."""
+	if bond_style is None:
+		raise ValueError("bond_style must not be None")
+	normalized = str(bond_style).strip().lower()
+	if normalized not in VALID_BOND_STYLES:
+		raise ValueError(f"Invalid bond_style value: {bond_style!r}")
+	return normalized
+
+
+#============================================
+def _normalize_exception_tag(exception_tag: str | None) -> str | None:
+	"""Normalize one optional exception tag."""
+	if exception_tag is None:
+		return None
+	normalized = str(exception_tag).strip()
+	if normalized not in BOND_LENGTH_EXCEPTION_TAGS:
+		raise ValueError(f"Invalid bond-length exception tag: {exception_tag!r}")
+	return normalized
+
+
+#============================================
+def resolve_bond_length(
+		base_length: float,
+		bond_style: str,
+		requested_length: float | None = None,
+		exception_tag: str | None = None) -> float:
+	"""Resolve one style-policy bond length with tagged exception enforcement."""
+	base_value = float(base_length)
+	if base_value < 0.0:
+		raise ValueError(f"base_length must be >= 0.0, got {base_length!r}")
+	style_key = _normalize_bond_style(bond_style)
+	default_length = base_value * float(BOND_LENGTH_PROFILE[style_key])
+	if requested_length is None:
+		return default_length
+	requested = float(requested_length)
+	if requested < 0.0:
+		raise ValueError(f"requested_length must be >= 0.0, got {requested_length!r}")
+	if math.isclose(requested, default_length, abs_tol=1e-9):
+		return requested
+	tag = _normalize_exception_tag(exception_tag)
+	if tag is None:
+		raise ValueError(
+			"Non-default bond length requires one exception tag from "
+			f"{BOND_LENGTH_EXCEPTION_TAGS!r}"
+		)
+	if tag == "EXC_OXYGEN_AVOID_UP" and requested < (default_length - 1e-9):
+		raise ValueError("EXC_OXYGEN_AVOID_UP may only lengthen relative to style default")
+	if tag == "EXC_RING_INTERIOR_CLEARANCE" and requested > (default_length + 1e-9):
+		raise ValueError("EXC_RING_INTERIOR_CLEARANCE may only shorten relative to style default")
+	return requested
 
 
 #============================================
@@ -472,6 +554,77 @@ def _clip_to_target(bond_start, target):
 
 
 #============================================
+def _bond_style_for_edge(edge) -> str:
+	"""Map one render edge to the canonical bond-style policy key."""
+	try:
+		order = int(getattr(edge, "order", 1) or 1)
+	except Exception:
+		order = 1
+	if order == 2:
+		return "double"
+	if order == 3:
+		return "triple"
+	type_text = str(getattr(edge, "type", "") or "").strip().lower()
+	if type_text == "w":
+		return "rounded_wedge"
+	if type_text == "h":
+		return "hashed_wedge"
+	if type_text == "s":
+		return "wavy"
+	if type_text == "d":
+		return "dashed_hbond"
+	return "single"
+
+
+#============================================
+def _edge_length_override(edge) -> float | None:
+	"""Resolve optional explicit edge length override from attrs/properties."""
+	override = getattr(edge, "bond_length_override", None)
+	if override is not None:
+		return float(override)
+	properties = getattr(edge, "properties_", None) or {}
+	override = properties.get("bond_length_override")
+	if override is None:
+		return None
+	return float(override)
+
+
+#============================================
+def _edge_length_exception_tag(edge) -> str | None:
+	"""Resolve optional edge length exception tag from attrs/properties."""
+	tag = getattr(edge, "bond_length_exception_tag", None)
+	if tag:
+		return str(tag)
+	properties = getattr(edge, "properties_", None) or {}
+	tag = properties.get("bond_length_exception_tag")
+	if tag is None:
+		return None
+	return str(tag)
+
+
+#============================================
+def _apply_bond_length_policy(edge, start, end):
+	"""Apply style-length policy to one edge segment."""
+	base_length = geometry.point_distance(start[0], start[1], end[0], end[1])
+	if base_length <= 0.0:
+		return start, end
+	style_key = _bond_style_for_edge(edge)
+	target_length = resolve_bond_length(
+		base_length=base_length,
+		bond_style=style_key,
+		requested_length=_edge_length_override(edge),
+		exception_tag=_edge_length_exception_tag(edge),
+	)
+	if math.isclose(target_length, base_length, abs_tol=1e-9):
+		return start, end
+	scale = target_length / base_length
+	dx = end[0] - start[0]
+	dy = end[1] - start[1]
+	resolved_end = (start[0] + (dx * scale), start[1] + (dy * scale))
+	return start, resolved_end
+
+
+#============================================
 def build_bond_ops(edge, start, end, context):
 	if start is None or end is None:
 		return []
@@ -482,6 +635,7 @@ def build_bond_ops(edge, start, end, context):
 		start = _clip_to_target(end, target_v1)
 	if target_v2 is not None:
 		end = _clip_to_target(start, target_v2)
+	start, end = _apply_bond_length_policy(edge, start, end)
 	has_shown_vertex = False
 	if context.shown_vertices:
 		has_shown_vertex = v1 in context.shown_vertices or v2 in context.shown_vertices
@@ -1859,9 +2013,51 @@ def _resolve_style(style):
 
 
 #============================================
+def _render_edge_key(edge):
+	"""Return canonical unordered render key for one bond edge."""
+	v1, v2 = edge.vertices
+	id1 = id(v1)
+	id2 = id(v2)
+	if id1 <= id2:
+		return (id1, id2)
+	return (id2, id1)
+
+
+#============================================
+def _render_edge_priority(edge):
+	"""Return deterministic priority for duplicate bond-edge collapse."""
+	try:
+		order = int(getattr(edge, "order", 1) or 1)
+	except Exception:
+		order = 1
+	type_text = str(getattr(edge, "type", "") or "")
+	# Keep wedged/hashed/wavy style bonds over plain lines when duplicates exist.
+	type_rank = 1 if type_text in ("w", "h", "s", "q") else 0
+	aromatic_rank = 1 if bool(getattr(edge, "aromatic", 0)) else 0
+	return (order, type_rank, aromatic_rank, -id(edge))
+
+
+#============================================
+def _render_edges_in_order(mol):
+	"""Yield canonical non-duplicated edges for one molecule render pass."""
+	ordered_keys = []
+	chosen = {}
+	for edge in mol.edges:
+		key = _render_edge_key(edge)
+		if key not in chosen:
+			ordered_keys.append(key)
+			chosen[key] = edge
+			continue
+		if _render_edge_priority(edge) > _render_edge_priority(chosen[key]):
+			chosen[key] = edge
+	for key in ordered_keys:
+		yield chosen[key]
+
+
+#============================================
 def _edge_points(mol, transform_xy):
 	points = {}
-	for edge in mol.edges:
+	for edge in _render_edges_in_order(mol):
 		v1, v2 = edge.vertices
 		if transform_xy:
 			points[edge] = (transform_xy(v1.x, v1.y), transform_xy(v2.x, v2.y))
@@ -1939,7 +2135,7 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		attach_targets=attach_targets,
 	)
 	ops = []
-	for edge in mol.edges:
+	for edge in _render_edges_in_order(mol):
 		start, end = bond_coords[edge]
 		ops.extend(build_bond_ops(edge, start, end, context))
 	for vertex in mol.vertices:

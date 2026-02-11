@@ -52,6 +52,10 @@ Ownership:
 
 ## Phase plan (ordered, dependency-aware)
 
+Current phase status:
+- Phase 3 is complete.
+- Phase 4 is the next active phase.
+
 ### Phase 0: contract freeze and baseline
 
 Deliverables:
@@ -155,10 +159,10 @@ Done checks:
   - Done: no caller-side bypasses remain active.
 - Phase 3:
   - Deliverables: central bond-length policy + tagged exception mechanism.
-  - Done: untagged length deviations are disallowed.
+  - Done: complete; untagged length deviations are disallowed.
 - Phase 4:
   - Deliverables: Haworth regressions fixed + 3 non-Haworth sentinel proofs.
-  - Done: contract behavior stable across targeted surfaces.
+  - Done: next; not complete yet.
 - Phase 5:
   - Deliverables: close-out docs and status alignment.
   - Done: plan can be marked complete with evidence.
@@ -253,12 +257,12 @@ Rollback strategy:
 - [ ] Contract vocabulary frozen and approved.
 - [ ] Glyph primitive model implemented (`O/C/S`, `N/H`, `P` special).
 - [ ] Shared endpoint resolver used by runtime and strict validator.
-- [ ] Fixed style-length table implemented and documented.
-- [ ] Exception tags implemented and audited.
+- [x] Fixed style-length table implemented and documented.
+- [x] Exception tags implemented and audited.
 - [ ] Baseline Haworth failures corrected with before/after evidence.
 - [ ] Minimal non-Haworth sentinel tests passing.
-- [ ] Full suite passes twice consecutively.
-- [ ] Changelog and progress docs updated.
+- [x] Full suite passes twice consecutively.
+- [x] Changelog and progress docs updated.
 
 ## Documentation close-out requirements
 

@@ -1,6 +1,68 @@
 # Changelog
 
 ## 2026-02-11
+- Update Phase status wording/checklist in
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
+  to state "Phase 3 complete; Phase 4 next" and mark only evidenced checklist
+  items complete.
+- Complete Phase 3 (fixed bond-length policy) from
+  [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  add central runtime style-length policy in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  with `VALID_BOND_STYLES`, `BOND_LENGTH_PROFILE`,
+  `BOND_LENGTH_EXCEPTION_TAGS`, and `resolve_bond_length(...)`.
+- Wire style-length policy into runtime bond rendering in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
+  map edge order/type to canonical bond styles, apply style default lengths
+  during `build_bond_ops(...)`, and require explicit exception tags for any
+  non-default `bond_length_override`.
+- Add Phase 3 policy regression coverage in
+  [tests/test_bond_length_policy.py](tests/test_bond_length_policy.py):
+  validate profile defaults by style, enforce tagged exception rules, and
+  confirm runtime bond ops apply style defaults and tagged overrides.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_bond_length_policy.py`
+  (`20 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_bond_length_policy.py tests/test_attach_targets.py tests/test_glyph_primitive_calibration.py tests/test_oasa_bond_styles.py`
+  (`56 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`503 passed, 6 skipped`) twice consecutively,
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0`).
+- Haworth explicit-H freeze active at tool callsites:
+  set `show_hydrogens=False` explicitly for Haworth renderer usage in
+  [tools/selftest_sheet.py](tools/selftest_sheet.py) and
+  [tools/haworth_visual_check_pdf.py](tools/haworth_visual_check_pdf.py),
+  and add guard test
+  [tests/test_haworth_tool_show_hydrogens_freeze.py](tests/test_haworth_tool_show_hydrogens_freeze.py)
+  to fail if any `tools/` Haworth render call omits explicit
+  `show_hydrogens=False`.
+- "Haworth explicit-H freeze active until HAWORTH_EXPLICIT_HYDROGEN_PLAN.md is activated."
+- Phase 2 endpoint resolver unification in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  add one shared resolver+legality helper (`_resolve_legal_attach_endpoint`),
+  route two-carbon tail branch endpoints through `resolve_attach_endpoint`
+  (remove fixed-endpoint chain2 placement), and route multi-segment chain
+  connector endpoints through the same shared attach-target contract.
+- Remove strict-validator drift and op-id ownership routing in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py):
+  strict bond/label legality now derives allowed attach carve-outs from
+  geometry interaction with the same attach primitives used at runtime, rather
+  than `_connector`/`_hatch` string matching.
+- Add Phase 2 regression coverage in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py):
+  verify chain2 endpoints match shared resolver output and verify strict
+  validation remains correct when connector/label op_id suffix conventions are
+  removed.
+- Validation reruns for this update:
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test_attach_targets.py tests/test_haworth_renderer.py tests/smoke/test_haworth_renderer_smoke.py tests/test_glyph_primitive_calibration.py`
+  (`252 passed`),
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 -m pytest -q tests/test*.py`
+  (`481 passed, 6 skipped`),
+  and
+  `source source_me.sh && /opt/homebrew/opt/python@3.12/bin/python3.12 tools/archive_matrix_summary.py -r`
+  (`Strict-overlap failures: 0` with strict mode `report_all`).
 - Tighten strict overlap enforcement mode controls in
   [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py):
   add `--strict-report-all` (collect all strict failures, still write reports,

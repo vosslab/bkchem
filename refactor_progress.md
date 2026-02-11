@@ -1,6 +1,6 @@
 # Refactor progress
 
-Last updated: 2026-02-10
+Last updated: 2026-02-11
 
 ## Snapshot
 - Registry refactor: OASA codec registry is implemented and in use by the CLI.
@@ -40,6 +40,9 @@ Last updated: 2026-02-10
   Linux Flatpak builds.
 
 ## In progress
+- [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
+  Phase 3 (fixed bond-length policy) is complete in runtime/tests; Phase 4
+  validation scope remains the next active step.
 - [docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/active_plans/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md):
   Phase 0 work is complete; future Phases 6/7 remain planned.
 - [docs/active_plans/LICENSE_MIGRATION.md](docs/LICENSE_MIGRATION.md):
