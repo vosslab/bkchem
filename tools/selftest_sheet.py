@@ -1204,7 +1204,7 @@ def _build_benzene_ops():
 
 
 #============================================
-def _build_fischer_ops(show_explicit_hydrogens=True):
+def _build_fischer_ops(show_explicit_hydrogens=False):
 	mol = _build_fischer_mol(show_explicit_hydrogens=show_explicit_hydrogens)
 	return _build_molecule_ops(mol, _mol_render_options())
 
@@ -1212,7 +1212,7 @@ def _build_fischer_ops(show_explicit_hydrogens=True):
 #============================================
 def _build_cholesterol_ops():
 	options = _mol_render_options()
-	options["show_hydrogens_on_hetero"] = True
+	options["show_hydrogens_on_hetero"] = False
 	return _build_molecule_ops(_build_cholesterol_mol(), options)
 
 
@@ -1220,28 +1220,28 @@ def _build_cholesterol_ops():
 def _build_alpha_d_glucopyranose_ops():
 	parsed = sugar_code.parse("ARLRDM")
 	spec = haworth_spec.generate(parsed, ring_type="pyranose", anomeric="alpha")
-	return haworth_renderer.render(spec, bond_length=30)
+	return haworth_renderer.render(spec, bond_length=30, show_hydrogens=False)
 
 
 #============================================
 def _build_beta_d_fructofuranose_ops():
 	parsed = sugar_code.parse("MKLRDM")
 	spec = haworth_spec.generate(parsed, ring_type="furanose", anomeric="beta")
-	return haworth_renderer.render(spec, bond_length=30)
+	return haworth_renderer.render(spec, bond_length=30, show_hydrogens=False)
 
 
 #============================================
 def _build_alpha_d_tagatopyranose_ops():
 	parsed = sugar_code.parse("MKRRDM")
 	spec = haworth_spec.generate(parsed, ring_type="pyranose", anomeric="alpha")
-	return haworth_renderer.render(spec, bond_length=30)
+	return haworth_renderer.render(spec, bond_length=30, show_hydrogens=False)
 
 
 #============================================
 def _build_alpha_d_psicofuranose_ops():
 	parsed = sugar_code.parse("MKLLDM")
 	spec = haworth_spec.generate(parsed, ring_type="furanose", anomeric="alpha")
-	return haworth_renderer.render(spec, bond_length=30)
+	return haworth_renderer.render(spec, bond_length=30, show_hydrogens=False)
 
 
 #============================================
