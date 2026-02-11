@@ -1,6 +1,15 @@
 # Changelog
 
 ## 2026-02-11
+- Tighten strict overlap enforcement mode controls in
+  [tools/archive_matrix_summary.py](tools/archive_matrix_summary.py):
+  add `--strict-report-all` (collect all strict failures, still write reports,
+  then exit non-zero) and `--strict-fail-fast` (stop on first strict failure,
+  exit non-zero), while preserving per-failure logging and summary counts.
+- Add strict mode regression tests in
+  [tests/test_archive_matrix_summary_strict_modes.py](tests/test_archive_matrix_summary_strict_modes.py)
+  to lock parser constraints and non-zero exit behavior for report-all and
+  fail-fast modes.
 - Tighten
   [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md)
   with an explicit analytic-primitive measurement contract:

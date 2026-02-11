@@ -59,9 +59,32 @@ def parse_args() -> argparse.Namespace:
 			"enforces strict overlap checks."
 		),
 	)
+	strict_mode_group = parser.add_mutually_exclusive_group()
+	strict_mode_group.add_argument(
+		"--strict-report-all",
+		dest="strict_mode",
+		action="store_const",
+		const="report_all",
+		help=(
+			"Collect and report all strict overlap failures while continuing "
+			"generation, then exit non-zero if any strict failures occurred."
+		),
+	)
+	strict_mode_group.add_argument(
+		"--strict-fail-fast",
+		dest="strict_mode",
+		action="store_const",
+		const="fail_fast",
+		help="Stop immediately on first strict overlap failure and exit non-zero.",
+	)
 	parser.set_defaults(regenerate_haworth_svgs=False)
 	parser.set_defaults(strict_render_checks=False)
+	parser.set_defaults(strict_mode=None)
 	args = parser.parse_args()
+	if args.strict_mode and not args.regenerate_haworth_svgs:
+		parser.error("--strict-report-all and --strict-fail-fast require --regenerate-haworth-svgs")
+	if args.regenerate_haworth_svgs and args.strict_mode is None:
+		args.strict_mode = "report_all"
 	return args
 
 
@@ -685,7 +708,11 @@ def main() -> None:
 	summary_path = output_dir / "archive_matrix_summary.html"
 	l_sugar_summary_path = output_dir / "l-sugar_matrix.html"
 	archive_dir = repo_root / "neurotiker_haworth_archive"
-	strict_render_checks = bool(args.strict_render_checks or args.regenerate_haworth_svgs)
+	strict_render_checks = bool(
+		args.strict_render_checks
+		or args.regenerate_haworth_svgs
+		or args.strict_mode is not None
+	)
 
 	if matrix_dir.exists() and not matrix_dir.is_dir():
 		raise FileNotFoundError(f"Archive matrix path exists but is not a folder: {matrix_dir}")
@@ -708,7 +735,7 @@ def main() -> None:
 	missing_generated = 0
 	missing_reference = 0
 	generated_only_missing_generated = 0
-	ignored_overlap_failures: list[str] = []
+	strict_overlap_failures: list[str] = []
 	for entry in entries:
 		code = entry["code"]
 		ring_type = entry["ring_type"]
@@ -736,9 +763,11 @@ def main() -> None:
 			except RuntimeError as error:
 				error_text = str(error)
 				if "Strict overlap failure" in error_text:
-					ignored_overlap_failures.append(
-						f"{code}_{ring_type}_{anomeric}: {error_text}"
-					)
+					failure_text = f"{code}_{ring_type}_{anomeric}: {error_text}"
+					strict_overlap_failures.append(failure_text)
+					print(f"Strict overlap failure: {failure_text}")
+					if args.strict_mode == "fail_fast":
+						raise SystemExit(2)
 				else:
 					raise
 		if generated_rel is None and preview_path.is_file():
@@ -788,6 +817,7 @@ def main() -> None:
 	print(f"Wrote summary: {summary_path}")
 	print(f"Wrote generated-only summary: {l_sugar_summary_path}")
 	print(f"Regenerate generated previews: {args.regenerate_haworth_svgs}")
+	print(f"Strict mode: {args.strict_mode or 'off'}")
 	print(f"Strict render checks: {strict_render_checks}")
 	print(f"Generated previews written (with references): {len(rows) - missing_generated}")
 	print(f"Generated previews written (generated-only): {len(generated_only_rows) - generated_only_missing_generated}")
@@ -797,9 +827,11 @@ def main() -> None:
 	print(f"Missing generated (with references): {missing_generated}")
 	print(f"Missing generated (generated-only): {generated_only_missing_generated}")
 	print(f"Missing reference: {missing_reference}")
-	print(f"Ignored strict-overlap failures: {len(ignored_overlap_failures)}")
-	for failure in ignored_overlap_failures:
+	print(f"Strict-overlap failures: {len(strict_overlap_failures)}")
+	for failure in strict_overlap_failures:
 		print(f"  - {failure}")
+	if args.strict_mode == "report_all" and strict_overlap_failures:
+		raise SystemExit(2)
 
 
 #============================================

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Offline/test calibration harness for glyph primitive attachment contracts."""
 
 # Standard Library
