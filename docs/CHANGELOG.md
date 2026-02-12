@@ -1,6 +1,25 @@
 # Changelog
 
 ## 2026-02-12
+- Re-select connector endpoint after optical center refinement in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  so reported endpoint-to-glyph distances are computed from the final refined
+  center and chosen connector line endpoint.
+- Add dual-raster glyph refinement path in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  cache/render both overlay-stripped full SVG and text-only SVG rasters per file,
+  use text-only ROI masks for glyph center fitting, and fall back to full raster
+  with connector-line masking when text-only masks are unavailable.
+- Harden connector pickup and endpoint selection in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  replace fixed connector width cutoff with dynamic median-based threshold plus
+  top-k widest fallback, and switch to geometry-weighted endpoint scoring that
+  penalizes inside-box endpoints and bond directions pointing away from the
+  selected primitive center.
+- Tighten O-core gating in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  by using smaller core-ellipse multipliers for `O` targets to reduce bond-tail
+  contamination of curved-glyph center fits.
 - Reduce exported glyph-curve point density in
   [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
   to about 10% of dense hull samples for diagnostics/JSON output while keeping

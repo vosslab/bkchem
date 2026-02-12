@@ -827,6 +827,121 @@ def _nearest_endpoint_to_text_path(
 
 
 #============================================
+def _is_point_inside_box(point: tuple[float, float], box: tuple[float, float, float, float]) -> bool:
+	"""Return True when one point lies inside one normalized box."""
+	x1, y1, x2, y2 = _normalize_box(box)
+	return x1 <= float(point[0]) <= x2 and y1 <= float(point[1]) <= y2
+
+
+#============================================
+def _choose_endpoint_for_alignment(
+		line: dict,
+		prim_center: tuple[float, float] | None,
+		label_box: tuple[float, float, float, float] | None,
+		text_path=None,
+		primitives: list[dict] | None = None) -> tuple[tuple[float, float], float]:
+	"""Choose line endpoint using label/primitive-aware geometry scoring."""
+	a, b = _line_endpoints(line)
+	primitives = primitives or []
+	def base_distance(point) -> float:
+		if text_path is not None:
+			signed = _point_to_text_path_signed_distance(point, text_path)
+			if math.isfinite(signed):
+				return abs(float(signed))
+		if primitives:
+			signed = _point_to_glyph_primitives_signed_distance(point, primitives)
+			if math.isfinite(signed):
+				return max(0.0, float(signed))
+		if label_box is not None:
+			return _point_to_box_distance(point, label_box)
+		return 0.0
+	def score(endpoint, other) -> float:
+		d_text = base_distance(endpoint)
+		d_prim = 0.0
+		if prim_center is not None:
+			d_prim = math.hypot(endpoint[0] - prim_center[0], endpoint[1] - prim_center[1])
+		inside_penalty = 0.0
+		if label_box is not None and _is_point_inside_box(endpoint, label_box):
+			inside_penalty = 999.0
+		direction_penalty = 0.0
+		if prim_center is not None:
+			vx = other[0] - endpoint[0]
+			vy = other[1] - endpoint[1]
+			cx = prim_center[0] - endpoint[0]
+			cy = prim_center[1] - endpoint[1]
+			if (vx * cx) + (vy * cy) < 0.0:
+				direction_penalty = 50.0
+		return (1.0 * d_text) + (0.15 * d_prim) + inside_penalty + direction_penalty
+	score_a = score(a, b)
+	score_b = score(b, a)
+	if score_a <= score_b:
+		return a, score_a
+	return b, score_b
+
+
+#============================================
+def _nearest_endpoint_for_alignment(
+		lines: list[dict],
+		line_indexes: list[int],
+		prim_center: tuple[float, float] | None,
+		label_box: tuple[float, float, float, float] | None,
+		text_path=None,
+		primitives: list[dict] | None = None) -> tuple[tuple[float, float] | None, float | None, int | None, float | None]:
+	"""Return best endpoint using geometry-aware per-line endpoint scoring."""
+	best_endpoint = None
+	best_score = float("inf")
+	best_far_distance = float("-inf")
+	best_length = float("-inf")
+	best_line_index = None
+	best_signed_distance = None
+	for line_index in line_indexes:
+		if line_index < 0 or line_index >= len(lines):
+			continue
+		line = lines[line_index]
+		endpoint, score = _choose_endpoint_for_alignment(
+			line=line,
+			prim_center=prim_center,
+			label_box=label_box,
+			text_path=text_path,
+			primitives=primitives,
+		)
+		p1, p2 = _line_endpoints(line)
+		other = p2 if _points_close(endpoint, p1, tol=1e-9) else p1
+		far_distance = 0.0
+		if prim_center is not None:
+			far_distance = math.hypot(other[0] - prim_center[0], other[1] - prim_center[1])
+		line_length = _line_length(line)
+		if (
+				score < best_score
+				or (
+					math.isclose(score, best_score, abs_tol=1e-9)
+					and far_distance > best_far_distance
+				)
+				or (
+					math.isclose(score, best_score, abs_tol=1e-9)
+					and math.isclose(far_distance, best_far_distance, abs_tol=1e-9)
+					and line_length > best_length
+				)
+		):
+			best_endpoint = endpoint
+			best_score = score
+			best_far_distance = far_distance
+			best_length = line_length
+			best_line_index = line_index
+			if text_path is not None:
+				best_signed_distance = _point_to_text_path_signed_distance(endpoint, text_path)
+			elif primitives:
+				best_signed_distance = _point_to_glyph_primitives_signed_distance(endpoint, primitives)
+			elif label_box is not None:
+				best_signed_distance = _point_to_box_signed_distance(endpoint, label_box)
+			else:
+				best_signed_distance = 0.0
+	if best_endpoint is None:
+		return None, None, None, None
+	return best_endpoint, float(best_score), best_line_index, best_signed_distance
+
+
+#============================================
 def _resolve_svg_paths(repo_root: pathlib.Path, input_glob: str) -> list[pathlib.Path]:
 	"""Resolve sorted SVG paths from one glob pattern."""
 	pattern = str(input_glob)
@@ -990,6 +1105,44 @@ def _strip_overlay_groups_for_raster(svg_root) -> str:
 		children = list(node)
 		for child in children:
 			if _node_is_overlay_group(child):
+				node.remove(child)
+				continue
+			prune(child)
+	prune(root_copy)
+	return StdET.tostring(root_copy, encoding="unicode")
+
+
+#============================================
+def _node_contains_text(node) -> bool:
+	"""Return True when one node subtree contains text-like elements."""
+	tag = _local_tag_name(str(node.tag))
+	if tag in {"text", "tspan", "textPath"}:
+		return True
+	for child in list(node):
+		if _node_contains_text(child):
+			return True
+	return False
+
+
+#============================================
+def _strip_non_text_geometry_for_raster(svg_root) -> str:
+	"""Return serialized SVG XML retaining only text/defs structures."""
+	root_text = ET.tostring(svg_root, encoding="unicode")
+	root_copy = StdET.fromstring(root_text)
+	def should_keep(node) -> bool:
+		tag = _local_tag_name(str(node.tag))
+		if tag in {"svg", "defs", "style", "metadata", "title", "desc", "text", "tspan", "textPath", "use"}:
+			return True
+		if tag in {"g", "a", "switch"}:
+			return _node_contains_text(node)
+		return False
+	def prune(node) -> None:
+		children = list(node)
+		for child in children:
+			if _node_is_overlay_group(child):
+				node.remove(child)
+				continue
+			if not should_keep(child):
 				node.remove(child)
 				continue
 			prune(child)
@@ -1985,13 +2138,17 @@ def _decode_png_bytes_to_rgba(png_bytes: bytes):
 
 
 #============================================
-def _cached_svg_raster(label: dict, scale: float) -> dict | None:
+def _cached_svg_raster(label: dict, scale: float, variant: str = "full") -> dict | None:
 	"""Render one source SVG into a cached RGBA raster for optical hull extraction."""
 	if cairosvg is None or np is None:
 		return None
 	svg_path = str(label.get("_source_svg_path") or "").strip()
-	svg_xml = str(label.get("_source_svg_xml_for_raster") or "").strip()
-	svg_key = str(label.get("_source_svg_cache_key") or svg_path).strip()
+	if str(variant) == "glyph_only":
+		svg_xml = str(label.get("_source_svg_xml_for_glyph_raster") or "").strip()
+		svg_key = str(label.get("_source_svg_cache_key_glyph_only") or svg_path).strip()
+	else:
+		svg_xml = str(label.get("_source_svg_xml_for_raster") or "").strip()
+		svg_key = str(label.get("_source_svg_cache_key") or svg_path).strip()
 	viewbox = label.get("_source_viewbox")
 	if not svg_xml or not svg_key or not isinstance(viewbox, (list, tuple)) or len(viewbox) != 4:
 		return None
@@ -2027,6 +2184,28 @@ def _cached_svg_raster(label: dict, scale: float) -> dict | None:
 
 
 #============================================
+def _mask_out_bond_line_from_roi(
+		mask,
+		line: dict | None,
+		origin_x: float,
+		origin_y: float,
+		scale: float,
+		font_size: float) -> tuple["np.ndarray", bool]:
+	"""Erase one bond line from ROI mask in pixel space (fallback contamination guard)."""
+	if np is None or cv2 is None or line is None:
+		return mask, False
+	masked = np.array(mask, copy=True)
+	x1 = int(round((float(line.get("x1", 0.0)) - origin_x) * scale))
+	y1 = int(round((float(line.get("y1", 0.0)) - origin_y) * scale))
+	x2 = int(round((float(line.get("x2", 0.0)) - origin_x) * scale))
+	y2 = int(round((float(line.get("y2", 0.0)) - origin_y) * scale))
+	line_width = max(1.0, float(line.get("width", 1.0)))
+	thickness = max(3, int(round(max(2.0, line_width * scale * 0.75))))
+	cv2.line(masked, (x1, y1), (x2, y2), color=0, thickness=thickness, lineType=cv2.LINE_AA)
+	return masked, True
+
+
+#============================================
 def _ink_mask_from_rgba(roi_rgba) -> "np.ndarray | None":
 	"""Return binary ink mask from one RGBA ROI using background-distance gating."""
 	if np is None or roi_rgba is None or roi_rgba.size == 0:
@@ -2047,7 +2226,8 @@ def _pixel_mask_from_component(
 		font_size: float,
 		label: dict | None = None,
 		expected_x: float | None = None,
-		expected_y: float | None = None) -> dict | None:
+		expected_y: float | None = None,
+		bond_line: dict | None = None) -> dict | None:
 	"""Return one CairoSVG ROI ink mask and transform metadata for one component."""
 	_ = expected_x
 	_ = expected_y
@@ -2068,34 +2248,54 @@ def _pixel_mask_from_component(
 		return None
 	svg_scale = float(label.get("_source_raster_scale", 8.0))
 	svg_scale = max(4.0, min(16.0, svg_scale))
-	raster = _cached_svg_raster(label=label, scale=svg_scale)
-	if raster is None:
-		return None
-	min_x_vb, min_y_vb, _max_x_vb, _max_y_vb = raster["viewbox"]
-	rgba = raster["rgba"]
-	roi_x1 = min_x - pad
-	roi_x2 = max_x + pad
-	roi_y1 = min_y - pad
-	roi_y2 = max_y + pad
-	x0_px = int(math.floor((roi_x1 - min_x_vb) * svg_scale))
-	x1_px = int(math.ceil((roi_x2 - min_x_vb) * svg_scale))
-	y0_px = int(math.floor((roi_y1 - min_y_vb) * svg_scale))
-	y1_px = int(math.ceil((roi_y2 - min_y_vb) * svg_scale))
-	x0_px = max(0, min(x0_px, rgba.shape[1] - 1))
-	y0_px = max(0, min(y0_px, rgba.shape[0] - 1))
-	x1_px = max(x0_px + 1, min(x1_px, rgba.shape[1]))
-	y1_px = max(y0_px + 1, min(y1_px, rgba.shape[0]))
-	roi_rgba = rgba[y0_px:y1_px, x0_px:x1_px]
-	mask = _ink_mask_from_rgba(roi_rgba)
-	if mask is None or int(np.count_nonzero(mask)) == 0:
-		return None
-	return {
-		"mask": mask,
-		"scale": float(svg_scale),
-		"origin_x": min_x_vb + (float(x0_px) / float(svg_scale)),
-		"origin_y": min_y_vb + (float(y0_px) / float(svg_scale)),
-		"mask_source": "cairosvg_roi_rgba",
-	}
+	for variant in ("glyph_only", "full"):
+		raster = _cached_svg_raster(label=label, scale=svg_scale, variant=variant)
+		if raster is None:
+			continue
+		min_x_vb, min_y_vb, _max_x_vb, _max_y_vb = raster["viewbox"]
+		rgba = raster["rgba"]
+		roi_x1 = min_x - pad
+		roi_x2 = max_x + pad
+		roi_y1 = min_y - pad
+		roi_y2 = max_y + pad
+		x0_px = int(math.floor((roi_x1 - min_x_vb) * svg_scale))
+		x1_px = int(math.ceil((roi_x2 - min_x_vb) * svg_scale))
+		y0_px = int(math.floor((roi_y1 - min_y_vb) * svg_scale))
+		y1_px = int(math.ceil((roi_y2 - min_y_vb) * svg_scale))
+		x0_px = max(0, min(x0_px, rgba.shape[1] - 1))
+		y0_px = max(0, min(y0_px, rgba.shape[0] - 1))
+		x1_px = max(x0_px + 1, min(x1_px, rgba.shape[1]))
+		y1_px = max(y0_px + 1, min(y1_px, rgba.shape[0]))
+		roi_rgba = rgba[y0_px:y1_px, x0_px:x1_px]
+		mask = _ink_mask_from_rgba(roi_rgba)
+		if mask is None or int(np.count_nonzero(mask)) == 0:
+			continue
+		mask_source = "cairosvg_roi_rgba_text_only" if variant == "glyph_only" else "cairosvg_roi_rgba_full"
+		origin_x = min_x_vb + (float(x0_px) / float(svg_scale))
+		origin_y = min_y_vb + (float(y0_px) / float(svg_scale))
+		bond_mask_applied = False
+		if variant != "glyph_only":
+			mask, bond_mask_applied = _mask_out_bond_line_from_roi(
+				mask=mask,
+				line=bond_line,
+				origin_x=origin_x,
+				origin_y=origin_y,
+				scale=float(svg_scale),
+				font_size=float(font_size),
+			)
+			if bond_mask_applied:
+				mask_source = "cairosvg_roi_rgba_full_bond_masked"
+		if int(np.count_nonzero(mask)) == 0:
+			continue
+		return {
+			"mask": mask,
+			"scale": float(svg_scale),
+			"origin_x": origin_x,
+			"origin_y": origin_y,
+			"mask_source": mask_source,
+			"bond_mask_applied": bool(bond_mask_applied),
+		}
+	return None
 
 
 #============================================
@@ -2162,7 +2362,8 @@ def _gate_component_to_glyph_core(
 		expected_x_px: float | None,
 		expected_y_px: float | None,
 		half_width_px: float,
-		half_height_px: float):
+		half_height_px: float,
+		target_char: str | None = None):
 	"""Keep pixels near expected glyph center to remove attached bond tails."""
 	if np is None:
 		return component_mask, False, None
@@ -2173,8 +2374,13 @@ def _gate_component_to_glyph_core(
 	total = int(len(x_index))
 	if total <= 0:
 		return component_mask, False, None
-	hx = max(3.0, float(half_width_px) * 1.35)
-	hy = max(3.0, float(half_height_px) * 1.45)
+	upper = str(target_char or "").upper()
+	if upper == "O":
+		hx = max(2.5, float(half_width_px) * 0.95)
+		hy = max(2.5, float(half_height_px) * 0.95)
+	else:
+		hx = max(3.0, float(half_width_px) * 1.35)
+		hy = max(3.0, float(half_height_px) * 1.45)
 	nx = (x_index.astype(np.float64) - float(expected_x_px)) / hx
 	ny = (y_index.astype(np.float64) - float(expected_y_px)) / hy
 	keep = ((nx * nx) + (ny * ny)) <= 1.0
@@ -2214,6 +2420,7 @@ def _pixel_hull_geometry_from_component(
 		"roi_scale_px_per_svg": None,
 		"hull_mode": "pixel_convex_hull",
 		"mask_source": None,
+		"bond_mask_applied": False,
 		"glyph_core_gate_applied": False,
 		"glyph_core_retention_ratio": None,
 		"baseline_clip_applied": False,
@@ -2229,6 +2436,7 @@ def _pixel_hull_geometry_from_component(
 		label=label,
 		expected_x=expected_x,
 		expected_y=expected_y,
+		bond_line=bond_line,
 	)
 	if pixel_data is None:
 		return result
@@ -2237,6 +2445,7 @@ def _pixel_hull_geometry_from_component(
 	origin_x = float(pixel_data["origin_x"])
 	origin_y = float(pixel_data["origin_y"])
 	result["mask_source"] = str(pixel_data.get("mask_source") or "unknown")
+	result["bond_mask_applied"] = bool(pixel_data.get("bond_mask_applied", False))
 	result["roi_origin_svg"] = [origin_x, origin_y]
 	result["roi_scale_px_per_svg"] = scale
 	expected_x_px = None if expected_x is None else (float(expected_x) - origin_x) * scale
@@ -2268,6 +2477,7 @@ def _pixel_hull_geometry_from_component(
 		expected_y_px=expected_y_px,
 		half_width_px=half_width_px,
 		half_height_px=half_height_px,
+		target_char=upper_target,
 	)
 	result["glyph_core_gate_applied"] = bool(gated)
 	result["glyph_core_retention_ratio"] = (
@@ -3204,6 +3414,7 @@ def _refine_alignment_center_from_text_path(
 			gate_debug["hull_contour_point_count"] = int(hull_geometry.get("hull_contour_point_count", 0))
 			gate_debug["hull_source"] = hull_geometry.get("hull_source")
 			gate_debug["mask_source"] = hull_geometry.get("mask_source")
+			gate_debug["bond_mask_applied"] = bool(hull_geometry.get("bond_mask_applied", False))
 			gate_debug["glyph_core_gate_applied"] = bool(hull_geometry.get("glyph_core_gate_applied", False))
 			gate_debug["glyph_core_retention_ratio"] = _compact_float(
 				hull_geometry.get("glyph_core_retention_ratio")
@@ -3808,6 +4019,7 @@ def analyze_svg_file(
 	ring_primitives = _collect_svg_ring_primitives(root)
 	source_viewbox = _viewbox_bounds(root)
 	source_svg_xml_for_raster = _strip_overlay_groups_for_raster(root)
+	source_svg_xml_for_glyph_raster = _strip_non_text_geometry_for_raster(root)
 	measurement_fonts = [
 		max(1.0, float(label.get("font_size", 12.0)))
 		for label in labels
@@ -3819,6 +4031,7 @@ def analyze_svg_file(
 		representative_font = 12.0
 	source_raster_scale = max(6.0, min(12.0, representative_font / 1.8))
 	source_cache_key = f"{svg_path.resolve()}::overlay_stripped"
+	source_cache_key_glyph_only = f"{svg_path.resolve()}::text_only"
 	for label in labels:
 		label["svg_text_path"] = _label_text_path(label)
 		label["svg_estimated_primitives"] = _label_svg_estimated_primitives(label)
@@ -3826,10 +4039,13 @@ def analyze_svg_file(
 		label["_source_svg_path"] = str(svg_path)
 		label["_source_viewbox"] = source_viewbox
 		label["_source_svg_xml_for_raster"] = source_svg_xml_for_raster
+		label["_source_svg_xml_for_glyph_raster"] = source_svg_xml_for_glyph_raster
 		label["_source_svg_cache_key"] = source_cache_key
+		label["_source_svg_cache_key_glyph_only"] = source_cache_key_glyph_only
 		label["_source_raster_scale"] = float(source_raster_scale)
 	if labels:
-		_cached_svg_raster(labels[0], scale=source_raster_scale)
+		_cached_svg_raster(labels[0], scale=source_raster_scale, variant="full")
+		_cached_svg_raster(labels[0], scale=source_raster_scale, variant="glyph_only")
 	measurement_label_indexes = [
 		index for index, label in enumerate(labels) if label["is_measurement_label"]
 	]
@@ -3846,14 +4062,40 @@ def analyze_svg_file(
 		for stroke_indexes in pre_hashed_carrier_map.values()
 		for stroke_index in stroke_indexes
 	}
+	width_pool = [
+		float(lines[index].get("width", 1.0))
+		for index in checked_line_indexes
+		if index not in pre_decorative_hatched_stroke_index_set
+	]
+	if width_pool:
+		width_pool_sorted = sorted(width_pool)
+		width_median = float(width_pool_sorted[len(width_pool_sorted) // 2])
+	else:
+		width_median = float(MIN_CONNECTOR_LINE_WIDTH)
+	min_connector_width = max(0.55 * width_median, 0.4)
 	connector_candidate_line_indexes = [
 		index
 		for index in checked_line_indexes
 		if index not in pre_decorative_hatched_stroke_index_set
-		and float(lines[index].get("width", 1.0)) >= MIN_CONNECTOR_LINE_WIDTH
+		and float(lines[index].get("width", 1.0)) >= min_connector_width
 	]
 	if not connector_candidate_line_indexes:
-		connector_candidate_line_indexes = list(checked_line_indexes)
+		fallback_pool = [
+			index
+			for index in checked_line_indexes
+			if index not in pre_decorative_hatched_stroke_index_set
+		]
+		if not fallback_pool:
+			fallback_pool = list(checked_line_indexes)
+		if fallback_pool:
+			k_value = min(6, len(fallback_pool))
+			connector_candidate_line_indexes = sorted(
+				fallback_pool,
+				key=lambda idx: float(lines[idx].get("width", 1.0)),
+				reverse=True,
+			)[:k_value]
+		else:
+			connector_candidate_line_indexes = []
 	checked_label_indexes = list(range(len(labels)))
 	line_lengths_all = [_line_length(line) for line in lines]
 	line_lengths_checked_raw = [
@@ -3875,30 +4117,24 @@ def analyze_svg_file(
 			canonical_text=str(label.get("canonical_text", label.get("text", ""))),
 		)
 		independent_text_path = label.get("svg_text_path")
-		independent_model_name = "svg_text_path_outline"
-		if independent_text_path is not None:
-			(
-				independent_endpoint,
-				independent_distance,
-				independent_line_index,
-				independent_signed_distance,
-			) = _nearest_endpoint_to_text_path(
-				lines=lines,
-				line_indexes=connector_candidate_line_indexes,
-				path_obj=independent_text_path,
-			)
-		else:
-			(
-				independent_endpoint,
-				independent_distance,
-				independent_line_index,
-				independent_signed_distance,
-			) = _nearest_endpoint_to_glyph_primitives(
-				lines=lines,
-				line_indexes=connector_candidate_line_indexes,
-				primitives=independent_primitives,
-			)
-			independent_model_name = "svg_primitives_ellipse_box"
+		independent_model_name = (
+			"svg_text_path_outline"
+			if independent_text_path is not None
+			else "svg_primitives_ellipse_box"
+		)
+		(
+			independent_endpoint,
+			independent_distance,
+			independent_line_index,
+			independent_signed_distance,
+		) = _nearest_endpoint_for_alignment(
+			lines=lines,
+			line_indexes=connector_candidate_line_indexes,
+			prim_center=alignment_center,
+			label_box=independent_box,
+			text_path=independent_text_path,
+			primitives=independent_primitives,
+		)
 		if str(alignment_center_mode).lower() == "optical":
 			bond_line = None
 			optical_gate_debug = {}
@@ -3923,6 +4159,21 @@ def analyze_svg_file(
 		best_line_width = 1.0
 		if best_line_index is not None and 0 <= best_line_index < len(lines):
 			best_line_width = float(lines[best_line_index].get("width", 1.0))
+		# After optical center refinement, re-select endpoint on the chosen line
+		# so distance-to-glyph uses the final alignment center, not stale pre-refine choice.
+		if best_line_index is not None and 0 <= best_line_index < len(lines):
+			best_endpoint, _endpoint_score = _choose_endpoint_for_alignment(
+				line=lines[best_line_index],
+				prim_center=alignment_center,
+				label_box=independent_box,
+				text_path=independent_text_path,
+				primitives=independent_primitives,
+			)
+			best_signed_distance = _point_to_label_signed_distance(best_endpoint, label)
+			if math.isfinite(best_signed_distance):
+				best_distance = abs(float(best_signed_distance))
+				independent_signed_distance = best_signed_distance
+				independent_distance = best_distance
 		if best_endpoint is None or best_distance is None or best_distance > search_limit:
 			no_connector_count += 1
 			hull_boundary_points = None
