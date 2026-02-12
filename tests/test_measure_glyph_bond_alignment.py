@@ -194,44 +194,6 @@ def test_alignment_primitive_center_prioritizes_element_atoms():
 
 
 #============================================
-def test_local_text_path_points_prefers_component_near_endpoint():
-	"""Component gate should choose the contour near the label-side bond endpoint."""
-	tool_module = _load_tool_module()
-
-	class _DummyPath:
-		def __init__(self, vertices, codes):
-			self.vertices = vertices
-			self.codes = codes
-
-	moveto = tool_module.MplPath.MOVETO
-	lineto = tool_module.MplPath.LINETO
-	closepoly = tool_module.MplPath.CLOSEPOLY
-	vertices = [
-		(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0),
-		(10.0, 0.0), (11.0, 0.0), (11.0, 1.0), (10.0, 1.0), (10.0, 0.0),
-	]
-	codes = [
-		moveto, lineto, lineto, lineto, closepoly,
-		moveto, lineto, lineto, lineto, closepoly,
-	]
-	label = {
-		"svg_text_path": _DummyPath(vertices, codes),
-		"font_size": 12.0,
-	}
-	points = tool_module._local_text_path_points(
-		label=label,
-		center=(5.0, 0.5),
-		half_width=8.0,
-		half_height=2.0,
-		endpoint=(10.8, 0.5),
-		bond_line={"x1": 8.0, "y1": 0.5, "x2": 10.8, "y2": 0.5},
-	)
-	assert points
-	mean_x = sum(point[0] for point in points) / float(len(points))
-	assert mean_x > 9.0
-
-
-#============================================
 def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	"""Line aligned to primitive centerline should be aligned even with endpoint gap."""
 	tool_module = _load_tool_module()

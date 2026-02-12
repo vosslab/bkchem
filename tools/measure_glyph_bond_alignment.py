@@ -7,29 +7,15 @@ import datetime
 import glob
 import json
 import math
+import os
 import pathlib
 import re
 import subprocess
+import sys
 import xml.etree.ElementTree as StdET
 
 # Third Party
 import defusedxml.ElementTree as ET
-try:
-	import cairo
-except Exception:
-	cairo = None
-try:
-	import cv2
-except Exception:
-	cv2 = None
-try:
-	import cairosvg
-except Exception:
-	cairosvg = None
-try:
-	import numpy as np
-except Exception:
-	np = None
 try:
 	from matplotlib.font_manager import FontProperties
 	from matplotlib.path import Path as MplPath
@@ -42,6 +28,21 @@ except Exception:
 	TextPath = None
 	Affine2D = None
 	MATPLOTLIB_TEXTPATH_AVAILABLE = False
+
+# Letter Center Finder (sibling repo)
+_LETTER_CENTER_FINDER_ROOT = os.path.normpath(os.path.join(
+	os.path.dirname(os.path.abspath(__file__)),
+	"..", "..", "letter-center-finder"
+))
+if os.path.isdir(_LETTER_CENTER_FINDER_ROOT):
+	sys.path.insert(0, _LETTER_CENTER_FINDER_ROOT)
+try:
+	from letter_center_finder import svg_parser as lcf_svg_parser
+	from letter_center_finder import glyph_renderer as lcf_glyph_renderer
+	from letter_center_finder import geometry as lcf_geometry
+	LETTER_CENTER_FINDER_AVAILABLE = True
+except ImportError:
+	LETTER_CENTER_FINDER_AVAILABLE = False
 
 MAX_ENDPOINT_TO_LABEL_DISTANCE_FACTOR = 2.6
 MIN_ALIGNMENT_DISTANCE_TOLERANCE = 0.5
@@ -70,14 +71,10 @@ MIN_CONNECTOR_LINE_WIDTH = 1.0
 GLYPH_CURVED_CHAR_SET = set("OCSQGDU0698")
 GLYPH_STEM_CHAR_SET = set("HNPMITFLKEXY147")
 ALIGNMENT_INFINITE_LINE_FONT_TOLERANCE_FACTOR = 0.09
-PIXEL_HULL_DENSIFY_STEP_PX = 1.5
-PIXEL_HULL_OUTPUT_POINT_RATIO = 0.10
-PIXEL_GLYPH_RASTER_BG_TOLERANCE = 14
 DEFAULT_INPUT_GLOB = "output_smoke/archive_matrix_previews/generated/*.svg"
 DEFAULT_JSON_REPORT = "output_smoke/glyph_bond_alignment_report.json"
 DEFAULT_TEXT_REPORT = "output_smoke/glyph_bond_alignment_report.txt"
 DEFAULT_DIAGNOSTIC_SVG_DIR = "output_smoke/glyph_bond_alignment_diagnostics"
-_SVG_RASTER_CACHE: dict[tuple[str, float], dict] = {}
 
 
 #============================================
@@ -321,41 +318,6 @@ def _safe_token(text: str) -> str:
 		return "unknown"
 	safe = re.sub(r"[^A-Za-z0-9._-]+", "_", raw)
 	return safe.strip("_") or "unknown"
-
-
-#============================================
-def _write_png_image(path: pathlib.Path, image_array) -> bool:
-	"""Write one image array to PNG path (prefers cv2, falls back to Pillow)."""
-	try:
-		path.parent.mkdir(parents=True, exist_ok=True)
-	except Exception:
-		return False
-	if cv2 is not None:
-		try:
-			return bool(cv2.imwrite(str(path), image_array))
-		except Exception:
-			pass
-	try:
-		from PIL import Image
-		array = image_array
-		if np is not None and isinstance(array, np.ndarray):
-			if array.ndim == 2:
-				mode = "L"
-			elif array.ndim == 3 and array.shape[2] == 3:
-				mode = "RGB"
-				array = array[:, :, ::-1]  # BGR -> RGB
-			elif array.ndim == 3 and array.shape[2] == 4:
-				mode = "RGBA"
-				array = array[:, :, [2, 1, 0, 3]]  # BGRA -> RGBA
-			else:
-				return False
-			Image.fromarray(array, mode=mode).save(path)
-			return True
-	except Exception:
-		return False
-	return False
-
-
 #============================================
 def _compact_sorted_values(values: list[float]) -> list[float]:
 	"""Return sorted compact-float values preserving high precision."""
@@ -827,121 +789,6 @@ def _nearest_endpoint_to_text_path(
 
 
 #============================================
-def _is_point_inside_box(point: tuple[float, float], box: tuple[float, float, float, float]) -> bool:
-	"""Return True when one point lies inside one normalized box."""
-	x1, y1, x2, y2 = _normalize_box(box)
-	return x1 <= float(point[0]) <= x2 and y1 <= float(point[1]) <= y2
-
-
-#============================================
-def _choose_endpoint_for_alignment(
-		line: dict,
-		prim_center: tuple[float, float] | None,
-		label_box: tuple[float, float, float, float] | None,
-		text_path=None,
-		primitives: list[dict] | None = None) -> tuple[tuple[float, float], float]:
-	"""Choose line endpoint using label/primitive-aware geometry scoring."""
-	a, b = _line_endpoints(line)
-	primitives = primitives or []
-	def base_distance(point) -> float:
-		if text_path is not None:
-			signed = _point_to_text_path_signed_distance(point, text_path)
-			if math.isfinite(signed):
-				return abs(float(signed))
-		if primitives:
-			signed = _point_to_glyph_primitives_signed_distance(point, primitives)
-			if math.isfinite(signed):
-				return max(0.0, float(signed))
-		if label_box is not None:
-			return _point_to_box_distance(point, label_box)
-		return 0.0
-	def score(endpoint, other) -> float:
-		d_text = base_distance(endpoint)
-		d_prim = 0.0
-		if prim_center is not None:
-			d_prim = math.hypot(endpoint[0] - prim_center[0], endpoint[1] - prim_center[1])
-		inside_penalty = 0.0
-		if label_box is not None and _is_point_inside_box(endpoint, label_box):
-			inside_penalty = 999.0
-		direction_penalty = 0.0
-		if prim_center is not None:
-			vx = other[0] - endpoint[0]
-			vy = other[1] - endpoint[1]
-			cx = prim_center[0] - endpoint[0]
-			cy = prim_center[1] - endpoint[1]
-			if (vx * cx) + (vy * cy) < 0.0:
-				direction_penalty = 50.0
-		return (1.0 * d_text) + (0.15 * d_prim) + inside_penalty + direction_penalty
-	score_a = score(a, b)
-	score_b = score(b, a)
-	if score_a <= score_b:
-		return a, score_a
-	return b, score_b
-
-
-#============================================
-def _nearest_endpoint_for_alignment(
-		lines: list[dict],
-		line_indexes: list[int],
-		prim_center: tuple[float, float] | None,
-		label_box: tuple[float, float, float, float] | None,
-		text_path=None,
-		primitives: list[dict] | None = None) -> tuple[tuple[float, float] | None, float | None, int | None, float | None]:
-	"""Return best endpoint using geometry-aware per-line endpoint scoring."""
-	best_endpoint = None
-	best_score = float("inf")
-	best_far_distance = float("-inf")
-	best_length = float("-inf")
-	best_line_index = None
-	best_signed_distance = None
-	for line_index in line_indexes:
-		if line_index < 0 or line_index >= len(lines):
-			continue
-		line = lines[line_index]
-		endpoint, score = _choose_endpoint_for_alignment(
-			line=line,
-			prim_center=prim_center,
-			label_box=label_box,
-			text_path=text_path,
-			primitives=primitives,
-		)
-		p1, p2 = _line_endpoints(line)
-		other = p2 if _points_close(endpoint, p1, tol=1e-9) else p1
-		far_distance = 0.0
-		if prim_center is not None:
-			far_distance = math.hypot(other[0] - prim_center[0], other[1] - prim_center[1])
-		line_length = _line_length(line)
-		if (
-				score < best_score
-				or (
-					math.isclose(score, best_score, abs_tol=1e-9)
-					and far_distance > best_far_distance
-				)
-				or (
-					math.isclose(score, best_score, abs_tol=1e-9)
-					and math.isclose(far_distance, best_far_distance, abs_tol=1e-9)
-					and line_length > best_length
-				)
-		):
-			best_endpoint = endpoint
-			best_score = score
-			best_far_distance = far_distance
-			best_length = line_length
-			best_line_index = line_index
-			if text_path is not None:
-				best_signed_distance = _point_to_text_path_signed_distance(endpoint, text_path)
-			elif primitives:
-				best_signed_distance = _point_to_glyph_primitives_signed_distance(endpoint, primitives)
-			elif label_box is not None:
-				best_signed_distance = _point_to_box_signed_distance(endpoint, label_box)
-			else:
-				best_signed_distance = 0.0
-	if best_endpoint is None:
-		return None, None, None, None
-	return best_endpoint, float(best_score), best_line_index, best_signed_distance
-
-
-#============================================
 def _resolve_svg_paths(repo_root: pathlib.Path, input_glob: str) -> list[pathlib.Path]:
 	"""Resolve sorted SVG paths from one glob pattern."""
 	pattern = str(input_glob)
@@ -1094,62 +941,6 @@ def _node_is_overlay_group(node) -> bool:
 	if node_id in {"codex-glyph-bond-diagnostic-overlay", "codex-overlay-noise"}:
 		return True
 	return node_id.startswith("codex-label-diag-")
-
-
-#============================================
-def _strip_overlay_groups_for_raster(svg_root) -> str:
-	"""Return serialized SVG XML with overlay/diagnostic groups removed."""
-	root_text = ET.tostring(svg_root, encoding="unicode")
-	root_copy = StdET.fromstring(root_text)
-	def prune(node) -> None:
-		children = list(node)
-		for child in children:
-			if _node_is_overlay_group(child):
-				node.remove(child)
-				continue
-			prune(child)
-	prune(root_copy)
-	return StdET.tostring(root_copy, encoding="unicode")
-
-
-#============================================
-def _node_contains_text(node) -> bool:
-	"""Return True when one node subtree contains text-like elements."""
-	tag = _local_tag_name(str(node.tag))
-	if tag in {"text", "tspan", "textPath"}:
-		return True
-	for child in list(node):
-		if _node_contains_text(child):
-			return True
-	return False
-
-
-#============================================
-def _strip_non_text_geometry_for_raster(svg_root) -> str:
-	"""Return serialized SVG XML retaining only text/defs structures."""
-	root_text = ET.tostring(svg_root, encoding="unicode")
-	root_copy = StdET.fromstring(root_text)
-	def should_keep(node) -> bool:
-		tag = _local_tag_name(str(node.tag))
-		if tag in {"svg", "defs", "style", "metadata", "title", "desc", "text", "tspan", "textPath", "use"}:
-			return True
-		if tag in {"g", "a", "switch"}:
-			return _node_contains_text(node)
-		return False
-	def prune(node) -> None:
-		children = list(node)
-		for child in children:
-			if _node_is_overlay_group(child):
-				node.remove(child)
-				continue
-			if not should_keep(child):
-				node.remove(child)
-				continue
-			prune(child)
-	prune(root_copy)
-	return StdET.tostring(root_copy, encoding="unicode")
-
-
 #============================================
 def _collect_svg_lines(svg_root) -> list[dict]:
 	"""Collect line primitives from one SVG root."""
@@ -1637,940 +1428,6 @@ def _select_alignment_primitive(label: dict, metric: dict) -> dict | None:
 			return _point_distance_sq(center, target_center)
 		primitives = sorted(primitives, key=_distance_sq)
 	return primitives[0] if primitives else None
-
-
-#============================================
-def _resample_polyline_points(
-		points: list[tuple[float, float]],
-		spacing: float,
-		closed: bool = True) -> list[tuple[float, float]]:
-	"""Resample one polyline by arc-length with approximately uniform spacing."""
-	if len(points) < 2:
-		return list(points)
-	step = max(0.05, float(spacing))
-	work_points = list(points)
-	if closed:
-		first = work_points[0]
-		last = work_points[-1]
-		if math.hypot(last[0] - first[0], last[1] - first[1]) > 1e-6:
-			work_points.append(first)
-	segment_lengths = []
-	total_length = 0.0
-	for index in range(len(work_points) - 1):
-		p1 = work_points[index]
-		p2 = work_points[index + 1]
-		length = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
-		segment_lengths.append(length)
-		total_length += length
-	if total_length <= 1e-9:
-		return list(points)
-	target_count = max(2, int(math.ceil(total_length / step)))
-	out = []
-	seg_index = 0
-	seg_start = work_points[0]
-	seg_end = work_points[1]
-	seg_len = segment_lengths[0]
-	accumulated = 0.0
-	for sample_index in range(target_count + 1):
-		target_distance = min(total_length, sample_index * step)
-		while (accumulated + seg_len) < target_distance and seg_index < (len(segment_lengths) - 1):
-			accumulated += seg_len
-			seg_index += 1
-			seg_start = work_points[seg_index]
-			seg_end = work_points[seg_index + 1]
-			seg_len = segment_lengths[seg_index]
-		if seg_len <= 1e-12:
-			out.append((seg_start[0], seg_start[1]))
-			continue
-		t = (target_distance - accumulated) / seg_len
-		t = max(0.0, min(1.0, t))
-		x_value = seg_start[0] + ((seg_end[0] - seg_start[0]) * t)
-		y_value = seg_start[1] + ((seg_end[1] - seg_start[1]) * t)
-		out.append((x_value, y_value))
-	if closed and out and (math.hypot(out[0][0] - out[-1][0], out[0][1] - out[-1][1]) <= 1e-6):
-		out = out[:-1]
-	return out
-
-
-#============================================
-def _local_text_path_points(
-		label: dict,
-		center: tuple[float, float],
-		half_width: float,
-		half_height: float,
-		endpoint: tuple[float, float] | None = None,
-		bond_line: dict | None = None,
-		target_char: str | None = None,
-		gate_debug: dict | None = None) -> list[tuple[float, float]]:
-	"""Return contour points from best-matching text subpath near one center."""
-	font_size = max(1.0, float(label.get("font_size", 12.0)))
-	if gate_debug is not None:
-		gate_debug.clear()
-		gate_debug["outline_interpolation_steps"] = 0
-		gate_debug["outline_vertex_count"] = 0
-		gate_debug["component_point_count"] = 0
-		gate_debug["component_width"] = None
-		gate_debug["baseline_clip_applied"] = False
-		gate_debug["baseline_clip_point_count"] = 0
-		gate_debug["half_plane_applied"] = False
-		gate_debug["half_plane_point_count"] = 0
-		gate_debug["stripe_applied"] = False
-		gate_debug["stripe_retention_ratio"] = None
-		gate_debug["stripe_rejected_low_retention"] = False
-		gate_debug["stripe_center_x"] = None
-		gate_debug["stripe_half_width"] = None
-		gate_debug["stripe_point_count"] = 0
-		gate_debug["final_point_count"] = 0
-	text_path = label.get("svg_text_path")
-	if text_path is None:
-		return []
-	dense_text_path = text_path
-	interpolation_steps = max(8, min(64, int(round(font_size / 3.0))))
-	try:
-		# Densify glyph contours before component selection; sparse outlines drift centers.
-		dense_text_path = text_path.interpolated(interpolation_steps)
-	except Exception:
-		dense_text_path = text_path
-		interpolation_steps = 0
-	vertices = getattr(dense_text_path, "vertices", None)
-	codes = getattr(dense_text_path, "codes", None)
-	if vertices is None or len(vertices) == 0:
-		return []
-	if gate_debug is not None:
-		gate_debug["outline_interpolation_steps"] = int(interpolation_steps)
-		gate_debug["outline_vertex_count"] = int(len(vertices))
-	cx, cy = center
-	if codes is None:
-		points = [
-			(float(vertex[0]), float(vertex[1]))
-			for vertex in vertices
-			if abs(float(vertex[0]) - cx) <= max(0.8, float(half_width) * 1.1)
-			and abs(float(vertex[1]) - cy) <= max(0.8, float(half_height) * 1.1)
-		]
-		if not points:
-			return []
-		return points
-	subpaths: list[list[tuple[float, float]]] = []
-	current: list[tuple[float, float]] = []
-	for vertex, code in zip(vertices, codes):
-		point = (float(vertex[0]), float(vertex[1]))
-		if code == MplPath.MOVETO:
-			if len(current) >= 2:
-				subpaths.append(current)
-			current = [point]
-			continue
-		if code == MplPath.CLOSEPOLY:
-			if len(current) >= 2:
-				subpaths.append(current)
-			current = []
-			continue
-		current.append(point)
-	if len(current) >= 2:
-		subpaths.append(current)
-	if not subpaths:
-		return []
-	x_pad = max(0.45, float(half_width) * 0.7)
-	y_pad = max(0.45, float(half_height) * 0.7)
-	candidates: list[tuple[float, float, float, list[tuple[float, float]]]] = []
-	for points in subpaths:
-		x_values = [point[0] for point in points]
-		y_values = [point[1] for point in points]
-		min_x, max_x = min(x_values), max(x_values)
-		min_y, max_y = min(y_values), max(y_values)
-		if not (min_x - x_pad <= cx <= max_x + x_pad and min_y - y_pad <= cy <= max_y + y_pad):
-			continue
-		center_x = (min_x + max_x) * 0.5
-		center_y = (min_y + max_y) * 0.5
-		# Shoelace area (absolute) for tie-break: prefer outer contour over inner holes.
-		area = 0.0
-		for index, point in enumerate(points):
-			next_point = points[(index + 1) % len(points)]
-			area += (point[0] * next_point[1]) - (next_point[0] * point[1])
-		area = abs(area) * 0.5
-		distance = math.hypot(center_x - cx, center_y - cy)
-		component_score = distance
-		if endpoint is not None:
-			component_score = math.hypot(center_x - endpoint[0], center_y - endpoint[1])
-		candidates.append((component_score, distance, -area, points))
-	if not candidates:
-		return []
-	# Gate 1: connected-component selection (subpath component nearest endpoint/target line).
-	candidates.sort(key=lambda item: (item[0], item[1], item[2]))
-	selected_points = list(candidates[0][3])
-	if not selected_points:
-		return []
-	selected_x_values = [point[0] for point in selected_points]
-	component_width = max(selected_x_values) - min(selected_x_values)
-	component_point_count = len(selected_points)
-	if gate_debug is not None:
-		gate_debug["component_point_count"] = component_point_count
-		gate_debug["component_width"] = _compact_float(component_width)
-
-	target_upper = str(target_char or "").upper()
-	# For O-hull extraction, do not apply pre-hull clipping gates.
-	if target_upper != "O":
-		# Baseline-band clipping to avoid grabbing bond strokes below text baseline.
-		baseline_y = float(label.get("y", cy))
-		baseline_pad = max(2.0, font_size * 0.10)
-		baseline_points = [
-			(px, py)
-			for px, py in selected_points
-			if py <= (baseline_y + baseline_pad)
-		]
-		if gate_debug is not None:
-			gate_debug["baseline_clip_applied"] = True
-			gate_debug["baseline_clip_point_count"] = len(baseline_points)
-		if len(baseline_points) >= max(3, int(len(selected_points) * 0.30)):
-			selected_points = baseline_points
-			selected_x_values = [point[0] for point in selected_points]
-			component_width = max(selected_x_values) - min(selected_x_values)
-	else:
-		if gate_debug is not None:
-			gate_debug["baseline_clip_applied"] = False
-			gate_debug["baseline_clip_point_count"] = len(selected_points)
-
-	# Gate 2: half-plane gate using bond direction at the label endpoint.
-	component_looks_single_glyph = component_width <= (1.8 * font_size)
-	if (
-			endpoint is not None
-			and bond_line is not None
-			and component_looks_single_glyph
-			and target_upper != "O"
-	):
-		ex, ey = endpoint
-		x1 = float(bond_line.get("x1", ex))
-		y1 = float(bond_line.get("y1", ey))
-		x2 = float(bond_line.get("x2", ex))
-		y2 = float(bond_line.get("y2", ey))
-		d1 = math.hypot(ex - x1, ey - y1)
-		d2 = math.hypot(ex - x2, ey - y2)
-		if d1 <= d2:
-			ox, oy = x2, y2
-		else:
-			ox, oy = x1, y1
-		ux = ex - ox
-		uy = ey - oy
-		ulen = math.hypot(ux, uy)
-		if ulen <= 1e-9:
-			ux = cx - ex
-			uy = cy - ey
-			ulen = math.hypot(ux, uy)
-		if ulen > 1e-9:
-			ux /= ulen
-			uy /= ulen
-			t_max = max(1.0, float(half_width) * 2.4)
-			half_plane_points = []
-			for px, py in selected_points:
-				tx = px - ex
-				ty = py - ey
-				t_value = (tx * ux) + (ty * uy)
-				if 0.0 <= t_value <= t_max:
-					half_plane_points.append((px, py))
-			if gate_debug is not None:
-				gate_debug["half_plane_applied"] = True
-				gate_debug["half_plane_point_count"] = len(half_plane_points)
-			if len(half_plane_points) >= max(3, int(len(selected_points) * 0.30)):
-				selected_points = half_plane_points
-
-	# Gate 3: vertical stripe around selected-component centerline x.
-	# For curved targets O/C, skip stripe gating to avoid contour amputation.
-	if target_upper in {"O", "C"}:
-		resampled_points = _resample_polyline_points(
-			selected_points,
-			spacing=max(0.15, font_size / 20.0),
-			closed=True,
-		)
-		if gate_debug is not None:
-			gate_debug["stripe_applied"] = False
-			gate_debug["stripe_center_x"] = None
-			gate_debug["stripe_half_width"] = None
-			gate_debug["stripe_point_count"] = len(selected_points)
-			gate_debug["final_point_count"] = len(resampled_points)
-		return resampled_points
-	selected_x_values = [point[0] for point in selected_points]
-	if selected_x_values:
-		x_sorted = sorted(selected_x_values)
-		median_index = len(x_sorted) // 2
-		if len(x_sorted) % 2 == 1:
-			stripe_center_x = x_sorted[median_index]
-		else:
-			stripe_center_x = (x_sorted[median_index - 1] + x_sorted[median_index]) * 0.5
-	else:
-		stripe_center_x = cx
-	comp_half_w = max(0.3, (max(selected_x_values) - min(selected_x_values)) * 0.5) if selected_x_values else max(0.3, float(half_width))
-	stripe_factor = 0.55
-	if str(target_char or "").upper() == "C":
-		stripe_factor = 0.90
-	stripe_half_width = max(0.6, stripe_factor * comp_half_w)
-	points_before_stripe = list(selected_points)
-	stripe_points = [
-		(px, py)
-		for px, py in selected_points
-		if abs(px - stripe_center_x) <= stripe_half_width
-	]
-	stripe_retention_ratio = 0.0
-	if component_point_count > 0:
-		stripe_retention_ratio = float(len(stripe_points)) / float(component_point_count)
-	use_stripe = len(stripe_points) >= max(3, int(len(selected_points) * 0.35))
-	if stripe_retention_ratio < 0.60:
-		# Prevent O-like contour collapse from over-aggressive stripe clipping.
-		use_stripe = False
-	if gate_debug is not None:
-		gate_debug["stripe_applied"] = True
-		gate_debug["stripe_center_x"] = _compact_float(stripe_center_x)
-		gate_debug["stripe_half_width"] = _compact_float(stripe_half_width)
-		gate_debug["stripe_point_count"] = len(stripe_points)
-		gate_debug["stripe_retention_ratio"] = _compact_float(stripe_retention_ratio)
-		gate_debug["stripe_rejected_low_retention"] = bool(stripe_retention_ratio < 0.60)
-	if use_stripe:
-		selected_points = stripe_points
-	else:
-		selected_points = points_before_stripe
-	selected_points = _resample_polyline_points(
-		selected_points,
-		spacing=max(0.15, font_size / 20.0),
-		closed=True,
-	)
-	if gate_debug is not None:
-		gate_debug["final_point_count"] = len(selected_points)
-	return selected_points
-
-
-#============================================
-def _fit_ellipse_from_points(
-		points: list[tuple[float, float]],
-		lock_vertical_major: bool = False) -> dict | None:
-	"""Fit one ellipse from 2D point cloud; optionally lock major axis vertical."""
-	if len(points) < 6:
-		return None
-	x_values = [float(point[0]) for point in points]
-	y_values = [float(point[1]) for point in points]
-	cx = sum(x_values) / float(len(x_values))
-	cy = sum(y_values) / float(len(y_values))
-	if lock_vertical_major:
-		x_sorted = sorted(x_values)
-		y_sorted = sorted(y_values)
-		low_index = max(0, int(len(points) * 0.05))
-		high_index = min(len(points) - 1, int(len(points) * 0.95))
-		# Use quantile-bbox midpoint for center to avoid arc-sampling centroid bias.
-		cx = (x_sorted[low_index] + x_sorted[high_index]) * 0.5
-		cy = (y_sorted[low_index] + y_sorted[high_index]) * 0.5
-		rx = max(0.25, (x_sorted[high_index] - x_sorted[low_index]) * 0.5)
-		ry = max(0.25, (y_sorted[high_index] - y_sorted[low_index]) * 0.5)
-		if ry < rx:
-			rx, ry = ry, rx
-		return {
-			"cx": cx,
-			"cy": cy,
-			"rx": rx,
-			"ry": ry,
-			"angle_deg": 0.0,
-		}
-	sxx = 0.0
-	syy = 0.0
-	sxy = 0.0
-	for x_value, y_value in zip(x_values, y_values):
-		dx = x_value - cx
-		dy = y_value - cy
-		sxx += dx * dx
-		syy += dy * dy
-		sxy += dx * dy
-	sxx /= float(len(points))
-	syy /= float(len(points))
-	sxy /= float(len(points))
-	trace = sxx + syy
-	delta = max(0.0, ((sxx - syy) * (sxx - syy)) + (4.0 * sxy * sxy))
-	root = math.sqrt(delta)
-	lambda1 = max(1e-9, (trace + root) * 0.5)
-	lambda2 = max(1e-9, (trace - root) * 0.5)
-	if abs(sxy) > 1e-12:
-		v1 = (lambda1 - syy, sxy)
-		v2 = (lambda2 - syy, sxy)
-	else:
-		if sxx >= syy:
-			v1 = (1.0, 0.0)
-			v2 = (0.0, 1.0)
-		else:
-			v1 = (0.0, 1.0)
-			v2 = (1.0, 0.0)
-	def _normalize(vec: tuple[float, float]) -> tuple[float, float]:
-		length = math.hypot(vec[0], vec[1])
-		if length <= 1e-12:
-			return (1.0, 0.0)
-		return (vec[0] / length, vec[1] / length)
-	e1 = _normalize(v1)
-	e2 = _normalize(v2)
-	max_major = 0.0
-	max_minor = 0.0
-	for x_value, y_value in zip(x_values, y_values):
-		dx = x_value - cx
-		dy = y_value - cy
-		major = abs((dx * e1[0]) + (dy * e1[1]))
-		minor = abs((dx * e2[0]) + (dy * e2[1]))
-		max_major = max(max_major, major)
-		max_minor = max(max_minor, minor)
-	rx = max(0.25, max_major)
-	ry = max(0.25, max_minor)
-	angle_deg = math.degrees(math.atan2(e1[1], e1[0]))
-	return {
-		"cx": cx,
-		"cy": cy,
-		"rx": rx,
-		"ry": ry,
-		"angle_deg": angle_deg,
-	}
-
-
-#============================================
-def _point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, float]]) -> bool:
-	"""Return True when one point lies inside one polygon (ray casting)."""
-	if len(polygon) < 3:
-		return False
-	x_value, y_value = point
-	inside = False
-	j_index = len(polygon) - 1
-	for i_index in range(len(polygon)):
-		xi, yi = polygon[i_index]
-		xj, yj = polygon[j_index]
-		if ((yi > y_value) != (yj > y_value)):
-			x_intersect = (xj - xi) * (y_value - yi) / max(1e-12, (yj - yi)) + xi
-			if x_value < x_intersect:
-				inside = not inside
-		j_index = i_index
-	return inside
-
-
-#============================================
-def _ray_segment_intersection_parameter(
-		ray_origin: tuple[float, float],
-		ray_dir: tuple[float, float],
-		seg_a: tuple[float, float],
-		seg_b: tuple[float, float]) -> float | None:
-	"""Return ray parameter t for ray/segment intersection, or None when absent."""
-	ox, oy = ray_origin
-	rx, ry = ray_dir
-	ax, ay = seg_a
-	bx, by = seg_b
-	sx = bx - ax
-	sy = by - ay
-	denominator = (rx * sy) - (ry * sx)
-	if abs(denominator) <= 1e-12:
-		return None
-	qpx = ax - ox
-	qpy = ay - oy
-	t_value = ((qpx * sy) - (qpy * sx)) / denominator
-	u_value = ((qpx * ry) - (qpy * rx)) / denominator
-	if u_value < -1e-9 or u_value > 1.0 + 1e-9:
-		return None
-	return float(t_value)
-
-
-#============================================
-def _densify_closed_polyline(points: list[tuple[float, float]], step: float) -> list[tuple[float, float]]:
-	"""Return densified closed-polyline points with approximately uniform spacing."""
-	if len(points) < 3:
-		return list(points)
-	step_size = max(0.5, float(step))
-	densified = []
-	count = len(points)
-	for index in range(count):
-		p1 = points[index]
-		p2 = points[(index + 1) % count]
-		distance = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
-		segments = max(1, int(math.ceil(distance / step_size)))
-		for t_index in range(segments):
-			t_value = float(t_index) / float(segments)
-			densified.append(
-				(
-					p1[0] + ((p2[0] - p1[0]) * t_value),
-					p1[1] + ((p2[1] - p1[1]) * t_value),
-				)
-			)
-	return densified
-
-
-#============================================
-def _downsample_closed_points(points: list[tuple[float, float]], keep_ratio: float) -> list[tuple[float, float]]:
-	"""Return evenly downsampled closed-polyline points with minimum shape fidelity."""
-	if len(points) <= 3:
-		return list(points)
-	ratio = max(0.01, min(1.0, float(keep_ratio)))
-	target = int(math.ceil(len(points) * ratio))
-	target = max(12, min(len(points), target))
-	if target >= len(points):
-		return list(points)
-	step = float(len(points)) / float(target)
-	reduced = []
-	seen = set()
-	index = 0.0
-	while len(reduced) < target:
-		i_value = int(index) % len(points)
-		if i_value not in seen:
-			seen.add(i_value)
-			reduced.append(points[i_value])
-		index += step
-	if len(reduced) < 3:
-		return list(points[:3])
-	return reduced
-
-
-#============================================
-def _decode_png_bytes_to_rgba(png_bytes: bytes):
-	"""Decode PNG bytes into one uint8 RGBA array."""
-	if np is None:
-		return None
-	if cv2 is not None:
-		decoded = cv2.imdecode(np.frombuffer(png_bytes, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-		if decoded is None:
-			return None
-		if len(decoded.shape) == 2:
-			return cv2.cvtColor(decoded, cv2.COLOR_GRAY2RGBA)
-		if decoded.shape[2] == 4:
-			return cv2.cvtColor(decoded, cv2.COLOR_BGRA2RGBA)
-		return cv2.cvtColor(decoded, cv2.COLOR_BGR2RGBA)
-	try:
-		from PIL import Image
-		import io
-		with Image.open(io.BytesIO(png_bytes)) as image:
-			return np.asarray(image.convert("RGBA"), dtype=np.uint8)
-	except Exception:
-		return None
-
-
-#============================================
-def _cached_svg_raster(label: dict, scale: float, variant: str = "full") -> dict | None:
-	"""Render one source SVG into a cached RGBA raster for optical hull extraction."""
-	if cairosvg is None or np is None:
-		return None
-	svg_path = str(label.get("_source_svg_path") or "").strip()
-	if str(variant) == "glyph_only":
-		svg_xml = str(label.get("_source_svg_xml_for_glyph_raster") or "").strip()
-		svg_key = str(label.get("_source_svg_cache_key_glyph_only") or svg_path).strip()
-	else:
-		svg_xml = str(label.get("_source_svg_xml_for_raster") or "").strip()
-		svg_key = str(label.get("_source_svg_cache_key") or svg_path).strip()
-	viewbox = label.get("_source_viewbox")
-	if not svg_xml or not svg_key or not isinstance(viewbox, (list, tuple)) or len(viewbox) != 4:
-		return None
-	min_x, min_y, max_x, max_y = [float(value) for value in viewbox]
-	width = max_x - min_x
-	height = max_y - min_y
-	if width <= 1e-9 or height <= 1e-9:
-		return None
-	key = (svg_key, round(float(scale), 4))
-	cached = _SVG_RASTER_CACHE.get(key)
-	if cached is not None:
-		return cached
-	out_w = max(16, int(math.ceil(width * scale)))
-	out_h = max(16, int(math.ceil(height * scale)))
-	try:
-		png_bytes = cairosvg.svg2png(
-			bytestring=svg_xml.encode("utf-8"),
-			output_width=out_w,
-			output_height=out_h,
-		)
-	except Exception:
-		return None
-	rgba = _decode_png_bytes_to_rgba(png_bytes)
-	if rgba is None:
-		return None
-	cached = {
-		"rgba": rgba,
-		"scale": float(scale),
-		"viewbox": (min_x, min_y, max_x, max_y),
-	}
-	_SVG_RASTER_CACHE[key] = cached
-	return cached
-
-
-#============================================
-def _mask_out_bond_line_from_roi(
-		mask,
-		line: dict | None,
-		origin_x: float,
-		origin_y: float,
-		scale: float,
-		font_size: float) -> tuple["np.ndarray", bool]:
-	"""Erase one bond line from ROI mask in pixel space (fallback contamination guard)."""
-	if np is None or cv2 is None or line is None:
-		return mask, False
-	masked = np.array(mask, copy=True)
-	x1 = int(round((float(line.get("x1", 0.0)) - origin_x) * scale))
-	y1 = int(round((float(line.get("y1", 0.0)) - origin_y) * scale))
-	x2 = int(round((float(line.get("x2", 0.0)) - origin_x) * scale))
-	y2 = int(round((float(line.get("y2", 0.0)) - origin_y) * scale))
-	line_width = max(1.0, float(line.get("width", 1.0)))
-	thickness = max(3, int(round(max(2.0, line_width * scale * 0.75))))
-	cv2.line(masked, (x1, y1), (x2, y2), color=0, thickness=thickness, lineType=cv2.LINE_AA)
-	return masked, True
-
-
-#============================================
-def _ink_mask_from_rgba(roi_rgba) -> "np.ndarray | None":
-	"""Return binary ink mask from one RGBA ROI using background-distance gating."""
-	if np is None or roi_rgba is None or roi_rgba.size == 0:
-		return None
-	if roi_rgba.ndim != 3 or roi_rgba.shape[2] < 4:
-		return None
-	rgb = roi_rgba[:, :, :3].astype(np.int16)
-	alpha = roi_rgba[:, :, 3]
-	bg = np.array([236, 236, 236], dtype=np.int16)
-	max_delta = np.max(np.abs(rgb - bg), axis=2)
-	mask = ((alpha > 8) & (max_delta >= PIXEL_GLYPH_RASTER_BG_TOLERANCE)).astype(np.uint8) * 255
-	return mask
-
-
-#============================================
-def _pixel_mask_from_component(
-		points: list[tuple[float, float]],
-		font_size: float,
-		label: dict | None = None,
-		expected_x: float | None = None,
-		expected_y: float | None = None,
-		bond_line: dict | None = None) -> dict | None:
-	"""Return one CairoSVG ROI ink mask and transform metadata for one component."""
-	_ = expected_x
-	_ = expected_y
-	if np is None or cairosvg is None or len(points) < 3:
-		return None
-	x_values = [point[0] for point in points]
-	y_values = [point[1] for point in points]
-	min_x = min(x_values)
-	max_x = max(x_values)
-	min_y = min(y_values)
-	max_y = max(y_values)
-	width = max_x - min_x
-	height = max_y - min_y
-	if width <= 1e-9 or height <= 1e-9:
-		return None
-	pad = max(4.0, float(font_size) * 0.35)
-	if label is None:
-		return None
-	svg_scale = float(label.get("_source_raster_scale", 8.0))
-	svg_scale = max(4.0, min(16.0, svg_scale))
-	for variant in ("glyph_only", "full"):
-		raster = _cached_svg_raster(label=label, scale=svg_scale, variant=variant)
-		if raster is None:
-			continue
-		min_x_vb, min_y_vb, _max_x_vb, _max_y_vb = raster["viewbox"]
-		rgba = raster["rgba"]
-		roi_x1 = min_x - pad
-		roi_x2 = max_x + pad
-		roi_y1 = min_y - pad
-		roi_y2 = max_y + pad
-		x0_px = int(math.floor((roi_x1 - min_x_vb) * svg_scale))
-		x1_px = int(math.ceil((roi_x2 - min_x_vb) * svg_scale))
-		y0_px = int(math.floor((roi_y1 - min_y_vb) * svg_scale))
-		y1_px = int(math.ceil((roi_y2 - min_y_vb) * svg_scale))
-		x0_px = max(0, min(x0_px, rgba.shape[1] - 1))
-		y0_px = max(0, min(y0_px, rgba.shape[0] - 1))
-		x1_px = max(x0_px + 1, min(x1_px, rgba.shape[1]))
-		y1_px = max(y0_px + 1, min(y1_px, rgba.shape[0]))
-		roi_rgba = rgba[y0_px:y1_px, x0_px:x1_px]
-		mask = _ink_mask_from_rgba(roi_rgba)
-		if mask is None or int(np.count_nonzero(mask)) == 0:
-			continue
-		mask_source = "cairosvg_roi_rgba_text_only" if variant == "glyph_only" else "cairosvg_roi_rgba_full"
-		origin_x = min_x_vb + (float(x0_px) / float(svg_scale))
-		origin_y = min_y_vb + (float(y0_px) / float(svg_scale))
-		bond_mask_applied = False
-		if variant != "glyph_only":
-			mask, bond_mask_applied = _mask_out_bond_line_from_roi(
-				mask=mask,
-				line=bond_line,
-				origin_x=origin_x,
-				origin_y=origin_y,
-				scale=float(svg_scale),
-				font_size=float(font_size),
-			)
-			if bond_mask_applied:
-				mask_source = "cairosvg_roi_rgba_full_bond_masked"
-		if int(np.count_nonzero(mask)) == 0:
-			continue
-		return {
-			"mask": mask,
-			"scale": float(svg_scale),
-			"origin_x": origin_x,
-			"origin_y": origin_y,
-			"mask_source": mask_source,
-			"bond_mask_applied": bool(bond_mask_applied),
-		}
-	return None
-
-
-#============================================
-def _select_connected_component(mask_u8, expected_x_px: float | None, expected_y_px: float | None):
-	"""Return selected/merged connected-component mask (nearest expected point), or None."""
-	if np is None:
-		return None
-	if cv2 is not None:
-		num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats((mask_u8 > 0).astype(np.uint8), 8)
-		best_label = None
-		best_score = None
-		for label_id in range(1, int(num_labels)):
-			area = int(stats[label_id, cv2.CC_STAT_AREA])
-			if area <= 4:
-				continue
-			cx, cy = float(centroids[label_id][0]), float(centroids[label_id][1])
-			if expected_x_px is None:
-				score = -float(area)
-			else:
-				dx = abs(cx - float(expected_x_px))
-				dy = abs(cy - float(expected_y_px)) if expected_y_px is not None else 0.0
-				score = dx + (0.35 * dy) - (0.002 * float(area))
-			if best_score is None or score < best_score:
-				best_score = score
-				best_label = label_id
-		if best_label is None:
-			return None
-		selected = (labels == best_label).astype(np.uint8)
-		# Merge split glyph fragments that overlap seed bbox neighborhood.
-		seed_x = int(stats[best_label, cv2.CC_STAT_LEFT])
-		seed_y = int(stats[best_label, cv2.CC_STAT_TOP])
-		seed_w = int(stats[best_label, cv2.CC_STAT_WIDTH])
-		seed_h = int(stats[best_label, cv2.CC_STAT_HEIGHT])
-		expand = 2
-		seed_x1 = seed_x - expand
-		seed_y1 = seed_y - expand
-		seed_x2 = seed_x + seed_w + expand
-		seed_y2 = seed_y + seed_h + expand
-		for label_id in range(1, int(num_labels)):
-			if label_id == best_label:
-				continue
-			area = int(stats[label_id, cv2.CC_STAT_AREA])
-			if area <= 2:
-				continue
-			x = int(stats[label_id, cv2.CC_STAT_LEFT])
-			y = int(stats[label_id, cv2.CC_STAT_TOP])
-			w = int(stats[label_id, cv2.CC_STAT_WIDTH])
-			h = int(stats[label_id, cv2.CC_STAT_HEIGHT])
-			x1 = x
-			y1 = y
-			x2 = x + w
-			y2 = y + h
-			overlap = not (x2 < seed_x1 or x1 > seed_x2 or y2 < seed_y1 or y1 > seed_y2)
-			if overlap:
-				selected |= (labels == label_id).astype(np.uint8)
-		return (selected * 255).astype(np.uint8)
-	# Fallback: use whole mask when cv2 is unavailable.
-	return np.array(mask_u8, copy=True)
-
-
-#============================================
-def _gate_component_to_glyph_core(
-		component_mask,
-		expected_x_px: float | None,
-		expected_y_px: float | None,
-		half_width_px: float,
-		half_height_px: float,
-		target_char: str | None = None):
-	"""Keep pixels near expected glyph center to remove attached bond tails."""
-	if np is None:
-		return component_mask, False, None
-	if expected_x_px is None or expected_y_px is None:
-		return component_mask, False, None
-	mask = np.asarray(component_mask)
-	y_index, x_index = np.nonzero(mask > 0)
-	total = int(len(x_index))
-	if total <= 0:
-		return component_mask, False, None
-	upper = str(target_char or "").upper()
-	if upper == "O":
-		hx = max(2.5, float(half_width_px) * 0.95)
-		hy = max(2.5, float(half_height_px) * 0.95)
-	else:
-		hx = max(3.0, float(half_width_px) * 1.35)
-		hy = max(3.0, float(half_height_px) * 1.45)
-	nx = (x_index.astype(np.float64) - float(expected_x_px)) / hx
-	ny = (y_index.astype(np.float64) - float(expected_y_px)) / hy
-	keep = ((nx * nx) + (ny * ny)) <= 1.0
-	kept = int(np.count_nonzero(keep))
-	retention = float(kept) / float(total) if total > 0 else None
-	# Guard rail: avoid over-pruning when priors are off.
-	if kept < 24 or retention is None or retention < 0.20:
-		return component_mask, False, retention
-	gated = np.zeros_like(mask, dtype=np.uint8)
-	gated[y_index[keep], x_index[keep]] = 255
-	return gated, True, retention
-
-
-#============================================
-def _pixel_hull_geometry_from_component(
-		points: list[tuple[float, float]],
-		font_size: float,
-		label: dict | None = None,
-		target_char: str | None = None,
-		expected_x: float | None = None,
-		expected_y: float | None = None,
-		endpoint: tuple[float, float] | None = None,
-		bond_line: dict | None = None) -> dict:
-	"""Return convex-hull geometry from local pixel ROI plus bond/hull stop metrics."""
-	result = {
-		"hull_boundary_points": [],
-		"ellipse_fit": None,
-		"hull_contact_point": None,
-		"hull_signed_gap_along_bond": None,
-		"hull_point_count": 0,
-		"pixel_component_point_count": 0,
-		"hull_contour_point_count": 0,
-		"hull_source": None,
-		"mask_dilated_1px": False,
-		"pixel_coord_convention": "xy",
-		"roi_origin_svg": None,
-		"roi_scale_px_per_svg": None,
-		"hull_mode": "pixel_convex_hull",
-		"mask_source": None,
-		"bond_mask_applied": False,
-		"glyph_core_gate_applied": False,
-		"glyph_core_retention_ratio": None,
-		"baseline_clip_applied": False,
-		"bridge_split_applied": False,
-	}
-	if np is None or len(points) < 3:
-		return result
-	point_x = [point[0] for point in points]
-	point_y = [point[1] for point in points]
-	pixel_data = _pixel_mask_from_component(
-		points=points,
-		font_size=font_size,
-		label=label,
-		expected_x=expected_x,
-		expected_y=expected_y,
-		bond_line=bond_line,
-	)
-	if pixel_data is None:
-		return result
-	mask = pixel_data["mask"]
-	scale = float(pixel_data["scale"])
-	origin_x = float(pixel_data["origin_x"])
-	origin_y = float(pixel_data["origin_y"])
-	result["mask_source"] = str(pixel_data.get("mask_source") or "unknown")
-	result["bond_mask_applied"] = bool(pixel_data.get("bond_mask_applied", False))
-	result["roi_origin_svg"] = [origin_x, origin_y]
-	result["roi_scale_px_per_svg"] = scale
-	expected_x_px = None if expected_x is None else (float(expected_x) - origin_x) * scale
-	expected_y_px = None if expected_y is None else (float(expected_y) - origin_y) * scale
-	component_mask = _select_connected_component(mask, expected_x_px, expected_y_px)
-	if component_mask is None:
-		return result
-	upper_target = str(target_char or "").upper()
-	if label is not None and upper_target in GLYPH_CURVED_CHAR_SET:
-		baseline_y = label.get("y")
-		if baseline_y is not None:
-			baseline_pad = max(2.0, float(font_size) * 0.10)
-			limit_y_px = int(math.floor((float(baseline_y) + baseline_pad - origin_y) * scale))
-			limit_y_px = max(0, min(limit_y_px, int(component_mask.shape[0] - 1)))
-			component_mask[(limit_y_px + 1):, :] = 0
-			result["baseline_clip_applied"] = True
-	# Break narrow bridges between glyph ink and touching bond strokes.
-	if cv2 is not None and upper_target in GLYPH_CURVED_CHAR_SET:
-		eroded = cv2.erode(component_mask, np.ones((3, 3), dtype=np.uint8), iterations=1)
-		reselected = _select_connected_component(eroded, expected_x_px, expected_y_px)
-		if reselected is not None and int(np.count_nonzero(reselected)) >= 12:
-			component_mask = cv2.dilate(reselected, np.ones((3, 3), dtype=np.uint8), iterations=1)
-			result["bridge_split_applied"] = True
-	half_width_px = max(2.0, ((max(point_x) - min(point_x)) * 0.5) * scale)
-	half_height_px = max(2.0, ((max(point_y) - min(point_y)) * 0.5) * scale)
-	component_mask, gated, gate_retention = _gate_component_to_glyph_core(
-		component_mask=component_mask,
-		expected_x_px=expected_x_px,
-		expected_y_px=expected_y_px,
-		half_width_px=half_width_px,
-		half_height_px=half_height_px,
-		target_char=upper_target,
-	)
-	result["glyph_core_gate_applied"] = bool(gated)
-	result["glyph_core_retention_ratio"] = (
-		None if gate_retention is None else float(gate_retention)
-	)
-	result["pixel_component_point_count"] = int(np.count_nonzero(component_mask))
-	if cv2 is not None:
-		component_mask = cv2.dilate(component_mask, np.ones((3, 3), dtype=np.uint8), iterations=1)
-		result["mask_dilated_1px"] = True
-	contour_points_px = None
-	if cv2 is not None:
-		contours, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-		if contours:
-			contour = max(contours, key=cv2.contourArea)
-			result["hull_contour_point_count"] = int(len(contour))
-			hull = cv2.convexHull(contour)
-			contour_points_px = hull[:, 0, :].astype(np.float64)
-			result["hull_source"] = "cv2_external_contour_hull"
-	if contour_points_px is None:
-		# Fallback: convex hull from nonzero mask points.
-		y_index, x_index = np.nonzero(component_mask > 0)
-		if len(x_index) < 3:
-			return result
-		mask_points = [(float(x), float(y)) for x, y in zip(x_index.tolist(), y_index.tolist())]
-		hull_points = _convex_hull(mask_points)
-		contour_points_px = np.array(hull_points, dtype=np.float64)
-		result["hull_contour_point_count"] = int(len(mask_points))
-		result["hull_source"] = "fallback_mask_points_hull"
-	if contour_points_px.shape[0] < 3:
-		return result
-	hull_points_px = [(float(point[0]), float(point[1])) for point in contour_points_px]
-	densified_hull_px = _densify_closed_polyline(hull_points_px, step=PIXEL_HULL_DENSIFY_STEP_PX)
-	# Contours are in pixel index coordinates (x, y); map via pixel centers.
-	dense_hull_svg = [
-		(((point[0] + 0.5) / scale) + origin_x, ((point[1] + 0.5) / scale) + origin_y)
-		for point in densified_hull_px
-	]
-	output_hull_svg = _downsample_closed_points(dense_hull_svg, keep_ratio=PIXEL_HULL_OUTPUT_POINT_RATIO)
-	result["hull_boundary_points"] = output_hull_svg
-	result["hull_point_count"] = len(output_hull_svg)
-	if len(dense_hull_svg) >= 6:
-		fit = _fit_ellipse_from_points(dense_hull_svg, lock_vertical_major=True)
-		if fit is not None:
-			result["ellipse_fit"] = {
-				"cx": float(fit["cx"]),
-				"cy": float(fit["cy"]),
-				"rx": float(fit["rx"]),
-				"ry": float(fit["ry"]),
-				"angle_deg": 0.0,
-			}
-	if endpoint is not None and bond_line is not None and len(dense_hull_svg) >= 3:
-		ep_x, ep_y = float(endpoint[0]), float(endpoint[1])
-		x1 = float(bond_line.get("x1", ep_x))
-		y1 = float(bond_line.get("y1", ep_y))
-		x2 = float(bond_line.get("x2", ep_x))
-		y2 = float(bond_line.get("y2", ep_y))
-		d1 = math.hypot(ep_x - x1, ep_y - y1)
-		d2 = math.hypot(ep_x - x2, ep_y - y2)
-		other = (x2, y2) if d1 <= d2 else (x1, y1)
-		dir_x = ep_x - other[0]
-		dir_y = ep_y - other[1]
-		dir_len = math.hypot(dir_x, dir_y)
-		if dir_len > 1e-9:
-			ray_dir = (dir_x / dir_len, dir_y / dir_len)
-			t_values = []
-			for index in range(len(dense_hull_svg)):
-				seg_a = dense_hull_svg[index]
-				seg_b = dense_hull_svg[(index + 1) % len(dense_hull_svg)]
-				t_value = _ray_segment_intersection_parameter((ep_x, ep_y), ray_dir, seg_a, seg_b)
-				if t_value is None:
-					continue
-				t_values.append(float(t_value))
-			if t_values:
-				inside = _point_in_polygon((ep_x, ep_y), dense_hull_svg)
-				signed_gap = None
-				if inside:
-					behind = [value for value in t_values if value <= 1e-9]
-					if behind:
-						signed_gap = max(behind)
-				else:
-					ahead = [value for value in t_values if value >= -1e-9]
-					if ahead:
-						signed_gap = min(ahead)
-				if signed_gap is not None:
-					contact_point = (
-						ep_x + (signed_gap * ray_dir[0]),
-						ep_y + (signed_gap * ray_dir[1]),
-					)
-					result["hull_contact_point"] = contact_point
-					result["hull_signed_gap_along_bond"] = float(signed_gap)
-	return result
-
-
 #============================================
 def _write_diagnostic_svg(
 		svg_path: pathlib.Path,
@@ -2654,77 +1511,6 @@ def _write_diagnostic_svg(
 			drawn_target = True
 		if alignment_primitive is not None:
 			kind = str(alignment_primitive.get("kind", ""))
-			primitive_center = _primitive_center(alignment_primitive)
-			primitive_half_width = 1.0
-			primitive_half_height = 1.0
-			if kind == "ellipse":
-				primitive_half_width = max(0.1, float(alignment_primitive.get("rx", 0.0)))
-				primitive_half_height = max(0.1, float(alignment_primitive.get("ry", 0.0)))
-			elif kind == "box" and alignment_primitive.get("box") is not None:
-				x1, y1, x2, y2 = _normalize_box(alignment_primitive["box"])
-				primitive_half_width = max(0.1, (x2 - x1) * 0.5)
-				primitive_half_height = max(0.1, (y2 - y1) * 0.5)
-				if primitive_center is not None:
-					target_char = str(metric.get("alignment_center_char") or "").upper()
-					local_points = _local_text_path_points(
-						label=label,
-						center=primitive_center,
-						half_width=primitive_half_width,
-						half_height=primitive_half_height,
-						endpoint=_metric_endpoint(metric),
-						bond_line=line,
-						target_char=target_char,
-					)
-					if len(local_points) >= 3:
-						if target_char in GLYPH_CURVED_CHAR_SET:
-							lock_vertical_major = target_char in {"O", "C", "S"}
-							fit = _fit_ellipse_from_points(
-								local_points,
-								lock_vertical_major=lock_vertical_major,
-							)
-						if fit is not None:
-							group.append(
-								StdET.Element(
-									tag_ellipse,
-									attrib={
-										"cx": f"{fit['cx']:.6f}",
-										"cy": f"{fit['cy']:.6f}",
-										"rx": f"{fit['rx']:.6f}",
-										"ry": f"{fit['ry']:.6f}",
-										"transform": (
-											f"rotate({fit['angle_deg']:.6f} {fit['cx']:.6f} {fit['cy']:.6f})"
-										),
-										"stroke": color,
-										"stroke-width": "0.25",
-										"stroke-opacity": "0.75",
-										"stroke-dasharray": "2 1",
-									},
-								)
-							)
-							drawn_target = True
-							diagnostic_center_point = (float(fit["cx"]), float(fit["cy"]))
-					if not drawn_target:
-						local_hull = _convex_hull(local_points)
-						group.append(
-							StdET.Element(
-								tag_polygon,
-								attrib={
-									"points": " ".join(
-										f"{point[0]:.6f},{point[1]:.6f}" for point in local_hull
-									),
-									"stroke": color,
-									"stroke-width": "0.25",
-									"stroke-opacity": "0.75",
-									"stroke-dasharray": "2 1",
-								},
-							)
-						)
-						drawn_target = True
-						if local_points:
-							diagnostic_center_point = (
-								sum(point[0] for point in local_points) / float(len(local_points)),
-								sum(point[1] for point in local_points) / float(len(local_points)),
-							)
 			if not drawn_target and kind == "ellipse":
 				group.append(
 					StdET.Element(
@@ -3344,116 +2130,69 @@ def _alignment_primitive_center(primitives: list[dict], canonical_text: str) -> 
 	return None, None
 
 
+_LCF_CHAR_CACHE: dict[str, list[dict]] = {}
+
+
 #============================================
-def _refine_alignment_center_from_text_path(
+def _optical_center_via_isolation_render(
 		label: dict,
 		center: tuple[float, float] | None,
 		center_char: str | None,
-		endpoint: tuple[float, float] | None = None,
-		bond_line: dict | None = None,
+		svg_path: str,
 		gate_debug: dict | None = None) -> tuple[tuple[float, float] | None, str | None]:
-	"""Refine alignment center from local text-path contour geometry when available."""
+	"""Find optical glyph center using per-character SVG isolation rendering."""
 	if center is None or not center_char:
 		return center, center_char
-	target_char = str(center_char).upper()
-	primitives = list(label.get("svg_estimated_primitives", []))
-	candidates = [
-		primitive for primitive in primitives
-		if str(primitive.get("char", "")).upper() == target_char
-	]
-	if not candidates:
+	target = str(center_char).upper()
+	if target not in ("O", "C"):
 		return center, center_char
-	candidates.sort(
-		key=lambda primitive: (
-			_point_distance_sq(_primitive_center(primitive) or center, center),
-			int(primitive.get("char_index", 10**9)),
-		)
-	)
-	seed = candidates[0]
-	if str(seed.get("kind", "")) == "ellipse":
-		half_width = max(0.1, float(seed.get("rx", 0.0)))
-		half_height = max(0.1, float(seed.get("ry", 0.0)))
-	elif str(seed.get("kind", "")) == "box" and seed.get("box") is not None:
-		x1, y1, x2, y2 = _normalize_box(seed["box"])
-		half_width = max(0.1, (x2 - x1) * 0.5)
-		half_height = max(0.1, (y2 - y1) * 0.5)
-	else:
-		half_width = 1.0
-		half_height = 1.0
-	local_points = _local_text_path_points(
-		label=label,
-		center=center,
-		half_width=half_width,
-		half_height=half_height,
-		endpoint=endpoint,
-		bond_line=bond_line,
-		target_char=target_char,
-		gate_debug=gate_debug,
-	)
-	if len(local_points) < 3:
-		return center, center_char
-	x_values = [point[0] for point in local_points]
-	y_values = [point[1] for point in local_points]
-	if target_char in {"O", "C", "S"}:
-		# Curved atom-like glyphs: use pixel convex-hull boundary + axis-locked ellipse.
-		hull_geometry = _pixel_hull_geometry_from_component(
-			points=local_points,
-			font_size=max(1.0, float(label.get("font_size", 12.0))),
-			label=label,
-			target_char=target_char,
-			expected_x=center[0],
-			expected_y=center[1],
-			endpoint=endpoint,
-			bond_line=bond_line,
-		)
-		hull_points = hull_geometry.get("hull_boundary_points", [])
-		hull_fit = hull_geometry.get("ellipse_fit")
+	try:
+		# Get parsed characters (cached per SVG file)
+		if svg_path not in _LCF_CHAR_CACHE:
+			_LCF_CHAR_CACHE[svg_path] = lcf_svg_parser.parse_svg_file(svg_path)
+		all_chars = _LCF_CHAR_CACHE[svg_path]
+		# Match: same character, closest to primitive center
+		matches = [c for c in all_chars if c["character"] == target]
+		if not matches:
+			return center, center_char
+		best = min(matches, key=lambda c: (c["cx"] - center[0]) ** 2 + (c["cy"] - center[1]) ** 2)
+		svg_dims = lcf_svg_parser.get_svg_dimensions(svg_path)
+		zoom = 10
+		# Render isolated glyph
+		glyph_image = lcf_glyph_renderer.render_isolated_glyph(svg_path, best, zoom)
+		binary_mask = lcf_glyph_renderer.extract_binary_mask(glyph_image)
+		contour_points = lcf_glyph_renderer.extract_contour_points(binary_mask)
+		hull_result = lcf_geometry.compute_convex_hull(contour_points)
+		# C glyphs: fit hull (closes opening); O glyphs: fit contour
+		fit_points = hull_result["vertices"] if target == "C" else contour_points
+		ellipse = lcf_geometry.fit_axis_aligned_ellipse(fit_points)
+		# Map pixel center to SVG coordinates
+		pixel_cx, pixel_cy = ellipse["center"]
+		svg_cx, svg_cy = lcf_svg_parser.pixel_to_svg(pixel_cx, pixel_cy, svg_dims, zoom)
+		# Map semi-axes to SVG units
+		vb = svg_dims["viewBox"]
+		vp_w = svg_dims["viewport_width"] * zoom
+		scale = min(vp_w / vb["width"], svg_dims["viewport_height"] * zoom / vb["height"])
+		svg_rx = ellipse["semi_x"] / scale
+		svg_ry = ellipse["semi_y"] / scale
+		# Populate gate_debug for downstream metrics and diagnostics
 		if gate_debug is not None:
-			gate_debug["pixel_component_point_count"] = int(hull_geometry.get("pixel_component_point_count", 0))
-			gate_debug["hull_point_count"] = int(hull_geometry.get("hull_point_count", 0))
-			gate_debug["hull_contour_point_count"] = int(hull_geometry.get("hull_contour_point_count", 0))
-			gate_debug["hull_source"] = hull_geometry.get("hull_source")
-			gate_debug["mask_source"] = hull_geometry.get("mask_source")
-			gate_debug["bond_mask_applied"] = bool(hull_geometry.get("bond_mask_applied", False))
-			gate_debug["glyph_core_gate_applied"] = bool(hull_geometry.get("glyph_core_gate_applied", False))
-			gate_debug["glyph_core_retention_ratio"] = _compact_float(
-				hull_geometry.get("glyph_core_retention_ratio")
-			)
-			gate_debug["baseline_clip_applied"] = bool(hull_geometry.get("baseline_clip_applied", False))
-			gate_debug["bridge_split_applied"] = bool(hull_geometry.get("bridge_split_applied", False))
-			gate_debug["mask_dilated_1px"] = bool(hull_geometry.get("mask_dilated_1px", False))
-			gate_debug["pixel_coord_convention"] = hull_geometry.get("pixel_coord_convention")
-			gate_debug["roi_origin_svg"] = _display_point(hull_geometry.get("roi_origin_svg"))
-			gate_debug["roi_scale_px_per_svg"] = _compact_float(hull_geometry.get("roi_scale_px_per_svg"))
-			gate_debug["hull_signed_gap_along_bond"] = _compact_float(
-				hull_geometry.get("hull_signed_gap_along_bond")
-			)
-			gate_debug["hull_contact_point"] = _display_point(hull_geometry.get("hull_contact_point"))
-			gate_debug["hull_boundary_points"] = [
-				_display_point(point)
-				for point in hull_points
-			]
-			gate_debug["ellipse_fit"] = (
-				{
-					"cx": _compact_float(hull_fit.get("cx")),
-					"cy": _compact_float(hull_fit.get("cy")),
-					"rx": _compact_float(hull_fit.get("rx")),
-					"ry": _compact_float(hull_fit.get("ry")),
-					"angle_deg": 0.0,
-				}
-				if hull_fit else None
-			)
-		fit = None
-		if hull_fit is not None:
-			fit = hull_fit
-		if fit is None:
-			fit = _fit_ellipse_from_points(local_points, lock_vertical_major=True)
-		if fit is not None:
-			return (float(fit["cx"]), float(fit["cy"])), center_char
-	if target_char in {"H", "N", "P"}:
-		# Multi-stroke glyphs are better approximated by local bbox center.
-		return ((min(x_values) + max(x_values)) * 0.5, (min(y_values) + max(y_values)) * 0.5), center_char
-	return (sum(x_values) / float(len(x_values)), sum(y_values) / float(len(y_values))), center_char
+			gate_debug["pipeline"] = "letter_center_finder"
+			gate_debug["component_point_count"] = int(len(contour_points))
+			gate_debug["stripe_applied"] = False
+			gate_debug["stripe_point_count"] = int(len(contour_points))
+			gate_debug["final_point_count"] = int(len(contour_points))
+			gate_debug["hull_point_count"] = int(len(hull_result["vertices"]))
+			gate_debug["ellipse_fit"] = {
+				"cx": _compact_float(float(svg_cx)),
+				"cy": _compact_float(float(svg_cy)),
+				"rx": _compact_float(float(svg_rx)),
+				"ry": _compact_float(float(svg_ry)),
+				"angle_deg": 0.0,
+			}
+		return (float(svg_cx), float(svg_cy)), center_char
+	except Exception:
+		return center, center_char
 
 
 #============================================
@@ -4017,35 +2756,11 @@ def analyze_svg_file(
 	lines = _collect_svg_lines(root)
 	labels = _collect_svg_labels(root)
 	ring_primitives = _collect_svg_ring_primitives(root)
-	source_viewbox = _viewbox_bounds(root)
-	source_svg_xml_for_raster = _strip_overlay_groups_for_raster(root)
-	source_svg_xml_for_glyph_raster = _strip_non_text_geometry_for_raster(root)
-	measurement_fonts = [
-		max(1.0, float(label.get("font_size", 12.0)))
-		for label in labels
-		if label.get("is_measurement_label")
-	]
-	if measurement_fonts:
-		representative_font = sorted(measurement_fonts)[len(measurement_fonts) // 2]
-	else:
-		representative_font = 12.0
-	source_raster_scale = max(6.0, min(12.0, representative_font / 1.8))
-	source_cache_key = f"{svg_path.resolve()}::overlay_stripped"
-	source_cache_key_glyph_only = f"{svg_path.resolve()}::text_only"
 	for label in labels:
 		label["svg_text_path"] = _label_text_path(label)
 		label["svg_estimated_primitives"] = _label_svg_estimated_primitives(label)
 		label["svg_estimated_box"] = _label_svg_estimated_box(label)
 		label["_source_svg_path"] = str(svg_path)
-		label["_source_viewbox"] = source_viewbox
-		label["_source_svg_xml_for_raster"] = source_svg_xml_for_raster
-		label["_source_svg_xml_for_glyph_raster"] = source_svg_xml_for_glyph_raster
-		label["_source_svg_cache_key"] = source_cache_key
-		label["_source_svg_cache_key_glyph_only"] = source_cache_key_glyph_only
-		label["_source_raster_scale"] = float(source_raster_scale)
-	if labels:
-		_cached_svg_raster(labels[0], scale=source_raster_scale, variant="full")
-		_cached_svg_raster(labels[0], scale=source_raster_scale, variant="glyph_only")
 	measurement_label_indexes = [
 		index for index, label in enumerate(labels) if label["is_measurement_label"]
 	]
@@ -4111,43 +2826,45 @@ def analyze_svg_file(
 	for label_index in measurement_label_indexes:
 		label = labels[label_index]
 		independent_primitives = label.get("svg_estimated_primitives", [])
-		independent_box = label.get("svg_estimated_box")
 		alignment_center, alignment_center_char = _alignment_primitive_center(
 			primitives=independent_primitives,
 			canonical_text=str(label.get("canonical_text", label.get("text", ""))),
 		)
 		independent_text_path = label.get("svg_text_path")
-		independent_model_name = (
-			"svg_text_path_outline"
-			if independent_text_path is not None
-			else "svg_primitives_ellipse_box"
-		)
-		(
-			independent_endpoint,
-			independent_distance,
-			independent_line_index,
-			independent_signed_distance,
-		) = _nearest_endpoint_for_alignment(
-			lines=lines,
-			line_indexes=connector_candidate_line_indexes,
-			prim_center=alignment_center,
-			label_box=independent_box,
-			text_path=independent_text_path,
-			primitives=independent_primitives,
-		)
-		if str(alignment_center_mode).lower() == "optical":
-			bond_line = None
-			optical_gate_debug = {}
-			if independent_line_index is not None and 0 <= independent_line_index < len(lines):
-				bond_line = lines[independent_line_index]
-			alignment_center, alignment_center_char = _refine_alignment_center_from_text_path(
-				label=label,
-				center=alignment_center,
-				center_char=alignment_center_char,
-				endpoint=independent_endpoint,
-				bond_line=bond_line,
-				gate_debug=optical_gate_debug,
+		independent_model_name = "svg_text_path_outline"
+		if independent_text_path is not None:
+			(
+				independent_endpoint,
+				independent_distance,
+				independent_line_index,
+				independent_signed_distance,
+			) = _nearest_endpoint_to_text_path(
+				lines=lines,
+				line_indexes=connector_candidate_line_indexes,
+				path_obj=independent_text_path,
 			)
+		else:
+			(
+				independent_endpoint,
+				independent_distance,
+				independent_line_index,
+				independent_signed_distance,
+			) = _nearest_endpoint_to_glyph_primitives(
+				lines=lines,
+				line_indexes=connector_candidate_line_indexes,
+				primitives=independent_primitives,
+			)
+			independent_model_name = "svg_primitives_ellipse_box"
+		if str(alignment_center_mode).lower() == "optical":
+			optical_gate_debug = {}
+			if LETTER_CENTER_FINDER_AVAILABLE and str(alignment_center_char).upper() in ("O", "C"):
+				alignment_center, alignment_center_char = _optical_center_via_isolation_render(
+					label=label,
+					center=alignment_center,
+					center_char=alignment_center_char,
+					svg_path=str(svg_path),
+					gate_debug=optical_gate_debug,
+				)
 		else:
 			optical_gate_debug = {}
 		if independent_endpoint is not None and independent_signed_distance is None:
@@ -4159,21 +2876,6 @@ def analyze_svg_file(
 		best_line_width = 1.0
 		if best_line_index is not None and 0 <= best_line_index < len(lines):
 			best_line_width = float(lines[best_line_index].get("width", 1.0))
-		# After optical center refinement, re-select endpoint on the chosen line
-		# so distance-to-glyph uses the final alignment center, not stale pre-refine choice.
-		if best_line_index is not None and 0 <= best_line_index < len(lines):
-			best_endpoint, _endpoint_score = _choose_endpoint_for_alignment(
-				line=lines[best_line_index],
-				prim_center=alignment_center,
-				label_box=independent_box,
-				text_path=independent_text_path,
-				primitives=independent_primitives,
-			)
-			best_signed_distance = _point_to_label_signed_distance(best_endpoint, label)
-			if math.isfinite(best_signed_distance):
-				best_distance = abs(float(best_signed_distance))
-				independent_signed_distance = best_signed_distance
-				independent_distance = best_distance
 		if best_endpoint is None or best_distance is None or best_distance > search_limit:
 			no_connector_count += 1
 			hull_boundary_points = None

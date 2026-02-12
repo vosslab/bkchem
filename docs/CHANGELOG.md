@@ -1,21 +1,27 @@
 # Changelog
 
 ## 2026-02-12
-- Re-select connector endpoint after optical center refinement in
+- Revert connector endpoint selection in
   [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
-  so reported endpoint-to-glyph distances are computed from the final refined
-  center and chosen connector line endpoint.
-- Add dual-raster glyph refinement path in
-  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
-  cache/render both overlay-stripped full SVG and text-only SVG rasters per file,
-  use text-only ROI masks for glyph center fitting, and fall back to full raster
-  with connector-line masking when text-only masks are unavailable.
-- Harden connector pickup and endpoint selection in
-  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
-  replace fixed connector width cutoff with dynamic median-based threshold plus
-  top-k widest fallback, and switch to geometry-weighted endpoint scoring that
-  penalizes inside-box endpoints and bond directions pointing away from the
-  selected primitive center.
+  to the simpler distance-based approach (`_nearest_endpoint_to_text_path` /
+  `_nearest_endpoint_to_glyph_primitives`) and remove the broken geometry-weighted
+  scoring functions (`_choose_endpoint_for_alignment`,
+  `_nearest_endpoint_for_alignment`, `_is_point_inside_box`) that were
+  misassigning bond endpoints to the far end of glyphs.
+- Replace broken optical center-finding pipeline in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  with the working `letter-center-finder` sibling repo approach: per-character
+  SVG isolation rendering via `rsvg-convert`, Otsu thresholding, OpenCV contour
+  extraction, scipy convex hull, and direct least-squares ellipse fitting.
+  Delete approximately 1,000 lines of broken CairoSVG/cv2/numpy/pycairo/TextPath
+  pipeline code and replace with a thin bridge function
+  (`_optical_center_via_isolation_render`).
+- Remove `cairo`, `cairosvg`, `cv2`, and `numpy` imports from
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  since all usage was in the deleted optical pipeline functions.
+- Remove deleted-function test
+  `test_local_text_path_points_prefers_component_near_endpoint` from
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py).
 - Tighten O-core gating in
   [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
   by using smaller core-ellipse multipliers for `O` targets to reduce bond-tail
