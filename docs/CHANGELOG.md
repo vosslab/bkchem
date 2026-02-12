@@ -1,6 +1,14 @@
 # Changelog
 
 ## 2026-02-12
+- Reduce exported glyph-curve point density in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  to about 10% of dense hull samples for diagnostics/JSON output while keeping
+  full dense hull points for ellipse fitting and bond/hull intersection math.
+- Update diagnostic styling in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  glyph outlines now render at `0.5` stroke width and `75%` stroke opacity;
+  center/contact dots now render at 3 pt diameter (`r=1.5`) with `50%` fill opacity.
 - Adjust diagnostic overlay visual style in
   [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
   glyph outline overlays now use `0.4` stroke width at `25%` stroke opacity;

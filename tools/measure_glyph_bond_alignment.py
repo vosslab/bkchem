@@ -71,6 +71,7 @@ GLYPH_CURVED_CHAR_SET = set("OCSQGDU0698")
 GLYPH_STEM_CHAR_SET = set("HNPMITFLKEXY147")
 ALIGNMENT_INFINITE_LINE_FONT_TOLERANCE_FACTOR = 0.09
 PIXEL_HULL_DENSIFY_STEP_PX = 1.5
+PIXEL_HULL_OUTPUT_POINT_RATIO = 0.10
 PIXEL_GLYPH_RASTER_BG_TOLERANCE = 14
 DEFAULT_INPUT_GLOB = "output_smoke/archive_matrix_previews/generated/*.svg"
 DEFAULT_JSON_REPORT = "output_smoke/glyph_bond_alignment_report.json"
@@ -1936,6 +1937,31 @@ def _densify_closed_polyline(points: list[tuple[float, float]], step: float) -> 
 
 
 #============================================
+def _downsample_closed_points(points: list[tuple[float, float]], keep_ratio: float) -> list[tuple[float, float]]:
+	"""Return evenly downsampled closed-polyline points with minimum shape fidelity."""
+	if len(points) <= 3:
+		return list(points)
+	ratio = max(0.01, min(1.0, float(keep_ratio)))
+	target = int(math.ceil(len(points) * ratio))
+	target = max(12, min(len(points), target))
+	if target >= len(points):
+		return list(points)
+	step = float(len(points)) / float(target)
+	reduced = []
+	seen = set()
+	index = 0.0
+	while len(reduced) < target:
+		i_value = int(index) % len(points)
+		if i_value not in seen:
+			seen.add(i_value)
+			reduced.append(points[i_value])
+		index += step
+	if len(reduced) < 3:
+		return list(points[:3])
+	return reduced
+
+
+#============================================
 def _decode_png_bytes_to_rgba(png_bytes: bytes):
 	"""Decode PNG bytes into one uint8 RGBA array."""
 	if np is None:
@@ -2275,14 +2301,15 @@ def _pixel_hull_geometry_from_component(
 	hull_points_px = [(float(point[0]), float(point[1])) for point in contour_points_px]
 	densified_hull_px = _densify_closed_polyline(hull_points_px, step=PIXEL_HULL_DENSIFY_STEP_PX)
 	# Contours are in pixel index coordinates (x, y); map via pixel centers.
-	hull_svg = [
+	dense_hull_svg = [
 		(((point[0] + 0.5) / scale) + origin_x, ((point[1] + 0.5) / scale) + origin_y)
 		for point in densified_hull_px
 	]
-	result["hull_boundary_points"] = hull_svg
-	result["hull_point_count"] = len(hull_svg)
-	if len(hull_svg) >= 6:
-		fit = _fit_ellipse_from_points(hull_svg, lock_vertical_major=True)
+	output_hull_svg = _downsample_closed_points(dense_hull_svg, keep_ratio=PIXEL_HULL_OUTPUT_POINT_RATIO)
+	result["hull_boundary_points"] = output_hull_svg
+	result["hull_point_count"] = len(output_hull_svg)
+	if len(dense_hull_svg) >= 6:
+		fit = _fit_ellipse_from_points(dense_hull_svg, lock_vertical_major=True)
 		if fit is not None:
 			result["ellipse_fit"] = {
 				"cx": float(fit["cx"]),
@@ -2291,7 +2318,7 @@ def _pixel_hull_geometry_from_component(
 				"ry": float(fit["ry"]),
 				"angle_deg": 0.0,
 			}
-	if endpoint is not None and bond_line is not None and len(hull_svg) >= 3:
+	if endpoint is not None and bond_line is not None and len(dense_hull_svg) >= 3:
 		ep_x, ep_y = float(endpoint[0]), float(endpoint[1])
 		x1 = float(bond_line.get("x1", ep_x))
 		y1 = float(bond_line.get("y1", ep_y))
@@ -2306,15 +2333,15 @@ def _pixel_hull_geometry_from_component(
 		if dir_len > 1e-9:
 			ray_dir = (dir_x / dir_len, dir_y / dir_len)
 			t_values = []
-			for index in range(len(hull_svg)):
-				seg_a = hull_svg[index]
-				seg_b = hull_svg[(index + 1) % len(hull_svg)]
+			for index in range(len(dense_hull_svg)):
+				seg_a = dense_hull_svg[index]
+				seg_b = dense_hull_svg[(index + 1) % len(dense_hull_svg)]
 				t_value = _ray_segment_intersection_parameter((ep_x, ep_y), ray_dir, seg_a, seg_b)
 				if t_value is None:
 					continue
 				t_values.append(float(t_value))
 			if t_values:
-				inside = _point_in_polygon((ep_x, ep_y), hull_svg)
+				inside = _point_in_polygon((ep_x, ep_y), dense_hull_svg)
 				signed_gap = None
 				if inside:
 					behind = [value for value in t_values if value <= 1e-9]
@@ -2387,8 +2414,8 @@ def _write_diagnostic_svg(
 							for point in hull_boundary_points
 						),
 						"stroke": color,
-						"stroke-width": "0.4",
-						"stroke-opacity": "0.25",
+						"stroke-width": "0.25",
+						"stroke-opacity": "0.75",
 						"stroke-dasharray": "2 1",
 					},
 				)
@@ -2404,8 +2431,8 @@ def _write_diagnostic_svg(
 						"rx": f"{max(0.0, float(hull_fit.get('rx', 0.0))):.6f}",
 						"ry": f"{max(0.0, float(hull_fit.get('ry', 0.0))):.6f}",
 						"stroke": color,
-						"stroke-width": "0.4",
-						"stroke-opacity": "0.25",
+						"stroke-width": "0.25",
+						"stroke-opacity": "0.75",
 						"stroke-dasharray": "2 1",
 					},
 				)
@@ -2458,8 +2485,8 @@ def _write_diagnostic_svg(
 											f"rotate({fit['angle_deg']:.6f} {fit['cx']:.6f} {fit['cy']:.6f})"
 										),
 										"stroke": color,
-										"stroke-width": "0.4",
-										"stroke-opacity": "0.25",
+										"stroke-width": "0.25",
+										"stroke-opacity": "0.75",
 										"stroke-dasharray": "2 1",
 									},
 								)
@@ -2476,8 +2503,8 @@ def _write_diagnostic_svg(
 										f"{point[0]:.6f},{point[1]:.6f}" for point in local_hull
 									),
 									"stroke": color,
-									"stroke-width": "0.4",
-									"stroke-opacity": "0.25",
+									"stroke-width": "0.25",
+									"stroke-opacity": "0.75",
 									"stroke-dasharray": "2 1",
 								},
 							)
@@ -2498,8 +2525,8 @@ def _write_diagnostic_svg(
 							"rx": f"{max(0.0, float(alignment_primitive.get('rx', 0.0))):.6f}",
 							"ry": f"{max(0.0, float(alignment_primitive.get('ry', 0.0))):.6f}",
 							"stroke": color,
-							"stroke-width": "0.4",
-							"stroke-opacity": "0.25",
+							"stroke-width": "0.25",
+							"stroke-opacity": "0.75",
 							"stroke-dasharray": "2 1",
 						},
 					)
@@ -2520,8 +2547,8 @@ def _write_diagnostic_svg(
 							"width": f"{max(0.0, x2 - x1):.6f}",
 							"height": f"{max(0.0, y2 - y1):.6f}",
 							"stroke": color,
-							"stroke-width": "0.4",
-							"stroke-opacity": "0.25",
+							"stroke-width": "0.5",
+							"stroke-opacity": "0.75",
 							"stroke-dasharray": "2 1",
 						},
 					)
@@ -2541,8 +2568,8 @@ def _write_diagnostic_svg(
 							"width": f"{max(0.0, x2 - x1):.6f}",
 							"height": f"{max(0.0, y2 - y1):.6f}",
 							"stroke": color,
-							"stroke-width": "0.4",
-							"stroke-opacity": "0.25",
+							"stroke-width": "0.25",
+							"stroke-opacity": "0.75",
 							"stroke-dasharray": "2 1",
 						},
 					)
@@ -2556,7 +2583,7 @@ def _write_diagnostic_svg(
 					attrib={
 						"cx": f"{center_point[0]:.6f}",
 						"cy": f"{center_point[1]:.6f}",
-						"r": "0.5",
+						"r": "1.0",
 						"fill": color,
 						"fill-opacity": "0.5",
 						"stroke-width": "0.2",
@@ -2604,7 +2631,7 @@ def _write_diagnostic_svg(
 						attrib={
 							"cx": f"{float(hull_contact_point[0]):.6f}",
 							"cy": f"{float(hull_contact_point[1]):.6f}",
-							"r": "0.5",
+							"r": "1.0",
 							"fill": "#ff5400",
 							"fill-opacity": "0.5",
 							"stroke-width": "0.2",

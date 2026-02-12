@@ -9,6 +9,6 @@ diagnostic_file="output_smoke/glyph_bond_alignment_diagnostics/$(basename "${fil
 sleep 0.1
 echo "source_svg= $file"
 echo "diagnostic_svg= $diagnostic_file"
-open "$file"
+#open "$file"
 sleep 0.1
 open "$diagnostic_file"
