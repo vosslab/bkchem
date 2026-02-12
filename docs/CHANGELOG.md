@@ -1,6 +1,185 @@
 # Changelog
 
+## 2026-02-12
+- Adjust diagnostic overlay visual style in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  glyph outline overlays now use `0.4` stroke width at `25%` stroke opacity;
+  center/contact dots remain 1 pt diameter (`r=0.5`) at `50%` fill opacity.
+- Increase `unit_03` bond/label spacing in
+  [tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.svg](tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.svg)
+  so HO/OH/CH/SH connector stems are visually separated; update expected
+  centerline positions in
+  [tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.json](tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.json).
+- Update unit_03 glyph-alignment fixture to BKChem-relevant labels
+  (`HO`, `OH`, `CH`, `SH`) in
+  [tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.svg](tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.svg)
+  with sidecar checks expecting O/C/S centerline fits and minimum final point
+  counts in
+  [tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.json](tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.json).
+- Expand measurement-label eligibility in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  to include labels containing `S`, so `SH` participates in connector/alignment
+  analysis.
+- Add curved-glyph bond-tail decoupling in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  for `O/C/S` pixel masks, clip below label baseline and apply a bridge-break
+  erode/reselect/dilate step before hull fitting so C-center fits do not latch
+  onto connected bond strokes.
+- Update stress fixture realism in
+  [tests/fixtures/glyph_alignment/torture_4x4_grid.svg](tests/fixtures/glyph_alignment/torture_4x4_grid.svg)
+  and
+  [tests/fixtures/glyph_alignment/torture_4x4_grid.json](tests/fixtures/glyph_alignment/torture_4x4_grid.json)
+  to include non-rotated `CH` proximity cases that match observed BKChem
+  bond-to-C overlap patterns.
+- Reduce diagnostic overlay visual occlusion in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  halve helper stroke widths, reduce infinite-line width, and shrink center/contact
+  dots to radius 0.5 with 50% fill opacity.
+- Improve curved-glyph isolation in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  by adding a center-anchored pixel-core gate after connected-component
+  selection, reducing false hull contamination from touching bond strokes while
+  keeping fallback guard rails when the gate would over-prune.
+- Align fixture scope with BKChem reality in
+  [tests/fixtures/glyph_alignment/torture_4x4_grid.svg](tests/fixtures/glyph_alignment/torture_4x4_grid.svg)
+  by removing all text-rotation transforms from the torture grid; keep stress on
+  nearby bonds, subscripts, mixed sizes, and color variation.
+- Change default alignment fitting mode in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  from `primitive` to `optical`, so direct tool runs use the newer CairoSVG-backed
+  hull/ellipse fitting path by default (with `--alignment-center-mode primitive`
+  still available as an explicit override).
+- Speed up optical hull raster extraction in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  strip overlay groups before raster, render from in-memory SVG bytes, and
+  reuse one fixture-level CairoSVG full-image raster (shared by all labels)
+  with ROI cropping in bitmap space.
+- Update fixture runner defaults in
+  [tools/run_glyph_alignment_fixture_runner.py](tools/run_glyph_alignment_fixture_runner.py)
+  so plain `python tools/run_glyph_alignment_fixture_runner.py` now writes
+  diagnostic PNG overlays by default at 4x scale; add `--no-render-png` opt-out
+  and `--png-scale` override.
+- Enforce CairoSVG-only pixel hull masking in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  by removing the legacy pycairo polygon-fill raster fallback; curved glyph
+  hull extraction now uses only ROI masks cropped from CairoSVG-rendered SVG
+  pixels (`mask_source: cairosvg_roi_rgba`) or reports no pixel hull.
+- Tighten pixel-hull extraction quality in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  skip baseline clipping before hull extraction for `O` targets, merge split
+  connected components around the selected glyph component, and apply a 1 px
+  mask dilation before external-contour (`RETR_EXTERNAL`) hull computation to
+  reduce anti-aliased edge dropout.
+- Add explicit hull provenance diagnostics in the same tool
+  (`hull_source`, `hull_contour_point_count`, `mask_dilated_1px`) so debug
+  overlays/reports can verify that hulls come from external contour geometry.
+- Implement pixel convex-hull glyph geometry in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  for curved targets (`O/C/S`): rasterize local glyph ROI to in-memory ARGB,
+  run connected-component selection, extract external contour, compute convex
+  hull, densify hull edges (about 1.5 px), and fit axis-aligned ellipse from
+  hull points.
+- Add per-glyph hull outputs to JSON/report rows in the same tool:
+  `hull_boundary_points`, `hull_ellipse_fit`, `hull_contact_point`,
+  and `hull_signed_gap_along_bond`, with diagnostic-overlay rendering of hull,
+  fitted ellipse, and endpoint-to-contact segment.
+- Add stop-at-hull gap metric in the same tool using forward bond-ray to hull
+  edge intersection; for `C/S` labels this signed hull gap now overrides the
+  curved-glyph endpoint gap/penetration metric by design.
+- Add a local pycairo+numpy optical probe in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  for curved target glyphs (`O/C/S`): rasterize the selected glyph contour
+  component to an in-memory ARGB surface, extract boundary pixels via an
+  8-neighbor erosion boundary mask, and fit the alignment ellipse from those
+  boundary points (with automatic fallback to vector-point fit).
+- Increase optical glyph-outline density in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  by interpolating text-path contours before component selection
+  (`outline_interpolation_steps`, `outline_vertex_count` now exposed in
+  `optical_gate_debug`), so unit_03-style labels are no longer fitted from
+  tiny raw contour sets.
+- Keep O-target gating fully uncut in the same tool by preserving the
+  existing O half-plane skip and O/C stripe skip path, now exercised against
+  densified contours.
+- Reduce curved-glyph center bias in the same tool by switching locked
+  vertical ellipse center calculation to quantile-bbox midpoint instead of
+  raw point-mean centroid.
+- Add glyph-alignment fixture scaffold corpus in
+  [tests/fixtures/glyph_alignment/](tests/fixtures/glyph_alignment/) with
+  three targeted unit fixtures and one 4x4 torture-grid fixture (each with
+  JSON sidecar expectation blocks).
+- Add a single-run fixture harness in
+  [tools/run_glyph_alignment_fixture_runner.py](tools/run_glyph_alignment_fixture_runner.py)
+  to execute all scaffold fixtures, emit per-fixture measurement reports and
+  diagnostic overlays, evaluate sidecar expectations, and write runner
+  summary JSON/TXT outputs under `output_smoke/glyph_alignment_fixture_runner/`.
+- Add scaffold integrity checks in
+  [tests/test_glyph_alignment_fixture_scaffold.py](tests/test_glyph_alignment_fixture_scaffold.py)
+  to lock the fixture/sidecar/runner wiring in place.
+- Tighten glyph-alignment fixture expectations in
+  [tests/fixtures/glyph_alignment/](tests/fixtures/glyph_alignment/):
+  require non-trivial label counts, bounded outside-tolerance counts, and
+  required target-centerline checks (including CH2OH/HOH2C C-target cases).
+- Tighten unit fixture tolerance gates in
+  [tests/fixtures/glyph_alignment/unit_01_isolated_glyph_fit.json](tests/fixtures/glyph_alignment/unit_01_isolated_glyph_fit.json)
+  and
+  [tests/fixtures/glyph_alignment/unit_02_mixed_subscript_no_bonds.json](tests/fixtures/glyph_alignment/unit_02_mixed_subscript_no_bonds.json)
+  by setting `max_outside_tolerance` to `0` so large outside-tolerance counts
+  cannot be reported as required-pass.
+- Update C-target gating in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  to skip stripe filtering for `C` labels, preventing stripe-stage contour
+  amputation in the new fixture retention checks.
+- Harden unit_03-style contamination defenses in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  ignore lines inside overlay/diagnostic groups (`codex-glyph-bond-diagnostic-overlay`,
+  `codex-overlay-noise`, and `codex-label-diag-*`), require connector-candidate
+  line width >= `1.0`, and clip target glyph contour points to a narrow
+  baseline band (`y <= baseline + pad`) before half-plane/stripe gating.
+- Prevent over-aggressive stripe collapse in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  reject stripe gating when stripe retention drops below 60% of component
+  points and fall back to pre-stripe points, with explicit retention diagnostics
+  (`stripe_retention_ratio`, `stripe_rejected_low_retention`) in gate debug.
+- Extend
+  [tools/run_glyph_alignment_fixture_runner.py](tools/run_glyph_alignment_fixture_runner.py)
+  with a C-amputation guard check (`c_stripe_min_retention_ratio`) that fails
+  when stripe-gate retention for C-target labels drops below threshold.
+- Extend the same runner with a per-target minimum final-point-count check
+  (`min_final_point_count_by_char`) and tighten
+  [tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.json](tests/fixtures/glyph_alignment/unit_03_bonds_nearby_strokes.json)
+  to use independent centerline expectations (`x=180`, `x=320`) plus a required
+  O-target minimum final-point-count gate.
+- Add a concise experiment postmortem in
+  [docs/GLYPH_ALIGNMENT_TECHNIQUE_SUMMARY.md](docs/GLYPH_ALIGNMENT_TECHNIQUE_SUMMARY.md)
+  documenting each glyph-alignment technique tried, what improved, and
+  where each approach failed (including renderer-coupling, primitive
+  fidelity limits, contour/fit instability, and hashed-bond tradeoffs).
+- Refine optical gating in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  center stripe-gate filtering on selected-component median x (instead of
+  prior center), derive stripe width from selected component width, apply
+  half-plane gate only for single-glyph-width components, and widen stripe
+  retention for `C` to avoid contour amputation.
+- Add per-label optical gate diagnostics (`component/half-plane/stripe/final`
+  point counts and widths) to alignment data points in the same tool so
+  failures can be traced to the exact filtering stage.
+- Harden optical glyph-center fitting in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  with pre-fit contamination gates: endpoint-nearest text subpath component
+  selection, bond-direction half-plane filtering, and centerline stripe
+  filtering before ellipse/bbox center refinement.
+- Add focused gate regression coverage in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to verify endpoint-near component selection from multi-component text path
+  contours.
+
 ## 2026-02-11
+- Extend atom-target coverage in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
+  keep `H/S/P/N` in alignment-center priority selection, and treat `P`
+  as a stem-style glyph (bbox-based optical center) instead of curved
+  ellipse fitting so non-`O/C/S` atom labels stay stable in diagnostics.
 - Improve alignment-center diagnostics in
   [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py):
   target diagnostic glyph overlays to the selected alignment character

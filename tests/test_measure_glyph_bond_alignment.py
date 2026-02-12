@@ -178,6 +178,60 @@ def test_canonicalize_label_text_maps_hoh2c_to_ch2oh():
 
 
 #============================================
+def test_alignment_primitive_center_prioritizes_element_atoms():
+	"""Element labels should prioritize C/O/N/S/P/H center selection consistently."""
+	tool_module = _load_tool_module()
+	primitives = [
+		{"kind": "ellipse", "char": "H", "char_index": 0, "cx": 1.0, "cy": 1.0, "rx": 0.5, "ry": 0.5},
+		{"kind": "ellipse", "char": "N", "char_index": 1, "cx": 2.0, "cy": 2.0, "rx": 0.5, "ry": 0.5},
+		{"kind": "ellipse", "char": "S", "char_index": 2, "cx": 3.0, "cy": 3.0, "rx": 0.5, "ry": 0.5},
+		{"kind": "ellipse", "char": "P", "char_index": 3, "cx": 4.0, "cy": 4.0, "rx": 0.5, "ry": 0.5},
+	]
+	assert tool_module._alignment_primitive_center(primitives, "NH2") == ((2.0, 2.0), "N")
+	assert tool_module._alignment_primitive_center(primitives, "SH") == ((3.0, 3.0), "S")
+	assert tool_module._alignment_primitive_center(primitives, "PH3") == ((4.0, 4.0), "P")
+	assert tool_module._alignment_primitive_center(primitives, "H2") == ((1.0, 1.0), "H")
+
+
+#============================================
+def test_local_text_path_points_prefers_component_near_endpoint():
+	"""Component gate should choose the contour near the label-side bond endpoint."""
+	tool_module = _load_tool_module()
+
+	class _DummyPath:
+		def __init__(self, vertices, codes):
+			self.vertices = vertices
+			self.codes = codes
+
+	moveto = tool_module.MplPath.MOVETO
+	lineto = tool_module.MplPath.LINETO
+	closepoly = tool_module.MplPath.CLOSEPOLY
+	vertices = [
+		(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0),
+		(10.0, 0.0), (11.0, 0.0), (11.0, 1.0), (10.0, 1.0), (10.0, 0.0),
+	]
+	codes = [
+		moveto, lineto, lineto, lineto, closepoly,
+		moveto, lineto, lineto, lineto, closepoly,
+	]
+	label = {
+		"svg_text_path": _DummyPath(vertices, codes),
+		"font_size": 12.0,
+	}
+	points = tool_module._local_text_path_points(
+		label=label,
+		center=(5.0, 0.5),
+		half_width=8.0,
+		half_height=2.0,
+		endpoint=(10.8, 0.5),
+		bond_line={"x1": 8.0, "y1": 0.5, "x2": 10.8, "y2": 0.5},
+	)
+	assert points
+	mean_x = sum(point[0] for point in points) / float(len(points))
+	assert mean_x > 9.0
+
+
+#============================================
 def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	"""Line aligned to primitive centerline should be aligned even with endpoint gap."""
 	tool_module = _load_tool_module()

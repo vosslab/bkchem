@@ -15,6 +15,22 @@ import xml.etree.ElementTree as StdET
 # Third Party
 import defusedxml.ElementTree as ET
 try:
+	import cairo
+except Exception:
+	cairo = None
+try:
+	import cv2
+except Exception:
+	cv2 = None
+try:
+	import cairosvg
+except Exception:
+	cairosvg = None
+try:
+	import numpy as np
+except Exception:
+	np = None
+try:
 	from matplotlib.font_manager import FontProperties
 	from matplotlib.path import Path as MplPath
 	from matplotlib.textpath import TextPath
@@ -50,13 +66,17 @@ HASHED_CARRIER_MIN_STROKES = 4
 HASHED_STROKE_MAX_DISTANCE_TO_CARRIER = 1.35
 HASHED_PERPENDICULAR_TOLERANCE_DEGREES = 25.0
 HASHED_SHARED_ENDPOINT_PARALLEL_TOLERANCE_DEGREES = 35.0
+MIN_CONNECTOR_LINE_WIDTH = 1.0
 GLYPH_CURVED_CHAR_SET = set("OCSQGDU0698")
-GLYPH_STEM_CHAR_SET = set("HNMITFLKEXY147")
+GLYPH_STEM_CHAR_SET = set("HNPMITFLKEXY147")
 ALIGNMENT_INFINITE_LINE_FONT_TOLERANCE_FACTOR = 0.09
+PIXEL_HULL_DENSIFY_STEP_PX = 1.5
+PIXEL_GLYPH_RASTER_BG_TOLERANCE = 14
 DEFAULT_INPUT_GLOB = "output_smoke/archive_matrix_previews/generated/*.svg"
 DEFAULT_JSON_REPORT = "output_smoke/glyph_bond_alignment_report.json"
 DEFAULT_TEXT_REPORT = "output_smoke/glyph_bond_alignment_report.txt"
 DEFAULT_DIAGNOSTIC_SVG_DIR = "output_smoke/glyph_bond_alignment_diagnostics"
+_SVG_RASTER_CACHE: dict[tuple[str, float], dict] = {}
 
 
 #============================================
@@ -135,6 +155,18 @@ def parse_args() -> argparse.Namespace:
 		help="Disable diagnostic SVG overlay output.",
 	)
 	parser.add_argument(
+		"--write-diagnostic-png",
+		dest="write_diagnostic_png",
+		action="store_true",
+		help="Write diagnostic PNG set (ROI and full overlays) when optical mode is used (default: on).",
+	)
+	parser.add_argument(
+		"--no-diagnostic-png",
+		dest="write_diagnostic_png",
+		action="store_false",
+		help="Disable diagnostic PNG set output.",
+	)
+	parser.add_argument(
 		"--bond-glyph-gap-tolerance",
 		dest="bond_glyph_gap_tolerance",
 		type=float,
@@ -144,9 +176,20 @@ def parse_args() -> argparse.Namespace:
 			"larger values flag near-miss crowding as violations."
 		),
 	)
+	parser.add_argument(
+		"--alignment-center-mode",
+		dest="alignment_center_mode",
+		choices=("primitive", "optical"),
+		default="optical",
+		help=(
+			"Alignment center source: 'optical' uses CairoSVG-backed glyph hull fitting; "
+			"'primitive' uses estimated glyph primitive centers."
+		),
+	)
 	parser.set_defaults(fail_on_miss=False)
 	parser.set_defaults(exclude_haworth_base_ring=True)
 	parser.set_defaults(write_diagnostic_svg=True)
+	parser.set_defaults(write_diagnostic_png=True)
 	return parser.parse_args()
 
 
@@ -267,6 +310,49 @@ def _display_point(point, decimals: int = 3):
 	if not isinstance(point, (list, tuple)) or len(point) != 2:
 		return point
 	return [_display_float(point[0], decimals=decimals), _display_float(point[1], decimals=decimals)]
+
+
+#============================================
+def _safe_token(text: str) -> str:
+	"""Return filesystem-safe token for one short label/debug string."""
+	raw = str(text or "").strip()
+	if not raw:
+		return "unknown"
+	safe = re.sub(r"[^A-Za-z0-9._-]+", "_", raw)
+	return safe.strip("_") or "unknown"
+
+
+#============================================
+def _write_png_image(path: pathlib.Path, image_array) -> bool:
+	"""Write one image array to PNG path (prefers cv2, falls back to Pillow)."""
+	try:
+		path.parent.mkdir(parents=True, exist_ok=True)
+	except Exception:
+		return False
+	if cv2 is not None:
+		try:
+			return bool(cv2.imwrite(str(path), image_array))
+		except Exception:
+			pass
+	try:
+		from PIL import Image
+		array = image_array
+		if np is not None and isinstance(array, np.ndarray):
+			if array.ndim == 2:
+				mode = "L"
+			elif array.ndim == 3 and array.shape[2] == 3:
+				mode = "RGB"
+				array = array[:, :, ::-1]  # BGR -> RGB
+			elif array.ndim == 3 and array.shape[2] == 4:
+				mode = "RGBA"
+				array = array[:, :, [2, 1, 0, 3]]  # BGRA -> RGBA
+			else:
+				return False
+			Image.fromarray(array, mode=mode).save(path)
+			return True
+	except Exception:
+		return False
+	return False
 
 
 #============================================
@@ -523,7 +609,7 @@ def _is_measurement_label(visible_text: str) -> bool:
 	text = str(visible_text or "")
 	if text in ("OH", "HO"):
 		return True
-	return "C" in text
+	return ("C" in text) or ("S" in text)
 
 
 #============================================
@@ -882,22 +968,54 @@ def _line_closest_endpoint_to_target(line: dict, target) -> tuple[tuple[float, f
 
 
 #============================================
+def _node_is_overlay_group(node) -> bool:
+	"""Return True when one SVG node is an overlay/diagnostic group to ignore."""
+	if _local_tag_name(str(node.tag)) != "g":
+		return False
+	node_id = str(node.get("id") or "").strip().lower()
+	if not node_id:
+		return False
+	if node_id in {"codex-glyph-bond-diagnostic-overlay", "codex-overlay-noise"}:
+		return True
+	return node_id.startswith("codex-label-diag-")
+
+
+#============================================
+def _strip_overlay_groups_for_raster(svg_root) -> str:
+	"""Return serialized SVG XML with overlay/diagnostic groups removed."""
+	root_text = ET.tostring(svg_root, encoding="unicode")
+	root_copy = StdET.fromstring(root_text)
+	def prune(node) -> None:
+		children = list(node)
+		for child in children:
+			if _node_is_overlay_group(child):
+				node.remove(child)
+				continue
+			prune(child)
+	prune(root_copy)
+	return StdET.tostring(root_copy, encoding="unicode")
+
+
+#============================================
 def _collect_svg_lines(svg_root) -> list[dict]:
 	"""Collect line primitives from one SVG root."""
 	lines = []
-	for node in svg_root.iter():
-		if _local_tag_name(str(node.tag)) != "line":
-			continue
-		lines.append(
-			{
-				"x1": _parse_float(node.get("x1"), 0.0),
-				"y1": _parse_float(node.get("y1"), 0.0),
-				"x2": _parse_float(node.get("x2"), 0.0),
-				"y2": _parse_float(node.get("y2"), 0.0),
-				"width": _parse_float(node.get("stroke-width"), 1.0),
-				"linecap": str(node.get("stroke-linecap") or "butt").strip().lower(),
-			}
-		)
+	def walk(node, overlay_excluded: bool) -> None:
+		excluded_here = overlay_excluded or _node_is_overlay_group(node)
+		if (not excluded_here) and _local_tag_name(str(node.tag)) == "line":
+			lines.append(
+				{
+					"x1": _parse_float(node.get("x1"), 0.0),
+					"y1": _parse_float(node.get("y1"), 0.0),
+					"x2": _parse_float(node.get("x2"), 0.0),
+					"y2": _parse_float(node.get("y2"), 0.0),
+					"width": _parse_float(node.get("stroke-width"), 1.0),
+					"linecap": str(node.get("stroke-linecap") or "butt").strip().lower(),
+				}
+			)
+		for child in list(node):
+			walk(child, excluded_here)
+	walk(svg_root, False)
 	return lines
 
 
@@ -1330,6 +1448,18 @@ def _metric_alignment_center(metric: dict) -> tuple[float, float] | None:
 
 
 #============================================
+def _metric_endpoint(metric: dict) -> tuple[float, float] | None:
+	"""Return endpoint from one metric row when available."""
+	point = metric.get("endpoint")
+	if not isinstance(point, (list, tuple)) or len(point) != 2:
+		return None
+	try:
+		return (float(point[0]), float(point[1]))
+	except (TypeError, ValueError):
+		return None
+
+
+#============================================
 def _select_alignment_primitive(label: dict, metric: dict) -> dict | None:
 	"""Return primitive corresponding to alignment character/center for diagnostics."""
 	primitives = list(label.get("svg_estimated_primitives", []))
@@ -1356,6 +1486,855 @@ def _select_alignment_primitive(label: dict, metric: dict) -> dict | None:
 
 
 #============================================
+def _resample_polyline_points(
+		points: list[tuple[float, float]],
+		spacing: float,
+		closed: bool = True) -> list[tuple[float, float]]:
+	"""Resample one polyline by arc-length with approximately uniform spacing."""
+	if len(points) < 2:
+		return list(points)
+	step = max(0.05, float(spacing))
+	work_points = list(points)
+	if closed:
+		first = work_points[0]
+		last = work_points[-1]
+		if math.hypot(last[0] - first[0], last[1] - first[1]) > 1e-6:
+			work_points.append(first)
+	segment_lengths = []
+	total_length = 0.0
+	for index in range(len(work_points) - 1):
+		p1 = work_points[index]
+		p2 = work_points[index + 1]
+		length = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+		segment_lengths.append(length)
+		total_length += length
+	if total_length <= 1e-9:
+		return list(points)
+	target_count = max(2, int(math.ceil(total_length / step)))
+	out = []
+	seg_index = 0
+	seg_start = work_points[0]
+	seg_end = work_points[1]
+	seg_len = segment_lengths[0]
+	accumulated = 0.0
+	for sample_index in range(target_count + 1):
+		target_distance = min(total_length, sample_index * step)
+		while (accumulated + seg_len) < target_distance and seg_index < (len(segment_lengths) - 1):
+			accumulated += seg_len
+			seg_index += 1
+			seg_start = work_points[seg_index]
+			seg_end = work_points[seg_index + 1]
+			seg_len = segment_lengths[seg_index]
+		if seg_len <= 1e-12:
+			out.append((seg_start[0], seg_start[1]))
+			continue
+		t = (target_distance - accumulated) / seg_len
+		t = max(0.0, min(1.0, t))
+		x_value = seg_start[0] + ((seg_end[0] - seg_start[0]) * t)
+		y_value = seg_start[1] + ((seg_end[1] - seg_start[1]) * t)
+		out.append((x_value, y_value))
+	if closed and out and (math.hypot(out[0][0] - out[-1][0], out[0][1] - out[-1][1]) <= 1e-6):
+		out = out[:-1]
+	return out
+
+
+#============================================
+def _local_text_path_points(
+		label: dict,
+		center: tuple[float, float],
+		half_width: float,
+		half_height: float,
+		endpoint: tuple[float, float] | None = None,
+		bond_line: dict | None = None,
+		target_char: str | None = None,
+		gate_debug: dict | None = None) -> list[tuple[float, float]]:
+	"""Return contour points from best-matching text subpath near one center."""
+	font_size = max(1.0, float(label.get("font_size", 12.0)))
+	if gate_debug is not None:
+		gate_debug.clear()
+		gate_debug["outline_interpolation_steps"] = 0
+		gate_debug["outline_vertex_count"] = 0
+		gate_debug["component_point_count"] = 0
+		gate_debug["component_width"] = None
+		gate_debug["baseline_clip_applied"] = False
+		gate_debug["baseline_clip_point_count"] = 0
+		gate_debug["half_plane_applied"] = False
+		gate_debug["half_plane_point_count"] = 0
+		gate_debug["stripe_applied"] = False
+		gate_debug["stripe_retention_ratio"] = None
+		gate_debug["stripe_rejected_low_retention"] = False
+		gate_debug["stripe_center_x"] = None
+		gate_debug["stripe_half_width"] = None
+		gate_debug["stripe_point_count"] = 0
+		gate_debug["final_point_count"] = 0
+	text_path = label.get("svg_text_path")
+	if text_path is None:
+		return []
+	dense_text_path = text_path
+	interpolation_steps = max(8, min(64, int(round(font_size / 3.0))))
+	try:
+		# Densify glyph contours before component selection; sparse outlines drift centers.
+		dense_text_path = text_path.interpolated(interpolation_steps)
+	except Exception:
+		dense_text_path = text_path
+		interpolation_steps = 0
+	vertices = getattr(dense_text_path, "vertices", None)
+	codes = getattr(dense_text_path, "codes", None)
+	if vertices is None or len(vertices) == 0:
+		return []
+	if gate_debug is not None:
+		gate_debug["outline_interpolation_steps"] = int(interpolation_steps)
+		gate_debug["outline_vertex_count"] = int(len(vertices))
+	cx, cy = center
+	if codes is None:
+		points = [
+			(float(vertex[0]), float(vertex[1]))
+			for vertex in vertices
+			if abs(float(vertex[0]) - cx) <= max(0.8, float(half_width) * 1.1)
+			and abs(float(vertex[1]) - cy) <= max(0.8, float(half_height) * 1.1)
+		]
+		if not points:
+			return []
+		return points
+	subpaths: list[list[tuple[float, float]]] = []
+	current: list[tuple[float, float]] = []
+	for vertex, code in zip(vertices, codes):
+		point = (float(vertex[0]), float(vertex[1]))
+		if code == MplPath.MOVETO:
+			if len(current) >= 2:
+				subpaths.append(current)
+			current = [point]
+			continue
+		if code == MplPath.CLOSEPOLY:
+			if len(current) >= 2:
+				subpaths.append(current)
+			current = []
+			continue
+		current.append(point)
+	if len(current) >= 2:
+		subpaths.append(current)
+	if not subpaths:
+		return []
+	x_pad = max(0.45, float(half_width) * 0.7)
+	y_pad = max(0.45, float(half_height) * 0.7)
+	candidates: list[tuple[float, float, float, list[tuple[float, float]]]] = []
+	for points in subpaths:
+		x_values = [point[0] for point in points]
+		y_values = [point[1] for point in points]
+		min_x, max_x = min(x_values), max(x_values)
+		min_y, max_y = min(y_values), max(y_values)
+		if not (min_x - x_pad <= cx <= max_x + x_pad and min_y - y_pad <= cy <= max_y + y_pad):
+			continue
+		center_x = (min_x + max_x) * 0.5
+		center_y = (min_y + max_y) * 0.5
+		# Shoelace area (absolute) for tie-break: prefer outer contour over inner holes.
+		area = 0.0
+		for index, point in enumerate(points):
+			next_point = points[(index + 1) % len(points)]
+			area += (point[0] * next_point[1]) - (next_point[0] * point[1])
+		area = abs(area) * 0.5
+		distance = math.hypot(center_x - cx, center_y - cy)
+		component_score = distance
+		if endpoint is not None:
+			component_score = math.hypot(center_x - endpoint[0], center_y - endpoint[1])
+		candidates.append((component_score, distance, -area, points))
+	if not candidates:
+		return []
+	# Gate 1: connected-component selection (subpath component nearest endpoint/target line).
+	candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+	selected_points = list(candidates[0][3])
+	if not selected_points:
+		return []
+	selected_x_values = [point[0] for point in selected_points]
+	component_width = max(selected_x_values) - min(selected_x_values)
+	component_point_count = len(selected_points)
+	if gate_debug is not None:
+		gate_debug["component_point_count"] = component_point_count
+		gate_debug["component_width"] = _compact_float(component_width)
+
+	target_upper = str(target_char or "").upper()
+	# For O-hull extraction, do not apply pre-hull clipping gates.
+	if target_upper != "O":
+		# Baseline-band clipping to avoid grabbing bond strokes below text baseline.
+		baseline_y = float(label.get("y", cy))
+		baseline_pad = max(2.0, font_size * 0.10)
+		baseline_points = [
+			(px, py)
+			for px, py in selected_points
+			if py <= (baseline_y + baseline_pad)
+		]
+		if gate_debug is not None:
+			gate_debug["baseline_clip_applied"] = True
+			gate_debug["baseline_clip_point_count"] = len(baseline_points)
+		if len(baseline_points) >= max(3, int(len(selected_points) * 0.30)):
+			selected_points = baseline_points
+			selected_x_values = [point[0] for point in selected_points]
+			component_width = max(selected_x_values) - min(selected_x_values)
+	else:
+		if gate_debug is not None:
+			gate_debug["baseline_clip_applied"] = False
+			gate_debug["baseline_clip_point_count"] = len(selected_points)
+
+	# Gate 2: half-plane gate using bond direction at the label endpoint.
+	component_looks_single_glyph = component_width <= (1.8 * font_size)
+	if (
+			endpoint is not None
+			and bond_line is not None
+			and component_looks_single_glyph
+			and target_upper != "O"
+	):
+		ex, ey = endpoint
+		x1 = float(bond_line.get("x1", ex))
+		y1 = float(bond_line.get("y1", ey))
+		x2 = float(bond_line.get("x2", ex))
+		y2 = float(bond_line.get("y2", ey))
+		d1 = math.hypot(ex - x1, ey - y1)
+		d2 = math.hypot(ex - x2, ey - y2)
+		if d1 <= d2:
+			ox, oy = x2, y2
+		else:
+			ox, oy = x1, y1
+		ux = ex - ox
+		uy = ey - oy
+		ulen = math.hypot(ux, uy)
+		if ulen <= 1e-9:
+			ux = cx - ex
+			uy = cy - ey
+			ulen = math.hypot(ux, uy)
+		if ulen > 1e-9:
+			ux /= ulen
+			uy /= ulen
+			t_max = max(1.0, float(half_width) * 2.4)
+			half_plane_points = []
+			for px, py in selected_points:
+				tx = px - ex
+				ty = py - ey
+				t_value = (tx * ux) + (ty * uy)
+				if 0.0 <= t_value <= t_max:
+					half_plane_points.append((px, py))
+			if gate_debug is not None:
+				gate_debug["half_plane_applied"] = True
+				gate_debug["half_plane_point_count"] = len(half_plane_points)
+			if len(half_plane_points) >= max(3, int(len(selected_points) * 0.30)):
+				selected_points = half_plane_points
+
+	# Gate 3: vertical stripe around selected-component centerline x.
+	# For curved targets O/C, skip stripe gating to avoid contour amputation.
+	if target_upper in {"O", "C"}:
+		resampled_points = _resample_polyline_points(
+			selected_points,
+			spacing=max(0.15, font_size / 20.0),
+			closed=True,
+		)
+		if gate_debug is not None:
+			gate_debug["stripe_applied"] = False
+			gate_debug["stripe_center_x"] = None
+			gate_debug["stripe_half_width"] = None
+			gate_debug["stripe_point_count"] = len(selected_points)
+			gate_debug["final_point_count"] = len(resampled_points)
+		return resampled_points
+	selected_x_values = [point[0] for point in selected_points]
+	if selected_x_values:
+		x_sorted = sorted(selected_x_values)
+		median_index = len(x_sorted) // 2
+		if len(x_sorted) % 2 == 1:
+			stripe_center_x = x_sorted[median_index]
+		else:
+			stripe_center_x = (x_sorted[median_index - 1] + x_sorted[median_index]) * 0.5
+	else:
+		stripe_center_x = cx
+	comp_half_w = max(0.3, (max(selected_x_values) - min(selected_x_values)) * 0.5) if selected_x_values else max(0.3, float(half_width))
+	stripe_factor = 0.55
+	if str(target_char or "").upper() == "C":
+		stripe_factor = 0.90
+	stripe_half_width = max(0.6, stripe_factor * comp_half_w)
+	points_before_stripe = list(selected_points)
+	stripe_points = [
+		(px, py)
+		for px, py in selected_points
+		if abs(px - stripe_center_x) <= stripe_half_width
+	]
+	stripe_retention_ratio = 0.0
+	if component_point_count > 0:
+		stripe_retention_ratio = float(len(stripe_points)) / float(component_point_count)
+	use_stripe = len(stripe_points) >= max(3, int(len(selected_points) * 0.35))
+	if stripe_retention_ratio < 0.60:
+		# Prevent O-like contour collapse from over-aggressive stripe clipping.
+		use_stripe = False
+	if gate_debug is not None:
+		gate_debug["stripe_applied"] = True
+		gate_debug["stripe_center_x"] = _compact_float(stripe_center_x)
+		gate_debug["stripe_half_width"] = _compact_float(stripe_half_width)
+		gate_debug["stripe_point_count"] = len(stripe_points)
+		gate_debug["stripe_retention_ratio"] = _compact_float(stripe_retention_ratio)
+		gate_debug["stripe_rejected_low_retention"] = bool(stripe_retention_ratio < 0.60)
+	if use_stripe:
+		selected_points = stripe_points
+	else:
+		selected_points = points_before_stripe
+	selected_points = _resample_polyline_points(
+		selected_points,
+		spacing=max(0.15, font_size / 20.0),
+		closed=True,
+	)
+	if gate_debug is not None:
+		gate_debug["final_point_count"] = len(selected_points)
+	return selected_points
+
+
+#============================================
+def _fit_ellipse_from_points(
+		points: list[tuple[float, float]],
+		lock_vertical_major: bool = False) -> dict | None:
+	"""Fit one ellipse from 2D point cloud; optionally lock major axis vertical."""
+	if len(points) < 6:
+		return None
+	x_values = [float(point[0]) for point in points]
+	y_values = [float(point[1]) for point in points]
+	cx = sum(x_values) / float(len(x_values))
+	cy = sum(y_values) / float(len(y_values))
+	if lock_vertical_major:
+		x_sorted = sorted(x_values)
+		y_sorted = sorted(y_values)
+		low_index = max(0, int(len(points) * 0.05))
+		high_index = min(len(points) - 1, int(len(points) * 0.95))
+		# Use quantile-bbox midpoint for center to avoid arc-sampling centroid bias.
+		cx = (x_sorted[low_index] + x_sorted[high_index]) * 0.5
+		cy = (y_sorted[low_index] + y_sorted[high_index]) * 0.5
+		rx = max(0.25, (x_sorted[high_index] - x_sorted[low_index]) * 0.5)
+		ry = max(0.25, (y_sorted[high_index] - y_sorted[low_index]) * 0.5)
+		if ry < rx:
+			rx, ry = ry, rx
+		return {
+			"cx": cx,
+			"cy": cy,
+			"rx": rx,
+			"ry": ry,
+			"angle_deg": 0.0,
+		}
+	sxx = 0.0
+	syy = 0.0
+	sxy = 0.0
+	for x_value, y_value in zip(x_values, y_values):
+		dx = x_value - cx
+		dy = y_value - cy
+		sxx += dx * dx
+		syy += dy * dy
+		sxy += dx * dy
+	sxx /= float(len(points))
+	syy /= float(len(points))
+	sxy /= float(len(points))
+	trace = sxx + syy
+	delta = max(0.0, ((sxx - syy) * (sxx - syy)) + (4.0 * sxy * sxy))
+	root = math.sqrt(delta)
+	lambda1 = max(1e-9, (trace + root) * 0.5)
+	lambda2 = max(1e-9, (trace - root) * 0.5)
+	if abs(sxy) > 1e-12:
+		v1 = (lambda1 - syy, sxy)
+		v2 = (lambda2 - syy, sxy)
+	else:
+		if sxx >= syy:
+			v1 = (1.0, 0.0)
+			v2 = (0.0, 1.0)
+		else:
+			v1 = (0.0, 1.0)
+			v2 = (1.0, 0.0)
+	def _normalize(vec: tuple[float, float]) -> tuple[float, float]:
+		length = math.hypot(vec[0], vec[1])
+		if length <= 1e-12:
+			return (1.0, 0.0)
+		return (vec[0] / length, vec[1] / length)
+	e1 = _normalize(v1)
+	e2 = _normalize(v2)
+	max_major = 0.0
+	max_minor = 0.0
+	for x_value, y_value in zip(x_values, y_values):
+		dx = x_value - cx
+		dy = y_value - cy
+		major = abs((dx * e1[0]) + (dy * e1[1]))
+		minor = abs((dx * e2[0]) + (dy * e2[1]))
+		max_major = max(max_major, major)
+		max_minor = max(max_minor, minor)
+	rx = max(0.25, max_major)
+	ry = max(0.25, max_minor)
+	angle_deg = math.degrees(math.atan2(e1[1], e1[0]))
+	return {
+		"cx": cx,
+		"cy": cy,
+		"rx": rx,
+		"ry": ry,
+		"angle_deg": angle_deg,
+	}
+
+
+#============================================
+def _point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, float]]) -> bool:
+	"""Return True when one point lies inside one polygon (ray casting)."""
+	if len(polygon) < 3:
+		return False
+	x_value, y_value = point
+	inside = False
+	j_index = len(polygon) - 1
+	for i_index in range(len(polygon)):
+		xi, yi = polygon[i_index]
+		xj, yj = polygon[j_index]
+		if ((yi > y_value) != (yj > y_value)):
+			x_intersect = (xj - xi) * (y_value - yi) / max(1e-12, (yj - yi)) + xi
+			if x_value < x_intersect:
+				inside = not inside
+		j_index = i_index
+	return inside
+
+
+#============================================
+def _ray_segment_intersection_parameter(
+		ray_origin: tuple[float, float],
+		ray_dir: tuple[float, float],
+		seg_a: tuple[float, float],
+		seg_b: tuple[float, float]) -> float | None:
+	"""Return ray parameter t for ray/segment intersection, or None when absent."""
+	ox, oy = ray_origin
+	rx, ry = ray_dir
+	ax, ay = seg_a
+	bx, by = seg_b
+	sx = bx - ax
+	sy = by - ay
+	denominator = (rx * sy) - (ry * sx)
+	if abs(denominator) <= 1e-12:
+		return None
+	qpx = ax - ox
+	qpy = ay - oy
+	t_value = ((qpx * sy) - (qpy * sx)) / denominator
+	u_value = ((qpx * ry) - (qpy * rx)) / denominator
+	if u_value < -1e-9 or u_value > 1.0 + 1e-9:
+		return None
+	return float(t_value)
+
+
+#============================================
+def _densify_closed_polyline(points: list[tuple[float, float]], step: float) -> list[tuple[float, float]]:
+	"""Return densified closed-polyline points with approximately uniform spacing."""
+	if len(points) < 3:
+		return list(points)
+	step_size = max(0.5, float(step))
+	densified = []
+	count = len(points)
+	for index in range(count):
+		p1 = points[index]
+		p2 = points[(index + 1) % count]
+		distance = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+		segments = max(1, int(math.ceil(distance / step_size)))
+		for t_index in range(segments):
+			t_value = float(t_index) / float(segments)
+			densified.append(
+				(
+					p1[0] + ((p2[0] - p1[0]) * t_value),
+					p1[1] + ((p2[1] - p1[1]) * t_value),
+				)
+			)
+	return densified
+
+
+#============================================
+def _decode_png_bytes_to_rgba(png_bytes: bytes):
+	"""Decode PNG bytes into one uint8 RGBA array."""
+	if np is None:
+		return None
+	if cv2 is not None:
+		decoded = cv2.imdecode(np.frombuffer(png_bytes, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+		if decoded is None:
+			return None
+		if len(decoded.shape) == 2:
+			return cv2.cvtColor(decoded, cv2.COLOR_GRAY2RGBA)
+		if decoded.shape[2] == 4:
+			return cv2.cvtColor(decoded, cv2.COLOR_BGRA2RGBA)
+		return cv2.cvtColor(decoded, cv2.COLOR_BGR2RGBA)
+	try:
+		from PIL import Image
+		import io
+		with Image.open(io.BytesIO(png_bytes)) as image:
+			return np.asarray(image.convert("RGBA"), dtype=np.uint8)
+	except Exception:
+		return None
+
+
+#============================================
+def _cached_svg_raster(label: dict, scale: float) -> dict | None:
+	"""Render one source SVG into a cached RGBA raster for optical hull extraction."""
+	if cairosvg is None or np is None:
+		return None
+	svg_path = str(label.get("_source_svg_path") or "").strip()
+	svg_xml = str(label.get("_source_svg_xml_for_raster") or "").strip()
+	svg_key = str(label.get("_source_svg_cache_key") or svg_path).strip()
+	viewbox = label.get("_source_viewbox")
+	if not svg_xml or not svg_key or not isinstance(viewbox, (list, tuple)) or len(viewbox) != 4:
+		return None
+	min_x, min_y, max_x, max_y = [float(value) for value in viewbox]
+	width = max_x - min_x
+	height = max_y - min_y
+	if width <= 1e-9 or height <= 1e-9:
+		return None
+	key = (svg_key, round(float(scale), 4))
+	cached = _SVG_RASTER_CACHE.get(key)
+	if cached is not None:
+		return cached
+	out_w = max(16, int(math.ceil(width * scale)))
+	out_h = max(16, int(math.ceil(height * scale)))
+	try:
+		png_bytes = cairosvg.svg2png(
+			bytestring=svg_xml.encode("utf-8"),
+			output_width=out_w,
+			output_height=out_h,
+		)
+	except Exception:
+		return None
+	rgba = _decode_png_bytes_to_rgba(png_bytes)
+	if rgba is None:
+		return None
+	cached = {
+		"rgba": rgba,
+		"scale": float(scale),
+		"viewbox": (min_x, min_y, max_x, max_y),
+	}
+	_SVG_RASTER_CACHE[key] = cached
+	return cached
+
+
+#============================================
+def _ink_mask_from_rgba(roi_rgba) -> "np.ndarray | None":
+	"""Return binary ink mask from one RGBA ROI using background-distance gating."""
+	if np is None or roi_rgba is None or roi_rgba.size == 0:
+		return None
+	if roi_rgba.ndim != 3 or roi_rgba.shape[2] < 4:
+		return None
+	rgb = roi_rgba[:, :, :3].astype(np.int16)
+	alpha = roi_rgba[:, :, 3]
+	bg = np.array([236, 236, 236], dtype=np.int16)
+	max_delta = np.max(np.abs(rgb - bg), axis=2)
+	mask = ((alpha > 8) & (max_delta >= PIXEL_GLYPH_RASTER_BG_TOLERANCE)).astype(np.uint8) * 255
+	return mask
+
+
+#============================================
+def _pixel_mask_from_component(
+		points: list[tuple[float, float]],
+		font_size: float,
+		label: dict | None = None,
+		expected_x: float | None = None,
+		expected_y: float | None = None) -> dict | None:
+	"""Return one CairoSVG ROI ink mask and transform metadata for one component."""
+	_ = expected_x
+	_ = expected_y
+	if np is None or cairosvg is None or len(points) < 3:
+		return None
+	x_values = [point[0] for point in points]
+	y_values = [point[1] for point in points]
+	min_x = min(x_values)
+	max_x = max(x_values)
+	min_y = min(y_values)
+	max_y = max(y_values)
+	width = max_x - min_x
+	height = max_y - min_y
+	if width <= 1e-9 or height <= 1e-9:
+		return None
+	pad = max(4.0, float(font_size) * 0.35)
+	if label is None:
+		return None
+	svg_scale = float(label.get("_source_raster_scale", 8.0))
+	svg_scale = max(4.0, min(16.0, svg_scale))
+	raster = _cached_svg_raster(label=label, scale=svg_scale)
+	if raster is None:
+		return None
+	min_x_vb, min_y_vb, _max_x_vb, _max_y_vb = raster["viewbox"]
+	rgba = raster["rgba"]
+	roi_x1 = min_x - pad
+	roi_x2 = max_x + pad
+	roi_y1 = min_y - pad
+	roi_y2 = max_y + pad
+	x0_px = int(math.floor((roi_x1 - min_x_vb) * svg_scale))
+	x1_px = int(math.ceil((roi_x2 - min_x_vb) * svg_scale))
+	y0_px = int(math.floor((roi_y1 - min_y_vb) * svg_scale))
+	y1_px = int(math.ceil((roi_y2 - min_y_vb) * svg_scale))
+	x0_px = max(0, min(x0_px, rgba.shape[1] - 1))
+	y0_px = max(0, min(y0_px, rgba.shape[0] - 1))
+	x1_px = max(x0_px + 1, min(x1_px, rgba.shape[1]))
+	y1_px = max(y0_px + 1, min(y1_px, rgba.shape[0]))
+	roi_rgba = rgba[y0_px:y1_px, x0_px:x1_px]
+	mask = _ink_mask_from_rgba(roi_rgba)
+	if mask is None or int(np.count_nonzero(mask)) == 0:
+		return None
+	return {
+		"mask": mask,
+		"scale": float(svg_scale),
+		"origin_x": min_x_vb + (float(x0_px) / float(svg_scale)),
+		"origin_y": min_y_vb + (float(y0_px) / float(svg_scale)),
+		"mask_source": "cairosvg_roi_rgba",
+	}
+
+
+#============================================
+def _select_connected_component(mask_u8, expected_x_px: float | None, expected_y_px: float | None):
+	"""Return selected/merged connected-component mask (nearest expected point), or None."""
+	if np is None:
+		return None
+	if cv2 is not None:
+		num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats((mask_u8 > 0).astype(np.uint8), 8)
+		best_label = None
+		best_score = None
+		for label_id in range(1, int(num_labels)):
+			area = int(stats[label_id, cv2.CC_STAT_AREA])
+			if area <= 4:
+				continue
+			cx, cy = float(centroids[label_id][0]), float(centroids[label_id][1])
+			if expected_x_px is None:
+				score = -float(area)
+			else:
+				dx = abs(cx - float(expected_x_px))
+				dy = abs(cy - float(expected_y_px)) if expected_y_px is not None else 0.0
+				score = dx + (0.35 * dy) - (0.002 * float(area))
+			if best_score is None or score < best_score:
+				best_score = score
+				best_label = label_id
+		if best_label is None:
+			return None
+		selected = (labels == best_label).astype(np.uint8)
+		# Merge split glyph fragments that overlap seed bbox neighborhood.
+		seed_x = int(stats[best_label, cv2.CC_STAT_LEFT])
+		seed_y = int(stats[best_label, cv2.CC_STAT_TOP])
+		seed_w = int(stats[best_label, cv2.CC_STAT_WIDTH])
+		seed_h = int(stats[best_label, cv2.CC_STAT_HEIGHT])
+		expand = 2
+		seed_x1 = seed_x - expand
+		seed_y1 = seed_y - expand
+		seed_x2 = seed_x + seed_w + expand
+		seed_y2 = seed_y + seed_h + expand
+		for label_id in range(1, int(num_labels)):
+			if label_id == best_label:
+				continue
+			area = int(stats[label_id, cv2.CC_STAT_AREA])
+			if area <= 2:
+				continue
+			x = int(stats[label_id, cv2.CC_STAT_LEFT])
+			y = int(stats[label_id, cv2.CC_STAT_TOP])
+			w = int(stats[label_id, cv2.CC_STAT_WIDTH])
+			h = int(stats[label_id, cv2.CC_STAT_HEIGHT])
+			x1 = x
+			y1 = y
+			x2 = x + w
+			y2 = y + h
+			overlap = not (x2 < seed_x1 or x1 > seed_x2 or y2 < seed_y1 or y1 > seed_y2)
+			if overlap:
+				selected |= (labels == label_id).astype(np.uint8)
+		return (selected * 255).astype(np.uint8)
+	# Fallback: use whole mask when cv2 is unavailable.
+	return np.array(mask_u8, copy=True)
+
+
+#============================================
+def _gate_component_to_glyph_core(
+		component_mask,
+		expected_x_px: float | None,
+		expected_y_px: float | None,
+		half_width_px: float,
+		half_height_px: float):
+	"""Keep pixels near expected glyph center to remove attached bond tails."""
+	if np is None:
+		return component_mask, False, None
+	if expected_x_px is None or expected_y_px is None:
+		return component_mask, False, None
+	mask = np.asarray(component_mask)
+	y_index, x_index = np.nonzero(mask > 0)
+	total = int(len(x_index))
+	if total <= 0:
+		return component_mask, False, None
+	hx = max(3.0, float(half_width_px) * 1.35)
+	hy = max(3.0, float(half_height_px) * 1.45)
+	nx = (x_index.astype(np.float64) - float(expected_x_px)) / hx
+	ny = (y_index.astype(np.float64) - float(expected_y_px)) / hy
+	keep = ((nx * nx) + (ny * ny)) <= 1.0
+	kept = int(np.count_nonzero(keep))
+	retention = float(kept) / float(total) if total > 0 else None
+	# Guard rail: avoid over-pruning when priors are off.
+	if kept < 24 or retention is None or retention < 0.20:
+		return component_mask, False, retention
+	gated = np.zeros_like(mask, dtype=np.uint8)
+	gated[y_index[keep], x_index[keep]] = 255
+	return gated, True, retention
+
+
+#============================================
+def _pixel_hull_geometry_from_component(
+		points: list[tuple[float, float]],
+		font_size: float,
+		label: dict | None = None,
+		target_char: str | None = None,
+		expected_x: float | None = None,
+		expected_y: float | None = None,
+		endpoint: tuple[float, float] | None = None,
+		bond_line: dict | None = None) -> dict:
+	"""Return convex-hull geometry from local pixel ROI plus bond/hull stop metrics."""
+	result = {
+		"hull_boundary_points": [],
+		"ellipse_fit": None,
+		"hull_contact_point": None,
+		"hull_signed_gap_along_bond": None,
+		"hull_point_count": 0,
+		"pixel_component_point_count": 0,
+		"hull_contour_point_count": 0,
+		"hull_source": None,
+		"mask_dilated_1px": False,
+		"pixel_coord_convention": "xy",
+		"roi_origin_svg": None,
+		"roi_scale_px_per_svg": None,
+		"hull_mode": "pixel_convex_hull",
+		"mask_source": None,
+		"glyph_core_gate_applied": False,
+		"glyph_core_retention_ratio": None,
+		"baseline_clip_applied": False,
+		"bridge_split_applied": False,
+	}
+	if np is None or len(points) < 3:
+		return result
+	point_x = [point[0] for point in points]
+	point_y = [point[1] for point in points]
+	pixel_data = _pixel_mask_from_component(
+		points=points,
+		font_size=font_size,
+		label=label,
+		expected_x=expected_x,
+		expected_y=expected_y,
+	)
+	if pixel_data is None:
+		return result
+	mask = pixel_data["mask"]
+	scale = float(pixel_data["scale"])
+	origin_x = float(pixel_data["origin_x"])
+	origin_y = float(pixel_data["origin_y"])
+	result["mask_source"] = str(pixel_data.get("mask_source") or "unknown")
+	result["roi_origin_svg"] = [origin_x, origin_y]
+	result["roi_scale_px_per_svg"] = scale
+	expected_x_px = None if expected_x is None else (float(expected_x) - origin_x) * scale
+	expected_y_px = None if expected_y is None else (float(expected_y) - origin_y) * scale
+	component_mask = _select_connected_component(mask, expected_x_px, expected_y_px)
+	if component_mask is None:
+		return result
+	upper_target = str(target_char or "").upper()
+	if label is not None and upper_target in GLYPH_CURVED_CHAR_SET:
+		baseline_y = label.get("y")
+		if baseline_y is not None:
+			baseline_pad = max(2.0, float(font_size) * 0.10)
+			limit_y_px = int(math.floor((float(baseline_y) + baseline_pad - origin_y) * scale))
+			limit_y_px = max(0, min(limit_y_px, int(component_mask.shape[0] - 1)))
+			component_mask[(limit_y_px + 1):, :] = 0
+			result["baseline_clip_applied"] = True
+	# Break narrow bridges between glyph ink and touching bond strokes.
+	if cv2 is not None and upper_target in GLYPH_CURVED_CHAR_SET:
+		eroded = cv2.erode(component_mask, np.ones((3, 3), dtype=np.uint8), iterations=1)
+		reselected = _select_connected_component(eroded, expected_x_px, expected_y_px)
+		if reselected is not None and int(np.count_nonzero(reselected)) >= 12:
+			component_mask = cv2.dilate(reselected, np.ones((3, 3), dtype=np.uint8), iterations=1)
+			result["bridge_split_applied"] = True
+	half_width_px = max(2.0, ((max(point_x) - min(point_x)) * 0.5) * scale)
+	half_height_px = max(2.0, ((max(point_y) - min(point_y)) * 0.5) * scale)
+	component_mask, gated, gate_retention = _gate_component_to_glyph_core(
+		component_mask=component_mask,
+		expected_x_px=expected_x_px,
+		expected_y_px=expected_y_px,
+		half_width_px=half_width_px,
+		half_height_px=half_height_px,
+	)
+	result["glyph_core_gate_applied"] = bool(gated)
+	result["glyph_core_retention_ratio"] = (
+		None if gate_retention is None else float(gate_retention)
+	)
+	result["pixel_component_point_count"] = int(np.count_nonzero(component_mask))
+	if cv2 is not None:
+		component_mask = cv2.dilate(component_mask, np.ones((3, 3), dtype=np.uint8), iterations=1)
+		result["mask_dilated_1px"] = True
+	contour_points_px = None
+	if cv2 is not None:
+		contours, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+		if contours:
+			contour = max(contours, key=cv2.contourArea)
+			result["hull_contour_point_count"] = int(len(contour))
+			hull = cv2.convexHull(contour)
+			contour_points_px = hull[:, 0, :].astype(np.float64)
+			result["hull_source"] = "cv2_external_contour_hull"
+	if contour_points_px is None:
+		# Fallback: convex hull from nonzero mask points.
+		y_index, x_index = np.nonzero(component_mask > 0)
+		if len(x_index) < 3:
+			return result
+		mask_points = [(float(x), float(y)) for x, y in zip(x_index.tolist(), y_index.tolist())]
+		hull_points = _convex_hull(mask_points)
+		contour_points_px = np.array(hull_points, dtype=np.float64)
+		result["hull_contour_point_count"] = int(len(mask_points))
+		result["hull_source"] = "fallback_mask_points_hull"
+	if contour_points_px.shape[0] < 3:
+		return result
+	hull_points_px = [(float(point[0]), float(point[1])) for point in contour_points_px]
+	densified_hull_px = _densify_closed_polyline(hull_points_px, step=PIXEL_HULL_DENSIFY_STEP_PX)
+	# Contours are in pixel index coordinates (x, y); map via pixel centers.
+	hull_svg = [
+		(((point[0] + 0.5) / scale) + origin_x, ((point[1] + 0.5) / scale) + origin_y)
+		for point in densified_hull_px
+	]
+	result["hull_boundary_points"] = hull_svg
+	result["hull_point_count"] = len(hull_svg)
+	if len(hull_svg) >= 6:
+		fit = _fit_ellipse_from_points(hull_svg, lock_vertical_major=True)
+		if fit is not None:
+			result["ellipse_fit"] = {
+				"cx": float(fit["cx"]),
+				"cy": float(fit["cy"]),
+				"rx": float(fit["rx"]),
+				"ry": float(fit["ry"]),
+				"angle_deg": 0.0,
+			}
+	if endpoint is not None and bond_line is not None and len(hull_svg) >= 3:
+		ep_x, ep_y = float(endpoint[0]), float(endpoint[1])
+		x1 = float(bond_line.get("x1", ep_x))
+		y1 = float(bond_line.get("y1", ep_y))
+		x2 = float(bond_line.get("x2", ep_x))
+		y2 = float(bond_line.get("y2", ep_y))
+		d1 = math.hypot(ep_x - x1, ep_y - y1)
+		d2 = math.hypot(ep_x - x2, ep_y - y2)
+		other = (x2, y2) if d1 <= d2 else (x1, y1)
+		dir_x = ep_x - other[0]
+		dir_y = ep_y - other[1]
+		dir_len = math.hypot(dir_x, dir_y)
+		if dir_len > 1e-9:
+			ray_dir = (dir_x / dir_len, dir_y / dir_len)
+			t_values = []
+			for index in range(len(hull_svg)):
+				seg_a = hull_svg[index]
+				seg_b = hull_svg[(index + 1) % len(hull_svg)]
+				t_value = _ray_segment_intersection_parameter((ep_x, ep_y), ray_dir, seg_a, seg_b)
+				if t_value is None:
+					continue
+				t_values.append(float(t_value))
+			if t_values:
+				inside = _point_in_polygon((ep_x, ep_y), hull_svg)
+				signed_gap = None
+				if inside:
+					behind = [value for value in t_values if value <= 1e-9]
+					if behind:
+						signed_gap = max(behind)
+				else:
+					ahead = [value for value in t_values if value >= -1e-9]
+					if ahead:
+						signed_gap = min(ahead)
+				if signed_gap is not None:
+					contact_point = (
+						ep_x + (signed_gap * ray_dir[0]),
+						ep_y + (signed_gap * ray_dir[1]),
+					)
+					result["hull_contact_point"] = contact_point
+					result["hull_signed_gap_along_bond"] = float(signed_gap)
+	return result
+
+
+#============================================
 def _write_diagnostic_svg(
 		svg_path: pathlib.Path,
 		output_path: pathlib.Path,
@@ -1367,6 +2346,7 @@ def _write_diagnostic_svg(
 	tag_group = _svg_tag_with_namespace(svg_root, "g")
 	tag_rect = _svg_tag_with_namespace(svg_root, "rect")
 	tag_ellipse = _svg_tag_with_namespace(svg_root, "ellipse")
+	tag_polygon = _svg_tag_with_namespace(svg_root, "polygon")
 	tag_line = _svg_tag_with_namespace(svg_root, "line")
 	tag_circle = _svg_tag_with_namespace(svg_root, "circle")
 	bounds = _diagnostic_bounds(svg_root, lines=lines, labels=labels)
@@ -1391,11 +2371,124 @@ def _write_diagnostic_svg(
 		line = lines[int(line_index)]
 		color = _diagnostic_color(int(label_index))
 		group = StdET.Element(tag_group, attrib={"id": f"codex-label-diag-{int(label_index)}"})
+		diagnostic_center_point = _metric_alignment_center(metric)
 		alignment_primitive = _select_alignment_primitive(label, metric)
 		drawn_target = False
+		hull_boundary_points = metric.get("hull_boundary_points") or []
+		hull_fit = metric.get("hull_ellipse_fit")
+		hull_contact_point = metric.get("hull_contact_point")
+		if len(hull_boundary_points) >= 3:
+			group.append(
+				StdET.Element(
+					tag_polygon,
+					attrib={
+						"points": " ".join(
+							f"{float(point[0]):.6f},{float(point[1]):.6f}"
+							for point in hull_boundary_points
+						),
+						"stroke": color,
+						"stroke-width": "0.4",
+						"stroke-opacity": "0.25",
+						"stroke-dasharray": "2 1",
+					},
+				)
+			)
+			drawn_target = True
+		if isinstance(hull_fit, dict):
+			group.append(
+				StdET.Element(
+					tag_ellipse,
+					attrib={
+						"cx": f"{float(hull_fit.get('cx', 0.0)):.6f}",
+						"cy": f"{float(hull_fit.get('cy', 0.0)):.6f}",
+						"rx": f"{max(0.0, float(hull_fit.get('rx', 0.0))):.6f}",
+						"ry": f"{max(0.0, float(hull_fit.get('ry', 0.0))):.6f}",
+						"stroke": color,
+						"stroke-width": "0.4",
+						"stroke-opacity": "0.25",
+						"stroke-dasharray": "2 1",
+					},
+				)
+			)
+			diagnostic_center_point = (
+				float(hull_fit.get("cx", 0.0)),
+				float(hull_fit.get("cy", 0.0)),
+			)
+			drawn_target = True
 		if alignment_primitive is not None:
 			kind = str(alignment_primitive.get("kind", ""))
+			primitive_center = _primitive_center(alignment_primitive)
+			primitive_half_width = 1.0
+			primitive_half_height = 1.0
 			if kind == "ellipse":
+				primitive_half_width = max(0.1, float(alignment_primitive.get("rx", 0.0)))
+				primitive_half_height = max(0.1, float(alignment_primitive.get("ry", 0.0)))
+			elif kind == "box" and alignment_primitive.get("box") is not None:
+				x1, y1, x2, y2 = _normalize_box(alignment_primitive["box"])
+				primitive_half_width = max(0.1, (x2 - x1) * 0.5)
+				primitive_half_height = max(0.1, (y2 - y1) * 0.5)
+				if primitive_center is not None:
+					target_char = str(metric.get("alignment_center_char") or "").upper()
+					local_points = _local_text_path_points(
+						label=label,
+						center=primitive_center,
+						half_width=primitive_half_width,
+						half_height=primitive_half_height,
+						endpoint=_metric_endpoint(metric),
+						bond_line=line,
+						target_char=target_char,
+					)
+					if len(local_points) >= 3:
+						if target_char in GLYPH_CURVED_CHAR_SET:
+							lock_vertical_major = target_char in {"O", "C", "S"}
+							fit = _fit_ellipse_from_points(
+								local_points,
+								lock_vertical_major=lock_vertical_major,
+							)
+						if fit is not None:
+							group.append(
+								StdET.Element(
+									tag_ellipse,
+									attrib={
+										"cx": f"{fit['cx']:.6f}",
+										"cy": f"{fit['cy']:.6f}",
+										"rx": f"{fit['rx']:.6f}",
+										"ry": f"{fit['ry']:.6f}",
+										"transform": (
+											f"rotate({fit['angle_deg']:.6f} {fit['cx']:.6f} {fit['cy']:.6f})"
+										),
+										"stroke": color,
+										"stroke-width": "0.4",
+										"stroke-opacity": "0.25",
+										"stroke-dasharray": "2 1",
+									},
+								)
+							)
+							drawn_target = True
+							diagnostic_center_point = (float(fit["cx"]), float(fit["cy"]))
+					if not drawn_target:
+						local_hull = _convex_hull(local_points)
+						group.append(
+							StdET.Element(
+								tag_polygon,
+								attrib={
+									"points": " ".join(
+										f"{point[0]:.6f},{point[1]:.6f}" for point in local_hull
+									),
+									"stroke": color,
+									"stroke-width": "0.4",
+									"stroke-opacity": "0.25",
+									"stroke-dasharray": "2 1",
+								},
+							)
+						)
+						drawn_target = True
+						if local_points:
+							diagnostic_center_point = (
+								sum(point[0] for point in local_points) / float(len(local_points)),
+								sum(point[1] for point in local_points) / float(len(local_points)),
+							)
+			if not drawn_target and kind == "ellipse":
 				group.append(
 					StdET.Element(
 						tag_ellipse,
@@ -1406,12 +2499,17 @@ def _write_diagnostic_svg(
 							"ry": f"{max(0.0, float(alignment_primitive.get('ry', 0.0))):.6f}",
 							"stroke": color,
 							"stroke-width": "0.4",
+							"stroke-opacity": "0.25",
 							"stroke-dasharray": "2 1",
 						},
 					)
 				)
 				drawn_target = True
-			elif kind == "box" and alignment_primitive.get("box") is not None:
+				diagnostic_center_point = (
+					float(alignment_primitive.get("cx", 0.0)),
+					float(alignment_primitive.get("cy", 0.0)),
+				)
+			if not drawn_target and kind == "box" and alignment_primitive.get("box") is not None:
 				x1, y1, x2, y2 = _normalize_box(alignment_primitive["box"])
 				group.append(
 					StdET.Element(
@@ -1423,75 +2521,34 @@ def _write_diagnostic_svg(
 							"height": f"{max(0.0, y2 - y1):.6f}",
 							"stroke": color,
 							"stroke-width": "0.4",
+							"stroke-opacity": "0.25",
 							"stroke-dasharray": "2 1",
 						},
 					)
 				)
 				drawn_target = True
+				diagnostic_center_point = ((x1 + x2) * 0.5, (y1 + y2) * 0.5)
 		if not drawn_target:
-			drawn_outline = False
-			text_path = label.get("svg_text_path")
-			hull_points: list[tuple[float, float]] = []
-			path_vertices = getattr(text_path, "vertices", None)
-			if path_vertices is not None:
-				for vertex in path_vertices:
-					hull_points.append((float(vertex[0]), float(vertex[1])))
-			else:
-				for seg_start, seg_end in _path_line_segments(text_path):
-					hull_points.append((float(seg_start[0]), float(seg_start[1])))
-					hull_points.append((float(seg_end[0]), float(seg_end[1])))
-			hull = _convex_hull(hull_points)
-			if len(hull) >= 3:
+			label_box = label.get("svg_estimated_box")
+			if label_box is not None:
+				x1, y1, x2, y2 = _normalize_box(label_box)
 				group.append(
 					StdET.Element(
 						tag_rect,
 						attrib={
-							"x": f"{min(point[0] for point in hull):.6f}",
-							"y": f"{min(point[1] for point in hull):.6f}",
-							"width": f"{max(point[0] for point in hull) - min(point[0] for point in hull):.6f}",
-							"height": f"{max(point[1] for point in hull) - min(point[1] for point in hull):.6f}",
+							"x": f"{x1:.6f}",
+							"y": f"{y1:.6f}",
+							"width": f"{max(0.0, x2 - x1):.6f}",
+							"height": f"{max(0.0, y2 - y1):.6f}",
 							"stroke": color,
 							"stroke-width": "0.4",
+							"stroke-opacity": "0.25",
 							"stroke-dasharray": "2 1",
 						},
 					)
 				)
-				drawn_outline = True
-			if not drawn_outline:
-				for primitive in label.get("svg_estimated_primitives", []):
-					kind = str(primitive.get("kind", ""))
-					if kind == "box" and primitive.get("box") is not None:
-						x1, y1, x2, y2 = _normalize_box(primitive["box"])
-						group.append(
-							StdET.Element(
-								tag_rect,
-								attrib={
-									"x": f"{x1:.6f}",
-									"y": f"{y1:.6f}",
-									"width": f"{max(0.0, x2 - x1):.6f}",
-									"height": f"{max(0.0, y2 - y1):.6f}",
-									"stroke": color,
-									"stroke-width": "0.4",
-									"stroke-dasharray": "2 1",
-								},
-							)
-						)
-					if kind == "ellipse":
-						group.append(
-							StdET.Element(
-								tag_ellipse,
-								attrib={
-									"cx": f"{float(primitive.get('cx', 0.0)):.6f}",
-									"cy": f"{float(primitive.get('cy', 0.0)):.6f}",
-									"rx": f"{float(primitive.get('rx', 0.0)):.6f}",
-									"ry": f"{float(primitive.get('ry', 0.0)):.6f}",
-									"stroke": color,
-									"stroke-width": "0.4",
-									"stroke-dasharray": "2 1",
-								},
-							)
-						)
-		center_point = _metric_alignment_center(metric)
+				diagnostic_center_point = ((x1 + x2) * 0.5, (y1 + y2) * 0.5)
+		center_point = diagnostic_center_point
 		if center_point is not None:
 			group.append(
 				StdET.Element(
@@ -1499,9 +2556,10 @@ def _write_diagnostic_svg(
 					attrib={
 						"cx": f"{center_point[0]:.6f}",
 						"cy": f"{center_point[1]:.6f}",
-						"r": "1.0",
+						"r": "0.5",
 						"fill": color,
-						"stroke-width": "0.4",
+						"fill-opacity": "0.5",
+						"stroke-width": "0.2",
 					},
 				)
 			)
@@ -1519,13 +2577,40 @@ def _write_diagnostic_svg(
 							"x2": f"{pb[0]:.6f}",
 							"y2": f"{pb[1]:.6f}",
 							"stroke": "#00a6fb",
-							"stroke-width": "0.2",
+							"stroke-width": "0.1",
 						},
 					)
 				)
 		if isinstance(endpoint, (list, tuple)) and len(endpoint) == 2:
 			ep_x = float(endpoint[0])
 			ep_y = float(endpoint[1])
+			if isinstance(hull_contact_point, (list, tuple)) and len(hull_contact_point) == 2:
+				group.append(
+					StdET.Element(
+						tag_line,
+						attrib={
+							"x1": f"{ep_x:.6f}",
+							"y1": f"{ep_y:.6f}",
+							"x2": f"{float(hull_contact_point[0]):.6f}",
+							"y2": f"{float(hull_contact_point[1]):.6f}",
+							"stroke": "#ff5400",
+							"stroke-width": "0.2",
+						},
+					)
+				)
+				group.append(
+					StdET.Element(
+						tag_circle,
+						attrib={
+							"cx": f"{float(hull_contact_point[0]):.6f}",
+							"cy": f"{float(hull_contact_point[1]):.6f}",
+							"r": "0.5",
+							"fill": "#ff5400",
+							"fill-opacity": "0.5",
+							"stroke-width": "0.2",
+						},
+					)
+				)
 			dx = end[0] - start[0]
 			dy = end[1] - start[1]
 			length = math.hypot(dx, dy)
@@ -1544,7 +2629,7 @@ def _write_diagnostic_svg(
 								"x2": f"{p2[0]:.6f}",
 								"y2": f"{p2[1]:.6f}",
 								"stroke": "#ff5400",
-								"stroke-width": "0.4",
+								"stroke-width": "0.2",
 							},
 						)
 					)
@@ -2010,15 +3095,7 @@ def _first_primitive_center_for_char(primitives: list[dict], target_char: str) -
 def _alignment_primitive_center(primitives: list[dict], canonical_text: str) -> tuple[tuple[float, float] | None, str | None]:
 	"""Return preferred glyph-primitive center for alignment checks."""
 	text = str(canonical_text or "").upper()
-	priority = []
-	if "C" in text:
-		priority.append("C")
-	if "O" in text:
-		priority.append("O")
-	if "N" in text:
-		priority.append("N")
-	if "S" in text:
-		priority.append("S")
+	priority = [char for char in ("C", "O", "N", "S", "P", "H") if char in text]
 	for target_char in priority:
 		center = _first_primitive_center_for_char(primitives, target_char)
 		if center is not None:
@@ -2028,6 +3105,117 @@ def _alignment_primitive_center(primitives: list[dict], canonical_text: str) -> 
 		if center is not None:
 			return center, str(primitive.get("char", "")) or None
 	return None, None
+
+
+#============================================
+def _refine_alignment_center_from_text_path(
+		label: dict,
+		center: tuple[float, float] | None,
+		center_char: str | None,
+		endpoint: tuple[float, float] | None = None,
+		bond_line: dict | None = None,
+		gate_debug: dict | None = None) -> tuple[tuple[float, float] | None, str | None]:
+	"""Refine alignment center from local text-path contour geometry when available."""
+	if center is None or not center_char:
+		return center, center_char
+	target_char = str(center_char).upper()
+	primitives = list(label.get("svg_estimated_primitives", []))
+	candidates = [
+		primitive for primitive in primitives
+		if str(primitive.get("char", "")).upper() == target_char
+	]
+	if not candidates:
+		return center, center_char
+	candidates.sort(
+		key=lambda primitive: (
+			_point_distance_sq(_primitive_center(primitive) or center, center),
+			int(primitive.get("char_index", 10**9)),
+		)
+	)
+	seed = candidates[0]
+	if str(seed.get("kind", "")) == "ellipse":
+		half_width = max(0.1, float(seed.get("rx", 0.0)))
+		half_height = max(0.1, float(seed.get("ry", 0.0)))
+	elif str(seed.get("kind", "")) == "box" and seed.get("box") is not None:
+		x1, y1, x2, y2 = _normalize_box(seed["box"])
+		half_width = max(0.1, (x2 - x1) * 0.5)
+		half_height = max(0.1, (y2 - y1) * 0.5)
+	else:
+		half_width = 1.0
+		half_height = 1.0
+	local_points = _local_text_path_points(
+		label=label,
+		center=center,
+		half_width=half_width,
+		half_height=half_height,
+		endpoint=endpoint,
+		bond_line=bond_line,
+		target_char=target_char,
+		gate_debug=gate_debug,
+	)
+	if len(local_points) < 3:
+		return center, center_char
+	x_values = [point[0] for point in local_points]
+	y_values = [point[1] for point in local_points]
+	if target_char in {"O", "C", "S"}:
+		# Curved atom-like glyphs: use pixel convex-hull boundary + axis-locked ellipse.
+		hull_geometry = _pixel_hull_geometry_from_component(
+			points=local_points,
+			font_size=max(1.0, float(label.get("font_size", 12.0))),
+			label=label,
+			target_char=target_char,
+			expected_x=center[0],
+			expected_y=center[1],
+			endpoint=endpoint,
+			bond_line=bond_line,
+		)
+		hull_points = hull_geometry.get("hull_boundary_points", [])
+		hull_fit = hull_geometry.get("ellipse_fit")
+		if gate_debug is not None:
+			gate_debug["pixel_component_point_count"] = int(hull_geometry.get("pixel_component_point_count", 0))
+			gate_debug["hull_point_count"] = int(hull_geometry.get("hull_point_count", 0))
+			gate_debug["hull_contour_point_count"] = int(hull_geometry.get("hull_contour_point_count", 0))
+			gate_debug["hull_source"] = hull_geometry.get("hull_source")
+			gate_debug["mask_source"] = hull_geometry.get("mask_source")
+			gate_debug["glyph_core_gate_applied"] = bool(hull_geometry.get("glyph_core_gate_applied", False))
+			gate_debug["glyph_core_retention_ratio"] = _compact_float(
+				hull_geometry.get("glyph_core_retention_ratio")
+			)
+			gate_debug["baseline_clip_applied"] = bool(hull_geometry.get("baseline_clip_applied", False))
+			gate_debug["bridge_split_applied"] = bool(hull_geometry.get("bridge_split_applied", False))
+			gate_debug["mask_dilated_1px"] = bool(hull_geometry.get("mask_dilated_1px", False))
+			gate_debug["pixel_coord_convention"] = hull_geometry.get("pixel_coord_convention")
+			gate_debug["roi_origin_svg"] = _display_point(hull_geometry.get("roi_origin_svg"))
+			gate_debug["roi_scale_px_per_svg"] = _compact_float(hull_geometry.get("roi_scale_px_per_svg"))
+			gate_debug["hull_signed_gap_along_bond"] = _compact_float(
+				hull_geometry.get("hull_signed_gap_along_bond")
+			)
+			gate_debug["hull_contact_point"] = _display_point(hull_geometry.get("hull_contact_point"))
+			gate_debug["hull_boundary_points"] = [
+				_display_point(point)
+				for point in hull_points
+			]
+			gate_debug["ellipse_fit"] = (
+				{
+					"cx": _compact_float(hull_fit.get("cx")),
+					"cy": _compact_float(hull_fit.get("cy")),
+					"rx": _compact_float(hull_fit.get("rx")),
+					"ry": _compact_float(hull_fit.get("ry")),
+					"angle_deg": 0.0,
+				}
+				if hull_fit else None
+			)
+		fit = None
+		if hull_fit is not None:
+			fit = hull_fit
+		if fit is None:
+			fit = _fit_ellipse_from_points(local_points, lock_vertical_major=True)
+		if fit is not None:
+			return (float(fit["cx"]), float(fit["cy"])), center_char
+	if target_char in {"H", "N", "P"}:
+		# Multi-stroke glyphs are better approximated by local bbox center.
+		return ((min(x_values) + max(x_values)) * 0.5, (min(y_values) + max(y_values)) * 0.5), center_char
+	return (sum(x_values) / float(len(x_values)), sum(y_values) / float(len(y_values))), center_char
 
 
 #============================================
@@ -2583,6 +3771,7 @@ def analyze_svg_file(
 		render_geometry=None,
 		exclude_haworth_base_ring: bool = True,
 		bond_glyph_gap_tolerance: float = BOND_GLYPH_GAP_TOLERANCE,
+		alignment_center_mode: str = "primitive",
 		write_diagnostic_svg: bool = False,
 		diagnostic_svg_dir: pathlib.Path | None = None) -> dict:
 	"""Analyze one SVG file and return independent geometry and alignment metrics."""
@@ -2590,10 +3779,30 @@ def analyze_svg_file(
 	lines = _collect_svg_lines(root)
 	labels = _collect_svg_labels(root)
 	ring_primitives = _collect_svg_ring_primitives(root)
+	source_viewbox = _viewbox_bounds(root)
+	source_svg_xml_for_raster = _strip_overlay_groups_for_raster(root)
+	measurement_fonts = [
+		max(1.0, float(label.get("font_size", 12.0)))
+		for label in labels
+		if label.get("is_measurement_label")
+	]
+	if measurement_fonts:
+		representative_font = sorted(measurement_fonts)[len(measurement_fonts) // 2]
+	else:
+		representative_font = 12.0
+	source_raster_scale = max(6.0, min(12.0, representative_font / 1.8))
+	source_cache_key = f"{svg_path.resolve()}::overlay_stripped"
 	for label in labels:
 		label["svg_text_path"] = _label_text_path(label)
 		label["svg_estimated_primitives"] = _label_svg_estimated_primitives(label)
 		label["svg_estimated_box"] = _label_svg_estimated_box(label)
+		label["_source_svg_path"] = str(svg_path)
+		label["_source_viewbox"] = source_viewbox
+		label["_source_svg_xml_for_raster"] = source_svg_xml_for_raster
+		label["_source_svg_cache_key"] = source_cache_key
+		label["_source_raster_scale"] = float(source_raster_scale)
+	if labels:
+		_cached_svg_raster(labels[0], scale=source_raster_scale)
 	measurement_label_indexes = [
 		index for index, label in enumerate(labels) if label["is_measurement_label"]
 	]
@@ -2611,7 +3820,10 @@ def analyze_svg_file(
 		for stroke_index in stroke_indexes
 	}
 	connector_candidate_line_indexes = [
-		index for index in checked_line_indexes if index not in pre_decorative_hatched_stroke_index_set
+		index
+		for index in checked_line_indexes
+		if index not in pre_decorative_hatched_stroke_index_set
+		and float(lines[index].get("width", 1.0)) >= MIN_CONNECTOR_LINE_WIDTH
 	]
 	if not connector_candidate_line_indexes:
 		connector_candidate_line_indexes = list(checked_line_indexes)
@@ -2660,6 +3872,21 @@ def analyze_svg_file(
 				primitives=independent_primitives,
 			)
 			independent_model_name = "svg_primitives_ellipse_box"
+		if str(alignment_center_mode).lower() == "optical":
+			bond_line = None
+			optical_gate_debug = {}
+			if independent_line_index is not None and 0 <= independent_line_index < len(lines):
+				bond_line = lines[independent_line_index]
+			alignment_center, alignment_center_char = _refine_alignment_center_from_text_path(
+				label=label,
+				center=alignment_center,
+				center_char=alignment_center_char,
+				endpoint=independent_endpoint,
+				bond_line=bond_line,
+				gate_debug=optical_gate_debug,
+			)
+		else:
+			optical_gate_debug = {}
 		if independent_endpoint is not None and independent_signed_distance is None:
 			independent_signed_distance = _point_to_label_signed_distance(independent_endpoint, label)
 		search_limit = max(6.0, float(label["font_size"]) * MAX_ENDPOINT_TO_LABEL_DISTANCE_FACTOR)
@@ -2671,6 +3898,15 @@ def analyze_svg_file(
 			best_line_width = float(lines[best_line_index].get("width", 1.0))
 		if best_endpoint is None or best_distance is None or best_distance > search_limit:
 			no_connector_count += 1
+			hull_boundary_points = None
+			hull_ellipse_fit = None
+			hull_contact_point = None
+			hull_signed_gap = None
+			if optical_gate_debug:
+				hull_boundary_points = optical_gate_debug.get("hull_boundary_points")
+				hull_ellipse_fit = optical_gate_debug.get("ellipse_fit")
+				hull_contact_point = optical_gate_debug.get("hull_contact_point")
+				hull_signed_gap = optical_gate_debug.get("hull_signed_gap_along_bond")
 			independent_gap_distance = None
 			independent_penetration_depth = None
 			if independent_signed_distance is not None:
@@ -2696,8 +3932,13 @@ def analyze_svg_file(
 						[alignment_center[0], alignment_center[1]]
 						if alignment_center is not None else None
 					),
-					"alignment_center_char": alignment_center_char,
-					"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
+						"alignment_center_char": alignment_center_char,
+						"optical_gate_debug": optical_gate_debug if optical_gate_debug else None,
+						"hull_boundary_points": hull_boundary_points,
+						"hull_ellipse_fit": hull_ellipse_fit,
+						"hull_contact_point": hull_contact_point,
+						"hull_signed_gap_along_bond": hull_signed_gap,
+						"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
 					"endpoint_penetration_depth_to_glyph_body": independent_penetration_depth,
 					"endpoint_distance_to_glyph_body_independent": independent_distance,
 					"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
@@ -2740,9 +3981,26 @@ def analyze_svg_file(
 			alignment_reason = "ok"
 		independent_gap_distance = None
 		independent_penetration_depth = None
+		hull_boundary_points = None
+		hull_ellipse_fit = None
+		hull_contact_point = None
+		hull_signed_gap = None
+		reported_signed_distance_to_glyph_body = independent_signed_distance
+		reported_distance_to_glyph_body = independent_distance
+		if optical_gate_debug:
+			hull_boundary_points = optical_gate_debug.get("hull_boundary_points")
+			hull_ellipse_fit = optical_gate_debug.get("ellipse_fit")
+			hull_contact_point = optical_gate_debug.get("hull_contact_point")
+			hull_signed_gap = optical_gate_debug.get("hull_signed_gap_along_bond")
 		if independent_signed_distance is not None:
 			independent_gap_distance = max(0.0, float(independent_signed_distance))
 			independent_penetration_depth = max(0.0, -float(independent_signed_distance))
+		# Hull stop-at-boundary metric overrides curved-glyph gap metric by design.
+		if hull_signed_gap is not None and alignment_center_char in {"C", "S"}:
+			independent_gap_distance = max(0.0, float(hull_signed_gap))
+			independent_penetration_depth = max(0.0, -float(hull_signed_gap))
+			reported_signed_distance_to_glyph_body = float(hull_signed_gap)
+			reported_distance_to_glyph_body = abs(float(hull_signed_gap))
 		if is_aligned:
 			aligned_count += 1
 		else:
@@ -2758,8 +4016,8 @@ def analyze_svg_file(
 					"endpoint_distance_to_label": best_distance,
 					"endpoint_distance_to_target": None,
 					"endpoint_alignment_error": alignment_error,
-					"endpoint_distance_to_glyph_body": independent_distance,
-					"endpoint_signed_distance_to_glyph_body": independent_signed_distance,
+					"endpoint_distance_to_glyph_body": reported_distance_to_glyph_body,
+					"endpoint_signed_distance_to_glyph_body": reported_signed_distance_to_glyph_body,
 					"endpoint_distance_to_c_center": None,
 					"c_center_point": None,
 					"endpoint_perpendicular_distance_to_alignment_center": alignment_error,
@@ -2767,8 +4025,13 @@ def analyze_svg_file(
 						[alignment_center[0], alignment_center[1]]
 						if alignment_center is not None else None
 					),
-					"alignment_center_char": alignment_center_char,
-					"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
+						"alignment_center_char": alignment_center_char,
+						"optical_gate_debug": optical_gate_debug if optical_gate_debug else None,
+						"hull_boundary_points": hull_boundary_points,
+						"hull_ellipse_fit": hull_ellipse_fit,
+						"hull_contact_point": hull_contact_point,
+						"hull_signed_gap_along_bond": hull_signed_gap,
+						"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
 					"endpoint_penetration_depth_to_glyph_body": independent_penetration_depth,
 					"endpoint_distance_to_glyph_body_independent": independent_distance,
 					"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
@@ -2908,6 +4171,7 @@ def analyze_svg_file(
 			"canonical_angles_degrees": list(CANONICAL_LATTICE_ANGLES),
 			"angle_tolerance_degrees": LATTICE_ANGLE_TOLERANCE_DEGREES,
 			"bond_glyph_gap_tolerance": float(bond_glyph_gap_tolerance),
+			"alignment_center_mode": str(alignment_center_mode),
 			"lattice_angle_violations": lattice_angle_violations,
 			"glyph_glyph_overlaps": glyph_glyph_overlaps,
 			"bond_bond_overlaps": bond_bond_overlaps,
@@ -3132,11 +4396,16 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 					"alignment_tolerance": tolerance_value,
 					"distance_to_tolerance_ratio": ratio_value,
 					"alignment_score": score_value,
-					"connector_line_index": label.get("connector_line_index"),
-					"endpoint": label.get("endpoint"),
-					"alignment_mode": label.get("alignment_mode", "independent_glyph_primitives"),
-				}
-			)
+						"connector_line_index": label.get("connector_line_index"),
+						"endpoint": label.get("endpoint"),
+						"hull_boundary_points": label.get("hull_boundary_points"),
+						"hull_ellipse_fit": label.get("hull_ellipse_fit"),
+						"hull_contact_point": label.get("hull_contact_point"),
+						"hull_signed_gap_along_bond": label.get("hull_signed_gap_along_bond"),
+						"optical_gate_debug": label.get("optical_gate_debug"),
+						"alignment_mode": label.get("alignment_mode", "independent_glyph_primitives"),
+					}
+				)
 		geometry_checks = report.get("geometry_checks", {})
 		gap_tolerance = str(geometry_checks.get("bond_glyph_gap_tolerance", BOND_GLYPH_GAP_TOLERANCE))
 		_increment_counter(bond_glyph_gap_tolerances, gap_tolerance)
@@ -3370,9 +4639,17 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 				"alignment_tolerance": _display_float(item.get("alignment_tolerance")),
 				"distance_to_tolerance_ratio": _display_float(item.get("distance_to_tolerance_ratio")),
 				"alignment_score": _display_float(item.get("alignment_score")),
-				"connector_line_index": item.get("connector_line_index"),
-				"endpoint": _display_point(item.get("endpoint")),
-			}
+					"connector_line_index": item.get("connector_line_index"),
+					"endpoint": _display_point(item.get("endpoint")),
+					"hull_boundary_points": [
+						_display_point(point)
+						for point in (item.get("hull_boundary_points") or [])
+					],
+					"hull_ellipse_fit": item.get("hull_ellipse_fit"),
+					"hull_contact_point": _display_point(item.get("hull_contact_point")),
+					"hull_signed_gap_along_bond": _display_float(item.get("hull_signed_gap_along_bond")),
+					"optical_gate_debug": item.get("optical_gate_debug"),
+				}
 			if not single_file:
 				row["svg"] = item.get("svg")
 			measurement_rows.append(row)
@@ -3389,13 +4666,18 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 						"distance_to_target",
 						"alignment_tolerance",
 						"perpendicular_distance_to_alignment_center",
-						"alignment_center_point",
-						"alignment_center_char",
-						"connector_line_index",
-						"endpoint",
-					)
-				}
-			)
+							"alignment_center_point",
+							"alignment_center_char",
+							"connector_line_index",
+							"endpoint",
+							"hull_boundary_points",
+							"hull_ellipse_fit",
+							"hull_contact_point",
+							"hull_signed_gap_along_bond",
+							"optical_gate_debug",
+						)
+					}
+				)
 			glyph_to_bond_end_data_points.append(
 				{
 					key: row.get(key)
@@ -3408,13 +4690,18 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 						"signed_distance_to_glyph_body",
 						"alignment_tolerance",
 						"perpendicular_distance_to_alignment_center",
-						"alignment_center_point",
-						"alignment_center_char",
-						"connector_line_index",
-						"endpoint",
-					)
-				}
-			)
+							"alignment_center_point",
+							"alignment_center_char",
+							"connector_line_index",
+							"endpoint",
+							"hull_boundary_points",
+							"hull_ellipse_fit",
+							"hull_contact_point",
+							"hull_signed_gap_along_bond",
+							"optical_gate_debug",
+						)
+					}
+				)
 		alignment_by_glyph[glyph_text] = {
 			"count": len(measurements),
 			"aligned_count": aligned_count,
@@ -3570,7 +4857,8 @@ def _text_report(
 		summary: dict,
 		top_misses: list[dict],
 		input_glob: str,
-		exclude_haworth_base_ring: bool) -> str:
+		exclude_haworth_base_ring: bool,
+		alignment_center_mode: str = "primitive") -> str:
 	"""Build human-readable report text."""
 	lines = []
 	lines.append("Glyph Bond Alignment Report")
@@ -3579,6 +4867,7 @@ def _text_report(
 	lines.append(
 		f"Exclude Haworth base ring: {'ON' if exclude_haworth_base_ring else 'OFF'}"
 	)
+	lines.append(f"Alignment center mode: {alignment_center_mode}")
 	lines.append("")
 	lines.append(f"Files analyzed: {summary['files_analyzed']}")
 	lines.append(f"Text labels seen: {summary['text_labels_total']}")
@@ -3845,6 +5134,7 @@ def main() -> None:
 			path,
 			exclude_haworth_base_ring=args.exclude_haworth_base_ring,
 			bond_glyph_gap_tolerance=args.bond_glyph_gap_tolerance,
+			alignment_center_mode=args.alignment_center_mode,
 			write_diagnostic_svg=bool(args.write_diagnostic_svg),
 			diagnostic_svg_dir=diagnostic_svg_dir,
 		)
@@ -3858,6 +5148,7 @@ def main() -> None:
 		"input_glob": args.input_glob,
 		"exclude_haworth_base_ring": bool(args.exclude_haworth_base_ring),
 		"bond_glyph_gap_tolerance": float(args.bond_glyph_gap_tolerance),
+		"alignment_center_mode": str(args.alignment_center_mode),
 		"summary": summary,
 		"top_misses": top_misses,
 		"files": file_reports,
@@ -3867,6 +5158,7 @@ def main() -> None:
 		top_misses=top_misses,
 		input_glob=args.input_glob,
 		exclude_haworth_base_ring=bool(args.exclude_haworth_base_ring),
+		alignment_center_mode=str(args.alignment_center_mode),
 	)
 	json_report_path = pathlib.Path(args.json_report)
 	text_report_path = pathlib.Path(args.text_report)
@@ -3890,6 +5182,7 @@ def main() -> None:
 		if diagnostic_files:
 			print(f"- diagnostic SVG files: {diagnostic_files}")
 	print("Key stats:")
+	print(f"- alignment center mode: {args.alignment_center_mode}")
 	print(f"- files analyzed: {summary['files_analyzed']}")
 	print(f"- text labels seen: {summary['text_labels_total']}")
 	print(f"- text labels unique: {summary['text_labels_unique_total']}")
