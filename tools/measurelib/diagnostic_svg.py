@@ -406,7 +406,7 @@ def write_diagnostic_svg(
 							},
 						)
 					)
-		# -- distance annotations near the bond endpoint --
+		# -- distance annotations pushed toward closest SVG edge --
 		annotation_lines = []
 		signed_gap = metric.get("endpoint_signed_distance_to_glyph_body")
 		if signed_gap is None:
@@ -434,28 +434,102 @@ def write_diagnostic_svg(
 		if annotation_lines and isinstance(endpoint, (list, tuple)) and len(endpoint) == 2:
 			ep_x = float(endpoint[0])
 			ep_y = float(endpoint[1])
-			# offset text perpendicular to bond direction
-			dx = end[0] - start[0]
-			dy = end[1] - start[1]
-			bond_len = math.hypot(dx, dy)
-			if bond_len > 1e-12:
-				nx = -dy / bond_len
-				ny = dx / bond_len
-			else:
-				nx, ny = 0.0, -1.0
-			text_offset = 3.0
-			text_x = ep_x + nx * text_offset
-			text_y = ep_y + ny * text_offset
+			label_text = str(label.get("text", ""))
+			if label_text:
+				annotation_lines.insert(0, label_text)
 			font_sz = 2.5
+			line_height = font_sz + 0.5
+			# find closest SVG edge and push annotation toward it
+			dist_left = ep_x - bounds[0]
+			dist_right = bounds[2] - ep_x
+			dist_top = ep_y - bounds[1]
+			dist_bottom = bounds[3] - ep_y
+			min_edge = min(dist_left, dist_right, dist_top, dist_bottom)
+			text_width = max(len(t) for t in annotation_lines) * font_sz * 0.6
+			text_height = len(annotation_lines) * line_height
+			edge_margin = 2.0
+			if min_edge == dist_left:
+				text_x = bounds[0] + edge_margin
+				text_y = ep_y - text_height / 2 + font_sz
+				anchor = "start"
+			elif min_edge == dist_right:
+				text_x = bounds[2] - edge_margin
+				text_y = ep_y - text_height / 2 + font_sz
+				anchor = "end"
+			elif min_edge == dist_top:
+				text_x = ep_x
+				text_y = bounds[1] + edge_margin + font_sz
+				anchor = "middle"
+			else:
+				text_x = ep_x
+				text_y = bounds[3] - edge_margin - text_height + font_sz
+				anchor = "middle"
+			# background box dimensions
+			if anchor == "start":
+				box_x = text_x - 1.0
+			elif anchor == "end":
+				box_x = text_x - text_width - 1.0
+			else:
+				box_x = text_x - text_width / 2 - 1.0
+			box_y = text_y - font_sz - 0.5
+			box_w = text_width + 2.0
+			box_h = text_height + 1.5
+			# semi-transparent background
+			group.append(
+				StdET.Element(
+					tag_rect,
+					attrib={
+						"x": f"{box_x:.2f}",
+						"y": f"{box_y:.2f}",
+						"width": f"{box_w:.2f}",
+						"height": f"{box_h:.2f}",
+						"fill": "white",
+						"fill-opacity": "0.85",
+						"stroke": color,
+						"stroke-width": "0.2",
+						"rx": "1",
+					},
+				)
+			)
+			# leader line from endpoint to nearest edge of annotation box
+			if min_edge == dist_left:
+				leader_x = box_x + box_w
+				leader_y = box_y + box_h / 2
+			elif min_edge == dist_right:
+				leader_x = box_x
+				leader_y = box_y + box_h / 2
+			elif min_edge == dist_top:
+				leader_x = text_x
+				leader_y = box_y + box_h
+			else:
+				leader_x = text_x
+				leader_y = box_y
+			group.append(
+				StdET.Element(
+					tag_line,
+					attrib={
+						"x1": f"{ep_x:.2f}",
+						"y1": f"{ep_y:.2f}",
+						"x2": f"{leader_x:.2f}",
+						"y2": f"{leader_y:.2f}",
+						"stroke": color,
+						"stroke-width": "0.15",
+						"stroke-dasharray": "1 0.5",
+						"stroke-opacity": "0.6",
+					},
+				)
+			)
+			# text lines
 			for line_idx, line_text in enumerate(annotation_lines):
 				annotation_el = StdET.Element(tag_text)
 				annotation_el.text = line_text
 				annotation_el.set("x", f"{text_x:.2f}")
-				annotation_el.set("y", f"{text_y + line_idx * (font_sz + 0.5):.2f}")
+				annotation_el.set("y", f"{text_y + line_idx * line_height:.2f}")
 				annotation_el.set("font-size", f"{font_sz}")
 				annotation_el.set("font-family", "sans-serif")
 				annotation_el.set("fill", color)
 				annotation_el.set("fill-opacity", "0.9")
+				annotation_el.set("text-anchor", anchor)
 				group.append(annotation_el)
 		overlay_group.append(group)
 	# -- legend: aligned (green) vs violation (red) --

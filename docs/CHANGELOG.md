@@ -1,6 +1,26 @@
 # Changelog
 
 ## 2026-02-13
+- Add median to `length_stats()` in
+  [tools/measurelib/util.py](tools/measurelib/util.py). Per-label alignment
+  summary now shows avg/stddev/median for both bond_end_gap and perp_offset.
+- Tighten perpendicular alignment tolerance from ~1.0 to 0.07 in
+  [tools/measurelib/constants.py](tools/measurelib/constants.py) and simplify
+  formula in [tools/measurelib/analysis.py](tools/measurelib/analysis.py).
+  Rename alignment columns to `bond_end_gap` and `perp_offset` for clarity.
+- Switch per-label `gap_distance_stats` to use signed distance (negative when
+  bond endpoint penetrates glyph body) in
+  [tools/measurelib/reporting.py](tools/measurelib/reporting.py).
+- Add distance annotations (gap, perp, err) to diagnostic SVGs near each bond
+  endpoint in
+  [tools/measurelib/diagnostic_svg.py](tools/measurelib/diagnostic_svg.py).
+- Create standalone
+  [tools/alignment_summary.py](tools/alignment_summary.py) script that reads
+  existing JSON report and prints per-label alignment summary without re-running
+  the full analysis.
+- Replace duplicate inline console code in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  `main()` with `print_summary()` call.
 - Add `_avoid_cross_label_overlaps()` to
   [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
   (Phase 4 of OASA-Wide Glyph-Bond Awareness plan). Retreats bond endpoints
