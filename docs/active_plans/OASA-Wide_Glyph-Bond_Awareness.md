@@ -56,7 +56,7 @@ Per-label alignment:
   OH       152/152 (100.0%)  gap=0.79/0.60  perp=0.03/0.00
 ```
 
-## Change 6: Hatched-Wedge Carrier Bond Alignment Measurement
+## Change 6: Hatched-Wedge Carrier Bond Alignment Measurement (NOT STARTED)
 
 ### Problem
 
@@ -96,7 +96,7 @@ has no diagnostic overlay.
 - `tools/measure_glyph_bond_alignment.py`: connector candidate selection, carrier
   index tracking, measurement row flagging.
 
-## Change 7: Numeric Annotations on Diagnostic SVGs
+## Change 7: Numeric Annotations on Diagnostic SVGs (NOT STARTED)
 
 ### Problem
 
@@ -135,7 +135,7 @@ Formatting:
 
 - `tools/measure_glyph_bond_alignment.py`: `_write_diagnostic_svg()` function only.
 
-## Change 8: Glyph-Outline Closest Point Visualization and Measurement
+## Change 8: Glyph-Outline Closest Point Visualization and Measurement (NOT STARTED)
 
 ### Problem
 
@@ -254,6 +254,17 @@ All 16 misses: `bond_line_not_pointing_to_primitive_center` (CH2OH: 8, HO: 8).
 
 One geometry truth: all changes live in `render_geometry.py`. No caller-side
 heuristics. No `if haworth` or `if label_text == "CH2OH"` conditionals.
+
+## Consumer Adoption Note
+
+The new `AttachConstraints` fields (`target_gap`, `alignment_center`) are consumed
+by `haworth/renderer.py` first because Haworth is the primary rendering path with
+full acceptance metrics. Other consumers (`cairo_out.py`, `bond_drawing.py`) will
+adopt these fields when their rendering paths are ready and have their own
+validation coverage. The `render_geometry.py` API is designed to be backwards
+compatible: `target_gap` defaults to `0.0` and `alignment_center` defaults to
+`None`, so existing callers that do not pass these fields continue to work
+without behavior change.
 
 ## Critical Files
 

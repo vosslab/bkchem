@@ -1,6 +1,6 @@
 # Refactor progress
 
-Last updated: 2026-02-11
+Last updated: 2026-02-13
 
 ## Snapshot
 - Registry refactor: OASA codec registry is implemented and in use by the CLI.
@@ -40,6 +40,11 @@ Last updated: 2026-02-11
   Linux Flatpak builds.
 
 ## In progress
+- [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md):
+  Phases 1-3 (Cairo font-metric label box width, target gap distance contract,
+  alignment-through-center endpoint correction) are implemented in
+  `render_geometry.py`; Phases 4-6 and Changes 6-8 are not started.
+  Acceptance metrics recorded 2026-02-13.
 - [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
   Phases 3 and 4 are complete in runtime/tests and matrix validation,
   including manager checklist fixture coverage plus straightness/lattice

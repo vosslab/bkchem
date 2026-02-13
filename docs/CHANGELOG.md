@@ -1,6 +1,20 @@
 # Changelog
 
 ## 2026-02-13
+- Add unit tests for `_retreat_to_target_gap`, `_correct_endpoint_for_alignment`,
+  and `_perpendicular_distance_to_line` in new
+  [tests/test_render_geometry.py](tests/test_render_geometry.py).
+- Move
+  [OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md)
+  to `docs/active_plans/` and add NOT STARTED labels to Changes 6, 7, 8.
+- Add consumer adoption note to OASA-Wide Glyph-Bond Awareness plan clarifying
+  that `target_gap` and `alignment_center` are consumed by Haworth first; other
+  consumers adopt when their rendering paths are ready.
+- Extract `TARGET_GAP_FRACTION` constant in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  replacing 4 occurrences of `font_size * 0.04`.
+- Run full acceptance metrics and record gate results in
+  `output_smoke/acceptance_gate_results_2026-02-13.txt`.
 - Port `letter-center-finder` algorithms directly into
   [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
   as `_lcf_*` prefixed functions (SVG parsing, glyph isolation rendering,

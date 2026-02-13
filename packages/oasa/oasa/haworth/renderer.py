@@ -33,6 +33,8 @@ FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR,
 RETREAT_SOLVER_EPSILON = 1e-3
 STRICT_OVERLAP_EPSILON = 0.5
 CANONICAL_LATTICE_ANGLES = (0.0, 60.0, 120.0, 180.0, 240.0, 300.0)
+# fraction of font_size used as the target gap between bond endpoint and glyph body
+TARGET_GAP_FRACTION = 0.04
 
 
 #============================================
@@ -873,7 +875,7 @@ def _add_simple_label_ops(
 		text_x += vertex[0] - core_center_x
 	is_hydroxyl_label = _text.is_hydroxyl_render_text(text)
 	force_vertical = force_vertical_chain or nominal_vertical_direction
-	gap = font_size * 0.04
+	gap = font_size * TARGET_GAP_FRACTION
 	constraints = _render_geometry.AttachConstraints(direction_policy="auto", target_gap=gap)
 	if is_hydroxyl_label:
 		constraints = _render_geometry.AttachConstraints(
@@ -1159,7 +1161,7 @@ def _solve_chain2_label_with_resolver(
 			anchor=anchor,
 			font_size=font_size,
 			line_width=connector_width,
-			constraints=_render_geometry.AttachConstraints(direction_policy="auto", target_gap=font_size * 0.04),
+			constraints=_render_geometry.AttachConstraints(direction_policy="auto", target_gap=font_size * TARGET_GAP_FRACTION),
 			epsilon=RETREAT_SOLVER_EPSILON,
 			attach_atom="first",
 			attach_element="C",
@@ -1349,7 +1351,7 @@ def _add_chain_ops(
 			anchor=anchor,
 			font_size=font_size,
 			line_width=connector_width,
-			constraints=_render_geometry.AttachConstraints(direction_policy="auto", target_gap=font_size * 0.04),
+			constraints=_render_geometry.AttachConstraints(direction_policy="auto", target_gap=font_size * TARGET_GAP_FRACTION),
 			epsilon=RETREAT_SOLVER_EPSILON,
 			attach_atom="first",
 			attach_element="C",
@@ -1497,7 +1499,7 @@ def _add_furanose_two_carbon_tail_ops(
 		anchor=ho_anchor,
 		font_size=font_size,
 		line_width=ho_resolver_width,
-		constraints=_render_geometry.AttachConstraints(direction_policy="line", target_gap=font_size * 0.04),
+		constraints=_render_geometry.AttachConstraints(direction_policy="line", target_gap=font_size * TARGET_GAP_FRACTION),
 		epsilon=RETREAT_SOLVER_EPSILON,
 		attach_atom=ho_attach_mode,
 		attach_element="O",
