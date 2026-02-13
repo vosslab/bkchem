@@ -91,10 +91,12 @@ def analyze_svg_file(
 		for stroke_indexes in pre_hashed_carrier_map.values()
 		for stroke_index in stroke_indexes
 	}
+	pre_hashed_carrier_index_set = set(pre_hashed_carrier_map.keys())
 	width_pool = [
 		float(lines[index].get("width", 1.0))
 		for index in checked_line_indexes
 		if index not in pre_decorative_hatched_stroke_index_set
+		and index not in pre_hashed_carrier_index_set
 	]
 	if width_pool:
 		width_pool_sorted = sorted(width_pool)
@@ -125,6 +127,12 @@ def analyze_svg_file(
 			)[:k_value]
 		else:
 			connector_candidate_line_indexes = []
+	# Hashed carrier lines are real bonds drawn thin with hatch strokes;
+	# include them as connector candidates regardless of width.
+	for carrier_index in sorted(pre_hashed_carrier_index_set):
+		if carrier_index not in connector_candidate_line_indexes:
+			connector_candidate_line_indexes.append(carrier_index)
+	connector_candidate_line_indexes.sort()
 	checked_label_indexes = list(range(len(labels)))
 	line_lengths_all = [line_length(line) for line in lines]
 	line_lengths_checked_raw = [
