@@ -1,6 +1,13 @@
 # Changelog
 
 ## 2026-02-13
+- Re-baseline plan metrics in
+  [OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md):
+  record post-connector-fix measurements (362/362 alignment, 0 misses), update
+  acceptance criteria to current baseline, relabel Phases 1-3 from DONE to
+  IMPLEMENTED, add per-atom optical centering feasibility note.
+- Update [refactor_progress.md](refactor_progress.md) with re-baselined gate
+  status and connector selection fix diagnosis.
 - Include hashed bond carrier lines as connector candidates in
   [tools/measurelib/analysis.py](tools/measurelib/analysis.py). Carrier lines
   for hatched (behind-the-plane) bonds are intentionally drawn thin with

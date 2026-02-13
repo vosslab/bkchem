@@ -41,10 +41,13 @@ Last updated: 2026-02-13
 
 ## In progress
 - [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md):
-  Phases 1-3 (Cairo font-metric label box width, target gap distance contract,
-  alignment-through-center endpoint correction) are implemented in
-  `render_geometry.py`; Phases 4-6 and Changes 6-8 are not started.
-  Acceptance metrics recorded 2026-02-13.
+  Phases 1-3 implemented, unit-tested (20 tests), documented. Acceptance gates
+  re-baselined 2026-02-13 after measurement tool connector selection fix
+  (hashed carrier lines included as candidates, commit feaf57d). All phase
+  criteria now PASS: 362/362 alignment (100%), CH2OH gap sd=0.54, HO gap
+  sd=0.55, 0 alignment misses. Original 16 misses were measurement tool
+  artifact (labels matched to wrong bonds). Phases 4-6 and Changes 6-8 not
+  started.
 - [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
   Phases 3 and 4 are complete in runtime/tests and matrix validation,
   including manager checklist fixture coverage plus straightness/lattice

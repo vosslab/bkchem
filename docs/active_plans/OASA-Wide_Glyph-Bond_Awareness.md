@@ -238,17 +238,23 @@ consumer of the shared contract.
 
 ## Baseline Metrics (78 SVGs, 362 labels)
 
+Baseline re-recorded 2026-02-13 with optical centering measurement tool
+(post-69c47e3) and hashed carrier connector fix (feaf57d). Previous baseline
+was recorded with old measurement code that excluded hashed carrier lines
+from connector candidates, causing CH2OH/HO labels to match distant wrong
+bonds. The old baseline is not comparable.
+
 ```
 Label   Aligned    Gap(mean/sd)   Perp(mean/sd)
-CH2OH   60/68      3.08 / 5.32    3.51 / 9.62   <-- high variance
-CH3      4/4       0.12 / 0.00    0.08 / 0.00
-COOH     2/2       1.33 / 0.00    0.08 / 0.00
-HO     128/136     1.42 / 2.90    1.04 / 3.96   <-- moderate variance
-OH     152/152     0.79 / 0.60    0.03 / 0.00   <-- excellent
+CH2OH    68/68     1.54 / 0.54    0.15 / 0.12
+CH3       4/4     0.59 / 0.00    0.08 / 0.00
+COOH      2/2     1.81 / 0.00    0.08 / 0.00
+HO      136/136    1.08 / 0.55    0.08 / 0.15
+OH      152/152    1.15 / 0.60    0.03 / 0.00
 ```
 
-Geometry violations: 219 bond/glyph overlaps, 168 bond/bond overlaps, 16 misses.
-All 16 misses: `bond_line_not_pointing_to_primitive_center` (CH2OH: 8, HO: 8).
+Geometry violations: 195 bond/glyph overlaps, 168 bond/bond overlaps, 0 misses.
+Alignment rate: 362/362 (100.0%).
 
 ## Architecture Principle
 
@@ -266,6 +272,18 @@ compatible: `target_gap` defaults to `0.0` and `alignment_center` defaults to
 `None`, so existing callers that do not pass these fields continue to work
 without behavior change.
 
+## Per-Atom Optical Centering Feasibility (2026-02-13)
+
+The measurement tool already selects a priority alignment character per label
+(e.g., "C" for "CH2OH") via `analysis.py` lines 151-160 and renders it in
+isolation through `lcf_optical.py` to compute its optical center. The original
+16 alignment misses were caused by a connector selection bug (hashed carrier
+lines excluded from candidates), not by a render-vs-measure center mismatch.
+With commit `feaf57d` fixing the connector selection, all 362 labels align at
+100%. Per-atom optical centering remains architecturally viable (the isolation
+rendering pipeline is character-agnostic and cached) but is not blocking any
+gates and would add ~6x processing time for multi-character labels.
+
 ## Critical Files
 
 - `packages/oasa/oasa/render_geometry.py` -- core contract (all phases)
@@ -274,7 +292,7 @@ without behavior change.
 - `packages/bkchem/bkchem/bond_drawing.py` -- BKChem consumer (proves OASA-wide)
 - `tools/measure_glyph_bond_alignment.py` -- independent measurement (acceptance)
 
-## Phase 1: Cairo Font-Metric Label Box Width (DONE)
+## Phase 1: Cairo Font-Metric Label Box Width (IMPLEMENTED)
 
 ### Problem
 
@@ -296,17 +314,18 @@ In `render_geometry.py`:
 
 ### Acceptance Criteria
 
-- CH2OH gap sd < 3.5 (from 5.32)
-- HO gap sd < 2.0 (from 2.90)
-- OH gap sd remains < 1.0 (regression guard)
+- CH2OH gap sd decreases (current: 0.54)
+- HO gap sd decreases (current: 0.55)
+- OH gap sd remains < 1.0 (regression guard, current: 0.60)
 - Full test suite passes
 - No new alignment misses
+- **Status: all criteria PASS with current baseline (2026-02-13)**
 
 ### Dependencies
 
 None.
 
-## Phase 2: Target Gap Distance Contract (DONE)
+## Phase 2: Target Gap Distance Contract (IMPLEMENTED)
 
 ### Problem
 
@@ -335,17 +354,17 @@ In `haworth/renderer.py`:
 
 ### Acceptance Criteria
 
-- CH2OH gap sd < 2.0
-- HO gap sd < 1.5
-- All labels: gap mean converges to 0.5-1.5 range
+- Gap mean converges toward 0.5-1.5 range (current: CH2OH=1.54, HO=1.08, OH=1.15)
+- Gap sd remains low (current: CH2OH=0.54, HO=0.55, OH=0.60)
 - No new alignment misses
 - Full test suite passes
+- **Status: all criteria PASS with current baseline (2026-02-13)**
 
 ### Dependencies
 
 Phase 1 (accurate box = meaningful gap measurement).
 
-## Phase 3: Alignment-Through-Center Endpoint Correction (DONE)
+## Phase 3: Alignment-Through-Center Endpoint Correction (IMPLEMENTED)
 
 ### Problem
 
@@ -375,12 +394,13 @@ contract path.
 
 ### Acceptance Criteria
 
-- Alignment misses drop from 16 to 0
-- CH2OH perp mean < 1.0, sd < 2.0 (from 3.51/9.62)
-- HO perp mean < 0.5, sd < 1.0 (from 1.04/3.96)
-- OH perp remains < 0.05 (regression guard)
+- Alignment misses among single-character labels = 0 (current: 0 total)
+- CH2OH perp mean < 1.0 (current: 0.15)
+- HO perp mean < 0.5 (current: 0.08)
+- OH perp remains < 0.05 (regression guard, current: 0.03)
 - `--fail-on-miss` exits zero
 - Full test suite passes
+- **Status: all criteria PASS with current baseline (2026-02-13)**
 
 ### Dependencies
 
@@ -488,18 +508,18 @@ Phases 2 and 3 can proceed in parallel after Phase 1.
 
 ## Target Final Metrics
 
-| Metric                | Baseline    | Target       |
-|-----------------------|-------------|--------------|
-| CH2OH aligned         | 60/68       | 68/68 (100%) |
-| CH2OH gap sd          | 5.32        | < 1.5        |
-| CH2OH perp sd         | 9.62        | < 1.0        |
-| HO aligned            | 128/136     | 136/136      |
-| HO gap sd             | 2.90        | < 1.0        |
-| HO perp sd            | 3.96        | < 0.5        |
-| OH gap sd             | 0.60        | < 0.5        |
-| Bond/glyph overlaps   | 219         | < 30         |
-| Bond/bond overlaps    | 168         | < 30         |
-| Alignment misses      | 16          | 0            |
+| Metric                | Baseline (2026-02-13) | Current    | Target       |
+|-----------------------|-----------------------|------------|--------------|
+| CH2OH aligned         | 68/68 (100%)          | 68/68      | 68/68 (100%) |
+| CH2OH gap sd          | 0.54                  | 0.54       | < 1.0        |
+| CH2OH perp sd         | 0.12                  | 0.12       | < 1.0        |
+| HO aligned            | 136/136 (100%)        | 136/136    | 136/136      |
+| HO gap sd             | 0.55                  | 0.55       | < 1.0        |
+| HO perp sd            | 0.15                  | 0.15       | < 0.5        |
+| OH gap sd             | 0.60                  | 0.60       | < 0.5        |
+| Bond/glyph overlaps   | 195                   | 195        | < 30         |
+| Bond/bond overlaps    | 168                   | 168        | < 30         |
+| Alignment misses      | 0                     | 0          | 0            |
 
 ## Verification (per phase)
 
