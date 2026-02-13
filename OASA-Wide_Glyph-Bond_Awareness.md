@@ -464,13 +464,13 @@ Phase 4 (cross-label avoidance reduces confounding overlaps first).
 ## Phase Dependency Graph
 
 ```
-Phase 1 (Label Box Width) ─────────────────────────────────
-  │                                                        │
-  ├──> Phase 2 (Gap Distance) ──> Phase 4 (Cross-Label) ──> Phase 6 (Bond/Bond)
-  │       │
-  │       └──> Phase 5 (Label Box Height)
-  │
-  └──> Phase 3 (Alignment Center)
+Phase 1 (Label Box Width) ---------------------------------
+  |                                                        |
+  +--> Phase 2 (Gap Distance) --> Phase 4 (Cross-Label) --> Phase 6 (Bond/Bond)
+  |       |
+  |       +--> Phase 5 (Label Box Height)
+  |
+  +--> Phase 3 (Alignment Center)
 ```
 
 Phases 2 and 3 can proceed in parallel after Phase 1.
