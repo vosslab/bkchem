@@ -25,6 +25,13 @@
   `font_size * 0.75 * char_count` with `sum(_text_char_advances(...))`,
   making the full label box consistent with the sub-label attach box that
   already used Cairo metrics.
+- Add `target_gap` and `alignment_center` fields to `AttachConstraints` in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  (Phase 2 and Phase 3 of OASA-Wide Glyph-Bond Awareness plan). Phase 2 adds
+  `_retreat_to_target_gap()` for uniform whitespace between connector endpoint
+  and glyph body. Phase 3 adds `_correct_endpoint_for_alignment()` to re-aim
+  endpoints through the attach atom optical center, reducing bond/glyph overlaps
+  from 219 to 211.
 
 ## 2026-02-12
 - Revert connector endpoint selection in

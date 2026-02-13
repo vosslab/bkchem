@@ -218,6 +218,8 @@ class AttachConstraints:
 	clearance: float = 0.0
 	vertical_lock: bool = False
 	direction_policy: str = "auto"
+	target_gap: float = 0.0
+	alignment_center: tuple[float, float] | None = None
 
 
 #============================================
@@ -1445,6 +1447,16 @@ def resolve_label_connector_endpoint_from_text_origin(
 		interior_hint=contract.endpoint_target.centroid(),
 		constraints=constraints,
 	)
+	alignment_center = constraints.alignment_center
+	if alignment_center is None:
+		alignment_center = contract.attach_target.centroid()
+	endpoint = _correct_endpoint_for_alignment(
+		bond_start=bond_start,
+		endpoint=endpoint,
+		alignment_center=alignment_center,
+		target=contract.endpoint_target,
+		tolerance=max(line_width * 0.5, 0.25),
+	)
 	endpoint = retreat_endpoint_until_legal(
 		line_start=bond_start,
 		line_end=endpoint,
@@ -1453,6 +1465,13 @@ def resolve_label_connector_endpoint_from_text_origin(
 		allowed_regions=[contract.allowed_target],
 		epsilon=epsilon,
 	)
+	if constraints.target_gap > 0.0:
+		endpoint = _retreat_to_target_gap(
+			line_start=bond_start,
+			legal_endpoint=endpoint,
+			target_gap=constraints.target_gap,
+			forbidden_regions=[contract.full_target],
+		)
 	return endpoint, contract
 
 
@@ -2270,6 +2289,115 @@ def retreat_endpoint_until_legal(
 		x_start + ((x_end - x_start) * low),
 		y_start + ((y_end - y_start) * low),
 	)
+
+
+#============================================
+def _min_distance_point_to_target_boundary(point, target):
+	"""Return minimum distance from point to the boundary of one attach target."""
+	resolved = _coerce_attach_target(target)
+	if resolved.kind == "box":
+		x1, y1, x2, y2 = misc.normalize_coords(resolved.box)
+		px, py = point
+		dx = max(x1 - px, 0.0, px - x2)
+		dy = max(y1 - py, 0.0, py - y2)
+		if dx > 0.0 or dy > 0.0:
+			return math.hypot(dx, dy)
+		return min(px - x1, x2 - px, py - y1, y2 - py)
+	if resolved.kind == "circle":
+		cx, cy = resolved.center
+		radius = max(0.0, float(resolved.radius))
+		return abs(math.hypot(point[0] - cx, point[1] - cy) - radius)
+	if resolved.kind == "composite":
+		distances = [
+			_min_distance_point_to_target_boundary(point, child)
+			for child in (resolved.targets or ())
+		]
+		return min(distances) if distances else 0.0
+	return 0.0
+
+
+#============================================
+def _retreat_to_target_gap(line_start, legal_endpoint, target_gap, forbidden_regions):
+	"""Retreat legal_endpoint further toward line_start to achieve target_gap."""
+	if target_gap <= 0.0:
+		return legal_endpoint
+	current_gap = min(
+		_min_distance_point_to_target_boundary(legal_endpoint, region)
+		for region in forbidden_regions
+	) if forbidden_regions else 0.0
+	if current_gap >= target_gap:
+		return legal_endpoint
+	sx, sy = line_start
+	ex, ey = legal_endpoint
+	dx = ex - sx
+	dy = ey - sy
+	length = math.hypot(dx, dy)
+	if length <= 1e-12:
+		return legal_endpoint
+	needed = target_gap - current_gap
+	retreat_fraction = needed / length
+	if retreat_fraction >= 1.0:
+		return line_start
+	return (
+		ex - (dx * retreat_fraction),
+		ey - (dy * retreat_fraction),
+	)
+
+
+#============================================
+def _perpendicular_distance_to_line(point, line_start, line_end):
+	"""Return perpendicular distance from point to the infinite line through start/end."""
+	px, py = point
+	sx, sy = line_start
+	ex, ey = line_end
+	dx = ex - sx
+	dy = ey - sy
+	length_sq = (dx * dx) + (dy * dy)
+	if length_sq <= 1e-24:
+		return math.hypot(px - sx, py - sy)
+	return abs(((dy * (px - sx)) - (dx * (py - sy)))) / math.sqrt(length_sq)
+
+
+#============================================
+def _correct_endpoint_for_alignment(bond_start, endpoint, alignment_center, target, tolerance):
+	"""Adjust endpoint so bond line passes through alignment_center."""
+	perp_dist = _perpendicular_distance_to_line(alignment_center, bond_start, endpoint)
+	if perp_dist <= tolerance:
+		return endpoint
+	resolved = _coerce_attach_target(target)
+	sx, sy = bond_start
+	cx, cy = alignment_center
+	dx = cx - sx
+	dy = cy - sy
+	if abs(dx) <= 1e-12 and abs(dy) <= 1e-12:
+		return endpoint
+	if resolved.kind == "box":
+		bbox = misc.normalize_coords(resolved.box)
+		corrected = _clip_line_to_box((sx, sy), (cx, cy), bbox)
+		if corrected is not None and corrected != (cx, cy):
+			return corrected
+		corrected = geometry.intersection_of_line_and_rect(
+			(sx, sy, cx, cy), bbox,
+		)
+		if corrected is not None:
+			return corrected
+	elif resolved.kind == "circle":
+		center = resolved.center
+		radius = max(0.0, float(resolved.radius))
+		hit = _line_circle_intersection((sx, sy), (cx, cy), center, radius)
+		if hit is not None:
+			return hit
+	elif resolved.kind == "composite":
+		for child in (resolved.targets or ()):
+			try:
+				result = _correct_endpoint_for_alignment(
+					bond_start, endpoint, alignment_center, child, tolerance,
+				)
+				if result != endpoint:
+					return result
+			except ValueError:
+				continue
+	return endpoint
 
 
 #============================================

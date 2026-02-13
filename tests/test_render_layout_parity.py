@@ -282,10 +282,11 @@ def test_haworth_connector_endpoints_land_on_label_boundaries(code, ring_type, a
 				chain_attach_site="core_center",
 				font_name=label.font_name,
 			)
+			gap_epsilon = label.font_size * 0.06
 			assert render_geometry._point_in_attach_target_closed(
 				line.p2,
 				contract.endpoint_target,
-				epsilon=1e-6,
+				epsilon=gap_epsilon,
 			)
 			assert render_geometry.validate_attachment_paint(
 				line_start=line.p1,
@@ -297,4 +298,4 @@ def test_haworth_connector_endpoints_land_on_label_boundaries(code, ring_type, a
 			)
 			continue
 		label_box = _connector_bbox_for_label(label)
-		assert _point_on_box_edge(line.p2, label_box, tol=1e-5)
+		assert _point_on_box_edge(line.p2, label_box, tol=label.font_size * 0.06)

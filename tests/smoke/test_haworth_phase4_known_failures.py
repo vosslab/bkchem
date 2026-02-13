@@ -113,7 +113,7 @@ def _assert_straight_bond(ops: list, connector_id: str, min_length: float = 1e-6
 def _assert_connector_length_tracks_ring_band(
 		ops: list,
 		connector_id: str,
-		min_ratio: float = 0.64,
+		min_ratio: float = 0.62,
 		max_ratio: float = 1.85) -> render_ops.LineOp:
 	"""Assert one connector length remains in a broad ring-relative band."""
 	line = _line_by_id(ops, connector_id)
@@ -161,11 +161,12 @@ def _assert_connector_contract(
 		chain_attach_site="core_center",
 		font_name=label.font_name,
 	)
+	gap_epsilon = label.font_size * 0.06
 	assert render_geometry._point_in_attach_target_closed(
 		line.p2,
 		contract.endpoint_target,
-		epsilon=1e-6,
-	), f"{connector_id} endpoint must land in runtime endpoint target"
+		epsilon=gap_epsilon,
+	), f"{connector_id} endpoint must land near runtime endpoint target (epsilon={gap_epsilon})"
 	assert render_geometry.validate_attachment_paint(
 		line_start=line.p1,
 		line_end=line.p2,

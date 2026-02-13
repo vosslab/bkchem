@@ -263,7 +263,7 @@ heuristics. No `if haworth` or `if label_text == "CH2OH"` conditionals.
 - `packages/bkchem/bkchem/bond_drawing.py` -- BKChem consumer (proves OASA-wide)
 - `tools/measure_glyph_bond_alignment.py` -- independent measurement (acceptance)
 
-## Phase 1: Cairo Font-Metric Label Box Width
+## Phase 1: Cairo Font-Metric Label Box Width (DONE)
 
 ### Problem
 
@@ -295,7 +295,7 @@ In `render_geometry.py`:
 
 None.
 
-## Phase 2: Target Gap Distance Contract
+## Phase 2: Target Gap Distance Contract (DONE)
 
 ### Problem
 
@@ -334,7 +334,7 @@ In `haworth/renderer.py`:
 
 Phase 1 (accurate box = meaningful gap measurement).
 
-## Phase 3: Alignment-Through-Center Endpoint Correction
+## Phase 3: Alignment-Through-Center Endpoint Correction (DONE)
 
 ### Problem
 
