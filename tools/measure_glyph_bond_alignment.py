@@ -3678,6 +3678,11 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 			if gap_value is None:
 				continue
 			glyph_body_gap_distances.append(float(gap_value))
+		perpendicular_distances = [
+			float(item["perpendicular_distance_to_alignment_center"])
+			for item in measurements
+			if item.get("perpendicular_distance_to_alignment_center") is not None
+		]
 		scores = [float(item.get("alignment_score", 0.0)) for item in measurements]
 		aligned_count = sum(1 for item in measurements if item.get("aligned"))
 		no_connector_count = sum(
@@ -3774,6 +3779,9 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 			"aligned_count": aligned_count,
 			"outside_tolerance_count": len(measurements) - aligned_count,
 			"no_connector_count": no_connector_count,
+			"alignment_rate": aligned_count / float(len(measurements)) if measurements else 0.0,
+			"gap_distance_stats": _length_stats(glyph_body_gap_distances),
+			"perpendicular_distance_stats": _length_stats(perpendicular_distances),
 			"distance_values": [_compact_float(value) for value in distances],
 			"distance_to_glyph_body_values": [_compact_float(value) for value in glyph_body_distances],
 			"score_values": [_compact_float(value) for value in scores],
@@ -3789,6 +3797,15 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 			_display_float(value)
 			for value in glyph_body_gap_distances
 		)
+	alignment_label_type_stats = {}
+	for glyph_text, glyph_data in sorted(alignment_by_glyph.items()):
+		alignment_label_type_stats[glyph_text] = {
+			"count": glyph_data["count"],
+			"aligned_count": glyph_data["aligned_count"],
+			"alignment_rate": glyph_data["alignment_rate"],
+			"gap_distance_stats": glyph_data["gap_distance_stats"],
+			"perpendicular_distance_stats": glyph_data["perpendicular_distance_stats"],
+		}
 	unique_text_labels = sorted(text_label_counts.keys())
 	return {
 		"files_analyzed": len(file_reports),
@@ -3831,6 +3848,7 @@ def _summary_stats(file_reports: list[dict]) -> dict:
 		"glyph_alignment_data_points": glyph_alignment_data_points,
 		"glyph_to_bond_end_data_points": glyph_to_bond_end_data_points,
 		"alignment_by_glyph": alignment_by_glyph,
+		"alignment_label_type_stats": alignment_label_type_stats,
 		"canonical_angles_degrees": list(CANONICAL_LATTICE_ANGLES),
 		"lattice_angle_tolerance_degrees": LATTICE_ANGLE_TOLERANCE_DEGREES,
 		"lattice_angle_violation_count": lattice_angle_violations,
@@ -3955,6 +3973,7 @@ def _violation_summary(summary: dict, top_misses: list[dict]) -> dict:
 		"lattice_angle_violation_examples": summary.get("lattice_angle_violation_examples", [])[:3],
 		"bond_glyph_overlap_examples": summary.get("bond_glyph_overlap_examples", [])[:3],
 		"bond_bond_overlap_examples": summary.get("bond_bond_overlap_examples", [])[:3],
+		"alignment_label_type_stats": summary.get("alignment_label_type_stats", {}),
 	}
 
 
@@ -4048,6 +4067,36 @@ def _text_report(
 	data_pt_count = len(summary.get("glyph_alignment_data_points", []))
 	lines.append(f"Alignment data points: {data_pt_count} entries (see JSON report for details)")
 	lines.append("")
+	# -- per-label alignment statistics --
+	label_stats = summary.get("alignment_label_type_stats", {})
+	if label_stats:
+		lines.append(banner)
+		lines.append(" PER-LABEL ALIGNMENT STATISTICS")
+		lines.append(banner)
+		lines.append(
+			f"{'Label':<8} {'Count':>5}  {'Aligned':>7}  {'Rate':>6}"
+			f"   {'Gap(mean/sd)':>14}   {'Perp(mean/sd)':>14}"
+		)
+		for label_text in sorted(label_stats.keys()):
+			entry = label_stats[label_text]
+			count = entry["count"]
+			aligned_ct = entry["aligned_count"]
+			rate = entry["alignment_rate"] * 100.0
+			gap_s = entry.get("gap_distance_stats", {})
+			perp_s = entry.get("perpendicular_distance_stats", {})
+			if gap_s.get("count", 0) > 0:
+				gap_text = f"{gap_s['mean']:.2f} / {gap_s['stddev']:.2f}"
+			else:
+				gap_text = "(none)"
+			if perp_s.get("count", 0) > 0:
+				perp_text = f"{perp_s['mean']:.2f} / {perp_s['stddev']:.2f}"
+			else:
+				perp_text = "(none)"
+			lines.append(
+				f"{label_text:<8} {count:>5}  {aligned_ct:>7}  {rate:>5.1f}%"
+				f"   {gap_text:>14}   {perp_text:>14}"
+			)
+		lines.append("")
 	# -- geometry checks --
 	lines.append(banner)
 	lines.append(" GEOMETRY CHECKS")
@@ -4290,6 +4339,21 @@ def main() -> None:
 		remaining = len(top_misses) - 3
 		if remaining > 0:
 			print(f"  ... and {remaining} more (see text report)")
+	# per-label alignment stats
+	label_stats = summary.get("alignment_label_type_stats", {})
+	if label_stats:
+		print("Per-label alignment:")
+		for label_text in sorted(label_stats.keys()):
+			entry = label_stats[label_text]
+			count = entry["count"]
+			aligned_ct = entry["aligned_count"]
+			rate = entry["alignment_rate"] * 100.0
+			gap_s = entry.get("gap_distance_stats", {})
+			perp_s = entry.get("perpendicular_distance_stats", {})
+			gap_text = f"gap={gap_s['mean']:.2f}/{gap_s['stddev']:.2f}" if gap_s.get("count", 0) > 0 else ""
+			perp_text = f"perp={perp_s['mean']:.2f}/{perp_s['stddev']:.2f}" if perp_s.get("count", 0) > 0 else ""
+			print(f"  {label_text:<8} {aligned_ct:>3}/{count:<3} ({rate:>5.1f}%)  {gap_text}  {perp_text}")
+		print()
 	if args.fail_on_miss and (summary["missed_labels"] > 0 or summary["labels_without_connector"] > 0):
 		raise SystemExit(2)
 
