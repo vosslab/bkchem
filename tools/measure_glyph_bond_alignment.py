@@ -1353,8 +1353,23 @@ def _clip_infinite_line_to_bounds(
 
 
 #============================================
-def _diagnostic_color(index: int) -> str:
-	"""Return deterministic color for one label overlay."""
+def _diagnostic_color(index: int, aligned: bool | None = None) -> str:
+	"""Return deterministic color for one label overlay.
+
+	Args:
+		index: label index for deterministic palette cycling.
+		aligned: True for green/teal (pass), False for red/orange (violation),
+			None for the original neutral palette.
+	"""
+	if aligned is True:
+		# green/teal family -- visually reads as "good"
+		palette = ["#2a9d8f", "#06d6a0", "#40916c", "#52b788", "#74c69d", "#95d5b2"]
+		return palette[index % len(palette)]
+	if aligned is False:
+		# red/orange family -- visually reads as "violation"
+		palette = ["#d00000", "#e85d04", "#dc2f02", "#f48c06", "#e63946", "#ff6b6b"]
+		return palette[index % len(palette)]
+	# fallback neutral palette (original behavior)
 	palette = ["#ff006e", "#3a86ff", "#ffbe0b", "#2a9d8f", "#8338ec", "#fb5607"]
 	return palette[index % len(palette)]
 
@@ -1443,6 +1458,7 @@ def _write_diagnostic_svg(
 	tag_polygon = _svg_tag_with_namespace(svg_root, "polygon")
 	tag_line = _svg_tag_with_namespace(svg_root, "line")
 	tag_circle = _svg_tag_with_namespace(svg_root, "circle")
+	tag_text = _svg_tag_with_namespace(svg_root, "text")
 	bounds = _diagnostic_bounds(svg_root, lines=lines, labels=labels)
 	overlay_group = StdET.Element(
 		tag_group,
@@ -1463,7 +1479,12 @@ def _write_diagnostic_svg(
 			continue
 		label = labels[int(label_index)]
 		line = lines[int(line_index)]
-		color = _diagnostic_color(int(label_index))
+		is_aligned = bool(metric.get("aligned", False))
+		color = _diagnostic_color(int(label_index), aligned=is_aligned)
+		# violations get thicker, bolder strokes to stand out visually
+		stroke_w_thin = "0.4" if not is_aligned else "0.25"
+		stroke_w_thick = "0.7" if not is_aligned else "0.5"
+		stroke_opac = "0.9" if not is_aligned else "0.75"
 		group = StdET.Element(tag_group, attrib={"id": f"codex-label-diag-{int(label_index)}"})
 		diagnostic_center_point = _metric_alignment_center(metric)
 		alignment_primitive = _select_alignment_primitive(label, metric)
@@ -1481,8 +1502,8 @@ def _write_diagnostic_svg(
 							for point in hull_boundary_points
 						),
 						"stroke": color,
-						"stroke-width": "0.25",
-						"stroke-opacity": "0.75",
+						"stroke-width": stroke_w_thin,
+						"stroke-opacity": stroke_opac,
 						"stroke-dasharray": "2 1",
 					},
 				)
@@ -1498,8 +1519,8 @@ def _write_diagnostic_svg(
 						"rx": f"{max(0.0, float(hull_fit.get('rx', 0.0))):.6f}",
 						"ry": f"{max(0.0, float(hull_fit.get('ry', 0.0))):.6f}",
 						"stroke": color,
-						"stroke-width": "0.25",
-						"stroke-opacity": "0.75",
+						"stroke-width": stroke_w_thin,
+						"stroke-opacity": stroke_opac,
 						"stroke-dasharray": "2 1",
 					},
 				)
@@ -1521,8 +1542,8 @@ def _write_diagnostic_svg(
 							"rx": f"{max(0.0, float(alignment_primitive.get('rx', 0.0))):.6f}",
 							"ry": f"{max(0.0, float(alignment_primitive.get('ry', 0.0))):.6f}",
 							"stroke": color,
-							"stroke-width": "0.25",
-							"stroke-opacity": "0.75",
+							"stroke-width": stroke_w_thin,
+							"stroke-opacity": stroke_opac,
 							"stroke-dasharray": "2 1",
 						},
 					)
@@ -1543,8 +1564,8 @@ def _write_diagnostic_svg(
 							"width": f"{max(0.0, x2 - x1):.6f}",
 							"height": f"{max(0.0, y2 - y1):.6f}",
 							"stroke": color,
-							"stroke-width": "0.5",
-							"stroke-opacity": "0.75",
+							"stroke-width": stroke_w_thick,
+							"stroke-opacity": stroke_opac,
 							"stroke-dasharray": "2 1",
 						},
 					)
@@ -1564,8 +1585,8 @@ def _write_diagnostic_svg(
 							"width": f"{max(0.0, x2 - x1):.6f}",
 							"height": f"{max(0.0, y2 - y1):.6f}",
 							"stroke": color,
-							"stroke-width": "0.25",
-							"stroke-opacity": "0.75",
+							"stroke-width": stroke_w_thin,
+							"stroke-opacity": stroke_opac,
 							"stroke-dasharray": "2 1",
 						},
 					)
@@ -1657,6 +1678,72 @@ def _write_diagnostic_svg(
 						)
 					)
 		overlay_group.append(group)
+	# -- legend: aligned (green) vs violation (red) --
+	legend_x = bounds[0] + 2.0
+	legend_y = bounds[1] + 6.0
+	legend_group = StdET.Element(
+		tag_group,
+		attrib={"id": "codex-diagnostic-legend", "font-size": "4", "font-family": "sans-serif"},
+	)
+	# white background
+	legend_group.append(
+		StdET.Element(
+			tag_rect,
+			attrib={
+				"x": f"{legend_x - 1.0:.1f}",
+				"y": f"{legend_y - 5.0:.1f}",
+				"width": "36",
+				"height": "14",
+				"fill": "white",
+				"fill-opacity": "0.85",
+				"stroke": "#999999",
+				"stroke-width": "0.3",
+			},
+		)
+	)
+	# aligned swatch (green)
+	legend_group.append(
+		StdET.Element(
+			tag_rect,
+			attrib={
+				"x": f"{legend_x:.1f}",
+				"y": f"{legend_y - 2.5:.1f}",
+				"width": "4",
+				"height": "3",
+				"fill": "none",
+				"stroke": "#2a9d8f",
+				"stroke-width": "0.25",
+			},
+		)
+	)
+	aligned_label = StdET.Element(tag_text)
+	aligned_label.text = "Aligned"
+	aligned_label.set("x", f"{legend_x + 6.0:.1f}")
+	aligned_label.set("y", f"{legend_y:.1f}")
+	aligned_label.set("fill", "#2a9d8f")
+	legend_group.append(aligned_label)
+	# violation swatch (red)
+	legend_group.append(
+		StdET.Element(
+			tag_rect,
+			attrib={
+				"x": f"{legend_x:.1f}",
+				"y": f"{legend_y + 2.0:.1f}",
+				"width": "4",
+				"height": "3",
+				"fill": "none",
+				"stroke": "#d00000",
+				"stroke-width": "0.4",
+			},
+		)
+	)
+	violation_label = StdET.Element(tag_text)
+	violation_label.text = "Violation"
+	violation_label.set("x", f"{legend_x + 6.0:.1f}")
+	violation_label.set("y", f"{legend_y + 4.5:.1f}")
+	violation_label.set("fill", "#d00000")
+	legend_group.append(violation_label)
+	overlay_group.append(legend_group)
 	svg_root.append(overlay_group)
 	output_path.parent.mkdir(parents=True, exist_ok=True)
 	StdET.ElementTree(svg_root).write(output_path, encoding="utf-8", xml_declaration=True)
@@ -3833,6 +3920,88 @@ def _top_misses(file_reports: list[dict], limit: int = 20) -> list[dict]:
 
 
 #============================================
+def _format_stats_line(label: str, stats: dict) -> str:
+	"""Format one _length_stats dict into a compact single line."""
+	if stats.get("count", 0) == 0:
+		return f"{label}: (none)"
+	return (
+		f"{label}: n={stats['count']}  "
+		f"min={stats['min']:.3f}  max={stats['max']:.3f}  "
+		f"mean={stats['mean']:.3f}  sd={stats['stddev']:.3f}"
+	)
+
+
+#============================================
+def _violation_summary(summary: dict, top_misses: list[dict]) -> dict:
+	"""Build a compact violation summary for the JSON report."""
+	return {
+		"alignment_outside_tolerance_count": summary.get("alignment_outside_tolerance_count", 0),
+		"missed_labels": summary.get("missed_labels", 0),
+		"labels_without_connector": summary.get("labels_without_connector", 0),
+		"lattice_angle_violation_count": summary.get("lattice_angle_violation_count", 0),
+		"glyph_glyph_overlap_count": summary.get("glyph_glyph_overlap_count", 0),
+		"bond_bond_overlap_count": summary.get("bond_bond_overlap_count", 0),
+		"bond_glyph_overlap_count": summary.get("bond_glyph_overlap_count", 0),
+		"hatched_thin_conflict_count": summary.get("hatched_thin_conflict_count", 0),
+		"total_violation_count": (
+			summary.get("alignment_outside_tolerance_count", 0)
+			+ summary.get("lattice_angle_violation_count", 0)
+			+ summary.get("glyph_glyph_overlap_count", 0)
+			+ summary.get("bond_bond_overlap_count", 0)
+			+ summary.get("bond_glyph_overlap_count", 0)
+			+ summary.get("hatched_thin_conflict_count", 0)
+		),
+		"top_misses": top_misses[:5],
+		"lattice_angle_violation_examples": summary.get("lattice_angle_violation_examples", [])[:3],
+		"bond_glyph_overlap_examples": summary.get("bond_glyph_overlap_examples", [])[:3],
+		"bond_bond_overlap_examples": summary.get("bond_bond_overlap_examples", [])[:3],
+	}
+
+
+#============================================
+# keys containing large arrays that belong in debug, not in the compact summary
+_JSON_SUMMARY_EXCLUDE_KEYS = {
+	"glyph_alignment_data_points",
+	"glyph_to_bond_end_data_points",
+	"bond_lengths_rounded_sorted_all",
+	"bond_lengths_rounded_sorted_checked",
+	"bond_lengths_rounded_sorted_connector",
+	"bond_lengths_rounded_sorted_non_connector",
+	"bond_lengths_rounded_sorted_excluded_haworth_base_ring",
+	"bond_length_rounded_counts_all",
+	"bond_length_rounded_counts_checked",
+	"bond_length_rounded_counts_connector",
+	"bond_length_rounded_counts_non_connector",
+	"bond_length_rounded_counts_excluded_haworth_base_ring",
+	"alignment_distances_compact_sorted",
+	"alignment_distance_compact_counts",
+	"alignment_distances_rounded_sorted",
+	"alignment_distance_rounded_counts",
+	"alignment_glyph_body_distances_compact_sorted",
+	"alignment_glyph_body_distance_compact_counts",
+	"glyph_to_bond_end_distances_compact_sorted",
+	"glyph_to_bond_end_distance_compact_counts",
+	"alignment_by_glyph",
+	"bond_lengths_by_quadrant_checked",
+	"bond_lengths_by_ring_region_checked",
+	"bond_lengths_by_quadrant_ring_region_checked",
+	"lattice_angle_violation_examples",
+	"bond_bond_overlap_examples",
+	"bond_glyph_overlap_examples",
+	"hatched_thin_conflict_examples",
+}
+
+
+def _json_summary_compact(summary: dict) -> dict:
+	"""Return summary dict without large array-valued keys."""
+	return {
+		key: value
+		for key, value in summary.items()
+		if key not in _JSON_SUMMARY_EXCLUDE_KEYS
+	}
+
+
+#============================================
 def _text_report(
 		summary: dict,
 		top_misses: list[dict],
@@ -3840,261 +4009,170 @@ def _text_report(
 		exclude_haworth_base_ring: bool,
 		alignment_center_mode: str = "primitive") -> str:
 	"""Build human-readable report text."""
+	banner = "=" * 56
 	lines = []
-	lines.append("Glyph Bond Alignment Report")
-	lines.append(f"Generated at: {datetime.datetime.now().isoformat(timespec='seconds')}")
+	# -- header --
+	lines.append(banner)
+	lines.append(" GLYPH BOND ALIGNMENT REPORT")
+	lines.append(banner)
+	haworth_tag = "excluded" if exclude_haworth_base_ring else "included"
+	lines.append(
+		f"Generated: {datetime.datetime.now().isoformat(timespec='seconds')}  "
+		f"|  Mode: {alignment_center_mode}  |  Haworth: {haworth_tag}"
+	)
 	lines.append(f"Input glob: {input_glob}")
+	unique_labels = summary.get("text_labels_unique", [])
 	lines.append(
-		f"Exclude Haworth base ring: {'ON' if exclude_haworth_base_ring else 'OFF'}"
-	)
-	lines.append(f"Alignment center mode: {alignment_center_mode}")
-	lines.append("")
-	lines.append(f"Files analyzed: {summary['files_analyzed']}")
-	lines.append(f"Text labels seen: {summary['text_labels_total']}")
-	lines.append(f"Text labels unique: {summary['text_labels_unique_total']}")
-	lines.append(f"Text labels list: {summary.get('text_labels_unique', [])}")
-	lines.append(f"Total bonds detected: {summary['total_bonds_detected']}")
-	lines.append(f"Total bonds checked: {summary['total_bonds_checked']}")
-	lines.append(f"Labels analyzed: {summary['labels_analyzed']}")
-	lines.append(f"Aligned labels: {summary['aligned_labels']}")
-	lines.append(f"Missed labels: {summary['missed_labels']}")
-	lines.append(f"Labels without nearby connector: {summary['labels_without_connector']}")
-	lines.append(
-		f"Alignment outside tolerance count: {summary['alignment_outside_tolerance_count']}"
-	)
-	lines.append(f"Alignment rate: {summary['alignment_rate'] * 100.0:.2f}%")
-	lines.append("Glyph-to-bond alignment data points (independent glyph primitives):")
-	for item in summary.get("glyph_alignment_data_points", []):
-		lines.append(f"- {item}")
-	lines.append("Glyph-to-bond-end distance data points (independent glyph primitives):")
-	for item in summary.get("glyph_to_bond_end_data_points", []):
-		lines.append(f"- {item}")
-	lines.append(
-		f"Glyph text -> bond-end whitespace gaps: {summary.get('glyph_text_to_bond_end_distance', {})}"
+		f"Unique labels ({summary['text_labels_unique_total']}): "
+		+ ", ".join(str(label) for label in unique_labels)
 	)
 	lines.append("")
-	lines.append("Standalone geometry checks:")
+	# -- alignment summary --
+	lines.append(banner)
+	lines.append(" ALIGNMENT SUMMARY")
+	lines.append(banner)
+	alignment_pct = summary["alignment_rate"] * 100.0
+	lines.append(f"{'Files analyzed:':<42}{summary['files_analyzed']:>6}")
+	lines.append(f"{'Labels analyzed:':<42}{summary['labels_analyzed']:>6}")
 	lines.append(
-		f"- canonical lattice angles: {summary['canonical_angles_degrees']} "
-		f"(tolerance={summary['lattice_angle_tolerance_degrees']:.1f} deg)"
+		f"{'  Aligned:':<42}{summary['aligned_labels']:>6}"
+		f"  ({alignment_pct:.1f}%)"
 	)
+	lines.append(f"{'  Missed:':<42}{summary['missed_labels']:>6}")
+	lines.append(f"{'  No connector:':<42}{summary['labels_without_connector']:>6}")
 	lines.append(
-		f"- bonds outside canonical lattice angles: {summary['lattice_angle_violation_count']}"
+		f"{'Bonds (detected / checked):':<42}"
+		f"{summary['total_bonds_detected']:>6} / {summary['total_bonds_checked']}"
 	)
-	lines.append(
-		f"  lattice-violation quadrants: {summary.get('lattice_angle_violation_quadrants', {})}"
-	)
-	lines.append(
-		"  lattice-violation ring regions: "
-		f"{summary.get('lattice_angle_violation_ring_regions', {})}"
-	)
+	lines.append(f"{'Alignment rate:':<42}{alignment_pct:>6.1f}%")
+	data_pt_count = len(summary.get("glyph_alignment_data_points", []))
+	lines.append(f"Alignment data points: {data_pt_count} entries (see JSON report for details)")
+	lines.append("")
+	# -- geometry checks --
+	lines.append(banner)
+	lines.append(" GEOMETRY CHECKS")
+	lines.append(banner)
+	# helper to format a dict as inline key=value pairs
+	def _inline_counts(data: dict) -> str:
+		if not data:
+			return ""
+		return "  (" + "  ".join(f"{k}={v}" for k, v in sorted(data.items())) + ")"
+	lattice_count = summary["lattice_angle_violation_count"]
+	lattice_qs = summary.get("lattice_angle_violation_quadrants", {})
+	lines.append(f"{'Lattice angle violations:':<42}{lattice_count:>6}{_inline_counts(lattice_qs)}")
+	lines.append(f"{'Glyph/glyph overlaps:':<42}{summary['glyph_glyph_overlap_count']:>6}")
+	bb_count = summary["bond_bond_overlap_count"]
+	bb_qs = summary.get("bond_bond_overlap_quadrants", {})
+	lines.append(f"{'Bond/bond overlaps:':<42}{bb_count:>6}{_inline_counts(bb_qs)}")
+	bg_count = summary["bond_glyph_overlap_count"]
+	bg_qs = summary.get("bond_glyph_overlap_quadrants", {})
+	lines.append(f"{'Bond/glyph overlaps:':<42}{bg_count:>6}{_inline_counts(bg_qs)}")
+	hatch_count = summary.get("hatched_thin_conflict_count", 0)
+	hatch_types = summary.get("hatched_thin_conflict_types", {})
+	lines.append(f"{'Hatched/thin conflicts:':<42}{hatch_count:>6}{_inline_counts(hatch_types)}")
+	haworth_det = summary["haworth_base_ring_detected_files"]
+	haworth_exc = summary["haworth_base_ring_excluded_files"]
+	lines.append(f"{'Haworth rings (detected / excluded):':<42}{haworth_det:>6} / {haworth_exc}")
+	# bond/glyph endpoint distance details (only when overlaps exist)
+	if bg_count > 0:
+		endpoint_stats = summary.get("bond_glyph_endpoint_signed_distance_stats", {})
+		if endpoint_stats.get("count", 0) > 0:
+			lines.append(
+				f"  bond/glyph endpoint distances (signed): "
+				f"min={endpoint_stats['min']:.3f}  "
+				f"max={endpoint_stats['max']:.3f}  "
+				f"mean={endpoint_stats['mean']:.3f}"
+			)
+		overlap_cls = summary.get("bond_glyph_overlap_classifications", {})
+		if overlap_cls:
+			lines.append(f"  classifications: {_inline_counts(overlap_cls).strip()}")
+	# sample violations
 	if summary.get("lattice_angle_violation_examples"):
-		lines.append("  sample lattice-angle violations:")
+		lines.append("")
+		lines.append("  Sample lattice-angle violations (up to 6):")
 		for item in summary["lattice_angle_violation_examples"][:6]:
 			lines.append(
-				"    "
-				f"- {item.get('svg')} "
-				f"line={item.get('line_index')} "
-				f"angle={item.get('angle_degrees'):.3f} "
-				f"nearest={item.get('nearest_canonical_angle_degrees'):.1f} "
-				f"error={item.get('nearest_error_degrees'):.3f} "
-				f"quadrant={item.get('quadrant')} region={item.get('ring_region')}"
+				f"    line={item.get('line_index')}"
+				f"  angle={item.get('angle_degrees'):.3f}"
+				f"  nearest={item.get('nearest_canonical_angle_degrees'):.1f}"
+				f"  error={item.get('nearest_error_degrees'):.3f}"
+				f"  q={item.get('quadrant')}"
 			)
-	lines.append(f"- glyph/glyph overlap count: {summary['glyph_glyph_overlap_count']}")
-	lines.append(f"- bond/bond overlap count: {summary['bond_bond_overlap_count']}")
-	lines.append(
-		f"  bond/bond overlap quadrants: {summary.get('bond_bond_overlap_quadrants', {})}"
-	)
-	lines.append(
-		f"  bond/bond overlap ring regions: {summary.get('bond_bond_overlap_ring_regions', {})}"
-	)
-	lines.append(
-		"- hatched/thin line conflict count: "
-		f"{summary.get('hatched_thin_conflict_count', 0)}"
-	)
-	lines.append(
-		"  hatched/thin conflict types: "
-		f"{summary.get('hatched_thin_conflict_types', {})}"
-	)
-	lines.append(
-		"  hatched/thin conflict quadrants: "
-		f"{summary.get('hatched_thin_conflict_quadrants', {})}"
-	)
-	lines.append(
-		"  hatched/thin conflict ring regions: "
-		f"{summary.get('hatched_thin_conflict_ring_regions', {})}"
-	)
-	lines.append(f"- bond/glyph overlap count: {summary['bond_glyph_overlap_count']}")
-	single_gap_tolerance = None
-	gap_tolerances = summary.get("bond_glyph_gap_tolerances", {})
-	if len(gap_tolerances) == 1:
-		single_gap_tolerance = next(iter(gap_tolerances.keys()))
-	if single_gap_tolerance is not None:
-		lines.append(f"  bond/glyph gap tolerance: {single_gap_tolerance}")
-	else:
-		lines.append(
-			"  bond/glyph gap tolerance values: "
-			f"{gap_tolerances}"
-		)
-	lines.append(
-		"  bond/glyph endpoint overlap count (distance <= 0): "
-		f"{summary.get('bond_glyph_endpoint_overlap_count', 0)}"
-	)
-	lines.append(
-		"  bond/glyph endpoint too-close count "
-		"(0 < distance <= tolerance): "
-		f"{summary.get('bond_glyph_endpoint_too_close_count', 0)}"
-	)
-	lines.append(
-		"  bond/glyph overlap classifications: "
-		f"{summary.get('bond_glyph_overlap_classifications', {})}"
-	)
-	endpoint_stats = summary.get("bond_glyph_endpoint_signed_distance_stats", {})
-	if endpoint_stats.get("count", 0) > 0:
-		lines.append(
-			"  bond/glyph endpoint distance stats "
-			"(signed, negative=overlap): "
-			f"count={endpoint_stats.get('count', 0)} "
-			f"min={endpoint_stats.get('min', 0.0):.3f} "
-			f"max={endpoint_stats.get('max', 0.0):.3f} "
-			f"mean={endpoint_stats.get('mean', 0.0):.3f}"
-		)
-	lines.append(
-		f"  bond/glyph overlap label text counts: {summary.get('bond_glyph_overlap_label_texts', {})}"
-	)
-	lines.append(
-		f"  bond/glyph overlap quadrants: {summary.get('bond_glyph_overlap_quadrants', {})}"
-	)
-	lines.append(
-		f"  bond/glyph overlap ring regions: {summary.get('bond_glyph_overlap_ring_regions', {})}"
-	)
-	lines.append(
-		f"- Haworth base ring detected files: {summary['haworth_base_ring_detected_files']}"
-	)
-	lines.append(
-		f"- Haworth base ring excluded files: {summary['haworth_base_ring_excluded_files']}"
-	)
-	lines.append(
-		f"- Haworth base ring excluded line count: {summary['haworth_base_ring_excluded_line_count']}"
-	)
 	if summary.get("bond_bond_overlap_examples"):
-		lines.append("  sample bond/bond overlaps:")
+		lines.append("")
+		lines.append("  Sample bond/bond overlaps (up to 6):")
 		for item in summary["bond_bond_overlap_examples"][:6]:
 			lines.append(
-				"    "
-				f"- {item.get('svg')} "
-				f"lines=({item.get('line_index_a')},{item.get('line_index_b')}) "
-				f"quadrant={item.get('quadrant')} region={item.get('ring_region')} "
-				f"point={item.get('overlap_point')}"
+				f"    lines=({item.get('line_index_a')},{item.get('line_index_b')})"
+				f"  q={item.get('quadrant')}  region={item.get('ring_region')}"
 			)
 	if summary.get("bond_glyph_overlap_examples"):
-		lines.append("  sample bond/glyph overlaps:")
+		lines.append("")
+		lines.append("  Sample bond/glyph overlaps (up to 6):")
 		for item in summary["bond_glyph_overlap_examples"][:6]:
+			dist_text = _display_float(item.get("bond_end_to_glyph_distance"))
 			lines.append(
-				"    "
-				f"- {item.get('svg')} "
-				f"line={item.get('line_index')} label={item.get('label_text')} "
-				f"class={item.get('classification')} "
-				f"quadrant={item.get('quadrant')} region={item.get('ring_region')} "
-				f"bond_end_distance={_display_float(item.get('bond_end_to_glyph_distance'))} "
-				f"tolerance={_display_float(item.get('bond_end_distance_tolerance'))} "
-				f"overlap={item.get('bond_end_overlap')} "
-				f"too_close={item.get('bond_end_too_close')} "
-				f"point={item.get('overlap_point')}"
+				f"    label={item.get('label_text')}"
+				f"  class={item.get('classification')}"
+				f"  dist={dist_text}"
+				f"  q={item.get('quadrant')}"
 			)
 	if summary.get("hatched_thin_conflict_examples"):
-		lines.append("  sample hatched/thin conflicts:")
+		lines.append("")
+		lines.append("  Sample hatched/thin conflicts (up to 6):")
 		for item in summary["hatched_thin_conflict_examples"][:6]:
 			lines.append(
-				"    "
-				f"- {item.get('svg')} "
-				f"carrier={item.get('carrier_line_index')} "
-				f"other={item.get('other_line_index')} "
-				f"type={item.get('type')} "
-				f"strokes={item.get('carrier_hatch_stroke_count')} "
-				f"quadrant={item.get('quadrant')} region={item.get('ring_region')} "
-				f"point={item.get('overlap_point')}"
+				f"    carrier={item.get('carrier_line_index')}"
+				f"  other={item.get('other_line_index')}"
+				f"  type={item.get('type')}"
+				f"  q={item.get('quadrant')}"
 			)
 	lines.append("")
-	lines.append("Bond length stats (line segments from analyzed SVGs):")
-	lines.append(
-		"- decorative hashed hatch strokes excluded from checked bond lengths: "
-		f"{summary.get('decorative_hatched_stroke_line_count', 0)}"
-	)
+	# -- bond length statistics --
+	lines.append(banner)
+	lines.append(" BOND LENGTH STATISTICS")
+	lines.append(banner)
+	hatch_excluded = summary.get("decorative_hatched_stroke_line_count", 0)
+	if hatch_excluded > 0:
+		lines.append(f"Hatch strokes excluded from checked bonds: {hatch_excluded}")
+	# use the compact helper for each category
 	checked_identical_to_all = (
 		summary.get("total_bonds_detected") == summary.get("total_bonds_checked")
-		and summary.get("bond_lengths_rounded_sorted_all", [])
-		== summary.get("bond_lengths_rounded_sorted_checked", [])
 	)
-	if checked_identical_to_all:
-		lines.append("- checked lines are identical to all lines")
-	else:
-		lines.append(
-			f"- all lines: count={summary['bond_length_stats_all']['count']} "
-			f"min={summary['bond_length_stats_all']['min']:.3f} "
-			f"max={summary['bond_length_stats_all']['max']:.3f} "
-			f"mean={summary['bond_length_stats_all']['mean']:.3f} "
-			f"stddev={summary['bond_length_stats_all']['stddev']:.3f} "
-			f"cv={summary['bond_length_stats_all']['coefficient_of_variation']:.3f}"
-		)
-	lines.append(
-		f"- checked lines: count={summary['bond_length_stats_checked']['count']} "
-		f"min={summary['bond_length_stats_checked']['min']:.3f} "
-		f"max={summary['bond_length_stats_checked']['max']:.3f} "
-		f"mean={summary['bond_length_stats_checked']['mean']:.3f} "
-		f"stddev={summary['bond_length_stats_checked']['stddev']:.3f} "
-		f"cv={summary['bond_length_stats_checked']['coefficient_of_variation']:.3f}"
-	)
-	lines.append(
-		f"- connector lines: count={summary['bond_length_stats_connector']['count']} "
-		f"min={summary['bond_length_stats_connector']['min']:.3f} "
-		f"max={summary['bond_length_stats_connector']['max']:.3f} "
-		f"mean={summary['bond_length_stats_connector']['mean']:.3f} "
-		f"stddev={summary['bond_length_stats_connector']['stddev']:.3f} "
-		f"cv={summary['bond_length_stats_connector']['coefficient_of_variation']:.3f}"
-	)
-	lines.append(
-		f"- non-connector lines: count={summary['bond_length_stats_non_connector']['count']} "
-		f"min={summary['bond_length_stats_non_connector']['min']:.3f} "
-		f"max={summary['bond_length_stats_non_connector']['max']:.3f} "
-		f"mean={summary['bond_length_stats_non_connector']['mean']:.3f} "
-		f"stddev={summary['bond_length_stats_non_connector']['stddev']:.3f} "
-		f"cv={summary['bond_length_stats_non_connector']['coefficient_of_variation']:.3f}"
-	)
-	lines.append(
-		"- excluded Haworth base ring lines: "
-		f"count={summary['bond_length_stats_excluded_haworth_base_ring']['count']} "
-		f"min={summary['bond_length_stats_excluded_haworth_base_ring']['min']:.3f} "
-		f"max={summary['bond_length_stats_excluded_haworth_base_ring']['max']:.3f} "
-		f"mean={summary['bond_length_stats_excluded_haworth_base_ring']['mean']:.3f} "
-		f"stddev={summary['bond_length_stats_excluded_haworth_base_ring']['stddev']:.3f} "
-		"cv="
-		f"{summary['bond_length_stats_excluded_haworth_base_ring']['coefficient_of_variation']:.3f}"
-	)
+	if not checked_identical_to_all:
+		lines.append(_format_stats_line("All lines", summary["bond_length_stats_all"]))
+	lines.append(_format_stats_line("Checked", summary["bond_length_stats_checked"]))
+	lines.append(_format_stats_line("Connector", summary["bond_length_stats_connector"]))
+	lines.append(_format_stats_line("Non-connector", summary["bond_length_stats_non_connector"]))
+	haworth_stats = summary["bond_length_stats_excluded_haworth_base_ring"]
+	if haworth_stats.get("count", 0) > 0:
+		lines.append(_format_stats_line("Excluded Haworth", haworth_stats))
+	# bond lengths by location -- count-only summary
+	by_quadrant = summary.get("bond_lengths_by_quadrant_checked", {})
+	if by_quadrant:
+		parts = "  ".join(f"{k}: n={len(v)}" for k, v in sorted(by_quadrant.items()))
+		lines.append(f"By quadrant: {parts}")
+	by_region = summary.get("bond_lengths_by_ring_region_checked", {})
+	if by_region:
+		parts = "  ".join(f"{k}: n={len(v)}" for k, v in sorted(by_region.items()))
+		lines.append(f"By ring region: {parts}")
 	lines.append("")
-	lines.append("Bond lengths by location (checked bonds, rounded):")
-	lines.append(
-		"- by quadrant: "
-		f"{summary.get('bond_lengths_by_quadrant_checked', {})}"
-	)
-	lines.append(
-		"- by Haworth ring region: "
-		f"{summary.get('bond_lengths_by_ring_region_checked', {})}"
-	)
-	lines.append("")
-	lines.append("Top misses:")
+	# -- top misses --
+	lines.append(banner)
+	lines.append(f" TOP MISSES (up to {len(top_misses)})")
+	lines.append(banner)
 	if not top_misses:
-		lines.append("- none")
+		lines.append("(none)")
 	else:
 		for item in top_misses:
 			distance = item["distance"]
-			if math.isinf(distance):
-				distance_text = "inf"
-			else:
-				distance_text = f"{distance:.3f}"
+			dist_text = "inf" if math.isinf(distance) else f"{distance:.3f}"
+			svg_name = pathlib.Path(str(item["svg"])).name
 			lines.append(
-				f"- {item['svg']} | text={item['text']} | reason={item['reason']} | distance={distance_text}"
+				f"  {svg_name:<36}  {item['text']:<6}"
+				f"  {item['reason']:<32}  {dist_text}"
 			)
+	lines.append("")
 	return "\n".join(lines) + "\n"
 
 
@@ -4122,16 +4200,22 @@ def main() -> None:
 	]
 	summary = _summary_stats(file_reports)
 	top_misses = _top_misses(file_reports, limit=20)
+	# -- build JSON report with compact summary and debug section --
 	json_report = {
+		"schema_version": 2,
 		"generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
-		"repo_root": str(repo_root),
 		"input_glob": args.input_glob,
+		"alignment_center_mode": str(args.alignment_center_mode),
 		"exclude_haworth_base_ring": bool(args.exclude_haworth_base_ring),
 		"bond_glyph_gap_tolerance": float(args.bond_glyph_gap_tolerance),
-		"alignment_center_mode": str(args.alignment_center_mode),
-		"summary": summary,
+		"summary": _json_summary_compact(summary),
+		"violation_summary": _violation_summary(summary, top_misses),
 		"top_misses": top_misses,
-		"files": file_reports,
+		"debug": {
+			"repo_root": str(repo_root),
+			"full_summary": summary,
+			"files": file_reports,
+		},
 	}
 	text_report = _text_report(
 		summary=summary,
@@ -4150,125 +4234,62 @@ def main() -> None:
 	text_report_path.parent.mkdir(parents=True, exist_ok=True)
 	json_report_path.write_text(json.dumps(json_report, indent=2), encoding="utf-8")
 	text_report_path.write_text(text_report, encoding="utf-8")
+	# -- concise console output --
 	print(f"Wrote JSON report: {json_report_path}")
 	print(f"Wrote text report: {text_report_path}")
 	if args.write_diagnostic_svg:
-		print(f"Wrote diagnostic SVG overlays to: {diagnostic_svg_dir}")
-		diagnostic_files = [
-			report.get("diagnostic_svg")
-			for report in file_reports
-			if report.get("diagnostic_svg")
+		print(f"Wrote diagnostic SVGs to: {diagnostic_svg_dir}")
+	print()
+	alignment_pct = summary["alignment_rate"] * 100.0
+	print(f"{'Files analyzed:':<42}{summary['files_analyzed']:>6}")
+	print(f"{'Labels analyzed:':<42}{summary['labels_analyzed']:>6}")
+	print(
+		f"{'  Aligned:':<42}{summary['aligned_labels']:>6}"
+		f"  ({alignment_pct:.1f}%)"
+	)
+	print(
+		f"{'Bonds (detected / checked):':<42}"
+		f"{summary['total_bonds_detected']:>6} / {summary['total_bonds_checked']}"
+	)
+	print()
+	# violation summary -- only print nonzero categories
+	violation_total = (
+		summary.get("alignment_outside_tolerance_count", 0)
+		+ summary.get("lattice_angle_violation_count", 0)
+		+ summary.get("glyph_glyph_overlap_count", 0)
+		+ summary.get("bond_bond_overlap_count", 0)
+		+ summary.get("bond_glyph_overlap_count", 0)
+		+ summary.get("hatched_thin_conflict_count", 0)
+	)
+	print(f"{'Violations:':<42}{violation_total:>6}")
+	if violation_total > 0:
+		violation_items = [
+			("  Alignment outside tolerance", "alignment_outside_tolerance_count"),
+			("  Lattice angle violations", "lattice_angle_violation_count"),
+			("  Glyph/glyph overlaps", "glyph_glyph_overlap_count"),
+			("  Bond/bond overlaps", "bond_bond_overlap_count"),
+			("  Bond/glyph overlaps", "bond_glyph_overlap_count"),
+			("  Hatched/thin conflicts", "hatched_thin_conflict_count"),
 		]
-		if diagnostic_files:
-			print(f"- diagnostic SVG files: {diagnostic_files}")
-	print("Key stats:")
-	print(f"- alignment center mode: {args.alignment_center_mode}")
-	print(f"- files analyzed: {summary['files_analyzed']}")
-	print(f"- text labels seen: {summary['text_labels_total']}")
-	print(f"- text labels unique: {summary['text_labels_unique_total']}")
-	print(f"- text labels list: {summary.get('text_labels_unique', [])}")
-	print(f"- total bonds detected: {summary['total_bonds_detected']}")
-	print(f"- total bonds checked: {summary['total_bonds_checked']}")
-	print(
-		"- decorative hashed hatch strokes excluded from checked bonds: "
-		f"{summary.get('decorative_hatched_stroke_line_count', 0)}"
-	)
-	print(
-		f"- rounded line lengths sorted (all primitives, {LENGTH_ROUND_DECIMALS} dp): "
-		f"{summary.get('bond_lengths_rounded_sorted_all', [])}"
-	)
-	print(
-		"- rounded line length counts (all primitives): "
-		f"{summary.get('bond_length_rounded_counts_all', [])}"
-	)
-	print(
-		f"- rounded bond lengths sorted (checked bonds, {LENGTH_ROUND_DECIMALS} dp): "
-		f"{summary.get('bond_lengths_rounded_sorted_checked', [])}"
-	)
-	print(
-		"- rounded bond length counts (checked bonds): "
-		f"{summary.get('bond_length_rounded_counts_checked', [])}"
-	)
-	print(f"- labels analyzed: {summary['labels_analyzed']}")
-	print(f"- alignment rate: {summary['alignment_rate'] * 100.0:.2f}%")
-	print(f"- alignment outside tolerance: {summary['alignment_outside_tolerance_count']}")
-	print("- glyph-to-bond alignment data points:")
-	for item in summary.get("glyph_alignment_data_points", []):
-		print(f"  - {item}")
-	print("- glyph-to-bond-end distance data points:")
-	for item in summary.get("glyph_to_bond_end_data_points", []):
-		print(f"  - {item}")
-	print(f"- glyph text -> bond-end whitespace gaps: {summary.get('glyph_text_to_bond_end_distance', {})}")
-	print(f"- lattice angle violations: {summary['lattice_angle_violation_count']}")
-	print(f"  quadrants: {summary.get('lattice_angle_violation_quadrants', {})}")
-	print(f"  ring regions: {summary.get('lattice_angle_violation_ring_regions', {})}")
-	if summary.get("lattice_angle_violation_examples"):
-		samples = []
-		for item in summary["lattice_angle_violation_examples"][:3]:
-			samples.append(
-				f"line={item.get('line_index')} angle={item.get('angle_degrees'):.3f} "
-				f"nearest={item.get('nearest_canonical_angle_degrees'):.1f} "
-				f"q={item.get('quadrant')}"
+		for label, key in violation_items:
+			count = summary.get(key, 0)
+			if count > 0:
+				print(f"{label + ':':<42}{count:>6}")
+	print()
+	# top misses -- show at most 3
+	if top_misses:
+		print("Top misses:")
+		for item in top_misses[:3]:
+			dist = item["distance"]
+			dist_text = "inf" if math.isinf(dist) else f"{dist:.3f}"
+			svg_name = pathlib.Path(str(item["svg"])).stem
+			print(
+				f"  {svg_name:<28}  label={item['text']:<6}"
+				f"  reason={item['reason']:<30}  dist={dist_text}"
 			)
-		print(f"  sample measured angles: {samples}")
-	print(f"- glyph/glyph overlaps: {summary['glyph_glyph_overlap_count']}")
-	print(f"- bond/bond overlaps: {summary['bond_bond_overlap_count']}")
-	print(f"  quadrants: {summary.get('bond_bond_overlap_quadrants', {})}")
-	print(f"  ring regions: {summary.get('bond_bond_overlap_ring_regions', {})}")
-	print(f"- hatched/thin conflicts: {summary.get('hatched_thin_conflict_count', 0)}")
-	print(f"  types: {summary.get('hatched_thin_conflict_types', {})}")
-	print(f"  quadrants: {summary.get('hatched_thin_conflict_quadrants', {})}")
-	print(f"  ring regions: {summary.get('hatched_thin_conflict_ring_regions', {})}")
-	if summary.get("hatched_thin_conflict_examples"):
-		examples = []
-		for item in summary["hatched_thin_conflict_examples"][:3]:
-			examples.append(
-				f"carrier={item.get('carrier_line_index')} other={item.get('other_line_index')} "
-				f"type={item.get('type')} q={item.get('quadrant')}"
-			)
-		print(f"  samples: {examples}")
-	print(f"- bond/glyph overlaps: {summary['bond_glyph_overlap_count']}")
-	gap_tolerances = summary.get("bond_glyph_gap_tolerances", {})
-	if len(gap_tolerances) == 1:
-		print(f"  gap tolerance: {next(iter(gap_tolerances.keys()))}")
-	else:
-		print(f"  gap tolerance values: {gap_tolerances}")
-	print(
-		"  endpoint overlap count (distance <= 0): "
-		f"{summary.get('bond_glyph_endpoint_overlap_count', 0)}"
-	)
-	print(
-		"  endpoint too-close count (0 < distance <= tolerance): "
-		f"{summary.get('bond_glyph_endpoint_too_close_count', 0)}"
-	)
-	endpoint_stats = summary.get("bond_glyph_endpoint_signed_distance_stats", {})
-	if endpoint_stats.get("count", 0) > 0:
-		print(
-			"  endpoint distance stats (signed, negative=overlap): "
-			f"min={endpoint_stats.get('min', 0.0):.3f} "
-			f"max={endpoint_stats.get('max', 0.0):.3f} "
-			f"mean={endpoint_stats.get('mean', 0.0):.3f}"
-		)
-	print(
-		"  classifications: "
-		f"{summary.get('bond_glyph_overlap_classifications', {})}"
-	)
-	print(f"  glyph text counts: {summary.get('bond_glyph_overlap_label_texts', {})}")
-	print(f"  quadrants: {summary.get('bond_glyph_overlap_quadrants', {})}")
-	print(f"  ring regions: {summary.get('bond_glyph_overlap_ring_regions', {})}")
-	if summary.get("bond_glyph_overlap_examples"):
-		examples = []
-		for item in summary["bond_glyph_overlap_examples"][:3]:
-			examples.append(
-				f"label={item.get('label_text')} "
-				f"distance={_display_float(item.get('bond_end_to_glyph_distance'))} "
-				f"tol={_display_float(item.get('bond_end_distance_tolerance'))} "
-				f"overlap={item.get('bond_end_overlap')} "
-				f"too_close={item.get('bond_end_too_close')}"
-			)
-		print(f"  sample endpoint diagnostics: {examples}")
-	print(f"- Haworth base ring detected files: {summary['haworth_base_ring_detected_files']}")
-	print(f"- Haworth base ring excluded files: {summary['haworth_base_ring_excluded_files']}")
+		remaining = len(top_misses) - 3
+		if remaining > 0:
+			print(f"  ... and {remaining} more (see text report)")
 	if args.fail_on_miss and (summary["missed_labels"] > 0 or summary["labels_without_connector"] > 0):
 		raise SystemExit(2)
 
