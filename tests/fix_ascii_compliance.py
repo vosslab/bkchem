@@ -148,6 +148,19 @@ def apply_simple_fixes(text: str) -> tuple[str, bool]:
 	fixed_text = fixed_text.replace("\u00B1", "+/-")
 	fixed_text = fixed_text.replace("\u2248", "~")
 
+	# Replace box-drawing characters with ASCII equivalents.
+	fixed_text = fixed_text.replace("\u2500", "-")   # horizontal line
+	fixed_text = fixed_text.replace("\u2502", "|")   # vertical line
+	fixed_text = fixed_text.replace("\u250C", "+")   # top-left corner
+	fixed_text = fixed_text.replace("\u2510", "+")   # top-right corner
+	fixed_text = fixed_text.replace("\u2514", "+")   # bottom-left corner
+	fixed_text = fixed_text.replace("\u2518", "+")   # bottom-right corner
+	fixed_text = fixed_text.replace("\u251C", "+")   # left tee
+	fixed_text = fixed_text.replace("\u2524", "+")   # right tee
+	fixed_text = fixed_text.replace("\u252C", "+")   # top tee
+	fixed_text = fixed_text.replace("\u2534", "+")   # bottom tee
+	fixed_text = fixed_text.replace("\u253C", "+")   # cross
+
 	# Replace or drop additional symbol-like characters.
 	fixed_text = fixed_text.replace("\u037C", "(c)")
 	fixed_text = fixed_text.replace("\u200E", "")
