@@ -1,6 +1,12 @@
 # Changelog
 
 ## 2026-02-13
+- Include hashed bond carrier lines as connector candidates in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py). Carrier lines
+  for hatched (behind-the-plane) bonds are intentionally drawn thin with
+  perpendicular hatch strokes; the width filter was excluding them, causing
+  labels like CH2OH to match distant unrelated bonds instead of the actual
+  hatched bond.
 - Add unit tests for `_retreat_to_target_gap`, `_correct_endpoint_for_alignment`,
   and `_perpendicular_distance_to_line` in new
   [tests/test_render_geometry.py](tests/test_render_geometry.py).
