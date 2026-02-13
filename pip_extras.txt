@@ -1,3 +1,6 @@
 # Optional extra dependencies
 openbabel  # optional chemistry conversion and forcefield backend
 pybel  # optional Python bridge API for Open Babel integration
+numpy  # glyph optical center fitting (measure_glyph_bond_alignment)
+opencv-python  # glyph isolation rendering and contour extraction
+scipy  # convex hull computation for glyph fitting

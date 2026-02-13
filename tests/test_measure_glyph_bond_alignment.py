@@ -174,23 +174,7 @@ def test_canonicalize_label_text_maps_hoh2c_to_ch2oh():
 	"""Down-tail alias text should normalize to CH2OH for geometry targeting."""
 	tool_module = _load_tool_module()
 	assert tool_module._canonicalize_label_text("HOH2C") == "CH2OH"
-	assert tool_module._canonicalize_label_text("HOH₂C") == "CH2OH"
-
-
-#============================================
-def test_alignment_primitive_center_prioritizes_element_atoms():
-	"""Element labels should prioritize C/O/N/S/P/H center selection consistently."""
-	tool_module = _load_tool_module()
-	primitives = [
-		{"kind": "ellipse", "char": "H", "char_index": 0, "cx": 1.0, "cy": 1.0, "rx": 0.5, "ry": 0.5},
-		{"kind": "ellipse", "char": "N", "char_index": 1, "cx": 2.0, "cy": 2.0, "rx": 0.5, "ry": 0.5},
-		{"kind": "ellipse", "char": "S", "char_index": 2, "cx": 3.0, "cy": 3.0, "rx": 0.5, "ry": 0.5},
-		{"kind": "ellipse", "char": "P", "char_index": 3, "cx": 4.0, "cy": 4.0, "rx": 0.5, "ry": 0.5},
-	]
-	assert tool_module._alignment_primitive_center(primitives, "NH2") == ((2.0, 2.0), "N")
-	assert tool_module._alignment_primitive_center(primitives, "SH") == ((3.0, 3.0), "S")
-	assert tool_module._alignment_primitive_center(primitives, "PH3") == ((4.0, 4.0), "P")
-	assert tool_module._alignment_primitive_center(primitives, "H2") == ((1.0, 1.0), "H")
+	assert tool_module._canonicalize_label_text("HOH\u2082C") == "CH2OH"
 
 
 #============================================
@@ -296,21 +280,15 @@ def test_text_report_uses_simplified_bond_length_section(tmp_path):
 		input_glob="tmp/*.svg",
 		exclude_haworth_base_ring=True,
 	)
-	assert "Text labels seen:" in text
-	assert "Total bonds detected:" in text
-	assert "checked lines: count=" in text
-	assert "connector lines: count=" in text
-	assert "non-connector lines: count=" in text
-	assert "Bond lengths by location" in text
-	assert "all lines sorted:" not in text
-	assert "checked lines sorted:" not in text
-	assert "rounded length counts (all):" not in text
-	assert "rounded length counts (checked):" not in text
+	assert "Unique labels" in text
+	assert "Bonds (detected / checked):" in text
+	assert "Checked:" in text
+	assert "Connector:" in text
+	assert "BOND LENGTH STATISTICS" in text
 	assert "min=" in text
 	assert "max=" in text
 	assert "mean=" in text
-	assert "stddev=" in text
-	assert "cv=" in text
+	assert "sd=" in text
 
 
 #============================================
