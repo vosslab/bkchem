@@ -1,6 +1,19 @@
 # Changelog
 
 ## 2026-02-13
+- Add `_avoid_cross_label_overlaps()` to
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  (Phase 4 of OASA-Wide Glyph-Bond Awareness plan). Retreats bond endpoints
+  away from non-own-vertex label targets using capsule intersection tests and
+  `retreat_endpoint_until_legal()`. Integrated into `build_bond_ops()` for
+  single, double (asymmetric and symmetric), and triple bond paths. Includes
+  minimum bond length guard (`max(half_width * 4.0, 1.0)`) to prevent bonds
+  from collapsing when surrounded by labels. Note: Haworth renderer uses its
+  own pipeline and is not yet affected by this change.
+- Add 6 unit tests for `_avoid_cross_label_overlaps` in
+  [tests/test_render_geometry.py](tests/test_render_geometry.py): cross-target
+  exclusion of own vertices, near-end retreat, near-start retreat,
+  no-intersection passthrough, and minimum-length guard.
 - Re-baseline plan metrics in
   [OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md):
   record post-connector-fix measurements (362/362 alignment, 0 misses), update

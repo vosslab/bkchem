@@ -27,7 +27,7 @@ from measurelib.reporting import (
 def _make_minimal_file_report():
 	"""Build a minimal valid file report dict for testing."""
 	return {
-		"svg": "/tmp/test.svg",
+		"svg": "test.svg",
 		"diagnostic_svg": None,
 		"text_labels_total": 1,
 		"text_label_values": ["OH"],

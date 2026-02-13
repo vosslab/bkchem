@@ -6,7 +6,6 @@ import pathlib
 import defusedxml.ElementTree as ET
 
 from measurelib.constants import (
-	ALIGNMENT_INFINITE_LINE_FONT_TOLERANCE_FACTOR,
 	BOND_GLYPH_GAP_TOLERANCE,
 	CANONICAL_LATTICE_ANGLES,
 	LATTICE_ANGLE_TOLERANCE_DEGREES,
@@ -205,9 +204,6 @@ def analyze_svg_file(
 		best_endpoint = independent_endpoint
 		best_distance = independent_distance
 		best_line_index = independent_line_index
-		best_line_width = 1.0
-		if best_line_index is not None and 0 <= best_line_index < len(lines):
-			best_line_width = float(lines[best_line_index].get("width", 1.0))
 		if best_endpoint is None or best_distance is None or best_distance > search_limit:
 			no_connector_count += 1
 			hull_boundary_points = None
@@ -271,11 +267,7 @@ def analyze_svg_file(
 			continue
 		if best_line_index is not None:
 			connector_line_indexes.add(best_line_index)
-		alignment_tolerance = max(
-			MIN_ALIGNMENT_DISTANCE_TOLERANCE,
-			best_line_width * 0.55,
-			float(label["font_size"]) * ALIGNMENT_INFINITE_LINE_FONT_TOLERANCE_FACTOR,
-		)
+		alignment_tolerance = MIN_ALIGNMENT_DISTANCE_TOLERANCE
 		alignment_error = None
 		if best_line_index is not None and 0 <= best_line_index < len(lines) and alignment_center is not None:
 			line = lines[best_line_index]

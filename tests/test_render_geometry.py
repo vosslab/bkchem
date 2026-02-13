@@ -1,4 +1,4 @@
-"""Unit tests for render_geometry gap, alignment, and perpendicular helpers."""
+"""Unit tests for render_geometry gap, alignment, perpendicular, and cross-label helpers."""
 
 # Standard Library
 import math
@@ -242,3 +242,116 @@ def test_correct_alignment_coincident_start_center():
 		(10.0, 0.0), (10.0, 0.0), (10.0, 0.0), box, 0.5,
 	)
 	assert result == pytest.approx((10.0, 0.0), abs=1e-10)
+
+
+#============================================
+# _avoid_cross_label_overlaps tests
+#============================================
+
+class _FakeVertex:
+	"""Minimal vertex stand-in for dict-key identity in label_targets."""
+	def __init__(self, name):
+		self.name = name
+	def __repr__(self):
+		return f"_FakeVertex({self.name!r})"
+
+
+#============================================
+def test_cross_label_no_cross_targets():
+	# only own-vertex targets present -- endpoints unchanged
+	v1 = _FakeVertex("A")
+	v2 = _FakeVertex("B")
+	box_a = render_geometry.make_box_target((0.0, -2.0, 2.0, 2.0))
+	label_targets = {v1: box_a}
+	result = render_geometry._avoid_cross_label_overlaps(
+		(0.0, 0.0), (20.0, 0.0), half_width=0.5,
+		own_vertices={v1, v2}, label_targets=label_targets,
+	)
+	assert result[0] == pytest.approx((0.0, 0.0), abs=1e-10)
+	assert result[1] == pytest.approx((20.0, 0.0), abs=1e-10)
+
+
+#============================================
+def test_cross_label_own_target_excluded():
+	# own vertex's box sits on the bond path but must be ignored
+	v1 = _FakeVertex("A")
+	v2 = _FakeVertex("B")
+	box_on_path = render_geometry.make_box_target((8.0, -2.0, 12.0, 2.0))
+	label_targets = {v1: box_on_path}
+	result = render_geometry._avoid_cross_label_overlaps(
+		(0.0, 0.0), (20.0, 0.0), half_width=0.5,
+		own_vertices={v1, v2}, label_targets=label_targets,
+	)
+	assert result[0] == pytest.approx((0.0, 0.0), abs=1e-10)
+	assert result[1] == pytest.approx((20.0, 0.0), abs=1e-10)
+
+
+#============================================
+def test_cross_label_near_end_retreats_end():
+	# cross-label box near the end of a horizontal bond
+	v1 = _FakeVertex("A")
+	v2 = _FakeVertex("B")
+	v3 = _FakeVertex("C")
+	box_c = render_geometry.make_box_target((16.0, -3.0, 22.0, 3.0))
+	label_targets = {v1: render_geometry.make_box_target((-2.0, -1.0, 0.0, 1.0)),
+		v3: box_c}
+	result = render_geometry._avoid_cross_label_overlaps(
+		(0.0, 0.0), (20.0, 0.0), half_width=0.5,
+		own_vertices={v1, v2}, label_targets=label_targets,
+	)
+	# end should retreat; start should stay
+	assert result[0] == pytest.approx((0.0, 0.0), abs=1e-10)
+	assert result[1][0] < 17.0  # retreated before the box
+
+
+#============================================
+def test_cross_label_near_start_retreats_start():
+	# cross-label box near the start of a horizontal bond
+	v1 = _FakeVertex("A")
+	v2 = _FakeVertex("B")
+	v3 = _FakeVertex("C")
+	box_c = render_geometry.make_box_target((-2.0, -3.0, 4.0, 3.0))
+	label_targets = {v3: box_c}
+	result = render_geometry._avoid_cross_label_overlaps(
+		(0.0, 0.0), (20.0, 0.0), half_width=0.5,
+		own_vertices={v1, v2}, label_targets=label_targets,
+	)
+	# start should retreat toward end; end stays
+	assert result[0][0] > 3.0  # retreated past the box
+	assert result[1] == pytest.approx((20.0, 0.0), abs=1e-10)
+
+
+#============================================
+def test_cross_label_no_intersection():
+	# cross-label box far from bond path -- no retreat
+	v1 = _FakeVertex("A")
+	v2 = _FakeVertex("B")
+	v3 = _FakeVertex("C")
+	box_c = render_geometry.make_box_target((50.0, 50.0, 60.0, 60.0))
+	label_targets = {v3: box_c}
+	result = render_geometry._avoid_cross_label_overlaps(
+		(0.0, 0.0), (20.0, 0.0), half_width=0.5,
+		own_vertices={v1, v2}, label_targets=label_targets,
+	)
+	assert result[0] == pytest.approx((0.0, 0.0), abs=1e-10)
+	assert result[1] == pytest.approx((20.0, 0.0), abs=1e-10)
+
+
+#============================================
+def test_cross_label_min_length_guard():
+	# short bond with cross-label on path -- should not collapse below min length
+	v1 = _FakeVertex("A")
+	v2 = _FakeVertex("B")
+	v3 = _FakeVertex("C")
+	half_width = 0.5
+	# bond only 3 units long, box covers the whole path
+	box_c = render_geometry.make_box_target((-1.0, -3.0, 4.0, 3.0))
+	label_targets = {v3: box_c}
+	result = render_geometry._avoid_cross_label_overlaps(
+		(0.0, 0.0), (3.0, 0.0), half_width=half_width,
+		own_vertices={v1, v2}, label_targets=label_targets,
+	)
+	# min_length = max(half_width * 4.0, 1.0) = 2.0
+	# bond is 3.0 which is >= min_length, but after retreat it should not go below 2.0
+	result_length = math.hypot(result[1][0] - result[0][0], result[1][1] - result[0][1])
+	assert result_length >= 2.0 - 1e-6

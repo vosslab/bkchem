@@ -22,10 +22,16 @@ def length_stats(lengths: list[float]) -> dict:
 			"min": 0.0,
 			"max": 0.0,
 			"mean": 0.0,
+			"median": 0.0,
 			"stddev": 0.0,
 			"coefficient_of_variation": 0.0,
 		}
 	count = len(lengths)
+	sorted_lengths = sorted(lengths)
+	if count % 2 == 1:
+		median_value = sorted_lengths[count // 2]
+	else:
+		median_value = (sorted_lengths[count // 2 - 1] + sorted_lengths[count // 2]) / 2.0
 	mean_value = sum(lengths) / float(count)
 	variance = sum((value - mean_value) ** 2 for value in lengths) / float(count)
 	stddev = math.sqrt(variance)
@@ -37,6 +43,7 @@ def length_stats(lengths: list[float]) -> dict:
 		"min": min(lengths),
 		"max": max(lengths),
 		"mean": mean_value,
+		"median": median_value,
 		"stddev": stddev,
 		"coefficient_of_variation": coefficient,
 	}

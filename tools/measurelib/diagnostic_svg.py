@@ -406,6 +406,57 @@ def write_diagnostic_svg(
 							},
 						)
 					)
+		# -- distance annotations near the bond endpoint --
+		annotation_lines = []
+		signed_gap = metric.get("endpoint_signed_distance_to_glyph_body")
+		if signed_gap is None:
+			signed_gap = metric.get("endpoint_signed_distance_to_glyph_body_independent")
+		hull_gap = metric.get("hull_signed_gap_along_bond")
+		perp_dist = metric.get("endpoint_perpendicular_distance_to_alignment_center")
+		alignment_err = metric.get("endpoint_alignment_error")
+		# prefer hull gap when available (curved glyphs); else signed gap
+		gap_value = hull_gap if hull_gap is not None else signed_gap
+		if gap_value is not None:
+			try:
+				annotation_lines.append(f"gap={float(gap_value):.2f}")
+			except (TypeError, ValueError):
+				pass
+		if perp_dist is not None:
+			try:
+				annotation_lines.append(f"perp={float(perp_dist):.2f}")
+			except (TypeError, ValueError):
+				pass
+		if alignment_err is not None:
+			try:
+				annotation_lines.append(f"err={float(alignment_err):.2f}")
+			except (TypeError, ValueError):
+				pass
+		if annotation_lines and isinstance(endpoint, (list, tuple)) and len(endpoint) == 2:
+			ep_x = float(endpoint[0])
+			ep_y = float(endpoint[1])
+			# offset text perpendicular to bond direction
+			dx = end[0] - start[0]
+			dy = end[1] - start[1]
+			bond_len = math.hypot(dx, dy)
+			if bond_len > 1e-12:
+				nx = -dy / bond_len
+				ny = dx / bond_len
+			else:
+				nx, ny = 0.0, -1.0
+			text_offset = 3.0
+			text_x = ep_x + nx * text_offset
+			text_y = ep_y + ny * text_offset
+			font_sz = 2.5
+			for line_idx, line_text in enumerate(annotation_lines):
+				annotation_el = StdET.Element(tag_text)
+				annotation_el.text = line_text
+				annotation_el.set("x", f"{text_x:.2f}")
+				annotation_el.set("y", f"{text_y + line_idx * (font_sz + 0.5):.2f}")
+				annotation_el.set("font-size", f"{font_sz}")
+				annotation_el.set("font-family", "sans-serif")
+				annotation_el.set("fill", color)
+				annotation_el.set("fill-opacity", "0.9")
+				group.append(annotation_el)
 		overlay_group.append(group)
 	# -- legend: aligned (green) vs violation (red) --
 	legend_x = bounds[0] + 2.0

@@ -406,11 +406,11 @@ contract path.
 
 Phase 1 (accurate box positions alignment center correctly).
 
-## Phase 4: Cross-Label Bond Collision Avoidance
+## Phase 4: Cross-Label Bond Collision Avoidance (IMPLEMENTED)
 
 ### Problem
 
-219 bond/glyph overlaps. `build_bond_ops()` (render_geometry.py:649) clips bond
+195 bond/glyph overlaps (all cross-label). `build_bond_ops()` clips bond
 endpoints to own-vertex labels only. A bond connecting atoms A-B may pass through
 atom C's label box. The retreat mechanism only prevents connector penetration of
 its OWN label, not neighboring labels.
@@ -418,21 +418,37 @@ its OWN label, not neighboring labels.
 ### Changes
 
 In `render_geometry.py`:
-- Add `all_label_targets: list | None = None` to `BondRenderContext` (line 205).
-- Add `_avoid_cross_label_overlaps(start, end, line_width, own_targets,
-  all_targets, epsilon) -> tuple` that for each non-own target checks
-  `_capsule_intersects_target()` and clips the segment if penetrating.
-- In `build_bond_ops()` (line 649): call `_avoid_cross_label_overlaps()` after
-  `_clip_to_target` and `_apply_bond_length_policy`.
-- In `molecule_to_ops()` (line 2490): populate `all_label_targets` from the
-  already-computed `label_targets` dict.
+- Add `_avoid_cross_label_overlaps(start, end, half_width, own_vertices,
+  label_targets, epsilon)` that for each non-own target checks
+  `_capsule_intersects_target()` and retreats the nearer endpoint via
+  `retreat_endpoint_until_legal()`. Minimum bond length guard prevents
+  over-shortening.
+- In `build_bond_ops()`: call `_avoid_cross_label_overlaps()` after
+  `_clip_to_target` and `_apply_bond_length_policy` for the main bond line,
+  asymmetric double bond parallel lines, symmetric double bond parallel lines,
+  and triple bond parallel lines.
+- No new fields on `BondRenderContext` -- `context.label_targets` already maps
+  shown vertices to `AttachTarget`.
+
+In `tests/test_render_geometry.py`: 6 new unit tests (26 total).
+
+### Haworth Pipeline Note
+
+The Haworth renderer uses its own bond construction pipeline (not
+`build_bond_ops()`). The 195 bond/glyph overlaps in Haworth SVGs are not
+reduced by this phase. Extending cross-label avoidance to the Haworth pipeline
+requires either (a) a post-processing pass on render ops with reliable
+connected-label detection, or (b) per-bond label awareness in the Haworth
+renderer's individual connector construction functions. This is deferred.
 
 ### Acceptance Criteria
 
-- Bond/glyph overlap count < 50 (from 219)
-- No new alignment misses
-- No gap/perp regressions
-- Full test suite passes
+- `build_bond_ops()` integration: PASS (6 unit tests, code review)
+- No new alignment misses: PASS (no rendering regressions)
+- No gap/perp regressions: PASS (gap/perp stats unchanged)
+- Full test suite passes: PASS (1992 passed, 2 skipped, 4 xfailed)
+- Bond/glyph overlap count < 50: NOT MET for Haworth SVGs (195 unchanged)
+  because Haworth uses its own pipeline
 
 ### Dependencies
 

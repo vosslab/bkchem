@@ -369,16 +369,11 @@ def summary_stats(file_reports: list[dict]) -> dict:
 			for item in measurements
 			if item.get("distance_to_glyph_body") is not None
 		]
-		glyph_body_gap_distances = []
-		for item in measurements:
-			gap_value = item.get("gap_distance_to_glyph_body")
-			if gap_value is None:
-				signed_value = item.get("signed_distance_to_glyph_body")
-				if signed_value is not None:
-					gap_value = max(0.0, float(signed_value))
-			if gap_value is None:
-				continue
-			glyph_body_gap_distances.append(float(gap_value))
+		glyph_body_signed_distances = [
+			float(item["signed_distance_to_glyph_body"])
+			for item in measurements
+			if item.get("signed_distance_to_glyph_body") is not None
+		]
 		perpendicular_distances = [
 			float(item["perpendicular_distance_to_alignment_center"])
 			for item in measurements
@@ -481,7 +476,8 @@ def summary_stats(file_reports: list[dict]) -> dict:
 			"outside_tolerance_count": len(measurements) - aligned_count,
 			"no_connector_count": no_connector_count,
 			"alignment_rate": aligned_count / float(len(measurements)) if measurements else 0.0,
-			"gap_distance_stats": length_stats(glyph_body_gap_distances),
+			"gap_distance_stats": length_stats(glyph_body_signed_distances),
+			"alignment_distance_stats": length_stats(distances),
 			"perpendicular_distance_stats": length_stats(perpendicular_distances),
 			"distance_values": [compact_float(value) for value in distances],
 			"distance_to_glyph_body_values": [compact_float(value) for value in glyph_body_distances],
@@ -496,7 +492,7 @@ def summary_stats(file_reports: list[dict]) -> dict:
 		}
 		glyph_text_to_bond_end_distance[glyph_text] = sorted(
 			display_float(value)
-			for value in glyph_body_gap_distances
+			for value in glyph_body_signed_distances
 		)
 	alignment_label_type_stats = {}
 	for glyph_text, glyph_data in sorted(alignment_by_glyph.items()):
@@ -505,6 +501,7 @@ def summary_stats(file_reports: list[dict]) -> dict:
 			"aligned_count": glyph_data["aligned_count"],
 			"alignment_rate": glyph_data["alignment_rate"],
 			"gap_distance_stats": glyph_data["gap_distance_stats"],
+			"alignment_distance_stats": glyph_data["alignment_distance_stats"],
 			"perpendicular_distance_stats": glyph_data["perpendicular_distance_stats"],
 		}
 	unique_text_labels = sorted(text_label_counts.keys())
@@ -773,9 +770,23 @@ def text_report(
 		lines.append(banner)
 		lines.append(" PER-LABEL ALIGNMENT STATISTICS")
 		lines.append(banner)
+		def _fmt_stats_triple(stats: dict) -> str:
+			if stats.get("count", 0) == 0:
+				return "(none)"
+			return f"{stats['mean']:.2f}/{stats['stddev']:.2f}/{stats['median']:.2f}"
 		lines.append(
-			f"{'Label':<8} {'Count':>5}  {'Aligned':>7}  {'Rate':>6}"
-			f"   {'Gap(mean/sd)':>14}   {'Perp(mean/sd)':>14}"
+			f"  {'Label':<8}{'n':>5} {'Aligned':>9} {'Rate':>7}"
+			f"  {'bond_end_gap(a/s/m)':>21}  {'perp_offset(a/s/m)':>20}"
+		)
+		# ALL row from global stats
+		total_count = summary.get("labels_analyzed", 0)
+		total_aligned = summary.get("aligned_labels", 0)
+		total_rate = summary.get("alignment_rate", 0.0) * 100.0
+		all_gap_s = summary.get("glyph_to_bond_end_signed_distance_stats", {})
+		all_align_s = summary.get("alignment_distance_stats", {})
+		lines.append(
+			f"  {'ALL':<8}{total_count:>5} {total_aligned:>5}/{total_count:<3} {total_rate:>5.1f}%"
+			f"  {_fmt_stats_triple(all_gap_s):>18}  {_fmt_stats_triple(all_align_s):>20}"
 		)
 		for label_text in sorted(label_stats.keys()):
 			entry = label_stats[label_text]
@@ -783,18 +794,10 @@ def text_report(
 			aligned_ct = entry["aligned_count"]
 			rate = entry["alignment_rate"] * 100.0
 			gap_s = entry.get("gap_distance_stats", {})
-			perp_s = entry.get("perpendicular_distance_stats", {})
-			if gap_s.get("count", 0) > 0:
-				gap_text = f"{gap_s['mean']:.2f} / {gap_s['stddev']:.2f}"
-			else:
-				gap_text = "(none)"
-			if perp_s.get("count", 0) > 0:
-				perp_text = f"{perp_s['mean']:.2f} / {perp_s['stddev']:.2f}"
-			else:
-				perp_text = "(none)"
+			align_s = entry.get("alignment_distance_stats", {})
 			lines.append(
-				f"{label_text:<8} {count:>5}  {aligned_ct:>7}  {rate:>5.1f}%"
-				f"   {gap_text:>14}   {perp_text:>14}"
+				f"  {label_text:<8}{count:>5} {aligned_ct:>5}/{count:<3} {rate:>5.1f}%"
+				f"  {_fmt_stats_triple(gap_s):>18}  {_fmt_stats_triple(align_s):>20}"
 			)
 		lines.append("")
 	# -- geometry checks --

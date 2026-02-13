@@ -16,4 +16,6 @@ Codex must run Python using Python 3.12 only, exe can but found in source_me.sh
 please use source source_me.sh when running python commands.
 On this user's macOS (Homebrew Python 3.12), Python modules are installed to `/opt/homebrew/lib/python3.12/site-packages/`.
 When in doubt, implement the changes the user asked for rather than waiting for a response; the user is not the best reader and will likely miss your request and then be confused why it was not implemented or fixed.
-When changing code always run tests, documentation does not require tests.
+When changing code always run pointed tests, documentation does not require tests.
+
+please only run pointed pytests specific to your update; we have too many files to run pytest all of the time

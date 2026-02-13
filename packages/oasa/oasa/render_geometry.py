@@ -648,6 +648,51 @@ def _apply_bond_length_policy(edge, start, end):
 
 
 #============================================
+def _avoid_cross_label_overlaps(start, end, half_width, own_vertices, label_targets, epsilon=0.5):
+	"""Retreat bond endpoints away from non-own-vertex label targets.
+
+	For each label target that is NOT owned by one of the bond's own vertices,
+	check whether the stroked bond segment (capsule) penetrates the target.  If
+	so, retreat the nearer endpoint via ``retreat_endpoint_until_legal``.
+
+	Returns the (possibly shortened) ``(start, end)`` pair.
+	"""
+	if not label_targets:
+		return start, end
+	cross_targets = [
+		t for v, t in label_targets.items()
+		if v not in own_vertices
+	]
+	if not cross_targets:
+		return start, end
+	min_length = max(half_width * 4.0, 1.0)
+	for target in cross_targets:
+		if not _capsule_intersects_target(start, end, half_width, target, epsilon):
+			continue
+		seg_length = geometry.point_distance(start[0], start[1], end[0], end[1])
+		if seg_length < min_length:
+			break
+		centroid = _coerce_attach_target(target).centroid()
+		d_start = geometry.point_distance(centroid[0], centroid[1], start[0], start[1])
+		d_end = geometry.point_distance(centroid[0], centroid[1], end[0], end[1])
+		if d_end <= d_start:
+			new_end = retreat_endpoint_until_legal(
+				line_start=start, line_end=end, line_width=half_width * 2.0,
+				forbidden_regions=[target], epsilon=epsilon,
+			)
+			if geometry.point_distance(start[0], start[1], new_end[0], new_end[1]) >= min_length:
+				end = new_end
+		else:
+			new_start = retreat_endpoint_until_legal(
+				line_start=end, line_end=start, line_width=half_width * 2.0,
+				forbidden_regions=[target], epsilon=epsilon,
+			)
+			if geometry.point_distance(new_start[0], new_start[1], end[0], end[1]) >= min_length:
+				start = new_start
+	return start, end
+
+
+#============================================
 def build_bond_ops(edge, start, end, context):
 	if start is None or end is None:
 		return []
@@ -659,11 +704,18 @@ def build_bond_ops(edge, start, end, context):
 	if target_v2 is not None:
 		end = _clip_to_target(start, target_v2)
 	start, end = _apply_bond_length_policy(edge, start, end)
+	edge_line_width = _edge_line_width(edge, context)
+	if context.label_targets:
+		start, end = _avoid_cross_label_overlaps(
+			start, end,
+			half_width=edge_line_width / 2.0,
+			own_vertices={v1, v2},
+			label_targets=context.label_targets,
+		)
 	has_shown_vertex = False
 	if context.shown_vertices:
 		has_shown_vertex = v1 in context.shown_vertices or v2 in context.shown_vertices
 	color1, color2, gradient = _resolve_edge_colors(edge, context, has_shown_vertex)
-	edge_line_width = _edge_line_width(edge, context)
 	ops = []
 
 	if edge.order == 1:
@@ -711,6 +763,11 @@ def build_bond_ops(edge, start, end, context):
 				x1, y1 = _clip_to_target((x2, y2), target_v1)
 			if target_v2 is not None:
 				x2, y2 = _clip_to_target((x1, y1), target_v2)
+			if context.label_targets:
+				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
+					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
+					own_vertices={v1, v2}, label_targets=context.label_targets,
+				)
 			ops.extend(_line_ops((x1, y1), (x2, y2), edge_line_width,
 					color1, color2, gradient, cap="butt"))
 			return ops
@@ -722,6 +779,11 @@ def build_bond_ops(edge, start, end, context):
 				x1, y1 = _clip_to_target((x2, y2), target_v1)
 			if target_v2 is not None:
 				x2, y2 = _clip_to_target((x1, y1), target_v2)
+			if context.label_targets:
+				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
+					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
+					own_vertices={v1, v2}, label_targets=context.label_targets,
+				)
 			ops.extend(_line_ops((x1, y1), (x2, y2), edge_line_width,
 					color1, color2, gradient, cap="round"))
 		return ops
@@ -732,6 +794,11 @@ def build_bond_ops(edge, start, end, context):
 			x1, y1, x2, y2 = geometry.find_parallel(
 				start[0], start[1], end[0], end[1], i * context.bond_width * 0.7
 			)
+			if context.label_targets:
+				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
+					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
+					own_vertices={v1, v2}, label_targets=context.label_targets,
+				)
 			ops.extend(_line_ops((x1, y1), (x2, y2), edge_line_width,
 					color1, color2, gradient, cap="butt"))
 	return ops
