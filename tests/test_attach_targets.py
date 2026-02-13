@@ -194,9 +194,9 @@ def test_resolve_attach_endpoint_circle_auto_policy_snaps_to_canonical_lattice()
 @pytest.mark.parametrize(
 	("text", "anchor", "x", "y", "font_size", "expected"),
 	(
-		("O", "middle", 10.0, 20.0, 16.0, (4.0, 14.0, 16.0, 28.0)),
+		("O", "middle", 10.0, 20.0, 16.0, (3.77734375, 14.0, 16.22265625, 28.0)),
 		("OH", "start", 10.0, 8.0, 12.0, (6.25, 3.5, 24.25, 14.0)),
-		("NH3+", "end", -5.0, 4.0, 16.0, (-53.0, -2.0, -5.0, 12.0)),
+		("NH3+", "end", -5.0, 4.0, 16.0, (-46.3515625, -2.0, -5.0, 12.0)),
 	),
 )
 def test_label_target_legacy_geometry_values(text, anchor, x, y, font_size, expected):

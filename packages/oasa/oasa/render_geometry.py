@@ -995,9 +995,12 @@ def _tokenized_atom_spans(text):
 #============================================
 def _label_box_coords(x, y, text, anchor, font_size, font_name=None):
 	"""Compute axis-aligned label box coordinates at one label anchor point."""
-	del font_name
 	text_len = _visible_label_length(text)
-	box_width = font_size * 0.75 * text_len
+	char_advances = _text_char_advances(text, font_size, font_name or "sans-serif")
+	if char_advances and len(char_advances) == text_len:
+		box_width = sum(char_advances)
+	else:
+		box_width = font_size * 0.60 * text_len
 	top_offset = -font_size * 0.75
 	bottom_offset = font_size * 0.125
 	text_x, text_y = _label_text_origin(x, y, anchor, font_size, text_len)

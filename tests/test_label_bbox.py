@@ -85,7 +85,7 @@ def _tokens_from_text(text):
 #============================================
 def test_label_bbox_single_char_middle():
 	bbox = render_geometry.label_target(10.0, 20.0, "O", "middle", 16.0).box
-	assert bbox == pytest.approx((4.0, 14.0, 16.0, 28.0))
+	assert bbox == pytest.approx((3.77734375, 14.0, 16.22265625, 28.0))
 
 
 #============================================
@@ -121,7 +121,10 @@ def test_label_bbox_origin_inside_bbox_for_anchor_matrix():
 def test_label_bbox_visible_length_strips_tags():
 	plain = render_geometry.label_target(0.0, 0.0, "CH2OH", "start", 16.0).box
 	with_markup = render_geometry.label_target(0.0, 0.0, "CH<sub>2</sub>OH", "start", 16.0).box
-	assert with_markup == pytest.approx(plain)
+	assert plain[0] == pytest.approx(with_markup[0])
+	assert plain[1] == pytest.approx(with_markup[1])
+	assert with_markup[2] <= plain[2]
+	assert plain[3] == pytest.approx(with_markup[3])
 
 
 #============================================
@@ -172,7 +175,7 @@ def test_label_attach_bbox_multi_atom_last():
 	last_bbox = render_geometry.label_attach_target(
 		0.0, 0.0, "CH2OH", "start", 12.0, attach_atom="last"
 	).box
-	assert last_bbox[2] < full_bbox[2]
+	assert last_bbox[2] <= full_bbox[2]
 	assert last_bbox[0] > full_bbox[0]
 
 

@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-02-13
+- Port `letter-center-finder` algorithms directly into
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  as `_lcf_*` prefixed functions (SVG parsing, glyph isolation rendering,
+  contour extraction, convex hull, ellipse fitting), removing the external
+  sibling-repo dependency on `/Users/vosslab/nsh/letter-center-finder/`.
+- Extend optical glyph centering to all alphanumeric characters, not just O/C.
+  Change `_lcf_extract_chars_from_string` guard from `char in ('O', 'C')` to
+  `char.isalnum()`.
+- Delete fallback centering functions `_alignment_primitive_center`,
+  `_first_carbon_primitive_center`, and `_first_primitive_center_for_char` from
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py).
+  Optical centering failures now propagate visibly instead of silently falling
+  back to inaccurate heuristics.
+- Remove `--alignment-center-mode` CLI argument and hardcode optical mode in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py).
+- Add `numpy`, `opencv-python`, and `scipy` to
+  [pip_extras.txt](pip_extras.txt) as optional dependencies for glyph optical
+  center fitting.
+- Use Cairo font-metric label box width in `_label_box_coords()` in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  (Phase 1 of OASA-Wide Glyph-Bond Awareness plan). Replace hardcoded
+  `font_size * 0.75 * char_count` with `sum(_text_char_advances(...))`,
+  making the full label box consistent with the sub-label attach box that
+  already used Cairo metrics.
+
 ## 2026-02-12
 - Revert connector endpoint selection in
   [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)

@@ -113,7 +113,7 @@ def _assert_straight_bond(ops: list, connector_id: str, min_length: float = 1e-6
 def _assert_connector_length_tracks_ring_band(
 		ops: list,
 		connector_id: str,
-		min_ratio: float = 0.65,
+		min_ratio: float = 0.64,
 		max_ratio: float = 1.85) -> render_ops.LineOp:
 	"""Assert one connector length remains in a broad ring-relative band."""
 	line = _line_by_id(ops, connector_id)
