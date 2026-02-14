@@ -878,14 +878,6 @@ def build_bond_ops(edge, start, end, context):
 				if not context.shown_vertices or v1 not in context.shown_vertices:
 					x1, y1 = geometry.elongate_line(x2, y2, x1, y1,
 							-context.bond_second_line_shortening * length)
-			if target_v1 is not None:
-				x1, y1 = _resolve_endpoint_with_constraints(
-					(x2, y2), target_v1, constraints=context.attach_constraints,
-					line_width=context.line_width)
-			if target_v2 is not None:
-				x2, y2 = _resolve_endpoint_with_constraints(
-					(x1, y1), target_v2, constraints=context.attach_constraints,
-					line_width=context.line_width)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
@@ -898,14 +890,6 @@ def build_bond_ops(edge, start, end, context):
 			x1, y1, x2, y2 = geometry.find_parallel(
 				start[0], start[1], end[0], end[1], i * context.bond_width * 0.5
 			)
-			if target_v1 is not None:
-				x1, y1 = _resolve_endpoint_with_constraints(
-					(x2, y2), target_v1, constraints=context.attach_constraints,
-					line_width=context.line_width)
-			if target_v2 is not None:
-				x2, y2 = _resolve_endpoint_with_constraints(
-					(x1, y1), target_v2, constraints=context.attach_constraints,
-					line_width=context.line_width)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
@@ -921,14 +905,6 @@ def build_bond_ops(edge, start, end, context):
 			x1, y1, x2, y2 = geometry.find_parallel(
 				start[0], start[1], end[0], end[1], i * context.bond_width * 0.7
 			)
-			if target_v1 is not None:
-				x1, y1 = _resolve_endpoint_with_constraints(
-					(x2, y2), target_v1, constraints=context.attach_constraints,
-					line_width=context.line_width)
-			if target_v2 is not None:
-				x2, y2 = _resolve_endpoint_with_constraints(
-					(x1, y1), target_v2, constraints=context.attach_constraints,
-					line_width=context.line_width)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,

@@ -1,16 +1,40 @@
 #!/usr/bin/env python3
 
-"""Build parallel and antiparallel beta-sheet molecules and render to SVG/CDML."""
+"""Build parallel and antiparallel beta-sheet molecules and render to SVG/CDML.
+
+Writes bkchem-compatible CDML directly (not through oasa.cdml_writer) to
+produce proper element types: <atom>, <query>, <group>, <text>.  Also builds
+oasa.molecule objects for SVG rendering via render_out.render_to_svg().
+"""
 
 # Standard Library
 import math
 import os
 import subprocess
 import sys
+import xml.dom.minidom as minidom
 
 
 #============================================
-def _get_repo_root():
+# Geometry constants in cm (from bkchem reference template)
+BOND_LENGTH_CM = 0.700
+DX_CM = BOND_LENGTH_CM * math.cos(math.radians(30))
+DY_CM = BOND_LENGTH_CM * math.sin(math.radians(30))
+SIDE_OFFSET_CM = BOND_LENGTH_CM
+# Conversion factor: 1 cm = 72/2.54 points
+POINTS_PER_CM = 72.0 / 2.54
+# Vertical separation between strand baselines (cm)
+STRAND_SEP_CM = 3.0
+# Starting position for first Ca atom (cm)
+X_START_CM = 4.600
+Y_BASE1_CM = 2.500
+Y_BASE2_CM = Y_BASE1_CM + STRAND_SEP_CM
+# Residues per strand
+NUM_RESIDUES = 4
+
+
+#============================================
+def _get_repo_root() -> str:
 	"""Return the repository root directory."""
 	result = subprocess.run(
 		["git", "rev-parse", "--show-toplevel"],
@@ -38,262 +62,380 @@ def _ensure_dir(path: str):
 
 
 #============================================
-# Geometry constants (in OASA coordinate points)
-BOND_LENGTH = 20.0
-ZIGZAG_ANGLE_DEG = 30.0
-ZIGZAG_ANGLE_RAD = math.radians(ZIGZAG_ANGLE_DEG)
-# horizontal and vertical steps per backbone bond
-DX = BOND_LENGTH * math.cos(ZIGZAG_ANGLE_RAD)
-DY = BOND_LENGTH * math.sin(ZIGZAG_ANGLE_RAD)
-# perpendicular offset for carbonyl O and R groups
-SIDE_OFFSET = 15.0
-# vertical gap between two strands
-STRAND_SEP = 80.0
+def _build_strand_atoms(x_start: float, y_base: float,
+	num_residues: int, direction: int = 1,
+	id_offset: int = 0) -> tuple:
+	"""Compute coordinate dicts for one strand's atoms and side groups.
+
+	Backbone per residue is Ca - C'(=O) - N, repeating left-to-right (or
+	right-to-left for direction=-1).  Terminal groups are +H3N on the
+	N-terminus and COOH on the C-terminus.
+
+	Args:
+		x_start: x coordinate of first Ca atom (cm)
+		y_base: baseline y coordinate for UP zigzag atoms (cm)
+		num_residues: number of amino acid residues
+		direction: +1 for left-to-right, -1 for right-to-left
+		id_offset: starting atom ID counter
+
+	Returns:
+		tuple of (atoms_list, bonds_list, final_id_counter)
+	"""
+	atoms = []
+	bonds = []
+	atom_counter = id_offset
+	# 10 backbone atoms for 4 residues: Ca-C'-N-Ca-C'-N-Ca-C'-N-Ca
+	backbone_count = (num_residues - 1) * 3 + 1
+	backbone_ids = []
+
+	for i in range(backbone_count):
+		atom_counter += 1
+		# zigzag: even indices UP (y_base), odd indices DOWN (y_base + dy)
+		if i % 2 == 0:
+			y = y_base
+		else:
+			y = y_base + DY_CM
+		x = x_start + i * direction * DX_CM
+
+		# atom type by position within each residue triplet
+		local = i % 3
+		if local == 0:
+			# Ca (alpha carbon)
+			symbol = 'C'
+			pos = None
+			valency = 4
+		elif local == 1:
+			# C' (carbonyl carbon)
+			symbol = 'C'
+			pos = None
+			valency = 4
+		else:
+			# N (backbone nitrogen)
+			symbol = 'N'
+			pos = 'center-first'
+			valency = 3
+
+		aid = "a%d" % atom_counter
+		atoms.append({
+			'id': aid, 'kind': 'atom', 'name': symbol,
+			'symbol': symbol, 'x': x, 'y': y,
+			'pos': pos, 'valency': valency,
+			'label': None, 'ftext': None,
+		})
+		backbone_ids.append(aid)
+
+		# side group on Ca: R query element
+		if local == 0:
+			atom_counter += 1
+			# extends away from zigzag center
+			if i % 2 == 0:
+				r_y = y - SIDE_OFFSET_CM
+			else:
+				r_y = y + SIDE_OFFSET_CM
+			r_aid = "a%d" % atom_counter
+			atoms.append({
+				'id': r_aid, 'kind': 'query', 'name': 'R',
+				'symbol': 'C', 'x': x, 'y': r_y,
+				'pos': 'center-first', 'valency': None,
+				'label': 'R', 'ftext': None,
+			})
+			bonds.append({
+				'start': aid, 'end': r_aid,
+				'type': 'n1', 'center': False,
+			})
+
+		# side group on C': carbonyl O with double bond
+		elif local == 1:
+			atom_counter += 1
+			# extends away from zigzag center (same direction as C')
+			if i % 2 == 0:
+				o_y = y - SIDE_OFFSET_CM
+			else:
+				o_y = y + SIDE_OFFSET_CM
+			o_aid = "a%d" % atom_counter
+			atoms.append({
+				'id': o_aid, 'kind': 'atom', 'name': 'O',
+				'symbol': 'O', 'x': x, 'y': o_y,
+				'pos': 'center-first', 'valency': 2,
+				'label': None, 'ftext': None,
+			})
+			bonds.append({
+				'start': aid, 'end': o_aid,
+				'type': 'n2', 'center': True,
+			})
+
+	# backbone bonds between consecutive backbone atoms
+	for i in range(len(backbone_ids) - 1):
+		bonds.append({
+			'start': backbone_ids[i], 'end': backbone_ids[i + 1],
+			'type': 'n1', 'center': False,
+		})
+
+	# N-terminus: H3N text element with superscript charge, one step behind Ca1
+	atom_counter += 1
+	h3n_x = x_start - direction * DX_CM
+	# virtual index -1 is odd -> DOWN position
+	h3n_y = y_base + DY_CM
+	h3n_aid = "a%d" % atom_counter
+	# charge rendered via <sup> markup (bkchem built-in style), not plain "+"
+	atoms.append({
+		'id': h3n_aid, 'kind': 'text', 'name': 'H3N',
+		'symbol': 'N', 'x': h3n_x, 'y': h3n_y,
+		'pos': 'center-last', 'valency': None,
+		'label': 'H<sub>3</sub>N<sup>+</sup>',
+		'ftext': 'H<sub>3</sub>N<sup>+</sup>',
+	})
+	bonds.append({
+		'start': h3n_aid, 'end': backbone_ids[0],
+		'type': 'n1', 'center': False,
+	})
+
+	# C-terminus: COO- text element with superscript charge, one step ahead of last Ca
+	atom_counter += 1
+	last_bb_idx = backbone_count - 1
+	last_x = x_start + last_bb_idx * direction * DX_CM
+	coo_x = last_x + direction * DX_CM
+	# virtual index = backbone_count: zigzag alternates from last atom
+	if backbone_count % 2 == 0:
+		coo_y = y_base
+	else:
+		coo_y = y_base + DY_CM
+	coo_aid = "a%d" % atom_counter
+	# charge rendered via <sup> markup (bkchem built-in style), not plain "-"
+	atoms.append({
+		'id': coo_aid, 'kind': 'text', 'name': 'COO',
+		'symbol': 'C', 'x': coo_x, 'y': coo_y,
+		'pos': 'center-first', 'valency': None,
+		'label': 'COO<sup>-</sup>',
+		'ftext': 'COO<sup>-</sup>',
+	})
+	bonds.append({
+		'start': backbone_ids[-1], 'end': coo_aid,
+		'type': 'n1', 'center': False,
+	})
+
+	return atoms, bonds, atom_counter
 
 
 #============================================
-def _build_strand(mol, x_start: float, y_base: float,
-	num_residues: int, direction: int = 1) -> dict:
-	"""Build one peptide backbone strand with side groups.
+def _write_cdml_strand(doc, mol_el, atoms: list, bonds: list,
+	bond_offset: int = 0) -> int:
+	"""Write bkchem CDML XML elements for one strand into a molecule element.
+
+	Args:
+		doc: xml.dom.minidom Document
+		mol_el: molecule Element to append to
+		atoms: list of atom dicts from _build_strand_atoms
+		bonds: list of bond dicts from _build_strand_atoms
+		bond_offset: starting bond ID counter
+
+	Returns:
+		updated bond counter after all bonds written
+	"""
+	for atom in atoms:
+		kind = atom['kind']
+		if kind == 'text':
+			# bkchem <text> element with <ftext> child for markup labels
+			el = doc.createElement('text')
+			el.setAttribute('id', atom['id'])
+			if atom['pos']:
+				el.setAttribute('pos', atom['pos'])
+			ftext_el = doc.createElement('ftext')
+			# minidom escapes <sub> to &lt;sub&gt; automatically
+			ftext_el.appendChild(doc.createTextNode(atom['ftext']))
+			el.appendChild(ftext_el)
+		elif kind == 'query':
+			# bkchem <query> element for R groups
+			el = doc.createElement('query')
+			el.setAttribute('id', atom['id'])
+			if atom['pos']:
+				el.setAttribute('pos', atom['pos'])
+			el.setAttribute('name', atom['name'])
+		elif kind == 'group':
+			# bkchem <group> element for builtin groups like COOH
+			el = doc.createElement('group')
+			el.setAttribute('id', atom['id'])
+			if atom['pos']:
+				el.setAttribute('pos', atom['pos'])
+			el.setAttribute('group-type', 'builtin')
+			el.setAttribute('name', atom['name'])
+		else:
+			# standard <atom> element for C, N, O backbone atoms
+			el = doc.createElement('atom')
+			el.setAttribute('id', atom['id'])
+			if atom['pos']:
+				el.setAttribute('pos', atom['pos'])
+			el.setAttribute('name', atom['name'])
+			if atom['valency'] is not None:
+				el.setAttribute('valency', str(atom['valency']))
+
+		# <point> child with cm coordinates
+		pt = doc.createElement('point')
+		pt.setAttribute('x', '%.3fcm' % atom['x'])
+		pt.setAttribute('y', '%.3fcm' % atom['y'])
+		el.appendChild(pt)
+		mol_el.appendChild(el)
+
+	# bond elements matching bkchem template attributes
+	for i, bond in enumerate(bonds):
+		bond_id = bond_offset + i + 1
+		bel = doc.createElement('bond')
+		bel.setAttribute('type', bond['type'])
+		bel.setAttribute('start', bond['start'])
+		bel.setAttribute('end', bond['end'])
+		bel.setAttribute('id', 'b%d' % bond_id)
+		bel.setAttribute('line_width', '1.0')
+		bel.setAttribute('double_ratio', '0.75')
+		if bond['center']:
+			bel.setAttribute('bond_width', '6.0')
+			bel.setAttribute('center', 'yes')
+		mol_el.appendChild(bel)
+
+	return bond_offset + len(bonds)
+
+
+#============================================
+def _write_cdml_file(strand_data: list, path: str):
+	"""Write full bkchem CDML document with multiple strands.
+
+	Produces proper bkchem CDML with <standard>, <paper>, <viewport>
+	boilerplate matching the reference template geometry.
+
+	Args:
+		strand_data: list of (atoms, bonds) tuples, one per strand
+		path: output CDML file path
+	"""
+	doc = minidom.Document()
+
+	# root <cdml> element
+	root = doc.createElement('cdml')
+	root.setAttribute('version', '26.02')
+	root.setAttribute('xmlns', 'http://www.freesoftware.fsf.org/bkchem/cdml')
+	doc.appendChild(root)
+
+	# <info> block
+	info_el = doc.createElement('info')
+	author_el = doc.createElement('author_program')
+	author_el.setAttribute('version', '26.02')
+	author_el.appendChild(doc.createTextNode('BKChem'))
+	info_el.appendChild(author_el)
+	root.appendChild(info_el)
+
+	# <metadata> block
+	meta_el = doc.createElement('metadata')
+	doc_el = doc.createElement('doc')
+	doc_el.setAttribute('href',
+		'https://github.com/vosslab/bkchem/blob/main/docs/CDML_FORMAT_SPEC.md')
+	meta_el.appendChild(doc_el)
+	root.appendChild(meta_el)
+
+	# <paper> element
+	paper_el = doc.createElement('paper')
+	for key, val in [('type', 'A4'), ('orientation', 'portrait'),
+		('crop_svg', '0'), ('crop_margin', '10'),
+		('use_real_minus', '0'), ('replace_minus', '0')]:
+		paper_el.setAttribute(key, val)
+	root.appendChild(paper_el)
+
+	# <viewport> element
+	vp_el = doc.createElement('viewport')
+	vp_el.setAttribute('viewport', '0.000000 0.000000 640.000000 480.000000')
+	root.appendChild(vp_el)
+
+	# <standard> element with bond/arrow/atom defaults
+	std_el = doc.createElement('standard')
+	for key, val in [('line_width', '1px'), ('font_size', '12'),
+		('font_family', 'helvetica'), ('line_color', '#000'),
+		('area_color', ''), ('paper_type', 'A4'),
+		('paper_orientation', 'portrait'), ('paper_crop_svg', '0'),
+		('paper_crop_margin', '10')]:
+		std_el.setAttribute(key, val)
+	# bond defaults
+	bond_std = doc.createElement('bond')
+	for key, val in [('length', '0.7cm'), ('width', '6px'),
+		('wedge-width', '5px'), ('double-ratio', '0.75'),
+		('min_wedge_angle', '0.39269908169872414')]:
+		bond_std.setAttribute(key, val)
+	std_el.appendChild(bond_std)
+	# arrow default
+	arrow_std = doc.createElement('arrow')
+	arrow_std.setAttribute('length', '1.6cm')
+	std_el.appendChild(arrow_std)
+	# atom default
+	atom_std = doc.createElement('atom')
+	atom_std.setAttribute('show_hydrogens', '0')
+	std_el.appendChild(atom_std)
+	root.appendChild(std_el)
+
+	# one <molecule> per strand
+	bond_counter = 0
+	for strand_idx, (atoms, bonds) in enumerate(strand_data):
+		mol_el = doc.createElement('molecule')
+		mol_el.setAttribute('id', 'molecule%d' % (strand_idx + 1))
+		bond_counter = _write_cdml_strand(
+			doc, mol_el, atoms, bonds, bond_counter)
+		root.appendChild(mol_el)
+
+	# serialize XML to file
+	xml_str = doc.toxml('utf-8').decode('utf-8')
+	with open(path, 'w', encoding='utf-8') as handle:
+		handle.write(xml_str)
+		handle.write('\n')
+
+
+#============================================
+def _build_oasa_strand(mol, atoms: list, bonds: list) -> dict:
+	"""Add oasa atoms and bonds to molecule for one strand.
 
 	Args:
 		mol: oasa.molecule to add atoms/bonds to
-		x_start: starting x coordinate
-		y_base: baseline y coordinate for the strand
-		num_residues: number of amino acid residues
-		direction: +1 for left-to-right, -1 for right-to-left
+		atoms: list of atom dicts from _build_strand_atoms
+		bonds: list of bond dicts from _build_strand_atoms
 
 	Returns:
-		dict with keys 'backbone', 'oxygens', 'r_groups' containing atom lists
+		dict mapping atom ID strings to oasa.atom objects
 	"""
 	import oasa
 
-	backbone_atoms = []
-	oxygen_atoms = []
-	r_group_atoms = []
+	atom_map = {}
+	for atom_data in atoms:
+		a = oasa.atom(symbol=atom_data['symbol'])
+		# convert cm coordinates to points for oasa rendering
+		a.x = atom_data['x'] * POINTS_PER_CM
+		a.y = atom_data['y'] * POINTS_PER_CM
+		# set label property for non-standard display
+		if atom_data['label']:
+			a.properties_["label"] = atom_data['label']
+		mol.add_vertex(a)
+		atom_map[atom_data['id']] = a
 
-	# current position along the backbone
-	x = x_start
-	# index tracks which backbone atom we are on (0-based)
-	atom_index = 0
+	for bond_data in bonds:
+		order = 2 if bond_data['type'] == 'n2' else 1
+		b = oasa.bond(order=order, type='n')
+		start_atom = atom_map[bond_data['start']]
+		end_atom = atom_map[bond_data['end']]
+		mol.add_edge(start_atom, end_atom, b)
 
-	for res_idx in range(num_residues):
-		# each residue has 3 backbone atoms: N, Ca, C'
-		symbols = ['N', 'C', 'C']
-		for local_idx, symbol in enumerate(symbols):
-			# zigzag: even indices go up (smaller y), odd go down (larger y)
-			if atom_index % 2 == 0:
-				y = y_base - DY
-			else:
-				y = y_base + DY
-
-			a = oasa.atom(symbol=symbol)
-			a.x = x
-			a.y = y
-			mol.add_vertex(a)
-			backbone_atoms.append(a)
-
-			# add side groups
-			if local_idx == 1:
-				# alpha-carbon: attach R group
-				r_atom = oasa.atom(symbol='C')
-				r_atom.properties_["label"] = "R"
-				# R group perpendicular to backbone, opposite side from carbonyls
-				# carbonyls point toward larger y, so R points toward smaller y
-				if atom_index % 2 == 0:
-					# Ca at peak (small y) -> R goes further up
-					r_atom.x = x
-					r_atom.y = y - SIDE_OFFSET
-				else:
-					# Ca at valley (large y) -> R goes further down
-					r_atom.x = x
-					r_atom.y = y + SIDE_OFFSET
-				mol.add_vertex(r_atom)
-				r_group_atoms.append(r_atom)
-				# single bond Ca -> R
-				r_bond = oasa.bond(order=1, type='n')
-				mol.add_edge(a, r_atom, r_bond)
-
-			elif local_idx == 2:
-				# carbonyl carbon C': attach O with double bond
-				o_atom = oasa.atom(symbol='O')
-				# carbonyl points opposite to R group
-				if atom_index % 2 == 0:
-					# C' at peak -> O goes down
-					o_atom.x = x
-					o_atom.y = y + SIDE_OFFSET
-				else:
-					# C' at valley -> O goes up
-					o_atom.x = x
-					o_atom.y = y - SIDE_OFFSET
-				mol.add_vertex(o_atom)
-				oxygen_atoms.append(o_atom)
-				# double bond C'=O
-				o_bond = oasa.bond(order=2, type='n')
-				mol.add_edge(a, o_atom, o_bond)
-
-			# advance x for the next atom
-			x += direction * DX
-			atom_index += 1
-
-		# connect backbone atoms within this residue
-		# N-Ca bond
-		start_idx = res_idx * 3
-		n_bond = oasa.bond(order=1, type='n')
-		mol.add_edge(backbone_atoms[start_idx], backbone_atoms[start_idx + 1], n_bond)
-		# Ca-C' bond
-		ca_bond = oasa.bond(order=1, type='n')
-		mol.add_edge(backbone_atoms[start_idx + 1], backbone_atoms[start_idx + 2], ca_bond)
-
-	# connect residues: C'(i) -> N(i+1) peptide bonds
-	for res_idx in range(num_residues - 1):
-		c_prime_idx = res_idx * 3 + 2
-		n_next_idx = (res_idx + 1) * 3
-		peptide_bond = oasa.bond(order=1, type='n')
-		mol.add_edge(backbone_atoms[c_prime_idx], backbone_atoms[n_next_idx], peptide_bond)
-
-	return {
-		'backbone': backbone_atoms,
-		'oxygens': oxygen_atoms,
-		'r_groups': r_group_atoms,
-	}
+	return atom_map
 
 
 #============================================
-def _add_hydrogen_bonds_parallel(mol, strand1: dict, strand2: dict):
-	"""Add dashed hydrogen bonds between two parallel strands.
+def _build_oasa_molecule(strand_data: list, name: str):
+	"""Assemble complete oasa.molecule from strand coordinate data.
 
 	Args:
-		mol: oasa.molecule to add bonds to
-		strand1: dict from _build_strand for strand 1
-		strand2: dict from _build_strand for strand 2
-	"""
-	import oasa
-
-	bb1 = strand1['backbone']
-	bb2 = strand2['backbone']
-	# in parallel sheets, H-bonds connect C=O of one strand to N-H of the other
-	# C' atoms are at indices 2, 5, 8, 11 (every 3rd starting at 2)
-	# N atoms are at indices 0, 3, 6, 9 (every 3rd starting at 0)
-	# connect C'(strand1, res i) to N(strand2, res i+1) and vice versa
-	num_residues = len(bb1) // 3
-	for res_idx in range(num_residues - 1):
-		# H-bond from O on strand1 C' to strand2 N
-		o_atom = strand1['oxygens'][res_idx]
-		n_atom_idx = (res_idx + 1) * 3
-		if n_atom_idx < len(bb2):
-			n_atom = bb2[n_atom_idx]
-			hbond = oasa.bond(order=1, type='d')
-			mol.add_edge(o_atom, n_atom, hbond)
-
-		# H-bond from O on strand2 C' to strand1 N
-		if res_idx < len(strand2['oxygens']):
-			o_atom2 = strand2['oxygens'][res_idx]
-			n_atom_idx2 = (res_idx + 1) * 3
-			if n_atom_idx2 < len(bb1):
-				n_atom2 = bb1[n_atom_idx2]
-				hbond2 = oasa.bond(order=1, type='d')
-				mol.add_edge(o_atom2, n_atom2, hbond2)
-
-
-#============================================
-def _add_hydrogen_bonds_antiparallel(mol, strand1: dict, strand2: dict):
-	"""Add dashed hydrogen bonds between two antiparallel strands.
-
-	Args:
-		mol: oasa.molecule to add bonds to
-		strand1: dict from _build_strand for strand 1 (left-to-right)
-		strand2: dict from _build_strand for strand 2 (right-to-left)
-	"""
-	import oasa
-
-	bb1 = strand1['backbone']
-	bb2 = strand2['backbone']
-	num_residues = len(bb1) // 3
-	# in antiparallel sheets, H-bonds go nearly vertically
-	# connect C'(strand1, res i) O to N(strand2, mirror res)
-	# strand2 runs in reverse so residue 0 of strand2 is opposite residue (N-1) of strand1
-	for res_idx in range(num_residues):
-		mirror_idx = num_residues - 1 - res_idx
-		# O from strand1 C' to N of strand2 mirror residue
-		if res_idx < len(strand1['oxygens']):
-			o_atom = strand1['oxygens'][res_idx]
-			n_atom_idx = mirror_idx * 3
-			if n_atom_idx < len(bb2):
-				n_atom = bb2[n_atom_idx]
-				hbond = oasa.bond(order=1, type='d')
-				mol.add_edge(o_atom, n_atom, hbond)
-
-		# O from strand2 C' to N of strand1 mirror residue
-		if mirror_idx < len(strand2['oxygens']):
-			o_atom2 = strand2['oxygens'][mirror_idx]
-			n_atom_idx2 = res_idx * 3
-			if n_atom_idx2 < len(bb1):
-				n_atom2 = bb1[n_atom_idx2]
-				hbond2 = oasa.bond(order=1, type='d')
-				mol.add_edge(o_atom2, n_atom2, hbond2)
-
-
-#============================================
-def _build_parallel_sheet(num_residues: int = 4):
-	"""Build a complete parallel beta-sheet molecule with two strands.
-
-	Args:
-		num_residues: number of residues per strand
+		strand_data: list of (atoms, bonds) tuples
+		name: molecule name
 
 	Returns:
-		oasa.molecule with two parallel peptide strands and hydrogen bonds
+		oasa.molecule with all strands
 	"""
 	import oasa
 
 	mol = oasa.molecule()
-	mol.name = "parallel_beta_sheet"
-
-	# strand 1: top, left-to-right
-	x_start = 10.0
-	y_base_1 = 40.0
-	strand1 = _build_strand(mol, x_start, y_base_1, num_residues, direction=1)
-
-	# strand 2: bottom, also left-to-right (parallel)
-	y_base_2 = y_base_1 + STRAND_SEP
-	strand2 = _build_strand(mol, x_start, y_base_2, num_residues, direction=1)
-
-	# add hydrogen bonds between strands
-	_add_hydrogen_bonds_parallel(mol, strand1, strand2)
-
-	return mol
-
-
-#============================================
-def _build_antiparallel_sheet(num_residues: int = 4):
-	"""Build a complete antiparallel beta-sheet molecule with two strands.
-
-	Args:
-		num_residues: number of residues per strand
-
-	Returns:
-		oasa.molecule with two antiparallel peptide strands and hydrogen bonds
-	"""
-	import oasa
-
-	mol = oasa.molecule()
-	mol.name = "antiparallel_beta_sheet"
-
-	# strand 1: top, left-to-right
-	x_start = 10.0
-	y_base_1 = 40.0
-	strand1 = _build_strand(mol, x_start, y_base_1, num_residues, direction=1)
-
-	# strand 2: bottom, right-to-left (antiparallel)
-	# start from the right end so strands are aligned
-	total_width = num_residues * 3 * DX
-	x_start_2 = x_start + total_width
-	y_base_2 = y_base_1 + STRAND_SEP
-	strand2 = _build_strand(mol, x_start_2, y_base_2, num_residues, direction=-1)
-
-	# add hydrogen bonds between strands
-	_add_hydrogen_bonds_antiparallel(mol, strand1, strand2)
-
+	mol.name = name
+	for atoms, bonds in strand_data:
+		_build_oasa_strand(mol, atoms, bonds)
 	return mol
 
 
@@ -310,25 +452,11 @@ def _render_svg(mol, path: str):
 	oasa.render_out.render_to_svg(
 		mol,
 		path,
-		show_hydrogens_on_hetero=True,
+		show_hydrogens_on_hetero=False,
 		show_carbon_symbol=False,
 		margin=20,
 		scaling=1.5,
 	)
-
-
-#============================================
-def _write_cdml(mol, path: str):
-	"""Write molecule to CDML file.
-
-	Args:
-		mol: oasa.molecule to write
-		path: output CDML file path
-	"""
-	import oasa.cdml_writer
-
-	with open(path, "w", encoding="utf-8") as handle:
-		oasa.cdml_writer.mol_to_file(mol, handle)
 
 
 #============================================
@@ -343,29 +471,54 @@ def main():
 	_ensure_dir(svg_dir)
 	_ensure_dir(cdml_dir)
 
-	# build and render parallel beta-sheet
-	parallel_mol = _build_parallel_sheet(num_residues=4)
-	parallel_svg = os.path.join(svg_dir, "parallel_beta_sheet.svg")
+	# backbone atom count for coordinate calculation
+	backbone_count = (NUM_RESIDUES - 1) * 3 + 1
+
+	# === parallel beta-sheet (both strands left-to-right) ===
+	s1_atoms, s1_bonds, s1_count = _build_strand_atoms(
+		X_START_CM, Y_BASE1_CM, NUM_RESIDUES, direction=1, id_offset=0)
+	s2_atoms, s2_bonds, _ = _build_strand_atoms(
+		X_START_CM, Y_BASE2_CM, NUM_RESIDUES, direction=1, id_offset=s1_count)
+	parallel_strands = [(s1_atoms, s1_bonds), (s2_atoms, s2_bonds)]
+
+	# write parallel CDML fixture
 	parallel_cdml = os.path.join(cdml_dir, "parallel_beta_sheet.cdml")
-	_render_svg(parallel_mol, parallel_svg)
-	_write_cdml(parallel_mol, parallel_cdml)
-	print("Parallel beta-sheet: %s" % parallel_svg)
+	_write_cdml_file(parallel_strands, parallel_cdml)
 	print("Parallel CDML: %s" % parallel_cdml)
 
-	# build and render antiparallel beta-sheet
-	antiparallel_mol = _build_antiparallel_sheet(num_residues=4)
-	antiparallel_svg = os.path.join(svg_dir, "antiparallel_beta_sheet.svg")
-	antiparallel_cdml = os.path.join(cdml_dir, "antiparallel_beta_sheet.cdml")
-	_render_svg(antiparallel_mol, antiparallel_svg)
-	_write_cdml(antiparallel_mol, antiparallel_cdml)
-	print("Antiparallel beta-sheet: %s" % antiparallel_svg)
-	print("Antiparallel CDML: %s" % antiparallel_cdml)
+	# render parallel SVG
+	parallel_mol = _build_oasa_molecule(parallel_strands, "parallel_beta_sheet")
+	parallel_svg = os.path.join(svg_dir, "parallel_beta_sheet.svg")
+	_render_svg(parallel_mol, parallel_svg)
+	print("Parallel SVG: %s" % parallel_svg)
+
+	# === antiparallel beta-sheet (strand 2 runs right-to-left) ===
+	a1_atoms, a1_bonds, a1_count = _build_strand_atoms(
+		X_START_CM, Y_BASE1_CM, NUM_RESIDUES, direction=1, id_offset=0)
+	# strand 2 starts at the right edge of strand 1's backbone
+	x_right = X_START_CM + (backbone_count - 1) * DX_CM
+	a2_atoms, a2_bonds, _ = _build_strand_atoms(
+		x_right, Y_BASE2_CM, NUM_RESIDUES, direction=-1, id_offset=a1_count)
+	antiparallel_strands = [(a1_atoms, a1_bonds), (a2_atoms, a2_bonds)]
+
+	# write antiparallel CDML fixture
+	anti_cdml = os.path.join(cdml_dir, "antiparallel_beta_sheet.cdml")
+	_write_cdml_file(antiparallel_strands, anti_cdml)
+	print("Antiparallel CDML: %s" % anti_cdml)
+
+	# render antiparallel SVG
+	anti_mol = _build_oasa_molecule(
+		antiparallel_strands, "antiparallel_beta_sheet")
+	anti_svg = os.path.join(svg_dir, "antiparallel_beta_sheet.svg")
+	_render_svg(anti_mol, anti_svg)
+	print("Antiparallel SVG: %s" % anti_svg)
 
 	# summary
-	for mol_obj, name in [(parallel_mol, "Parallel"), (antiparallel_mol, "Antiparallel")]:
-		num_atoms = len(mol_obj.vertices)
-		num_bonds = len(mol_obj.edges)
-		print("%s: %d atoms, %d bonds" % (name, num_atoms, num_bonds))
+	for label, strands in [("Parallel", parallel_strands),
+		("Antiparallel", antiparallel_strands)]:
+		total_atoms = sum(len(a) for a, _b in strands)
+		total_bonds = sum(len(b) for _a, b in strands)
+		print("%s: %d atoms, %d bonds" % (label, total_atoms, total_bonds))
 
 
 if __name__ == "__main__":

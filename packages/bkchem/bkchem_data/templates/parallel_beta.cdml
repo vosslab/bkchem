@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?><cdml version="26.02" xmlns="http://www.freesoftware.fsf.org/bkchem/cdml">
+  <info>
+    <author_program version="26.02">BKChem</author_program>
+  </info>
+  <metadata>
+    <doc href="https://github.com/vosslab/bkchem/blob/main/docs/CDML_FORMAT_SPEC.md"/>
+  </metadata>
+  <paper type="A4" orientation="portrait" crop_svg="0" crop_margin="10" use_real_minus="0" replace_minus="0"/>
+  <viewport viewport="0.000000 0.000000 640.000000 480.000000"/>
+  <standard line_width="1px" font_size="12" font_family="helvetica" line_color="#000" area_color="" paper_type="A4" paper_orientation="portrait" paper_crop_svg="0" paper_crop_margin="10">
+    <bond length="0.7cm" width="6px" wedge-width="5px" double-ratio="0.75" min_wedge_angle="0.39269908169872414"/>
+    <arrow length="1.6cm"/>
+    <atom show_hydrogens="0"/>
+  </standard>
+  <molecule id="molecule29469">
+    <atom id="atom17405" name="C" valency="4">
+      <point x="5.340cm" y="5.045cm"/>
+    </atom>
+    <atom id="atom98546" name="C" valency="4">
+      <point x="7.158cm" y="5.395cm"/>
+    </atom>
+    <atom id="atom59856" name="C" valency="4">
+      <point x="7.764cm" y="5.045cm"/>
+    </atom>
+    <atom id="atom88630" name="C" valency="4">
+      <point x="8.977cm" y="5.045cm"/>
+    </atom>
+    <atom id="atom21376" pos="center-first" name="N" valency="3">
+      <point x="6.552cm" y="5.045cm"/>
+    </atom>
+    <atom id="atom65326" pos="center-first" name="N" valency="3">
+      <point x="8.371cm" y="5.395cm"/>
+    </atom>
+    <atom id="atom65550" name="C" valency="4">
+      <point x="5.946cm" y="5.395cm"/>
+    </atom>
+    <atom id="atom46108" pos="center-first" name="O" valency="2">
+      <point x="5.946cm" y="6.095cm"/>
+    </atom>
+    <atom id="atom66168" pos="center-first" name="O" valency="2">
+      <point x="7.764cm" y="4.345cm"/>
+    </atom>
+    <query id="atom15428" pos="center-first" name="R">
+      <point x="5.340cm" y="4.345cm"/>
+    </query>
+    <query id="atom55754" pos="center-first" name="R">
+      <point x="7.158cm" y="6.095cm"/>
+    </query>
+    <query id="atom20616" pos="center-first" name="R">
+      <point x="8.977cm" y="4.345cm"/>
+    </query>
+    <group id="atom89618" pos="center-first" group-type="builtin" name="COOH">
+      <point x="9.583cm" y="5.395cm"/>
+    </group>
+    <text id="atom27551" pos="center-last"><ftext>H3N</ftext><point x="4.734cm" y="5.395cm"/></text>
+    <bond type="n2" start="atom59856" end="atom66168" id="bond88667" line_width="1.0" bond_width="6.0" center="yes" double_ratio="0.75"/>
+    <bond type="n1" start="atom65326" end="atom88630" id="bond92628" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom98546" end="atom59856" id="bond71978" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom88630" end="atom89618" id="bond4341" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom65550" end="atom21376" id="bond14598" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom17405" end="atom65550" id="bond24829" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n2" start="atom65550" end="atom46108" id="bond73062" line_width="1.0" bond_width="6.0" center="yes" double_ratio="0.75"/>
+    <bond type="n1" start="atom59856" end="atom65326" id="bond54670" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom27551" end="atom17405" id="bond23440" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom98546" end="atom55754" id="bond62874" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom88630" end="atom20616" id="bond56359" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom21376" end="atom98546" id="bond66149" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom17405" end="atom15428" id="bond43869" line_width="1.0" double_ratio="0.75"/>
+  </molecule>
+  <molecule id="molecule74513">
+    <atom id="atom4907" name="C" valency="4">
+      <point x="5.364cm" y="2.177cm"/>
+    </atom>
+    <atom id="atom56578" name="C" valency="4">
+      <point x="7.182cm" y="2.527cm"/>
+    </atom>
+    <atom id="atom50586" name="C" valency="4">
+      <point x="7.788cm" y="2.177cm"/>
+    </atom>
+    <atom id="atom54208" name="C" valency="4">
+      <point x="9.001cm" y="2.177cm"/>
+    </atom>
+    <atom id="atom3929" pos="center-first" name="N" valency="3">
+      <point x="6.576cm" y="2.177cm"/>
+    </atom>
+    <atom id="atom60781" pos="center-first" name="N" valency="3">
+      <point x="8.395cm" y="2.527cm"/>
+    </atom>
+    <atom id="atom54436" name="C" valency="4">
+      <point x="5.970cm" y="2.527cm"/>
+    </atom>
+    <atom id="atom25752" pos="center-first" name="O" valency="2">
+      <point x="5.970cm" y="3.227cm"/>
+    </atom>
+    <atom id="atom90795" pos="center-first" name="O" valency="2">
+      <point x="7.788cm" y="1.477cm"/>
+    </atom>
+    <group id="atom26843" pos="center-first" group-type="builtin" name="COOH">
+      <point x="9.607cm" y="2.527cm"/>
+    </group>
+    <text id="atom11556" pos="center-last"><ftext>H3N</ftext><point x="4.758cm" y="2.527cm"/></text>
+    <query id="atom31424" pos="center-first" name="R">
+      <point x="5.364cm" y="1.477cm"/>
+    </query>
+    <query id="atom42824" pos="center-first" name="R">
+      <point x="7.182cm" y="3.227cm"/>
+    </query>
+    <query id="atom82527" pos="center-first" name="R">
+      <point x="9.001cm" y="1.477cm"/>
+    </query>
+    <bond type="n1" start="atom50586" end="atom60781" id="bond49118" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom3929" end="atom56578" id="bond9860" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom54208" end="atom82527" id="bond4286" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n2" start="atom50586" end="atom90795" id="bond7823" line_width="1.0" bond_width="6.0" center="yes" double_ratio="0.75"/>
+    <bond type="n1" start="atom54208" end="atom26843" id="bond18739" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom56578" end="atom50586" id="bond95782" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom11556" end="atom4907" id="bond95324" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom60781" end="atom54208" id="bond87678" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom56578" end="atom42824" id="bond82180" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom4907" end="atom54436" id="bond41187" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom54436" end="atom3929" id="bond25958" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n1" start="atom4907" end="atom31424" id="bond56125" line_width="1.0" double_ratio="0.75"/>
+    <bond type="n2" start="atom54436" end="atom25752" id="bond44569" line_width="1.0" bond_width="6.0" center="yes" double_ratio="0.75"/>
+  </molecule>
+</cdml>

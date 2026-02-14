@@ -1,14 +1,36 @@
 # Changelog
 
 ## 2026-02-15
-- Add beta-sheet CDML test fixtures for non-Haworth bond alignment testing.
-  New script [tools/render_beta_sheets.py](tools/render_beta_sheets.py) builds
-  parallel and antiparallel beta-sheet molecules programmatically (4 residues x
-  2 strands each, 40 atoms per molecule) and renders SVG/CDML output. Fixtures
-  written to [tests/fixtures/oasa_generic/](tests/fixtures/oasa_generic/),
-  SVGs to `output_smoke/oasa_generic_renders/`. Each file contains 24 label-bond
-  junctions (NH, O, R labels) providing non-Haworth test coverage for the
-  glyph-bond alignment measurement pipeline.
+- Fix bond drawing after zoom for shown atoms (N, O, R, H3N, COOH).  Bonds
+  connected to labeled atoms drew as long diagonal lines after zoom because
+  `molecule.redraw()` redraws bonds before atoms, and bonds call `atom.bbox()`
+  which read stale pre-zoom canvas positions.  Fix by redrawing atoms first so
+  their canvas items are at correct positions, then redrawing bonds, then
+  lifting atoms above bonds to restore z-ordering.
+- Fix double bond convergence toward labeled atoms (take 2). Secondary
+  parallel lines of double/triple bonds were independently resolved against
+  label targets, but each offset line approaches the label at a different
+  angle, so Steps 1-3 of the constraint pipeline broke parallelism. Remove all
+  `_resolve_endpoint_with_constraints` calls from secondary bond lines in
+  `build_bond_ops()`. Secondary lines inherit correct clearance from the main
+  bond's already-resolved endpoints via `find_parallel()`. Remove the
+  now-unused `no_gap_constraints` variable. Cross-label overlap avoidance
+  (`_avoid_cross_label_overlaps`) is retained for all lines.
+- Rewrite [tools/render_beta_sheets.py](tools/render_beta_sheets.py) to produce
+  bkchem-quality beta-sheet CDML and SVG fixtures.  Write CDML directly via
+  `xml.dom.minidom` (not `oasa.cdml_writer`) to emit proper bkchem element
+  types: `<atom>` for backbone C/N/O, `<query>` for R groups, and
+  `<text><ftext>` with `<sub>`/`<sup>` markup for terminals.  N-terminus uses
+  `H<sub>3</sub>N<sup>+</sup>` (superscript charge); C-terminus uses
+  `COO<sup>-</sup>` (carboxylate with superscript negative charge).  C=O bonds
+  use `type="n2" center="yes" bond_width="6.0"`.  Geometry matches the
+  hand-drawn reference template (0.700 cm bond length, 30-degree zigzag).
+  Four residues per strand, 19 atoms and 18 bonds each, 38 atoms total per
+  file (no cross-strand H-bonds).  SVG rendered via `render_out.render_to_svg()`
+  with `show_hydrogens_on_hetero=False` and subscript/superscript labels via
+  `<tspan>`.  Fixtures at
+  [tests/fixtures/oasa_generic/](tests/fixtures/oasa_generic/), SVGs at
+  `output_smoke/oasa_generic_renders/`.
 - Fix gap retreat reference mismatch: change `_retreat_to_target_gap()` in
   `resolve_label_connector_endpoint_from_text_origin` to use
   `contract.endpoint_target` (per-character glyph model) instead of

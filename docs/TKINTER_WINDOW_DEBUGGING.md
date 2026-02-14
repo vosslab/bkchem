@@ -26,18 +26,36 @@ box.
 Fix: compute coordinates directly via real_to_canvas() instead of
 calling get_xy_on_paper() in the non-showing atom path.
 
-### 2. Stale vertex_item Coordinates (molecule.py -- secondary cause)
+### 2. Stale bbox / vertex_item Coordinates (molecule.py -- secondary cause)
 
-In molecule.redraw(), bonds are redrawn before atoms (for z-ordering).
-Bonds call atom.get_xy_on_paper() which reads from vertex_item.  After
-canvas.scale(ALL, ox, oy, factor, factor), vertex_items hold
-canvas-scaled coordinates (offset by the zoom origin), not the correct
-model_coord * scale values.  Atoms reset vertex_items later during
-their own redraw, but by then bonds have already been drawn at wrong
-positions.
+In molecule.redraw(), bonds were originally redrawn before atoms (for
+z-ordering).  Bonds call atom.get_xy_on_paper() (reads vertex_item) and
+atom.bbox() (reads canvas text item) for endpoint clipping.  After zoom,
+vertex_items and text items hold stale pre-zoom coordinates until atoms
+redraw.  For hidden atoms (e.g. carbon in benzene) this only affected
+vertex_item positions, but for **shown** atoms with labels (N, O, R,
+H3N, COOH) the stale bbox caused the endpoint clipping logic
+(resolve_attach_endpoint) to produce wildly wrong attachment points,
+drawing bonds as long diagonal lines.
 
-Fix: reposition all vertex_items to model_coord * scale at the top of
-molecule.redraw(), before bonds draw.
+An earlier fix pre-repositioned vertex_items at the top of redraw(),
+but this only fixed position -- the bbox was still stale for shown atoms.
+
+Fix: redraw atoms **first** so both vertex_items and canvas text items
+are at correct positions, then redraw bonds, then lift atoms above
+bonds to restore z-ordering:
+
+```python
+[o.redraw() for o in self.atoms]
+for o in self.bonds:
+    ...
+for a in self.atoms:
+    a.lift()
+```
+
+The lift() pass (defined in special_parents.py) raises atom canvas items
+above bonds, restoring the atoms-on-top stacking that was previously
+achieved by drawing atoms last.
 
 ### 3. Background Rectangle Drift (paper.py -- scale_all redesign)
 
@@ -146,8 +164,10 @@ position is not adjusted.
 
 When object A reads position from object B during redraw, B must have
 correct positions before A draws.  In BKChem, bonds read atom positions
-via vertex_items.  If atoms have not yet reset their vertex_items, bonds
-get stale coordinates.
+via vertex_items and atom.bbox() for endpoint clipping against labels.
+If atoms have not yet redrawn their canvas items, bonds get stale
+coordinates and stale bboxes.  The solution is atoms-first redraw with
+a lift pass to restore z-ordering (atoms above bonds).
 
 ## Test Structure for Zoom
 

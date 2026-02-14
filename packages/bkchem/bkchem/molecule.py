@@ -550,19 +550,19 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
 
 
   def redraw( self, reposition_double=0):
-    # Reposition vertex_items to model coords at the current scale
-    # so bonds (redrawn before atoms for z-ordering) get correct
-    # positions instead of stale canvas.scale() coords.
-    for a in self.atoms:
-      if a.vertex_item:
-        xy = a.paper.real_to_canvas( a.get_xy())
-        a.paper.coords( a.vertex_item, xy[0], xy[1], xy[0], xy[1])
+    # Redraw atoms first so their canvas items (and vertex_items) are
+    # at correct positions.  Bonds call atom.bbox() for endpoint
+    # clipping; stale bboxes cause wild mis-draws after zoom.
+    [o.redraw() for o in self.atoms]
     for o in self.bonds:
       if o.order == 2:
         o.redraw( recalc_side=reposition_double)
       else:
         o.redraw()
-    [o.redraw() for o in self.atoms]
+    # Lift atoms above bonds for correct z-ordering (atoms drawn
+    # first are below bonds; lift restores atoms-on-top stacking).
+    for a in self.atoms:
+      a.lift()
 
 
   def get_formula_dict( self):
