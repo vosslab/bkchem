@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-02-15
+- Fix zoom viewport drift caused by orphaned canvas items leaking during
+  redraw.  Non-showing atoms (carbon) in
+  [packages/bkchem/bkchem/atom.py](packages/bkchem/bkchem/atom.py) called
+  `get_xy_on_paper()` which created a `vertex_item`, then overwrote
+  `self.vertex_item = self.item`, orphaning the first item.  These leaked
+  items accumulated at stale `canvas.scale()` coordinates, inflating the
+  content bounding box and causing cumulative drift (571 px after 6 zoom
+  steps).  Fix computes coordinates directly via `real_to_canvas()`.
+- Fix bond position drift during zoom by repositioning `vertex_item`
+  coordinates to `model_coord * scale` at the top of `molecule.redraw()`
+  in [packages/bkchem/bkchem/molecule.py](packages/bkchem/bkchem/molecule.py).
+  Bonds redraw before atoms for z-ordering and read atom positions from
+  `vertex_item`; without the reset they used stale canvas-scaled coords.
+- Add `_center_viewport_on_canvas()` helper to
+  [packages/bkchem/bkchem/paper.py](packages/bkchem/bkchem/paper.py) and
+  call it after `update_scrollregion()` in `scale_all()` to re-center the
+  viewport on the zoom origin.  Refactor `zoom_to_content()` to use the
+  new helper.
+- Upgrade zoom test assertions in
+  [tests/test_bkchem_gui_zoom.py](tests/test_bkchem_gui_zoom.py):
+  convert idempotency and drift warnings to hard assertions (5% scale
+  tolerance, 50 px bbox/viewport drift tolerance), add per-zoom-step
+  snapshots with canvas item counts.
+- Add [docs/TKINTER_WINDOW_DEBUGGING.md](docs/TKINTER_WINDOW_DEBUGGING.md)
+  documenting Tk Canvas zoom debugging techniques, the orphaned
+  `vertex_item` root cause, and the `redraw()` ordering pitfall.
+
 ## 2026-02-14
 - Replace "first child that changes endpoint" behavior in composite target branch
   of `_correct_endpoint_for_alignment()` with scoring-based candidate selection

@@ -216,6 +216,7 @@ class BondRenderContext:
 	point_for_atom: object | None = None
 	label_targets: dict | None = None
 	attach_targets: dict | None = None
+	attach_constraints: AttachConstraints | None = None
 
 
 #============================================
@@ -764,9 +765,13 @@ def build_bond_ops(edge, start, end, context):
 	target_v1 = _context_attach_target_for_vertex(context, v1)
 	target_v2 = _context_attach_target_for_vertex(context, v2)
 	if target_v1 is not None:
-		start = _resolve_endpoint_with_constraints(end, target_v1)
+		start = _resolve_endpoint_with_constraints(
+			end, target_v1, constraints=context.attach_constraints,
+			line_width=context.line_width)
 	if target_v2 is not None:
-		end = _resolve_endpoint_with_constraints(start, target_v2)
+		end = _resolve_endpoint_with_constraints(
+			start, target_v2, constraints=context.attach_constraints,
+			line_width=context.line_width)
 	start, end = _apply_bond_length_policy(edge, start, end)
 	edge_line_width = _edge_line_width(edge, context)
 	if context.label_targets:
@@ -824,9 +829,13 @@ def build_bond_ops(edge, start, end, context):
 					x1, y1 = geometry.elongate_line(x2, y2, x1, y1,
 							-context.bond_second_line_shortening * length)
 			if target_v1 is not None:
-				x1, y1 = _resolve_endpoint_with_constraints((x2, y2), target_v1)
+				x1, y1 = _resolve_endpoint_with_constraints(
+					(x2, y2), target_v1, constraints=context.attach_constraints,
+					line_width=context.line_width)
 			if target_v2 is not None:
-				x2, y2 = _resolve_endpoint_with_constraints((x1, y1), target_v2)
+				x2, y2 = _resolve_endpoint_with_constraints(
+					(x1, y1), target_v2, constraints=context.attach_constraints,
+					line_width=context.line_width)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
@@ -840,9 +849,13 @@ def build_bond_ops(edge, start, end, context):
 				start[0], start[1], end[0], end[1], i * context.bond_width * 0.5
 			)
 			if target_v1 is not None:
-				x1, y1 = _resolve_endpoint_with_constraints((x2, y2), target_v1)
+				x1, y1 = _resolve_endpoint_with_constraints(
+					(x2, y2), target_v1, constraints=context.attach_constraints,
+					line_width=context.line_width)
 			if target_v2 is not None:
-				x2, y2 = _resolve_endpoint_with_constraints((x1, y1), target_v2)
+				x2, y2 = _resolve_endpoint_with_constraints(
+					(x1, y1), target_v2, constraints=context.attach_constraints,
+					line_width=context.line_width)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
@@ -859,9 +872,13 @@ def build_bond_ops(edge, start, end, context):
 				start[0], start[1], end[0], end[1], i * context.bond_width * 0.7
 			)
 			if target_v1 is not None:
-				x1, y1 = _resolve_endpoint_with_constraints((x2, y2), target_v1)
+				x1, y1 = _resolve_endpoint_with_constraints(
+					(x2, y2), target_v1, constraints=context.attach_constraints,
+					line_width=context.line_width)
 			if target_v2 is not None:
-				x2, y2 = _resolve_endpoint_with_constraints((x1, y1), target_v2)
+				x2, y2 = _resolve_endpoint_with_constraints(
+					(x1, y1), target_v2, constraints=context.attach_constraints,
+					line_width=context.line_width)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
@@ -2700,6 +2717,8 @@ _DEFAULT_STYLE = {
 	"font_name": "Arial",
 	"font_size": 16.0,
 	"show_carbon_symbol": False,
+	"attach_gap_target": ATTACH_GAP_TARGET,
+	"attach_perp_tolerance": ATTACH_PERP_TOLERANCE,
 }
 
 
@@ -2817,6 +2836,11 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		)
 		attach_target_obj = _transform_target(attach_target_obj, transform_xy)
 		attach_targets[vertex] = attach_target_obj
+	attach_constraints = AttachConstraints(
+		target_gap=float(used_style["attach_gap_target"]),
+		alignment_tolerance=float(used_style["attach_perp_tolerance"]),
+		line_width=float(used_style["line_width"]),
+	)
 	context = BondRenderContext(
 		molecule=mol,
 		line_width=float(used_style["line_width"]),
@@ -2832,6 +2856,7 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		point_for_atom=None,
 		label_targets=label_targets,
 		attach_targets=attach_targets,
+		attach_constraints=attach_constraints,
 	)
 	ops = []
 	for edge in _render_edges_in_order(mol):

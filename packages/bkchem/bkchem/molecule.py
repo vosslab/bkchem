@@ -550,6 +550,13 @@ class molecule( container, top_level, id_enabled, oasa.molecule, with_paper):
 
 
   def redraw( self, reposition_double=0):
+    # Reposition vertex_items to model coords at the current scale
+    # so bonds (redrawn before atoms for z-ordering) get correct
+    # positions instead of stale canvas.scale() coords.
+    for a in self.atoms:
+      if a.vertex_item:
+        xy = a.paper.real_to_canvas( a.get_xy())
+        a.paper.coords( a.vertex_item, xy[0], xy[1], xy[0], xy[1])
     for o in self.bonds:
       if o.order == 2:
         o.redraw( recalc_side=reposition_double)

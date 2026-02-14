@@ -277,8 +277,8 @@ def _run_zoom_diagnostic():
 		tolerance = 0.05
 		idempotent_drift = abs(snap6["scale"] - content_scale) / max(content_scale, 0.01)
 		if idempotent_drift > tolerance:
-			print(
-				"DRIFT: zoom_to_content not idempotent after round-trip. "
+			raise AssertionError(
+				"Step 6: zoom_to_content not idempotent after round-trip. "
 				"Expected ~%.4f, got %.4f (%.1f%% off)."
 				% (content_scale, snap6["scale"], idempotent_drift * 100)
 			)
@@ -328,8 +328,8 @@ def _run_zoom_diagnostic():
 			print(f"  Drift Y: {drift_y:.1f} px")
 			print(f"  Drift total: {drift_total:.1f} px")
 			if drift_total > 50.0:
-				print(
-					"  DRIFT: viewport drift of %.1f px after zoom_out x3 + zoom_in x3 "
+				raise AssertionError(
+					"Viewport drift of %.1f px after zoom_out x3 + zoom_in x3 "
 					"round-trip exceeds 50 px tolerance." % drift_total
 				)
 			else:
@@ -344,8 +344,8 @@ def _run_zoom_diagnostic():
 			print(f"  BBox center step 5: ({snap5['bbox_cx']:.1f}, {snap5['bbox_cy']:.1f})")
 			print(f"  BBox drift total: {bbox_drift_total:.1f} px")
 			if bbox_drift_total > 50.0:
-				print(
-					"  DRIFT: BBox center drift of %.1f px after zoom_out x3 + zoom_in x3 "
+				raise AssertionError(
+					"BBox center drift of %.1f px after zoom_out x3 + zoom_in x3 "
 					"round-trip exceeds 50 px tolerance." % bbox_drift_total
 				)
 		print()

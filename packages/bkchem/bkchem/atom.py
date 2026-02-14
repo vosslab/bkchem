@@ -312,7 +312,11 @@ class atom(drawable_chem_vertex, oasa.atom):
     else:
       if self.item:
         warn( "drawing atom that is probably drawn", UserWarning, 2)
-      x, y = self.get_xy_on_paper()
+      # Compute position directly from model coords instead of calling
+      # get_xy_on_paper(), which would create a separate vertex_item
+      # that becomes orphaned when self.vertex_item is reassigned below.
+      xy = self.paper.real_to_canvas( self.get_xy())
+      x, y = xy[0], xy[1]
       self.item = self.paper.create_line( x, y, x, y, tags=("atom", 'nonSVG'), fill='')
       self.vertex_item = self.item
       if not redraw:
