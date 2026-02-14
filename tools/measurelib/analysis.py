@@ -6,11 +6,15 @@ import pathlib
 import defusedxml.ElementTree as ET
 
 from measurelib.constants import (
+	ALIGNMENT_GAP_MAX,
+	ALIGNMENT_GAP_MIN,
+	ALIGNMENT_GAP_TARGET,
+	ALIGNMENT_GAP_TOLERANCE,
+	ALIGNMENT_PERP_TOLERANCE,
 	BOND_GLYPH_GAP_TOLERANCE,
 	CANONICAL_LATTICE_ANGLES,
 	LATTICE_ANGLE_TOLERANCE_DEGREES,
 	MAX_ENDPOINT_TO_LABEL_DISTANCE_FACTOR,
-	MIN_ALIGNMENT_DISTANCE_TOLERANCE,
 	MIN_CONNECTOR_LINE_WIDTH,
 )
 from measurelib.util import (
@@ -267,22 +271,17 @@ def analyze_svg_file(
 			continue
 		if best_line_index is not None:
 			connector_line_indexes.add(best_line_index)
-		alignment_tolerance = MIN_ALIGNMENT_DISTANCE_TOLERANCE
-		alignment_error = None
+		alignment_tolerance = 1.0
+		perp_distance = None
 		if best_line_index is not None and 0 <= best_line_index < len(lines) and alignment_center is not None:
 			line = lines[best_line_index]
-			alignment_error = point_to_infinite_line_distance(
+			perp_distance = point_to_infinite_line_distance(
 				point=alignment_center,
 				line_start=(line["x1"], line["y1"]),
 				line_end=(line["x2"], line["y2"]),
 			)
 		else:
-			alignment_error = float(best_distance)
-		is_aligned = alignment_error <= alignment_tolerance
-		if not is_aligned:
-			alignment_reason = "bond_line_not_pointing_to_primitive_center"
-		else:
-			alignment_reason = "ok"
+			perp_distance = float(best_distance)
 		independent_gap_distance = None
 		independent_penetration_depth = None
 		hull_boundary_points = None
@@ -305,6 +304,30 @@ def analyze_svg_file(
 			independent_penetration_depth = max(0.0, -float(hull_signed_gap))
 			reported_signed_distance_to_glyph_body = float(hull_signed_gap)
 			reported_distance_to_glyph_body = abs(float(hull_signed_gap))
+		gap_value = None
+		if hull_signed_gap is not None:
+			gap_value = float(hull_signed_gap)
+		elif reported_signed_distance_to_glyph_body is not None:
+			gap_value = float(reported_signed_distance_to_glyph_body)
+		alignment_error = None
+		if gap_value is not None and perp_distance is not None:
+			gap_normalized = (gap_value - ALIGNMENT_GAP_TARGET) / ALIGNMENT_GAP_TOLERANCE
+			perp_normalized = max(0.0, float(perp_distance) / ALIGNMENT_PERP_TOLERANCE)
+			alignment_error = (gap_normalized * gap_normalized) + (perp_normalized * perp_normalized)
+		is_aligned = False
+		alignment_reason = "missing_gap_or_perp"
+		if gap_value is not None and perp_distance is not None:
+			in_gap_range = ALIGNMENT_GAP_MIN <= gap_value <= ALIGNMENT_GAP_MAX
+			perp_in_range = float(perp_distance) <= ALIGNMENT_PERP_TOLERANCE
+			is_aligned = bool(in_gap_range and perp_in_range)
+			if is_aligned:
+				alignment_reason = "ok"
+			elif not in_gap_range and not perp_in_range:
+				alignment_reason = "gap_and_perp_out_of_range"
+			elif not in_gap_range:
+				alignment_reason = "gap_out_of_range"
+			else:
+				alignment_reason = "perp_out_of_range"
 		if is_aligned:
 			aligned_count += 1
 		else:
@@ -324,7 +347,7 @@ def analyze_svg_file(
 					"endpoint_signed_distance_to_glyph_body": reported_signed_distance_to_glyph_body,
 					"endpoint_distance_to_c_center": None,
 					"c_center_point": None,
-					"endpoint_perpendicular_distance_to_alignment_center": alignment_error,
+					"endpoint_perpendicular_distance_to_alignment_center": perp_distance,
 					"alignment_center_point": (
 						[alignment_center[0], alignment_center[1]]
 						if alignment_center is not None else None

@@ -34,7 +34,7 @@ RETREAT_SOLVER_EPSILON = 1e-3
 STRICT_OVERLAP_EPSILON = 0.5
 CANONICAL_LATTICE_ANGLES = (0.0, 60.0, 120.0, 180.0, 240.0, 300.0)
 # fraction of font_size used as the target gap between bond endpoint and glyph body
-TARGET_GAP_FRACTION = 0.04
+TARGET_GAP_FRACTION = 0.058
 
 
 #============================================

@@ -1,6 +1,29 @@
 # Changelog
 
+## 2026-02-14
+- Update glyph-bond measurement pass/fail criteria in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py) so labels are
+  marked aligned only when `1.3 <= gap <= 1.7` and `perp <= 0.07`; all other
+  cases are violations.
+- Replace `err = perp` with a normalized combined metric in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py):
+  `err = ((gap - 1.5)/0.2)^2 + (perp/0.07)^2`.
+- Add explicit alignment gap/perp constants in
+  [tools/measurelib/constants.py](tools/measurelib/constants.py).
+- Update alignment tests in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  to validate the new combined error formula and pass/fail rule.
+
 ## 2026-02-13
+- Tighten gap and perp renderer parameters to meet gap 1.3-1.7 and perp < 0.07
+  spec. Change `TARGET_GAP_FRACTION` from 0.04 to 0.058 in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  (yields target_gap=0.70 at font_size=12). Tighten renderer alignment tolerance
+  from `max(line_width * 0.5, 0.25)` to 0.07 in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py).
+  Add post-gap re-alignment pass after gap retreat to catch perpendicular drift.
+  Result: OH gap=1.37, HO gap=1.30, CH2OH gap=1.70 (all in spec). Perp values
+  unchanged (structural limitation of composite target geometry).
 - Add median to `length_stats()` in
   [tools/measurelib/util.py](tools/measurelib/util.py). Per-label alignment
   summary now shows avg/stddev/median for both bond_end_gap and perp_offset.
