@@ -1,6 +1,6 @@
 # Refactor progress
 
-Last updated: 2026-02-13
+Last updated: 2026-02-15
 
 ## Snapshot
 - Registry refactor: OASA codec registry is implemented and in use by the CLI.
@@ -41,13 +41,14 @@ Last updated: 2026-02-13
 
 ## In progress
 - [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md):
-  Phases 0-3 implemented, unit-tested (41 tests), documented. Acceptance gates
-  re-baselined 2026-02-13 after measurement tool connector selection fix
-  (hashed carrier lines included as candidates, commit feaf57d). All phase
-  criteria now PASS: 362/362 alignment (100%), CH2OH gap sd=0.54, HO gap
-  sd=0.55, 0 alignment misses. Original 16 misses were measurement tool
-  artifact (labels matched to wrong bonds). Phases 4-6 and Changes 6-8 not
-  started.
+  Phases 0-4 implemented and unit-tested (40 render_geometry, 11 connector
+  clipping, 45 phase4 known failures, 9 pipeline parity tests all green).
+  Phase 4 wires shared `AttachConstraints` with `ATTACH_GAP_TARGET` and
+  `ATTACH_PERP_TOLERANCE` through all four consumers: `cairo_out.py`,
+  `svg_out.py`, `bond_render_ops.py`, and `bond_drawing.py`. Gap/perp gate
+  (2026-02-15) shows Haworth corpus unchanged at baseline (0/362 aligned under
+  strict spec); BKChem and OASA generic corpus buckets are empty so consumer
+  impact is not yet measurable. Phases 5-6 not started.
 - [docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md](docs/active_plans/BOND_LABEL_GLYPH_CONTRACT_PLAN.md):
   Phases 3 and 4 are complete in runtime/tests and matrix validation,
   including manager checklist fixture coverage plus straightness/lattice
