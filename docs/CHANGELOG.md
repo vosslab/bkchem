@@ -37,11 +37,18 @@
 - Add wavy bond to GUI draw mode bond type submenu so users can select and
   draw wavy bonds from the toolbar (the rendering was already implemented but
   not wired into the GUI).
-- Fix wavy and hashed bond rendering in GUI: scale wavy amplitude/wavelength
-  off `wedge_width` (not `line_width`) so waves are visible, increase sample
-  density to 32/wavelength with explicit peak/valley points, and space hashed
-  bond lines at `0.6 * wedge_width` minimum so they don't collapse into a
-  solid block.
+- Fix wavy bond rendering in GUI: scale amplitude/wavelength off `wedge_width`
+  (not `line_width`) so waves are visible, use 4 sparse control points per
+  wavelength with 1.5x amplitude overshoot so Tk's B-spline `smooth=1`
+  produces genuinely smooth curves instead of visible straight-line segments,
+  and widen stroke by 10% in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py).
+- Fix hashed bond rendering in GUI: rewrite `_hashed_ops()` to compute each
+  hash line perpendicular to the bond axis (unit-vector math) instead of
+  connecting points on converging wedge edges, so all hash lines are parallel;
+  linearly interpolate hash line length from `line_width` at the narrow end to
+  `wedge_width` at the wide end; tighten spacing to `0.4 * wedge_width` in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py).
 - Rewrite
   [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md)
   into a focused execution plan for getting gap/perp into spec across shared
