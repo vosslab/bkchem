@@ -20,6 +20,7 @@ Repo-wide conventions for this project and related repos.
 ## Git moves, renames, and index locks
 - Use `git mv` for all renames and moves.
 - Do not use `mv` plus add/remove as a fallback. Do not use `git rm` unless deleting a file permanently.
+- Only humans run `git commit`. AI agents update `docs/CHANGELOG.md` for human review before committing.
 - Before any index-writing Git command (including `git mv`, `git add`, `git rm`, `git checkout`, `git switch`, `git restore`, `git merge`, `git rebase`, `git reset`, `git commit`), verify `.git` is writable by the current user. If not, stop and report a permissions error.
 - If `.git/index.lock` exists:
   - Do not modify files and do not run Git commands. Stop and report:
@@ -29,6 +30,20 @@ Repo-wide conventions for this project and related repos.
   - If no process holds the lock and the lock age is > 5 minutes, report a likely stale lock. Do not delete it automatically.
 - If any Git command fails with an index lock error (cannot create `.git/index.lock`), stop immediately. Do not retry and do not fall back to `mv`.
 - Error report must include: the command run and full stderr, plus a short next step: close other Git processes, remove a stale lock only if no process holds it, or fix `.git` permissions.
+
+## Pytest failure triage
+- If you are unsure whether a failing pytest result is pre-existing or introduced by your current work, assume it is new first.
+- Reason: we try not to commit code with known failing tests, so a fresh failure is usually related to current uncommitted changes.
+- If uncertainty remains, inspect `git diff` and check whether the suspicious lines are part of current uncommitted edits.
+- Never use `git stash` as a diagnostic step for this.
+
+## Changelog rotation
+- Rotate `docs/CHANGELOG.md` when it reaches about 1000 lines (`wc -l docs/CHANGELOG.md`).
+- Keep complete day blocks together. Do not split entries from the same `## YYYY-MM-DD` heading across files.
+- Keep the last two date-heading day blocks in active `docs/CHANGELOG.md` and move older day blocks to archive files.
+- "Last two days" means the two most recent `## YYYY-MM-DD` headings present in the changelog, not a rolling 48-hour window; dates may be non-consecutive.
+- Use archive filenames in the form `docs/CHANGELOG-YYYY-MM[a-z].md` (for example `docs/CHANGELOG-2026-02a.md`), choosing the next letter for additional rotations in the same month.
+- Preserve reverse-chronological order within each file after rotation.
 
 ## Versioning
 - Prefer `pyproject.toml` as the single source of truth when the repo is a single Python package with a single `pyproject.toml`.
@@ -47,10 +62,10 @@ Repo-wide conventions for this project and related repos.
 - Document shared helpers and modules in `docs/USAGE.md` when used across scripts.
 - Use `tests/test_pyflakes_code_lint.py` and `tests/test_ascii_compliance.py` for repo-wide lint checks, with `tests/check_ascii_compliance.py` for single-file ASCII/ISO-8859-1 checks and `tests/fix_ascii_compliance.py` for single-file fixes.
 - For smoke tests, reuse stable output folder names (for example `output_smoke/`) instead of creating one-off output directory names; reusing/overwriting avoids repeated delete-approval prompts.
-- In test scripts that need the repository root, import and use the shared `tests/get_repo_root.py` module:
+- In test scripts that need the repository root, import and use the shared `tests/git_file_utils.py` module:
   ```python
-  from get_repo_root import get_repo_root
-  REPO_ROOT = get_repo_root()
+  import git_file_utils
+  REPO_ROOT = git_file_utils.get_repo_root()
   ```
   This module uses `git rev-parse --show-toplevel` and is propagated across repos automatically.
 

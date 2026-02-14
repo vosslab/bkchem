@@ -100,11 +100,7 @@ class svg_out(object):
         tx, ty, layout["text"], layout["anchor"], 16, font_name="Arial",
       )
       label_targets[v] = target
-    constraints = render_geometry.AttachConstraints(
-      target_gap=render_geometry.ATTACH_GAP_TARGET,
-      alignment_tolerance=render_geometry.ATTACH_PERP_TOLERANCE,
-      line_width=self.line_width,
-    )
+    constraints = render_geometry.make_attach_constraints(line_width=self.line_width)
     self._bond_context = render_geometry.BondRenderContext(
       molecule=self.molecule,
       line_width=self.line_width,

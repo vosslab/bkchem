@@ -150,7 +150,7 @@ Current results from `output_smoke/glyph_bond_alignment_report.txt`:
   improvements, not only Haworth.
 - No functional regression in non-label bond drawing.
 
-## Phase 5: remove Haworth-only tuning path
+## Phase 5: remove Haworth-only tuning path [COMPLETE]
 
 ### Changes
 

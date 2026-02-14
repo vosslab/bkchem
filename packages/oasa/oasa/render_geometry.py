@@ -68,6 +68,8 @@ ATTACH_GAP_TARGET = 1.5
 ATTACH_GAP_MIN = 1.3
 ATTACH_GAP_MAX = 1.7
 ATTACH_PERP_TOLERANCE = 0.07
+# fraction of font_size used as the target gap between bond endpoint and glyph body
+ATTACH_GAP_FONT_FRACTION = 0.058
 
 _OVAL_GLYPH_ELEMENTS = {"O", "C", "S"}
 _RECT_GLYPH_ELEMENTS = {"N", "H"}
@@ -230,6 +232,54 @@ class AttachConstraints:
 	target_gap: float = 0.0
 	alignment_center: tuple[float, float] | None = None
 	alignment_tolerance: float = ATTACH_PERP_TOLERANCE
+
+
+#============================================
+def make_attach_constraints(
+		font_size: float | None = None,
+		target_gap: float | None = None,
+		alignment_tolerance: float = ATTACH_PERP_TOLERANCE,
+		line_width: float = 0.0,
+		clearance: float = 0.0,
+		vertical_lock: bool = False,
+		direction_policy: str = "auto",
+		alignment_center: tuple[float, float] | None = None) -> AttachConstraints:
+	"""Factory for AttachConstraints with three-tier gap resolution.
+
+	Gap resolution priority:
+		1. Explicit target_gap wins if provided.
+		2. font_size * ATTACH_GAP_FONT_FRACTION if font_size provided.
+		3. ATTACH_GAP_TARGET absolute default.
+
+	Args:
+		font_size: optional font size for font-relative gap computation.
+		target_gap: explicit gap override; takes priority over font_size.
+		alignment_tolerance: perpendicular tolerance, defaults to ATTACH_PERP_TOLERANCE.
+		line_width: connector line width.
+		clearance: extra clearance around target.
+		vertical_lock: lock connector to vertical direction.
+		direction_policy: direction policy string ("auto" or "line").
+		alignment_center: optional alignment center point.
+
+	Returns:
+		AttachConstraints instance with resolved gap value.
+	"""
+	# three-tier gap resolution
+	if target_gap is not None:
+		resolved_gap = target_gap
+	elif font_size is not None:
+		resolved_gap = font_size * ATTACH_GAP_FONT_FRACTION
+	else:
+		resolved_gap = ATTACH_GAP_TARGET
+	return AttachConstraints(
+		target_gap=resolved_gap,
+		alignment_tolerance=alignment_tolerance,
+		line_width=line_width,
+		clearance=clearance,
+		vertical_lock=vertical_lock,
+		direction_policy=direction_policy,
+		alignment_center=alignment_center,
+	)
 
 
 #============================================
@@ -1622,7 +1672,7 @@ def resolve_label_connector_endpoint_from_text_origin(
 			line_start=bond_start,
 			legal_endpoint=endpoint,
 			target_gap=constraints.target_gap,
-			forbidden_regions=[contract.full_target],
+			forbidden_regions=[contract.endpoint_target],
 		)
 	return endpoint, contract
 
@@ -2836,7 +2886,7 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		)
 		attach_target_obj = _transform_target(attach_target_obj, transform_xy)
 		attach_targets[vertex] = attach_target_obj
-	attach_constraints = AttachConstraints(
+	attach_constraints = make_attach_constraints(
 		target_gap=float(used_style["attach_gap_target"]),
 		alignment_tolerance=float(used_style["attach_perp_tolerance"]),
 		line_width=float(used_style["line_width"]),

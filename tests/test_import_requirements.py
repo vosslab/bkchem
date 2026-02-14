@@ -22,11 +22,11 @@ REQUIREMENT_FILES = (
 	os.path.join("config_files", "pip_extras.txt"),
 )
 LOCAL_IMPORT_WHITELIST = {
-	"apDisplay",
-	"site_config",
 }
 IMPORT_REQUIREMENT_ALIASES = {
 	"applescript": "py-applescript",
+	"bio": "biopython",
+	"bs4": "beautifulsoup4",
 	"cairo": "pycairo",
 	"cv2": "opencv-python",
 	"google": "google-api-python-client",

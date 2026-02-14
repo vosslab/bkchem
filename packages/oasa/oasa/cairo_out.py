@@ -274,11 +274,7 @@ class cairo_out(object):
         dy = v.y - oy
         adj_bbox = (bbox[0]+dx, bbox[1]+dy, bbox[2]+dx, bbox[3]+dy)
         label_targets[v] = render_geometry.make_box_target(adj_bbox)
-      constraints = render_geometry.AttachConstraints(
-        target_gap=render_geometry.ATTACH_GAP_TARGET,
-        alignment_tolerance=render_geometry.ATTACH_PERP_TOLERANCE,
-        line_width=self.line_width,
-      )
+      constraints = render_geometry.make_attach_constraints(line_width=self.line_width)
       context = render_geometry.BondRenderContext(
         molecule=self.molecule,
         line_width=self.line_width,

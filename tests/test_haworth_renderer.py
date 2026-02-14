@@ -623,7 +623,8 @@ def _assert_connector_endpoint_on_attach_element(
 		chain_attach_site="core_center",
 		font_name=label.font_name,
 	)
-	gap_epsilon = label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06)
+	# epsilon must accommodate ATTACH_GAP_TARGET (1.5 px) plus tolerance
+	gap_epsilon = render_geometry.ATTACH_GAP_TARGET + 0.5
 	assert render_geometry._point_in_attach_target_closed(connector.p2, contract.endpoint_target, epsilon=gap_epsilon), (
 		f"{connector_id} endpoint {connector.p2} not inside {label_id} "
 		f"{attach_element}-target {contract.endpoint_target} (epsilon={gap_epsilon})"
@@ -976,8 +977,12 @@ def test_render_furanose_chain2_connector_matches_shared_resolver_endpoint():
 		anchor=label.anchor,
 		font_size=label.font_size,
 		line_width=line.width,
-		constraints=render_geometry.AttachConstraints(direction_policy="auto"),
-		epsilon=0.5,
+		constraints=render_geometry.make_attach_constraints(
+			font_size=label.font_size,
+			target_gap=render_geometry.ATTACH_GAP_TARGET,
+			direction_policy="auto",
+		),
+		epsilon=1e-3,
 		attach_atom="first",
 		attach_element="C",
 		attach_site="core_center",
@@ -1119,7 +1124,7 @@ def test_connector_terminates_at_bbox_edge():
 		if label.text in ("OH", "HO"):
 			continue
 		label_box = _connector_bbox_for_label(label)
-		gap_tol = label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06)
+		gap_tol = render_geometry.ATTACH_GAP_TARGET + 0.5
 		assert _point_on_box_edge(op.p2, label_box, tol=gap_tol)
 
 
@@ -1136,7 +1141,7 @@ def test_connector_does_not_enter_bbox():
 		if label.text in ("OH", "HO"):
 			continue
 		label_box = _connector_bbox_for_label(label)
-		gap_tol = label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06)
+		gap_tol = render_geometry.ATTACH_GAP_TARGET + 0.5
 		assert _point_on_box_edge(op.p2, label_box, tol=gap_tol)
 		midpoint = ((op.p1[0] + op.p2[0]) / 2.0, (op.p1[1] + op.p2[1]) / 2.0)
 		assert not _point_in_box(midpoint, label_box)
@@ -1196,7 +1201,7 @@ def test_render_right_anchor_hydroxyl_connector_hits_o_center():
 		font_name=label.font_name,
 	)
 	assert contract.policy.target_kind == "oxygen_circle"
-	assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+	assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=render_geometry.ATTACH_GAP_TARGET + 0.5)
 	assert render_geometry.validate_attachment_paint(
 		line_start=line.p1,
 		line_end=line.p2,
@@ -1225,7 +1230,7 @@ def test_render_left_anchor_hydroxyl_connector_hits_o_center():
 		font_name=label.font_name,
 	)
 	assert contract.policy.target_kind == "oxygen_circle"
-	assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+	assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=render_geometry.ATTACH_GAP_TARGET + 0.5)
 	assert render_geometry.validate_attachment_paint(
 		line_start=line.p1,
 		line_end=line.p2,
@@ -1256,7 +1261,7 @@ def test_render_hydroxyl_connectors_do_not_overlap_oxygen_glyph():
 			chain_attach_site="core_center",
 			font_name=label.font_name,
 		)
-		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=render_geometry.ATTACH_GAP_TARGET + 0.5)
 		assert render_geometry.validate_attachment_paint(
 			line_start=line.p1,
 			line_end=line.p2,
@@ -1338,7 +1343,7 @@ def test_furanose_alpha_hydroxyl_connectors_remain_vertical_and_o_centered():
 			chain_attach_site="core_center",
 			font_name=label.font_name,
 		)
-		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=render_geometry.ATTACH_GAP_TARGET + 0.5)
 		assert render_geometry.validate_attachment_paint(
 			line_start=line.p1,
 			line_end=line.p2,
@@ -1457,7 +1462,7 @@ def test_render_lyxose_pyranose_internal_connectors_stop_at_label_edges():
 			)
 		else:
 			label_box = _connector_bbox_for_label(label)
-			assert _point_on_box_edge(line.p2, label_box, tol=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+			assert _point_on_box_edge(line.p2, label_box, tol=render_geometry.ATTACH_GAP_TARGET + 0.5)
 
 
 #============================================
@@ -1667,7 +1672,7 @@ def test_render_ch2oh_connector_hits_leading_carbon_center():
 	line = _line_by_id(ops, "C5_up_connector")
 	assert label.text == "CH<sub>2</sub>OH"
 	label_box = _connector_bbox_for_label(label)
-	assert _point_on_box_edge(line.p2, label_box, tol=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+	assert _point_on_box_edge(line.p2, label_box, tol=render_geometry.ATTACH_GAP_TARGET + 0.5)
 
 
 #============================================
@@ -1677,7 +1682,7 @@ def test_render_cooh_connector_hits_leading_carbon_center():
 	line = _line_by_id(ops, "C5_up_connector")
 	assert label.text == "COOH"
 	label_box = _connector_bbox_for_label(label)
-	assert _point_on_box_edge(line.p2, label_box, tol=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+	assert _point_on_box_edge(line.p2, label_box, tol=render_geometry.ATTACH_GAP_TARGET + 0.5)
 
 
 #============================================
@@ -1687,7 +1692,7 @@ def test_render_arabinose_furanose_ch2oh_connector_hits_leading_carbon_center():
 	line = _line_by_id(ops, "C4_up_connector")
 	assert label.text == "CH<sub>2</sub>OH"
 	label_box = _connector_bbox_for_label(label)
-	assert _point_on_box_edge(line.p2, label_box, tol=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+	assert _point_on_box_edge(line.p2, label_box, tol=render_geometry.ATTACH_GAP_TARGET + 0.5)
 
 
 #============================================
@@ -1698,7 +1703,7 @@ def test_render_ketopentose_furanose_down_ch2oh_connector_hits_leading_carbon_ce
 	line = _line_by_id(ops, "C2_down_connector")
 	assert label.text == "CH<sub>2</sub>OH"
 	label_box = _connector_bbox_for_label(label)
-	assert _point_on_box_edge(line.p2, label_box, tol=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+	assert _point_on_box_edge(line.p2, label_box, tol=render_geometry.ATTACH_GAP_TARGET + 0.5)
 
 
 #============================================
@@ -1904,7 +1909,7 @@ def test_sub_length_multiplier_dual_wide():
 		)
 	else:
 		label_box = _connector_bbox_for_label(label)
-		assert _point_on_box_edge(line.p2, label_box, tol=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+		assert _point_on_box_edge(line.p2, label_box, tol=render_geometry.ATTACH_GAP_TARGET + 0.5)
 
 
 #============================================
@@ -1923,7 +1928,7 @@ def test_sub_length_default_single_wide():
 			chain_attach_site="core_center",
 			font_name=label.font_name,
 		)
-		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+		assert render_geometry._point_in_attach_target_closed(line.p2, contract.endpoint_target, epsilon=render_geometry.ATTACH_GAP_TARGET + 0.5)
 		assert render_geometry.validate_attachment_paint(
 			line_start=line.p1,
 			line_end=line.p2,
@@ -1934,7 +1939,7 @@ def test_sub_length_default_single_wide():
 		)
 	else:
 		label_box = _connector_bbox_for_label(label)
-		assert _point_on_box_edge(line.p2, label_box, tol=label.font_size * (haworth.renderer.TARGET_GAP_FRACTION + 0.06))
+		assert _point_on_box_edge(line.p2, label_box, tol=render_geometry.ATTACH_GAP_TARGET + 0.5)
 
 
 #============================================

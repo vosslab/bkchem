@@ -78,11 +78,7 @@ class BondRenderOpsMixin:
     bond_width = abs(float(self.paper.real_to_canvas(bond_width_value or line_width)))
     wedge_width = abs(float(self.paper.real_to_canvas(wedge_width_value or line_width)))
     bold_multiplier = wedge_width / max(line_width, 1e-6)
-    constraints = render_geometry.AttachConstraints(
-      target_gap=render_geometry.ATTACH_GAP_TARGET,
-      alignment_tolerance=render_geometry.ATTACH_PERP_TOLERANCE,
-      line_width=line_width,
-    )
+    constraints = render_geometry.make_attach_constraints(line_width=line_width)
     context = render_geometry.BondRenderContext(
       molecule=self.molecule,
       line_width=line_width,

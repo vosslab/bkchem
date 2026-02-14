@@ -1,6 +1,39 @@
 # Changelog
 
 ## 2026-02-15
+- Add beta-sheet CDML test fixtures for non-Haworth bond alignment testing.
+  New script [tools/render_beta_sheets.py](tools/render_beta_sheets.py) builds
+  parallel and antiparallel beta-sheet molecules programmatically (4 residues x
+  2 strands each, 40 atoms per molecule) and renders SVG/CDML output. Fixtures
+  written to [tests/fixtures/oasa_generic/](tests/fixtures/oasa_generic/),
+  SVGs to `output_smoke/oasa_generic_renders/`. Each file contains 24 label-bond
+  junctions (NH, O, R labels) providing non-Haworth test coverage for the
+  glyph-bond alignment measurement pipeline.
+- Fix gap retreat reference mismatch: change `_retreat_to_target_gap()` in
+  `resolve_label_connector_endpoint_from_text_origin` to use
+  `contract.endpoint_target` (per-character glyph model) instead of
+  `contract.full_target` (full label bounding box). The measurement tool
+  measures from the tight glyph body outline, which sits inside the bbox by
+  0.5-1.3 px, causing measured gaps to overshoot by that inset. Using the
+  tighter endpoint target aligns the retreat reference with the measurement
+  reference. Legality retreat still uses `full_target` to prevent text overlap.
+  Expand `_point_in_target_closed` tolerance in the chain2 label solver
+  ([packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py))
+  by `ATTACH_GAP_TARGET` so the endpoint validity check accommodates the
+  intentional gap distance. Update chain2 resolver test to use matching
+  `epsilon=1e-3` and `make_attach_constraints()` factory call.
+- Fix Haworth renderer gap target mismatch: pass `target_gap=ATTACH_GAP_TARGET`
+  (1.5 px) explicitly at all 6 `make_attach_constraints()` call sites in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+  Previously the renderer used the font-relative fallback (`12.0 * 0.058 = 0.696 px`),
+  which fell outside the measurement spec's 1.3-1.7 px window.
+- Add `make_attach_constraints()` factory and `ATTACH_GAP_FONT_FRACTION` constant
+  to [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py).
+  Three-tier gap resolution: explicit `target_gap` > font-relative > absolute default.
+  Delete Haworth-only `TARGET_GAP_FRACTION` constant and replace all inline
+  `AttachConstraints()` calls across Haworth, cairo_out, svg_out, bond_render_ops,
+  and bond_drawing with the shared factory. Phase 5 of
+  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md).
 - Wire shared gap/perp constraints through `BondRenderContext` into
   `build_bond_ops()`. Add `attach_constraints` field to `BondRenderContext` and
   `attach_gap_target`/`attach_perp_tolerance` style keys to `molecule_to_ops()`.

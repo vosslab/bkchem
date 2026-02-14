@@ -514,6 +514,66 @@ def test_no_hardcoded_tolerance_fallback():
 
 
 #============================================
+# make_attach_constraints factory tests (Phase 5)
+#============================================
+
+#============================================
+def test_make_attach_constraints_default_absolute_gap():
+	"""No args returns ATTACH_GAP_TARGET as the gap."""
+	constraints = render_geometry.make_attach_constraints()
+	assert constraints.target_gap == render_geometry.ATTACH_GAP_TARGET
+	assert constraints.alignment_tolerance == render_geometry.ATTACH_PERP_TOLERANCE
+
+
+#============================================
+def test_make_attach_constraints_font_relative_gap():
+	"""font_size arg computes font-relative gap via ATTACH_GAP_FONT_FRACTION."""
+	constraints = render_geometry.make_attach_constraints(font_size=12.0)
+	expected_gap = 12.0 * render_geometry.ATTACH_GAP_FONT_FRACTION
+	assert constraints.target_gap == pytest.approx(expected_gap)
+
+
+#============================================
+def test_make_attach_constraints_explicit_gap_overrides_font():
+	"""Explicit target_gap takes priority over font_size."""
+	constraints = render_geometry.make_attach_constraints(
+		font_size=12.0, target_gap=5.0,
+	)
+	assert constraints.target_gap == 5.0
+
+
+#============================================
+def test_make_attach_constraints_passthrough_fields():
+	"""All fields are forwarded correctly to AttachConstraints."""
+	center = (1.0, 2.0)
+	constraints = render_geometry.make_attach_constraints(
+		line_width=2.5,
+		clearance=0.3,
+		vertical_lock=True,
+		direction_policy="line",
+		alignment_center=center,
+		alignment_tolerance=0.5,
+	)
+	assert constraints.line_width == 2.5
+	assert constraints.clearance == 0.3
+	assert constraints.vertical_lock is True
+	assert constraints.direction_policy == "line"
+	assert constraints.alignment_center == center
+	assert constraints.alignment_tolerance == 0.5
+
+
+#============================================
+def test_make_attach_constraints_matches_haworth_gap():
+	"""Haworth calling convention: explicit target_gap overrides font-relative gap."""
+	# Haworth renderer now passes target_gap=ATTACH_GAP_TARGET explicitly
+	font_size = 12.0
+	constraints = render_geometry.make_attach_constraints(
+		font_size=font_size, target_gap=render_geometry.ATTACH_GAP_TARGET,
+	)
+	assert constraints.target_gap == render_geometry.ATTACH_GAP_TARGET
+
+
+#============================================
 # _resolve_endpoint_with_constraints tests (Phase 2)
 #============================================
 

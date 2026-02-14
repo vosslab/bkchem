@@ -33,8 +33,6 @@ FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR,
 RETREAT_SOLVER_EPSILON = 1e-3
 STRICT_OVERLAP_EPSILON = 0.5
 CANONICAL_LATTICE_ANGLES = (0.0, 60.0, 120.0, 180.0, 240.0, 300.0)
-# fraction of font_size used as the target gap between bond endpoint and glyph body
-TARGET_GAP_FRACTION = 0.058
 
 
 #============================================
@@ -875,19 +873,21 @@ def _add_simple_label_ops(
 		text_x += vertex[0] - core_center_x
 	is_hydroxyl_label = _text.is_hydroxyl_render_text(text)
 	force_vertical = force_vertical_chain or nominal_vertical_direction
-	gap = font_size * TARGET_GAP_FRACTION
-	constraints = _render_geometry.AttachConstraints(direction_policy="auto", target_gap=gap)
+	constraints = _render_geometry.make_attach_constraints(
+		font_size=font_size, target_gap=_render_geometry.ATTACH_GAP_TARGET, direction_policy="auto")
 	if is_hydroxyl_label:
-		constraints = _render_geometry.AttachConstraints(
+		constraints = _render_geometry.make_attach_constraints(
+			font_size=font_size,
+			target_gap=_render_geometry.ATTACH_GAP_TARGET,
 			direction_policy="line",
 			vertical_lock=nominal_vertical_direction or slot in ("BR", "BL", "TL"),
-			target_gap=gap,
 		)
 	elif force_vertical:
-		constraints = _render_geometry.AttachConstraints(
+		constraints = _render_geometry.make_attach_constraints(
+			font_size=font_size,
+			target_gap=_render_geometry.ATTACH_GAP_TARGET,
 			direction_policy="line",
 			vertical_lock=True,
-			target_gap=gap,
 		)
 	connector_end, _contract = _render_geometry.resolve_label_connector_endpoint_from_text_origin(
 		bond_start=vertex,
@@ -1161,7 +1161,7 @@ def _solve_chain2_label_with_resolver(
 			anchor=anchor,
 			font_size=font_size,
 			line_width=connector_width,
-			constraints=_render_geometry.AttachConstraints(direction_policy="auto", target_gap=font_size * TARGET_GAP_FRACTION),
+			constraints=_render_geometry.make_attach_constraints(font_size=font_size, target_gap=_render_geometry.ATTACH_GAP_TARGET, direction_policy="auto"),
 			epsilon=RETREAT_SOLVER_EPSILON,
 			attach_atom="first",
 			attach_element="C",
@@ -1172,7 +1172,9 @@ def _solve_chain2_label_with_resolver(
 		candidate_attach = contract.endpoint_target
 		candidate_allowed = contract.allowed_target
 		candidate_full = contract.full_target
-		if not _point_in_target_closed(candidate_endpoint, candidate_attach):
+		# endpoint is intentionally target_gap away from glyph body after retreat
+		gap_tol = _render_geometry.ATTACH_GAP_TARGET + RETREAT_SOLVER_EPSILON
+		if not _point_in_target_closed(candidate_endpoint, candidate_attach, tol=gap_tol):
 			continue
 		max_overlap = 0.0
 		for existing_box in existing_label_boxes:
@@ -1351,7 +1353,7 @@ def _add_chain_ops(
 			anchor=anchor,
 			font_size=font_size,
 			line_width=connector_width,
-			constraints=_render_geometry.AttachConstraints(direction_policy="auto", target_gap=font_size * TARGET_GAP_FRACTION),
+			constraints=_render_geometry.make_attach_constraints(font_size=font_size, target_gap=_render_geometry.ATTACH_GAP_TARGET, direction_policy="auto"),
 			epsilon=RETREAT_SOLVER_EPSILON,
 			attach_atom="first",
 			attach_element="C",
@@ -1499,7 +1501,7 @@ def _add_furanose_two_carbon_tail_ops(
 		anchor=ho_anchor,
 		font_size=font_size,
 		line_width=ho_resolver_width,
-		constraints=_render_geometry.AttachConstraints(direction_policy="line", target_gap=font_size * TARGET_GAP_FRACTION),
+		constraints=_render_geometry.make_attach_constraints(font_size=font_size, target_gap=_render_geometry.ATTACH_GAP_TARGET, direction_policy="line"),
 		epsilon=RETREAT_SOLVER_EPSILON,
 		attach_atom=ho_attach_mode,
 		attach_element="O",
