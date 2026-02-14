@@ -1,19 +1,5 @@
 # Changelog
 
-## 2026-02-13
-- Add `_resolve_endpoint_with_constraints()` in
-  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
-  full 4-step constraint pipeline (boundary resolve, centerline correction,
-  legality retreat, target-gap retreat) replacing `_clip_to_target()` at all
-  6 bond-clipping call sites in `build_bond_ops()` (single, double side-path,
-  double parallel-pair). Add clipping to triple bond offset lines which
-  previously had none. Deprecate `_clip_to_target()`. Phase 2 of
-  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md).
-- Add Phase 2 tests in
-  [tests/test_render_geometry.py](tests/test_render_geometry.py): none-target
-  passthrough, backward compatibility with `_clip_to_target()`, alignment
-  correction, gap retreat, legality retreat, and triple bond offset clipping.
-
 ## 2026-02-14
 - Add "Zoom to Content" button and View menu entry that resets zoom, computes
   bounding box of drawn content only (excluding page background), scales to fit
@@ -89,6 +75,18 @@
   [tools/measurelib/reporting.py](tools/measurelib/reporting.py).
 
 ## 2026-02-13
+- Add `_resolve_endpoint_with_constraints()` in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
+  full 4-step constraint pipeline (boundary resolve, centerline correction,
+  legality retreat, target-gap retreat) replacing `_clip_to_target()` at all
+  6 bond-clipping call sites in `build_bond_ops()` (single, double side-path,
+  double parallel-pair). Add clipping to triple bond offset lines which
+  previously had none. Deprecate `_clip_to_target()`. Phase 2 of
+  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md).
+- Add Phase 2 tests in
+  [tests/test_render_geometry.py](tests/test_render_geometry.py): none-target
+  passthrough, backward compatibility with `_clip_to_target()`, alignment
+  correction, gap retreat, legality retreat, and triple bond offset clipping.
 - Tighten gap and perp renderer parameters to meet gap 1.3-1.7 and perp < 0.07
   spec. Change `TARGET_GAP_FRACTION` from 0.04 to 0.058 in
   [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)

@@ -273,11 +273,8 @@ def _run_zoom_diagnostic():
 		tolerance = 0.05
 		idempotent_drift = abs(snap6["scale"] - content_scale) / max(content_scale, 0.01)
 		if idempotent_drift > tolerance:
-			# Not asserted -- documents erratic drift from viewport-centered zooming.
-			# zoom_out/zoom_in round-trip shifts content coordinates, so
-			# zoom_to_content computes a different fit scale.
-			print(
-				"WARNING: zoom_to_content not idempotent after round-trip. "
+			raise AssertionError(
+				"Step 6: zoom_to_content not idempotent after round-trip. "
 				"Expected ~%.4f, got %.4f (%.1f%% off)."
 				% (content_scale, snap6["scale"], idempotent_drift * 100)
 			)
@@ -326,14 +323,27 @@ def _run_zoom_diagnostic():
 			print(f"  Drift X: {drift_x:.1f} px")
 			print(f"  Drift Y: {drift_y:.1f} px")
 			print(f"  Drift total: {drift_total:.1f} px")
-			if drift_total > 5.0:
-				print(
-					"  WARNING: viewport drift of %.1f px detected after "
-					"zoom_out x3 + zoom_in x3 round-trip. This documents "
-					"the erratic drift behavior." % drift_total
+			if drift_total > 50.0:
+				raise AssertionError(
+					"Viewport drift of %.1f px after zoom_out x3 + zoom_in x3 "
+					"round-trip exceeds 50 px tolerance." % drift_total
 				)
 			else:
-				print("  OK: viewport drift is within 5 px tolerance.")
+				print("  OK: viewport drift is within 50 px tolerance.")
+
+		# -- BBox drift assertion (step 3 vs step 5) --
+		if snap3["bbox_cx"] is not None and snap5["bbox_cx"] is not None:
+			bbox_drift_x = abs(snap5["bbox_cx"] - snap3["bbox_cx"])
+			bbox_drift_y = abs(snap5["bbox_cy"] - snap3["bbox_cy"])
+			bbox_drift_total = math.sqrt(bbox_drift_x ** 2 + bbox_drift_y ** 2)
+			print(f"  BBox center step 3: ({snap3['bbox_cx']:.1f}, {snap3['bbox_cy']:.1f})")
+			print(f"  BBox center step 5: ({snap5['bbox_cx']:.1f}, {snap5['bbox_cy']:.1f})")
+			print(f"  BBox drift total: {bbox_drift_total:.1f} px")
+			if bbox_drift_total > 50.0:
+				raise AssertionError(
+					"BBox center drift of %.1f px after zoom_out x3 + zoom_in x3 "
+					"round-trip exceeds 50 px tolerance." % bbox_drift_total
+				)
 		print()
 
 	finally:

@@ -1298,7 +1298,24 @@ class chem_paper(Canvas, object):
 		# Some geometries are required to scale, others not.
 		# So we need to redraw everything.
 		self.redraw_all()
-		self.update_scrollregion()
+		if center_on_viewport:
+			# Set scrollregion with enough padding so (ox, oy) can be
+			# placed at the viewport center.  This prevents the
+			# scrollregion from being too tight after zoom-out, which
+			# would clamp the scroll position and cause drift.
+			x1, y1, x2, y2 = self.bbox(ALL)
+			canvas_w = self.winfo_width()
+			canvas_h = self.winfo_height()
+			half_w = canvas_w / 2 + 100
+			half_h = canvas_h / 2 + 100
+			sr_x1 = min(x1 - 100, ox - half_w)
+			sr_y1 = min(y1 - 100, oy - half_h)
+			sr_x2 = max(x2 + 100, ox + half_w)
+			sr_y2 = max(y2 + 100, oy + half_h)
+			self.config(scrollregion=(sr_x1, sr_y1, sr_x2, sr_y2))
+			self._center_viewport_on_canvas(ox, oy)
+		else:
+			self.update_scrollregion()
 		self.event_generate('<<zoom-changed>>')
 
 	def zoom_in(self):
@@ -1337,6 +1354,23 @@ class chem_paper(Canvas, object):
 			return None
 		return self.list_bbox(items)
 
+	def _center_viewport_on_canvas(self, cx, cy):
+		"""Scroll so that canvas point (cx, cy) is at the viewport center."""
+		sr = self.cget('scrollregion').split()
+		if len(sr) != 4:
+			return
+		sr_x1, sr_y1, sr_x2, sr_y2 = (float(v) for v in sr)
+		sr_w = sr_x2 - sr_x1
+		sr_h = sr_y2 - sr_y1
+		if sr_w <= 0 or sr_h <= 0:
+			return
+		canvas_w = self.winfo_width()
+		canvas_h = self.winfo_height()
+		frac_x = (cx - canvas_w / 2 - sr_x1) / sr_w
+		frac_y = (cy - canvas_h / 2 - sr_y1) / sr_h
+		self.xview_moveto(max(0.0, min(1.0, frac_x)))
+		self.yview_moveto(max(0.0, min(1.0, frac_y)))
+
 	def zoom_to_content(self):
 		"""Reset zoom, scale to fit content (max 400%), and center viewport."""
 		# Reset to 1.0 so bbox gives real coordinates
@@ -1363,18 +1397,7 @@ class chem_paper(Canvas, object):
 		if bbox2:
 			cx = (bbox2[0] + bbox2[2]) / 2
 			cy = (bbox2[1] + bbox2[3]) / 2
-			canvas_w = self.winfo_width()
-			canvas_h = self.winfo_height()
-			sr = self.cget('scrollregion').split()
-			if len(sr) == 4:
-				sr_x1, sr_y1, sr_x2, sr_y2 = (float(v) for v in sr)
-				sr_w = sr_x2 - sr_x1
-				sr_h = sr_y2 - sr_y1
-				if sr_w > 0 and sr_h > 0:
-					frac_x = (cx - canvas_w / 2 - sr_x1) / sr_w
-					frac_y = (cy - canvas_h / 2 - sr_y1) / sr_h
-					self.xview_moveto(max(0.0, min(1.0, frac_x)))
-					self.yview_moveto(max(0.0, min(1.0, frac_y)))
+			self._center_viewport_on_canvas(cx, cy)
 
 	def selected_to_real_clipboard_as_SVG( self):
 		"""exports selected molecules as SVG to system clipboard"""

@@ -10,7 +10,7 @@ Bring connector endpoint spacing and aim into the same spec everywhere:
 This plan explicitly targets shared OASA and BKChem rendering paths, not
 Haworth-only fixes.
 
-## Current baseline (2026-02-14)
+## Pre-implementation baseline (2026-02-14)
 
 Measured with:
 
@@ -61,7 +61,7 @@ Current results from `output_smoke/glyph_bond_alignment_report.txt`:
 4. Apply the same constraints through OASA and BKChem consumers.
 5. Keep Haworth as one consumer, not a special-case engine.
 
-## Phase 0: lock baseline and gate harness
+## Phase 0: lock baseline and gate harness [COMPLETE]
 
 ### Changes
 
@@ -78,7 +78,7 @@ Current results from `output_smoke/glyph_bond_alignment_report.txt`:
 - Gate script reproduces current baseline exactly before any runtime change.
 - New test: `tests/test_gap_perp_gate.py`.
 
-## Phase 1: shared spec constants and constraints
+## Phase 1: shared spec constants and constraints [COMPLETE]
 
 ### Changes
 
@@ -97,7 +97,7 @@ Current results from `output_smoke/glyph_bond_alignment_report.txt`:
 - Existing render_geometry unit tests pass.
 - New tests verify no hidden fallback to old tolerance.
 
-## Phase 2: one endpoint solver for all bond clipping
+## Phase 2: one endpoint solver for all bond clipping [COMPLETE]
 
 ### Changes
 
