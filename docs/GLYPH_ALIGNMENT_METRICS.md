@@ -49,7 +49,7 @@ middle of the "O".
 - **Negative value:** the bond penetrates into the glyph -- the line overlaps
   with the letter.
 - **Zero:** the bond tip touches the glyph boundary exactly.
-- **Ideal:** a small positive value (typically 0.5-1.5 SVG units) so the bond
+- **Ideal:** a small positive value (typically 1.3-1.7 SVG units) so the bond
   visually connects to the letter without overlapping it.
 - **Source field:** `endpoint_signed_distance_to_glyph_body` or
   `hull_signed_gap_along_bond` (preferred for curved glyphs such as C or S).
