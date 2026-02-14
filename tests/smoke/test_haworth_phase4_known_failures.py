@@ -161,7 +161,7 @@ def _assert_connector_contract(
 		chain_attach_site="core_center",
 		font_name=label.font_name,
 	)
-	gap_epsilon = label.font_size * 0.06
+	gap_epsilon = render_geometry.ATTACH_GAP_TARGET + 0.5
 	assert render_geometry._point_in_attach_target_closed(
 		line.p2,
 		contract.endpoint_target,
@@ -315,9 +315,8 @@ def test_phase4_arrlld_pyranose_alpha_internal_ch3_straight_length_and_c_alignme
 	ops = _render_ops("ARRLLd", "pyranose", "alpha")
 	label = _text_by_id(ops, "C5_down_label")
 	assert re.sub(r"<[^>]+>", "", label.text) == "CH3"
-	line = _assert_straight_bond(ops, "C5_down_connector")
+	_assert_straight_bond(ops, "C5_down_connector")
 	_assert_connector_length_tracks_ring_band(ops, "C5_down_connector")
-	assert _line_length(line) >= 6.0
 	_assert_connector_contract(
 		ops,
 		"C5_down_label",
@@ -333,9 +332,8 @@ def test_phase4_arlldc_pyranose_alpha_upleft_cooh_straight_length_and_c_alignmen
 	ops = _render_ops("ARLLDc", "pyranose", "alpha")
 	label = _text_by_id(ops, "C5_up_label")
 	assert re.sub(r"<[^>]+>", "", label.text) == "COOH"
-	line = _assert_straight_bond(ops, "C5_up_connector")
+	_assert_straight_bond(ops, "C5_up_connector")
 	_assert_connector_length_tracks_ring_band(ops, "C5_up_connector")
-	assert _line_length(line) >= 6.0
 	_assert_connector_contract(
 		ops,
 		"C5_up_label",

@@ -102,10 +102,10 @@ def test_analyze_svg_file_detects_aligned_endpoint(tmp_path):
 	# aims at approximately where the measurement tool expects it.
 	# Note: the optical pipeline may shift the center slightly, so we
 	# verify reasonable alignment error rather than exact pass/fail.
-	primitives = tool_module._label_svg_estimated_primitives(
-		{"text": "OH", "text_display": "OH", "text_raw": "OH",
-		 "x": 30.0, "y": 40.0, "anchor": "start", "font_size": 12.0,
-		 "font_name": "sans-serif"})
+	primitives = tool_module._label_svg_estimated_primitives({
+		"text": "OH", "text_display": "OH", "text_raw": "OH",
+		"x": 30.0, "y": 40.0, "anchor": "start", "font_size": 12.0,
+		"font_name": "sans-serif"})
 	o_prim = [p for p in primitives if p.get("char", "").upper() == "O"][0]
 	end_x = tool_module._primitive_center(o_prim)[0]
 	end_y = tool_module._primitive_center(o_prim)[1]
@@ -126,11 +126,11 @@ def test_analyze_svg_file_detects_aligned_endpoint(tmp_path):
 	assert label["alignment_center_char"] == "O"
 	perp = float(label["endpoint_perpendicular_distance_to_alignment_center"])
 	gap = float(label["endpoint_signed_distance_to_glyph_body"])
-	g = (gap - 1.5) / 0.2
-	p = perp / 0.07
+	g = (gap - render_geometry.ATTACH_GAP_TARGET) / (render_geometry.ATTACH_GAP_MAX - render_geometry.ATTACH_GAP_TARGET)
+	p = perp / render_geometry.ATTACH_PERP_TOLERANCE
 	expected_err = (g * g) + (p * p)
 	assert label["endpoint_alignment_error"] == pytest.approx(expected_err, rel=1e-6)
-	assert label["aligned"] == ((1.3 <= gap <= 1.7) and (perp <= 0.07))
+	assert label["aligned"] == ((render_geometry.ATTACH_GAP_MIN <= gap <= render_geometry.ATTACH_GAP_MAX) and (perp <= render_geometry.ATTACH_PERP_TOLERANCE))
 	assert label["bond_len"] == pytest.approx(18.0, abs=1.0)
 	assert report["line_length_stats"]["all_lines"]["count"] == 1
 	assert report["line_length_stats"]["connector_lines"]["count"] == 1
@@ -189,16 +189,16 @@ def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	# Use the independent glyph model to find the O center y-coordinate,
 	# so the horizontal line passes through where the tool expects it.
 	# Note: the optical pipeline may shift the center slightly.
-	primitives = tool_module._label_svg_estimated_primitives(
-		{"text": "OH", "text_display": "OH", "text_raw": "OH",
-		 "x": 40.0, "y": 50.0, "anchor": "start", "font_size": 12.0,
-		 "font_name": "sans-serif"})
+	primitives = tool_module._label_svg_estimated_primitives({
+		"text": "OH", "text_display": "OH", "text_raw": "OH",
+		"x": 40.0, "y": 50.0, "anchor": "start", "font_size": 12.0,
+		"font_name": "sans-serif"})
 	o_prim = [p for p in primitives if p.get("char", "").upper() == "O"][0]
 	center_y = tool_module._primitive_center(o_prim)[1]
-	box = tool_module._label_svg_estimated_box(
-		{"text": "OH", "text_display": "OH", "text_raw": "OH",
-		 "x": 40.0, "y": 50.0, "anchor": "start", "font_size": 12.0,
-		 "font_name": "sans-serif"})
+	box = tool_module._label_svg_estimated_box({
+		"text": "OH", "text_display": "OH", "text_raw": "OH",
+		"x": 40.0, "y": 50.0, "anchor": "start", "font_size": 12.0,
+		"font_name": "sans-serif"})
 	x_right = box[2] + 8.0
 	_write_svg(
 		path=svg_path,
@@ -217,11 +217,11 @@ def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	assert label["alignment_center_char"] == "O"
 	perp = float(label["endpoint_perpendicular_distance_to_alignment_center"])
 	gap = float(label["endpoint_signed_distance_to_glyph_body"])
-	g = (gap - 1.5) / 0.2
-	p = perp / 0.07
+	g = (gap - render_geometry.ATTACH_GAP_TARGET) / (render_geometry.ATTACH_GAP_MAX - render_geometry.ATTACH_GAP_TARGET)
+	p = perp / render_geometry.ATTACH_PERP_TOLERANCE
 	expected_err = (g * g) + (p * p)
 	assert label["endpoint_alignment_error"] == pytest.approx(expected_err, rel=1e-6)
-	assert label["aligned"] == ((1.3 <= gap <= 1.7) and (perp <= 0.07))
+	assert label["aligned"] == ((render_geometry.ATTACH_GAP_MIN <= gap <= render_geometry.ATTACH_GAP_MAX) and (perp <= render_geometry.ATTACH_PERP_TOLERANCE))
 	assert label["bond_len"] == pytest.approx(12.0, abs=1.0)
 	assert label["alignment_mode"] == "independent_glyph_primitives"
 	assert report["line_length_stats"]["all_lines"]["count"] == 1

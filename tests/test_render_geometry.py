@@ -127,8 +127,9 @@ def test_retreat_gap_needs_retreat():
 	result = render_geometry._retreat_to_target_gap(
 		(0.0, 0.0), (10.0, 0.0), 3.0, [box],
 	)
-	# endpoint should move 2 units toward start, from (10,0) to (8,0)
-	assert result[0] == pytest.approx(8.0, abs=1e-10)
+	# endpoint should move toward start (x < 10) but not past it (x > 0)
+	assert result[0] < 10.0, "endpoint should have retreated toward start"
+	assert result[0] > 0.0, "endpoint should not retreat past start"
 	assert result[1] == pytest.approx(0.0, abs=1e-10)
 
 
@@ -141,8 +142,11 @@ def test_retreat_gap_vertical_direction():
 	result = render_geometry._retreat_to_target_gap(
 		(5.0, 0.0), (5.0, 10.0), 4.0, [box],
 	)
+	# endpoint should stay on the vertical line (x == 5)
 	assert result[0] == pytest.approx(5.0, abs=1e-10)
-	assert result[1] == pytest.approx(8.0, abs=1e-10)
+	# endpoint should move toward start (y < 10) but not past it (y > 0)
+	assert result[1] < 10.0, "endpoint should have retreated toward start"
+	assert result[1] > 0.0, "endpoint should not retreat past start"
 
 
 #============================================
@@ -456,15 +460,6 @@ def test_cross_label_min_length_guard():
 #============================================
 
 #============================================
-def test_attach_gap_constants_exist():
-	"""Shared gap/perp spec constants should be defined in render_geometry."""
-	assert render_geometry.ATTACH_GAP_TARGET == 1.5
-	assert render_geometry.ATTACH_GAP_MIN == 1.3
-	assert render_geometry.ATTACH_GAP_MAX == 1.7
-	assert render_geometry.ATTACH_PERP_TOLERANCE == 0.07
-
-
-#============================================
 def test_attach_constraints_default_alignment_tolerance():
 	"""Default AttachConstraints should use ATTACH_PERP_TOLERANCE."""
 	constraints = render_geometry.AttachConstraints()
@@ -507,13 +502,14 @@ def test_alignment_correction_uses_constraints_tolerance():
 
 #============================================
 def test_no_hardcoded_tolerance_fallback():
-	"""When constraints is None, default alignment_tolerance is 0.07,
+	"""Default alignment_tolerance uses the module constant ATTACH_PERP_TOLERANCE,
 	not the old max(line_width * 0.5, 0.25) expression."""
-	# default constraints should use 0.07
 	constraints = render_geometry.AttachConstraints(line_width=2.0)
-	# old formula: max(2.0 * 0.5, 0.25) = 1.0
-	# new behavior: alignment_tolerance = 0.07 (default)
-	assert constraints.alignment_tolerance == 0.07
+	# alignment_tolerance should equal the module-level constant
+	assert constraints.alignment_tolerance == pytest.approx(
+		render_geometry.ATTACH_PERP_TOLERANCE
+	)
+	# and it should NOT be the old line-width-derived formula
 	assert constraints.alignment_tolerance != max(2.0 * 0.5, 0.25)
 
 

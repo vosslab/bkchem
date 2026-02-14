@@ -39,7 +39,44 @@ positions.
 Fix: reposition all vertex_items to model_coord * scale at the top of
 molecule.redraw(), before bonds draw.
 
-### 3. Viewport Centering After Scrollregion Update (paper.py -- minor)
+### 3. Background Rectangle Drift (paper.py -- scale_all redesign)
+
+self.background (the page rectangle) is NOT in self.stack, so
+redraw_all() never touches it.  The old code called
+canvas.scale('all', ox, oy, factor, factor) which scaled everything
+(including the background) around the viewport center.  But
+redraw_all() then overwrites all content positions from model coords,
+effectively scaling from the canvas origin (0, 0).  The background,
+having been scaled around the viewport center, diverged from the
+redrawn content -- objects appeared to slide relative to the page.
+
+Fix: remove canvas.scale('all', ...) entirely.  After redraw_all(),
+explicitly reset the background via create_background() followed by
+scale(background, 0, 0, scale, scale) to keep it aligned with the
+redrawn content.
+
+### 4. Tk xview moveto Inset Bug (paper.py -- centering precision)
+
+_center_viewport_on_canvas() computes a fraction and calls
+xview_moveto(frac) / yview_moveto(frac).  Internally, Tk computes
+the new scroll origin as:
+
+    xOrigin = scrollX1 - inset + round(frac * scrollWidth)
+
+where inset = borderwidth + highlightthickness (default 3 in BKChem).
+The -inset term means the viewport lands 3 pixels away from the
+intended canvas point.  This caused a systematic ~3 px centering
+error per zoom step, accumulating to >15 model-px drift over 8
+zoom steps.
+
+Fix: add +inset to the fraction formula:
+
+    frac_x = (cx - canvas_w / 2 + inset - sr_x1) / sr_w
+
+This compensates for Tk's internal -inset subtraction, reducing
+per-step centering error from ~3 px to <0.1 px.
+
+### 5. Viewport Centering After Scrollregion Update (paper.py -- minor)
 
 update_scrollregion() changes the canvas-to-widget coordinate mapping.
 After each zoom step, canvasx(winfo_width/2) returns a different canvas
@@ -47,7 +84,10 @@ coordinate, so the next zoom operates around a slightly different
 origin.
 
 Fix: add _center_viewport_on_canvas() helper and call it after
-update_scrollregion() when center_on_viewport=True.
+update_scrollregion() when center_on_viewport=True.  The helper
+captures the model-space point at the viewport center before zooming,
+then after redraw re-centers on that model point's new canvas position
+(model_coord * new_scale).
 
 ## Debugging Techniques That Worked
 
@@ -114,7 +154,9 @@ get stale coordinates.
 The test (tests/test_bkchem_gui_zoom.py) runs in a subprocess to
 isolate Tk.  It draws benzene, performs zoom operations, and captures
 snapshots of scale, bbox center, viewport center, and item count at
-each step.  Key assertions:
+each step.
+
+### test_bkchem_gui_zoom (diagnostic round-trip)
 
 - Scale round-trip: zoom_out x3 + zoom_in x3 restores original scale
 - BBox stability: content bbox center unchanged after round-trip
@@ -125,3 +167,21 @@ each step.  Key assertions:
   (5% tolerance)
 - Scale clamping: zoom_out x50 clamps at ZOOM_MIN, zoom_in x50 at
   ZOOM_MAX
+
+### test_zoom_model_coords_stable
+
+Verifies that atom.x / atom.y model coordinates never change during
+zoom operations.  Performs zoom_in x50, zoom_out x100, and zoom reset,
+checking after each that model coords match the original values exactly.
+This catches bugs where zoom logic mutates model state (e.g. the old
+canvas.scale() path did not affect model coords, but other approaches
+might).
+
+### test_zoom_roundtrip_symmetry
+
+Places benzene at the pixel center of the paper, zooms from 1000% to
+~250% (8 zoom_out steps) and back to 1000% (8 zoom_in steps), then
+checks that the model-space viewport center matches the original
+within 3.0 model px.  This catches centering drift that accumulates
+across many zoom steps (e.g. the Tk inset bug caused ~15 model px
+drift over 16 steps before the fix).

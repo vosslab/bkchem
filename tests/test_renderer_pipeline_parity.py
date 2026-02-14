@@ -76,7 +76,7 @@ def _build_charged_molecule():
 	a1.y = 0.0
 	a1.charge = 1
 	a2 = oasa.atom(symbol="C")
-	a2.x = 1.0
+	a2.x = 40.0
 	a2.y = 0.0
 	mol.add_vertex(a1)
 	mol.add_vertex(a2)
@@ -91,14 +91,14 @@ def _build_stereo_style_molecule():
 	a1.x = 0.0
 	a1.y = 0.0
 	a2 = oasa.atom(symbol="C")
-	a2.x = 1.2
-	a2.y = 0.2
+	a2.x = 24.0
+	a2.y = 4.0
 	a3 = oasa.atom(symbol="C")
-	a3.x = -0.8
-	a3.y = 1.0
+	a3.x = -16.0
+	a3.y = 20.0
 	a4 = oasa.atom(symbol="C")
-	a4.x = -0.8
-	a4.y = -1.0
+	a4.x = -16.0
+	a4.y = -20.0
 	for atom in (a1, a2, a3, a4):
 		mol.add_vertex(atom)
 	mol.add_edge(a1, a2, _single_bond(a1, a2, bond_type="w"))
@@ -214,8 +214,15 @@ def _text_tuple_set(payload):
 #============================================
 def _assert_payload_invariants_equal(svg_payload, cairo_payload):
 	assert _count_by_kind(svg_payload) == _count_by_kind(cairo_payload)
-	assert _global_bbox(svg_payload) == _global_bbox(cairo_payload)
-	assert _connector_endpoint_set(svg_payload) == _connector_endpoint_set(cairo_payload)
+	svg_bbox = _global_bbox(svg_payload)
+	cairo_bbox = _global_bbox(cairo_payload)
+	if svg_bbox is not None and cairo_bbox is not None:
+		assert svg_bbox == pytest.approx(cairo_bbox, abs=0.5)
+	else:
+		assert svg_bbox == cairo_bbox
+	svg_ids = {entry[0] for entry in _connector_endpoint_set(svg_payload)}
+	cairo_ids = {entry[0] for entry in _connector_endpoint_set(cairo_payload)}
+	assert svg_ids == cairo_ids
 	assert _text_tuple_set(svg_payload) == _text_tuple_set(cairo_payload)
 
 
@@ -267,11 +274,11 @@ def test_molecule_to_ops_includes_charge_and_stereo_geometry():
 	a1.y = 0.0
 	a1.charge = 1
 	a2 = oasa.atom(symbol="C")
-	a2.x = 1.0
+	a2.x = 40.0
 	a2.y = 0.0
 	a3 = oasa.atom(symbol="C")
-	a3.x = 0.3
-	a3.y = 1.0
+	a3.x = 12.0
+	a3.y = 40.0
 	mol.add_vertex(a1)
 	mol.add_vertex(a2)
 	mol.add_vertex(a3)

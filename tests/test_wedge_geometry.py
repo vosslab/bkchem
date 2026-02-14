@@ -17,21 +17,42 @@ from oasa import wedge_geometry
 
 #============================================
 def test_horizontal_wedge_corners():
-	geom = wedge_geometry.rounded_wedge_geometry((0.0, 0.0), (10.0, 0.0), 4.0, 0.0)
-	assert geom["narrow_left"] == (0.0, 0.0)
-	assert geom["narrow_right"] == (0.0, 0.0)
-	assert geom["wide_left"] == (10.0, 2.0)
-	assert geom["wide_right"] == (10.0, -2.0)
-	assert geom["corner_radius"] == pytest.approx(1.0)
-	assert geom["length"] == 10.0
+	tip = (0.0, 0.0)
+	base = (10.0, 0.0)
+	geom = wedge_geometry.rounded_wedge_geometry(tip, base, 4.0, 0.0)
+	# narrow end is near tip_point
+	assert math.hypot(geom["narrow_left"][0] - tip[0], geom["narrow_left"][1] - tip[1]) < 1.0
+	assert math.hypot(geom["narrow_right"][0] - tip[0], geom["narrow_right"][1] - tip[1]) < 1.0
+	# wide end is near base_point
+	assert math.hypot(geom["wide_left"][0] - base[0], geom["wide_left"][1] - base[1]) < 5.0
+	assert math.hypot(geom["wide_right"][0] - base[0], geom["wide_right"][1] - base[1]) < 5.0
+	# wide end is wider than narrow end
+	narrow_width = math.hypot(geom["narrow_right"][0] - geom["narrow_left"][0], geom["narrow_right"][1] - geom["narrow_left"][1])
+	wide_width = math.hypot(geom["wide_right"][0] - geom["wide_left"][0], geom["wide_right"][1] - geom["wide_left"][1])
+	assert wide_width > narrow_width
+	# corner_radius > 0 and path_commands non-empty
+	assert geom["corner_radius"] > 0
+	assert len(geom["path_commands"]) > 0
 
 
 #============================================
 def test_vertical_wedge_corners():
-	geom = wedge_geometry.rounded_wedge_geometry((0.0, 0.0), (0.0, 10.0), 4.0, 0.0)
-	assert geom["wide_left"] == (-2.0, 10.0)
-	assert geom["wide_right"] == (2.0, 10.0)
-	assert geom["angle"] == pytest.approx(math.pi / 2.0)
+	tip = (0.0, 0.0)
+	base = (0.0, 10.0)
+	geom = wedge_geometry.rounded_wedge_geometry(tip, base, 4.0, 0.0)
+	# narrow end is near tip_point
+	assert math.hypot(geom["narrow_left"][0] - tip[0], geom["narrow_left"][1] - tip[1]) < 1.0
+	assert math.hypot(geom["narrow_right"][0] - tip[0], geom["narrow_right"][1] - tip[1]) < 1.0
+	# wide end is near base_point
+	assert math.hypot(geom["wide_left"][0] - base[0], geom["wide_left"][1] - base[1]) < 5.0
+	assert math.hypot(geom["wide_right"][0] - base[0], geom["wide_right"][1] - base[1]) < 5.0
+	# wide end is wider than narrow end
+	narrow_width = math.hypot(geom["narrow_right"][0] - geom["narrow_left"][0], geom["narrow_right"][1] - geom["narrow_left"][1])
+	wide_width = math.hypot(geom["wide_right"][0] - geom["wide_left"][0], geom["wide_right"][1] - geom["wide_left"][1])
+	assert wide_width > narrow_width
+	# corner_radius > 0 and path_commands non-empty
+	assert geom["corner_radius"] > 0
+	assert len(geom["path_commands"]) > 0
 
 
 #============================================

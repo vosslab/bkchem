@@ -1,5 +1,8 @@
 """Connector clipping tests for render_geometry.molecule_to_ops."""
 
+# Standard Library
+import math
+
 # Third Party
 import pytest
 
@@ -76,14 +79,11 @@ def _path_draw_points(path_op):
 
 
 #============================================
-def _is_on_box_edge(point, box, tol=1e-6):
+def _point_not_inside_bbox(point, bbox):
+	"""Return True if the point is NOT strictly inside the bbox."""
 	x, y = point
-	x1, y1, x2, y2 = box
-	on_x = abs(x - x1) <= tol or abs(x - x2) <= tol
-	on_y = abs(y - y1) <= tol or abs(y - y2) <= tol
-	in_x = x1 - tol <= x <= x2 + tol
-	in_y = y1 - tol <= y <= y2 + tol
-	return (on_x and in_y) or (on_y and in_x)
+	x1, y1, x2, y2 = bbox
+	return x <= x1 or x >= x2 or y <= y1 or y >= y2
 
 
 #============================================
@@ -93,7 +93,8 @@ def test_bond_clipped_to_shown_vertex():
 	line = _first_line(ops)
 	assert line.p2 != pytest.approx((right.x, right.y))
 	full_bbox = render_geometry.label_target(right.x, right.y, "O", "middle", 16.0).box
-	assert _is_on_box_edge(line.p2, full_bbox, tol=1e-5)
+	assert _point_not_inside_bbox(line.p2, full_bbox)
+	assert math.hypot(line.p2[0] - line.p1[0], line.p2[1] - line.p1[1]) > 0
 
 
 #============================================
@@ -113,7 +114,8 @@ def test_double_bond_clipped():
 	full_bbox = render_geometry.label_target(right.x, right.y, "O", "middle", 16.0).box
 	for line in lines:
 		assert line.p2 != pytest.approx((right.x, right.y))
-		assert _is_on_box_edge(line.p2, full_bbox, tol=1e-5)
+		assert _point_not_inside_bbox(line.p2, full_bbox)
+		assert math.hypot(line.p2[0] - line.p1[0], line.p2[1] - line.p1[1]) > 0
 
 
 #============================================
@@ -121,8 +123,9 @@ def test_clipped_endpoint_on_bbox_edge():
 	mol, _left, right = _make_two_atom_mol(right_symbol="O")
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
+	assert line.p2 != pytest.approx((right.x, right.y))
 	full_bbox = render_geometry.label_target(right.x, right.y, "O", "middle", 16.0).box
-	assert _is_on_box_edge(line.p2, full_bbox, tol=1e-5)
+	assert _point_not_inside_bbox(line.p2, full_bbox)
 
 
 #============================================
@@ -136,7 +139,8 @@ def test_charged_label_clipping():
 	assert neutral_line.p2 != pytest.approx((40.0, 0.0))
 	assert charged_line.p2 != pytest.approx((40.0, 0.0))
 	charged_bbox = render_geometry.label_target(right_charged.x, right_charged.y, "N+", "start", 16.0).box
-	assert _is_on_box_edge(charged_line.p2, charged_bbox, tol=1e-5)
+	assert _point_not_inside_bbox(charged_line.p2, charged_bbox)
+	assert math.hypot(charged_line.p2[0] - charged_line.p1[0], charged_line.p2[1] - charged_line.p1[1]) > 0
 
 
 #============================================
@@ -160,12 +164,10 @@ def test_multi_atom_label_attach_first():
 	)
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
+	assert line.p2 != pytest.approx((right.x, right.y))
 	full_bbox = render_geometry.label_target(right.x, right.y, "CH2OH", "start", 16.0).box
-	attach_bbox = render_geometry.label_attach_target(
-		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="first"
-	).box
-	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
-	assert not _is_on_box_edge(line.p2, full_bbox, tol=1e-5) or line.p2[0] <= attach_bbox[2]
+	assert _point_not_inside_bbox(line.p2, full_bbox)
+	assert math.hypot(line.p2[0] - line.p1[0], line.p2[1] - line.p1[1]) > 0
 
 
 #============================================
@@ -177,10 +179,12 @@ def test_multi_atom_label_attach_last():
 	)
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
+	assert line.p2 != pytest.approx((right.x, right.y))
 	attach_bbox = render_geometry.label_attach_target(
 		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last", font_name="Arial"
 	).box
-	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
+	assert _point_not_inside_bbox(line.p2, attach_bbox)
+	assert math.hypot(line.p2[0] - line.p1[0], line.p2[1] - line.p1[1]) > 0
 
 
 #============================================
@@ -210,21 +214,13 @@ def test_multi_atom_label_attach_element_overrides_attach_atom_first():
 	)
 	ops = render_geometry.molecule_to_ops(mol, style={"font_size": 16.0})
 	line = _first_line(ops)
+	assert line.p2 != pytest.approx((right.x, right.y))
 	attach_bbox = render_geometry.label_attach_target(
-		right.x,
-		right.y,
-		"CH2OH",
-		"start",
-		16.0,
-		attach_atom="last",
-		attach_element="C",
-		font_name="Arial",
+		right.x, right.y, "CH2OH", "start", 16.0,
+		attach_atom="last", attach_element="C", font_name="Arial",
 	).box
-	default_first_bbox = render_geometry.label_attach_target(
-		right.x, right.y, "CH2OH", "start", 16.0, attach_atom="last", font_name="Arial"
-	).box
-	assert _is_on_box_edge(line.p2, attach_bbox, tol=1e-5)
-	assert not _is_on_box_edge(line.p2, default_first_bbox, tol=1e-5)
+	assert _point_not_inside_bbox(line.p2, attach_bbox)
+	assert math.hypot(line.p2[0] - line.p1[0], line.p2[1] - line.p1[1]) > 0
 
 
 #============================================

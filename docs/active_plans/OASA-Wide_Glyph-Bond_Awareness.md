@@ -133,7 +133,7 @@ Current results from `output_smoke/glyph_bond_alignment_report.txt`:
 - New targeted tests for CH2OH/HO-like composite targets.
 - `perp_out_of_range` count decreases materially on Haworth corpus.
 
-## Phase 4: consumer adoption (OASA and BKChem)
+## Phase 4: consumer adoption (OASA and BKChem) [COMPLETE]
 
 ### Changes
 

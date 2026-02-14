@@ -95,7 +95,7 @@ def _hex_points(cx, cy, radius):
 
 
 #============================================
-def _build_benzene(app):
+def _build_benzene(app, cx=320, cy=240):
 	"""Create a benzene ring from 6 atoms with alternating double bonds."""
 	from bond import bond
 	from singleton_store import Screen
@@ -103,7 +103,6 @@ def _build_benzene(app):
 	paper = app.paper
 	mol = paper.new_molecule()
 	bond_length = Screen.any_to_px(paper.standard.bond_length)
-	cx, cy = 320, 240
 	points = _hex_points(cx, cy, bond_length)
 	atoms = [mol.create_new_atom(x, y) for x, y in points]
 	for index, atom in enumerate(atoms):
@@ -355,17 +354,224 @@ def _run_zoom_diagnostic():
 
 
 #============================================
-def main():
-	"""Entry point for running the zoom diagnostic directly."""
-	_run_zoom_diagnostic()
+def _run_zoom_model_coords_stable():
+	"""Verify that model coordinates (atom.x, atom.y) are unchanged by zoom."""
+	root_dir = conftest.repo_root()
+	_ensure_sys_path(root_dir)
+	_ensure_gettext_fallbacks()
+	_verify_tkinter()
+	_ensure_preferences()
+	import bkchem.main
+
+	app = bkchem.main.BKChem()
+	app.withdraw()
+	app.initialize()
+	if not getattr(app, "paper", None):
+		raise RuntimeError("BKChem zoom test failed to create a paper.")
+
+	try:
+		app.deiconify()
+		_flush_events(app, delay=0.1)
+		paper = app.paper
+		_flush_events(app, delay=0.05)
+
+		# Place benzene at the pixel center of the paper so viewport
+		# centering during zoom never hits the scroll-region clamp.
+		bg = paper.coords(paper.background)
+		pcx = (bg[0] + bg[2]) / 2
+		pcy = (bg[1] + bg[3]) / 2
+		mol = _build_benzene(app, cx=pcx, cy=pcy)
+		_flush_events(app, delay=0.05)
+
+		# Record model coordinates before zoom
+		coords_before = [(a.x, a.y) for a in mol.atoms]
+		print("Model coords before zoom:", coords_before[:3], "...")
+
+		# Zoom in to 10x (max)
+		paper.zoom_reset()
+		_flush_events(app, delay=0.02)
+		for _i in range(50):
+			paper.zoom_in()
+		_flush_events(app, delay=0.05)
+		coords_at_max = [(a.x, a.y) for a in mol.atoms]
+		print("Scale at max zoom: %.4f" % paper._scale)
+		for idx, (before, at_max) in enumerate(zip(coords_before, coords_at_max)):
+			dx = abs(at_max[0] - before[0])
+			dy = abs(at_max[1] - before[1])
+			if dx > 1e-6 or dy > 1e-6:
+				raise AssertionError(
+					"Atom %d model coords changed after zoom_in x50: "
+					"(%.6f, %.6f) -> (%.6f, %.6f)" % (idx, before[0], before[1], at_max[0], at_max[1])
+				)
+
+		# Zoom out to 0.1x (min)
+		for _i in range(100):
+			paper.zoom_out()
+		_flush_events(app, delay=0.05)
+		coords_at_min = [(a.x, a.y) for a in mol.atoms]
+		print("Scale at min zoom: %.4f" % paper._scale)
+		for idx, (before, at_min) in enumerate(zip(coords_before, coords_at_min)):
+			dx = abs(at_min[0] - before[0])
+			dy = abs(at_min[1] - before[1])
+			if dx > 1e-6 or dy > 1e-6:
+				raise AssertionError(
+					"Atom %d model coords changed after zoom_out x100: "
+					"(%.6f, %.6f) -> (%.6f, %.6f)" % (idx, before[0], before[1], at_min[0], at_min[1])
+				)
+
+		# Zoom back to 1x
+		paper.zoom_reset()
+		_flush_events(app, delay=0.05)
+		coords_at_reset = [(a.x, a.y) for a in mol.atoms]
+		print("Scale at reset: %.4f" % paper._scale)
+		for idx, (before, at_reset) in enumerate(zip(coords_before, coords_at_reset)):
+			dx = abs(at_reset[0] - before[0])
+			dy = abs(at_reset[1] - before[1])
+			if dx > 1e-6 or dy > 1e-6:
+				raise AssertionError(
+					"Atom %d model coords changed after zoom round-trip: "
+					"(%.6f, %.6f) -> (%.6f, %.6f)" % (idx, before[0], before[1], at_reset[0], at_reset[1])
+				)
+
+		print("OK: model coordinates are stable across all zoom levels.")
+
+	finally:
+		app.destroy()
 
 
 #============================================
-def test_bkchem_gui_zoom():
-	cmd = [sys.executable, os.path.abspath(__file__)]
+def _run_zoom_roundtrip_symmetry():
+	"""Zoom from 1000% down to ~250% and back; viewport center must match."""
+	root_dir = conftest.repo_root()
+	_ensure_sys_path(root_dir)
+	_ensure_gettext_fallbacks()
+	_verify_tkinter()
+	_ensure_preferences()
+	import bkchem.main
+
+	app = bkchem.main.BKChem()
+	app.withdraw()
+	app.initialize()
+	if not getattr(app, "paper", None):
+		raise RuntimeError("BKChem zoom test failed to create a paper.")
+
+	try:
+		app.deiconify()
+		_flush_events(app, delay=0.1)
+		paper = app.paper
+		_flush_events(app, delay=0.05)
+
+		# Place benzene at the pixel center of the paper so the
+		# viewport center stays away from scroll-region edges.
+		bg = paper.coords(paper.background)
+		pcx = (bg[0] + bg[2]) / 2
+		pcy = (bg[1] + bg[3]) / 2
+		_build_benzene(app, cx=pcx, cy=pcy)
+		_flush_events(app, delay=0.05)
+
+		# Zoom to max (10x = 1000%)
+		paper.zoom_reset()
+		_flush_events(app, delay=0.02)
+		for _i in range(50):
+			paper.zoom_in()
+		_flush_events(app, delay=0.05)
+
+		# Center viewport on the content
+		paper.zoom_to_content()
+		_flush_events(app, delay=0.05)
+
+		# Now zoom to max again so content is centered at 1000%
+		for _i in range(50):
+			paper.zoom_in()
+		_flush_events(app, delay=0.05)
+
+		start_scale = paper._scale
+		start_vp_cx = paper.canvasx(paper.winfo_width() / 2)
+		start_vp_cy = paper.canvasy(paper.winfo_height() / 2)
+		# Convert viewport center to model coords for comparison
+		start_mx = start_vp_cx / start_scale
+		start_my = start_vp_cy / start_scale
+		print("Start: scale=%.4f  model center=(%.2f, %.2f)" % (start_scale, start_mx, start_my))
+
+		# Count how many zoom_out steps to reach ~250%
+		# ZOOM_FACTOR=1.2, so 1.2^n = 10/2.5 = 4 => n = log(4)/log(1.2) ~ 7.6 => 8 steps
+		n_steps = 0
+		while paper._scale > 2.5 and n_steps < 50:
+			paper.zoom_out()
+			_flush_events(app, delay=0.02)
+			n_steps += 1
+		mid_scale = paper._scale
+		mid_vp_cx = paper.canvasx(paper.winfo_width() / 2)
+		mid_vp_cy = paper.canvasy(paper.winfo_height() / 2)
+		mid_mx = mid_vp_cx / mid_scale
+		mid_my = mid_vp_cy / mid_scale
+		print("After %d zoom_out steps: scale=%.4f  model center=(%.2f, %.2f)" % (n_steps, mid_scale, mid_mx, mid_my))
+
+		# Zoom back in the same number of steps
+		for _i in range(n_steps):
+			paper.zoom_in()
+			_flush_events(app, delay=0.02)
+		_flush_events(app, delay=0.05)
+
+		end_scale = paper._scale
+		end_vp_cx = paper.canvasx(paper.winfo_width() / 2)
+		end_vp_cy = paper.canvasy(paper.winfo_height() / 2)
+		end_mx = end_vp_cx / end_scale
+		end_my = end_vp_cy / end_scale
+
+		print("After %d zoom_in steps:  scale=%.4f  model center=(%.2f, %.2f)" % (n_steps, end_scale, end_mx, end_my))
+
+		# Scale should be back to start
+		scale_diff = abs(end_scale - start_scale)
+		if scale_diff > 0.001:
+			raise AssertionError(
+				"Scale did not round-trip: %.4f -> %.4f (diff %.6f)"
+				% (start_scale, end_scale, scale_diff)
+			)
+
+		# Model-space viewport center should match within tolerance.
+		# At 10x zoom, 1 model pixel = 10 canvas pixels, so even
+		# small Tk rounding errors are magnified.  Allow 3 model pixels.
+		drift_mx = abs(end_mx - start_mx)
+		drift_my = abs(end_my - start_my)
+		drift_model = math.sqrt(drift_mx ** 2 + drift_my ** 2)
+		print("Model-space viewport drift: (%.4f, %.4f) = %.4f px" % (drift_mx, drift_my, drift_model))
+
+		tolerance = 3.0  # model pixels
+		if drift_model > tolerance:
+			raise AssertionError(
+				"Viewport center drifted %.4f model pixels after "
+				"zoom_out x%d + zoom_in x%d round-trip "
+				"(tolerance: %.1f model px). "
+				"Start model=(%.2f,%.2f) End model=(%.2f,%.2f)"
+				% (drift_model, n_steps, n_steps, tolerance,
+					start_mx, start_my, end_mx, end_my)
+			)
+		print("OK: zoom +/- round-trip drift %.4f model px (tolerance %.1f)" % (drift_model, tolerance))
+
+	finally:
+		app.destroy()
+
+
+#============================================
+def main():
+	"""Entry point for running the zoom diagnostic directly."""
+	import sys as _sys
+	which = _sys.argv[1] if len(_sys.argv) > 1 else "diagnostic"
+	if which == "model_coords":
+		_run_zoom_model_coords_stable()
+	elif which == "roundtrip":
+		_run_zoom_roundtrip_symmetry()
+	else:
+		_run_zoom_diagnostic()
+
+
+#============================================
+def _run_subprocess_test(arg):
+	"""Run a test variant in a subprocess; skip on Tk/signal failures."""
+	cmd = [sys.executable, os.path.abspath(__file__), arg]
 	result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 	if result.returncode == 0:
-		# Print diagnostic output when running with pytest -s
 		if result.stdout:
 			print(result.stdout)
 		return
@@ -385,6 +591,23 @@ def test_bkchem_gui_zoom():
 	raise AssertionError(
 		"BKChem zoom test subprocess failed.\n%s" % combined
 	)
+
+
+#============================================
+def test_bkchem_gui_zoom():
+	_run_subprocess_test("diagnostic")
+
+
+#============================================
+def test_zoom_model_coords_stable():
+	"""Model coordinates (atom.x, atom.y) must not change during zoom."""
+	_run_subprocess_test("model_coords")
+
+
+#============================================
+def test_zoom_roundtrip_symmetry():
+	"""Zoom out from 1000% to ~250% then back; viewport center must match."""
+	_run_subprocess_test("roundtrip")
 
 
 if __name__ == "__main__":

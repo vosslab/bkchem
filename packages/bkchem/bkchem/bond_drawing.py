@@ -22,14 +22,22 @@ class BondDrawingMixin:
         bond_start=(x2, y2),
         target=render_geometry.make_box_target(tuple(bbox1)),
         interior_hint=(x1, y1),
-        constraints=render_geometry.AttachConstraints(direction_policy="line"),
+        constraints=render_geometry.AttachConstraints(
+          direction_policy="line",
+          target_gap=render_geometry.ATTACH_GAP_TARGET,
+          alignment_tolerance=render_geometry.ATTACH_PERP_TOLERANCE,
+        ),
       )
     if self.atom2.show:
       x2, y2 = render_geometry.resolve_attach_endpoint(
         bond_start=(x1, y1),
         target=render_geometry.make_box_target(tuple(bbox2)),
         interior_hint=(x2, y2),
-        constraints=render_geometry.AttachConstraints(direction_policy="line"),
+        constraints=render_geometry.AttachConstraints(
+          direction_policy="line",
+          target_gap=render_geometry.ATTACH_GAP_TARGET,
+          alignment_tolerance=render_geometry.ATTACH_PERP_TOLERANCE,
+        ),
       )
 
     if geometry.point_distance(x1, y1, x2, y2) <= 1.0:

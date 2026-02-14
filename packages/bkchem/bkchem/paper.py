@@ -1288,20 +1288,28 @@ class chem_paper(Canvas, object):
 		if actual_factor == 1.0:
 			return
 		if center_on_viewport:
-			# scale around the center of the visible viewport
+			# Capture the model-space point at the viewport center;
+			# model coordinates are invariant across zoom levels.
 			ox = self.canvasx(self.winfo_width() / 2)
 			oy = self.canvasy(self.winfo_height() / 2)
-		else:
-			ox, oy = 0, 0
-		self.scale('all', ox, oy, actual_factor, actual_factor)
+			mx = ox / self._scale
+			my = oy / self._scale
 		self._scale = new_scale
-		# Some geometries are required to scale, others not.
-		# So we need to redraw everything.
+		# Redraw all content from model coordinates at the new scale.
 		self.redraw_all()
+		# Reset the page background to its nominal size, then scale
+		# from the origin so it stays aligned with the redrawn content.
+		self.create_background()
+		if self._scale != 1.0:
+			self.scale(self.background, 0, 0, self._scale, self._scale)
+		self.lower(self.background)
+		# Flush deferred Tk layout (text metrics, etc.) so that
+		# bbox(ALL) and the subsequent viewport centering are accurate.
+		self.update_idletasks()
 		self.update_scrollregion()
-		# Re-center viewport on the zoom origin point
+		# Re-center viewport so the same model point stays at viewport center
 		if center_on_viewport:
-			self._center_viewport_on_canvas(ox, oy)
+			self._center_viewport_on_canvas(mx * self._scale, my * self._scale)
 		self.event_generate('<<zoom-changed>>')
 
 	def zoom_in(self):
@@ -1341,7 +1349,16 @@ class chem_paper(Canvas, object):
 		return self.list_bbox(items)
 
 	def _center_viewport_on_canvas(self, cx, cy):
-		"""Scroll so that canvas point (cx, cy) is at the viewport center."""
+		"""Scroll so that canvas point (cx, cy) is at the viewport center.
+
+		Tk's ``xview moveto`` internally subtracts the canvas inset
+		(borderwidth + highlightthickness) from the computed origin::
+
+		    xOrigin = scrollX1 - inset + round(frac * scrollWidth)
+
+		The fraction must therefore include a ``+inset`` correction so
+		that ``canvasx(winfo_width/2)`` lands on *cx* after scrolling.
+		"""
 		sr = self.cget('scrollregion').split()
 		if len(sr) != 4:
 			return
@@ -1352,8 +1369,9 @@ class chem_paper(Canvas, object):
 			return
 		canvas_w = self.winfo_width()
 		canvas_h = self.winfo_height()
-		frac_x = (cx - canvas_w / 2 - sr_x1) / sr_w
-		frac_y = (cy - canvas_h / 2 - sr_y1) / sr_h
+		inset = int(self.cget('borderwidth')) + int(self.cget('highlightthickness'))
+		frac_x = (cx - canvas_w / 2 + inset - sr_x1) / sr_w
+		frac_y = (cy - canvas_h / 2 + inset - sr_y1) / sr_h
 		self.xview_moveto(max(0.0, min(1.0, frac_x)))
 		self.yview_moveto(max(0.0, min(1.0, frac_y)))
 

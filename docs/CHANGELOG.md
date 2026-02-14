@@ -1,6 +1,12 @@
 # Changelog
 
 ## 2026-02-15
+- Wire shared gap/perp constraints through `BondRenderContext` into
+  `build_bond_ops()`. Add `attach_constraints` field to `BondRenderContext` and
+  `attach_gap_target`/`attach_perp_tolerance` style keys to `molecule_to_ops()`.
+  Update `cairo_out.py`, `svg_out.py`, `bond_render_ops.py`, and `bond_drawing.py`
+  to construct and pass `AttachConstraints` with shared constants. Phase 4 of
+  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md).
 - Fix zoom viewport drift caused by orphaned canvas items leaking during
   redraw.  Non-showing atoms (carbon) in
   [packages/bkchem/bkchem/atom.py](packages/bkchem/bkchem/atom.py) called
@@ -19,11 +25,35 @@
   call it after `update_scrollregion()` in `scale_all()` to re-center the
   viewport on the zoom origin.  Refactor `zoom_to_content()` to use the
   new helper.
+- Fix interactive zoom drift: remove redundant `canvas.scale('all', ox, oy,
+  factor, factor)` from `scale_all()` in
+  [packages/bkchem/bkchem/paper.py](packages/bkchem/bkchem/paper.py).
+  `redraw_all()` already redraws content from model coords at the new scale,
+  but the background rectangle (`self.background`) is not in `self.stack` and
+  was never reset by `redraw_all()`.  The `canvas.scale()` call scaled it
+  around the viewport center while `redraw_all()` scales from the origin,
+  causing the background and content to diverge.  Fix explicitly resets the
+  background via `create_background()` + `scale(background, 0, 0, scale,
+  scale)` after `redraw_all()`.
+- Fix Tk canvas inset bug in `_center_viewport_on_canvas()` fraction formula
+  in [packages/bkchem/bkchem/paper.py](packages/bkchem/bkchem/paper.py).
+  Tk's `xview moveto` internally subtracts the canvas inset
+  (`borderwidth + highlightthickness`) from the computed origin.  The
+  fraction formula must include a `+inset` correction so that `canvasx()`
+  lands on the target point after scrolling.  Without this fix, each zoom
+  step introduced a systematic ~3 px centering error (matching the default
+  inset of 3), causing cumulative viewport drift across zoom operations.
 - Upgrade zoom test assertions in
   [tests/test_bkchem_gui_zoom.py](tests/test_bkchem_gui_zoom.py):
   convert idempotency and drift warnings to hard assertions (5% scale
   tolerance, 50 px bbox/viewport drift tolerance), add per-zoom-step
   snapshots with canvas item counts.
+- Add `test_zoom_model_coords_stable` and `test_zoom_roundtrip_symmetry` to
+  [tests/test_bkchem_gui_zoom.py](tests/test_bkchem_gui_zoom.py).
+  Model-coords test verifies `atom.x`/`atom.y` are unchanged after zoom_in
+  x50, zoom_out x100, and zoom reset.  Roundtrip-symmetry test zooms from
+  1000% to ~250% (8 steps) and back, checking model-space viewport drift
+  stays under 3.0 px.
 - Add [docs/TKINTER_WINDOW_DEBUGGING.md](docs/TKINTER_WINDOW_DEBUGGING.md)
   documenting Tk Canvas zoom debugging techniques, the orphaned
   `vertex_item` root cause, and the `redraw()` ordering pitfall.

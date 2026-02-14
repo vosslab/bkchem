@@ -216,7 +216,7 @@ class BondRenderContext:
 	point_for_atom: object | None = None
 	label_targets: dict | None = None
 	attach_targets: dict | None = None
-	attach_constraints: AttachConstraints | None = None
+	attach_constraints: 'AttachConstraints | None' = None
 
 
 #============================================

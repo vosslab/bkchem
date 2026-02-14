@@ -87,6 +87,24 @@ class svg_out(object):
     self.molecule = mol
     self._shown_vertices = set( [v for v in mol.vertices if self._vertex_is_shown( v)])
     self._bond_coords = {}
+    label_targets = {}
+    for v in self._shown_vertices:
+      layout = render_geometry._resolved_vertex_label_layout(
+        v, show_hydrogens_on_hetero=self.show_hydrogens_on_hetero,
+        font_size=16, font_name="Arial",
+      )
+      if layout is None:
+        continue
+      tx, ty = self.transformer.transform_xy(v.x, v.y)
+      target = render_geometry.label_target(
+        tx, ty, layout["text"], layout["anchor"], 16, font_name="Arial",
+      )
+      label_targets[v] = target
+    constraints = render_geometry.AttachConstraints(
+      target_gap=render_geometry.ATTACH_GAP_TARGET,
+      alignment_tolerance=render_geometry.ATTACH_PERP_TOLERANCE,
+      line_width=self.line_width,
+    )
     self._bond_context = render_geometry.BondRenderContext(
       molecule=self.molecule,
       line_width=self.line_width,
@@ -100,6 +118,9 @@ class svg_out(object):
       bond_coords=None,
       bond_coords_provider=self._bond_coords_for_edge,
       point_for_atom=self._point_for_atom,
+      label_targets=label_targets,
+      attach_targets=label_targets,
+      attach_constraints=constraints,
     )
 
     if before:

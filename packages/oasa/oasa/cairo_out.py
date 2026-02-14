@@ -268,6 +268,17 @@ class cairo_out(object):
     if coords:
       start = coords[:2]
       end = coords[2:]
+      label_targets = {}
+      for v, ((ox, oy), bbox) in self._vertex_to_bbox.items():
+        dx = v.x - ox
+        dy = v.y - oy
+        adj_bbox = (bbox[0]+dx, bbox[1]+dy, bbox[2]+dx, bbox[3]+dy)
+        label_targets[v] = render_geometry.make_box_target(adj_bbox)
+      constraints = render_geometry.AttachConstraints(
+        target_gap=render_geometry.ATTACH_GAP_TARGET,
+        alignment_tolerance=render_geometry.ATTACH_PERP_TOLERANCE,
+        line_width=self.line_width,
+      )
       context = render_geometry.BondRenderContext(
         molecule=self.molecule,
         line_width=self.line_width,
@@ -281,6 +292,9 @@ class cairo_out(object):
         bond_coords=None,
         bond_coords_provider=self._bond_coords_for_edge,
         point_for_atom=self._point_for_atom,
+        label_targets=label_targets,
+        attach_targets=label_targets,
+        attach_constraints=constraints,
       )
       ops = render_geometry.build_bond_ops( e, start, end, context)
       render_ops.ops_to_cairo( self.context, ops)
