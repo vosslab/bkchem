@@ -30,7 +30,7 @@ import oasa
 import collections
 import importlib.util
 
-from tkinter import Frame, Label, Scrollbar, StringVar, Tk
+from tkinter import Button, Frame, Label, Scrollbar, StringVar, Tk
 from tkinter import HORIZONTAL, LEFT, RAISED, SUNKEN, VERTICAL
 from tkinter.filedialog import asksaveasfilename, askopenfilename
 import tkinter.messagebox
@@ -237,6 +237,15 @@ class BKChem( Tk):
       ( _("Object"), 'separator'),
       ( _("Object"), 'command', _('Configure'), 'Mouse-3', _("Set the properties of the object, such as color, font size etc."), lambda : self.paper.config_selected(), 'selected'),
       #( _("Object"), 'separator')
+
+      # view menu
+      ( _('View'), 'menu', _("Zoom and display controls"), 'left'),
+      ( _('View'), 'command', _('Zoom In'), '(C-+)', _("Zoom in"), lambda: self.paper.zoom_in(), None),
+      ( _('View'), 'command', _('Zoom Out'), '(C--)', _("Zoom out"), lambda: self.paper.zoom_out(), None),
+      ( _('View'), 'separator'),
+      ( _('View'), 'command', _('Zoom to 100%'), '(C-0)', _("Reset zoom to 100%"), lambda: self.paper.zoom_reset(), None),
+      ( _('View'), 'command', _('Zoom to Fit'), None, _("Fit drawing to window"), lambda: self.paper.zoom_to_fit(), None),
+      ( _('View'), 'command', _('Zoom to Content'), None, _("Fit and center on drawn content"), lambda: self.paper.zoom_to_content(), None),
 
       # chemistry menu
       ( _('Chemistry'), 'menu', _("Information about molecules, group expansion and other chemistry related stuff"), 'left'),
@@ -680,6 +689,32 @@ class BKChem( Tk):
     scroll_y.grid( row=0, column=1, sticky='ns')
     paper['yscrollcommand'] = scroll_y.set
     paper['xscrollcommand'] = scroll_x.set
+
+    # Zoom controls at bottom of each tab page
+    zoom_frame = Frame(page)
+    zoom_frame.grid(row=2, column=0, columnspan=2, sticky='e')
+
+    zoom_out_btn = Button(zoom_frame, text="\u2212", width=2, command=paper.zoom_out)
+    zoom_out_btn.pack(side='left', padx=1)
+
+    zoom_label = Label(zoom_frame, text="100%", width=5, relief=SUNKEN)
+    zoom_label.pack(side='left', padx=1)
+
+    zoom_in_btn = Button(zoom_frame, text="+", width=2, command=paper.zoom_in)
+    zoom_in_btn.pack(side='left', padx=1)
+
+    zoom_reset_btn = Button(zoom_frame, text="100%", width=4, command=paper.zoom_reset)
+    zoom_reset_btn.pack(side='left', padx=2)
+
+    zoom_fit_btn = Button(zoom_frame, text="Fit", width=3, command=paper.zoom_to_fit)
+    zoom_fit_btn.pack(side='left', padx=2)
+
+    zoom_content_btn = Button(zoom_frame, text="Content", width=6, command=paper.zoom_to_content)
+    zoom_content_btn.pack(side='left', padx=2)
+
+    def update_zoom_label(event=None, lbl=zoom_label, p=paper):
+      lbl.config(text="%d%%" % int(p._scale * 100))
+    paper.bind('<<zoom-changed>>', update_zoom_label)
 
     self.papers.append( paper)
     self.change_paper( _tab_name)

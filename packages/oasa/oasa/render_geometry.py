@@ -440,7 +440,7 @@ def _hashed_ops(start, end, line_width, wedge_width, color1, color2, gradient):
 	dy1 = (y0 - ya) / d
 	dx2 = (2 * x2 - x0 - 2 * x1 + xa) / d
 	dy2 = (2 * y2 - y0 - 2 * y1 + ya) / d
-	step_size = 2 * line_width
+	step_size = max(2 * line_width, 0.6 * wedge_width)
 	ns = round(d / step_size) or 1
 	step_size = d / ns
 	ops = []
@@ -467,7 +467,7 @@ def _hashed_ops(start, end, line_width, wedge_width, color1, color2, gradient):
 
 
 #============================================
-def _wave_points(start, end, line_width, style):
+def _wave_points(start, end, line_width, wedge_width, style):
 	x1, y1 = start
 	x2, y2 = end
 	d = geometry.point_distance(x1, y1, x2, y2)
@@ -477,13 +477,26 @@ def _wave_points(start, end, line_width, style):
 	dy = (y2 - y1) / d
 	px = -dy
 	py = dx
-	amplitude = max(line_width * 1.5, 1.0)
-	wavelength = max(line_width * 6.0, 6.0)
-	steps = int(max(d / (wavelength / 16.0), 16))
+	ref = max(wedge_width, line_width)
+	amplitude = max(ref * 0.75, 1.0)
+	wavelength = max(ref * 1.5, 6.0)
+	# Build set of t-values: uniform samples plus explicit peaks/valleys
+	# so Tk's B-spline smoothing cannot flatten extrema.
+	samples_per_wl = 32
+	steps = int(max(d / (wavelength / samples_per_wl), 16))
 	step_size = d / steps
-	points = []
+	t_set = set()
 	for i in range(steps + 1):
-		t = i * step_size
+		t_set.add(i * step_size)
+	# inject exact peak (0.25*wl) and valley (0.75*wl) positions
+	n_waves = int(d / wavelength) + 1
+	for n in range(n_waves):
+		for frac in (0.25, 0.75):
+			t_peak = (n + frac) * wavelength
+			if 0 <= t_peak <= d:
+				t_set.add(t_peak)
+	points = []
+	for t in sorted(t_set):
 		phase = (t / wavelength)
 		if style == "triangle":
 			value = 2 * abs(2 * (phase - math.floor(phase + 0.5))) - 1
@@ -504,8 +517,8 @@ def _wave_points(start, end, line_width, style):
 
 
 #============================================
-def _wavy_ops(start, end, line_width, style, color):
-	points = _wave_points(start, end, line_width, style)
+def _wavy_ops(start, end, line_width, wedge_width, style, color):
+	points = _wave_points(start, end, line_width, wedge_width, style)
 	if len(points) < 2:
 		return []
 	commands = [("M", (points[0][0], points[0][1]))]
@@ -739,7 +752,7 @@ def build_bond_ops(edge, start, end, context):
 			ops.extend(haworth_front_edge_ops(start, end, context.wedge_width, color1))
 			return ops
 		if edge.type == 's':
-			ops.extend(_wavy_ops(start, end, edge_line_width, _edge_wavy_style(edge), color1))
+			ops.extend(_wavy_ops(start, end, edge_line_width, context.wedge_width, _edge_wavy_style(edge), color1))
 			return ops
 		ops.extend(_line_ops(start, end, edge_line_width, color1, color2, gradient, cap="round"))
 		return ops

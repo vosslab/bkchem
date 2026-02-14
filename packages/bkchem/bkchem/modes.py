@@ -751,12 +751,12 @@ class draw_mode( edit_mode):
     self._start_atom = None
     self.submodes = [['30','18','6','1'],
                      ['single','double','triple'],
-                     ['normal','wedge','hashed','adder','bbold','dash','dotted'],
+                     ['normal','wedge','hashed','adder','bbold','dash','dotted','wavy'],
                      ['fixed','freestyle'],
                      ['nosimpledouble','simpledouble']]
     self.submodes_names = [[_('30'),_('18'),_('6'),_('1')],
                            [_('single'),_('double'),_('triple')],
-                           [_('normal'),_('wedge'),_('hashed'),_('adder'),_('bold'),_('dash'),_('dotted')],
+                           [_('normal'),_('wedge'),_('hashed'),_('adder'),_('bold'),_('dash'),_('dotted'),_('wavy')],
                            [_('fixed length'),_('freestyle')],
                            [_('normal double bonds for wedge/hashed'),_('simple double bonds for wedge/hashed')]]
     self.submode = [0, 0, 0, 0, 1]
@@ -959,6 +959,8 @@ class draw_mode( edit_mode):
     type = self.get_submode( 2)
     if type == 'dotted':
       return "o"
+    elif type == 'wavy':
+      return "s"
     else:
       return type[0]
 

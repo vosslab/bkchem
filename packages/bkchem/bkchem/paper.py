@@ -85,6 +85,10 @@ if not ngettext:
 	builtins.ngettext = ngettext
 
 
+ZOOM_FACTOR = 1.2
+ZOOM_MIN = 0.1
+ZOOM_MAX = 10.0
+
 
 class chem_paper(Canvas, object):
 
@@ -156,17 +160,21 @@ class chem_paper(Canvas, object):
 			self.bind( "<Control-Button-2>", lambda e: self._n_pressed2( e, mod=["ctrl"]))
 			self.bind( "<Motion>", self._move)
 			self.bind( "<Leave>", self._leave)
-			# scrolling (linux only?)
-			self.bind( "<Button-4>", lambda e: self.yview( "scroll", -1, "units"))
-			self.bind( "<Button-5>", lambda e: self.yview( "scroll", 1, "units"))
-			# zoom in and out key bindings
-			self.bind( '<Control-Button-4>', lambda e: self.scale_all(2))
-			self.bind( '<Control-Button-5>', lambda e: self.scale_all(0.5))
+			# scrolling and scroll-wheel zoom
+			if sys.platform == 'darwin':
+				self.bind('<MouseWheel>', lambda e: self.yview('scroll', -e.delta, 'units'))
+				self.bind('<Control-MouseWheel>', lambda e: self.zoom_in() if e.delta > 0 else self.zoom_out())
+			else:
+				self.bind("<Button-4>", lambda e: self.yview("scroll", -1, "units"))
+				self.bind("<Button-5>", lambda e: self.yview("scroll", 1, "units"))
+				self.bind('<Control-Button-4>', lambda e: self.zoom_in())
+				self.bind('<Control-Button-5>', lambda e: self.zoom_out())
 
-
-			# scrolling (windows)
-			#self.bind( "<MouseWheel>", lambda e: self.yview( "scroll", -misc.signum( e.delta), "units"))
-			# hope it does not clash on some platforms :(
+			# zoom keyboard shortcuts
+			self.bind('<Control-plus>', lambda e: self.zoom_in())
+			self.bind('<Control-equal>', lambda e: self.zoom_in())
+			self.bind('<Control-minus>', lambda e: self.zoom_out())
+			self.bind('<Control-Key-0>', lambda e: self.zoom_reset())
 
 
 	@property
@@ -1274,12 +1282,93 @@ class chem_paper(Canvas, object):
 	def scale_all( self, scale):
 		"""Scale canvas, used to zoom in and out of the frame.
 	should not affect the *actual* size of the objects."""
-		self.scale('all', 0, 0, scale, scale)
-		self._scale *= scale
+		new_scale = self._scale * scale
+		new_scale = max(ZOOM_MIN, min(ZOOM_MAX, new_scale))
+		actual_factor = new_scale / self._scale
+		if actual_factor == 1.0:
+			return
+		self.scale('all', 0, 0, actual_factor, actual_factor)
+		self._scale = new_scale
 		# Some geometries are required to scale, others not.
 		# So we need to redraw everything.
 		self.redraw_all()
 		self.update_scrollregion()
+		self.event_generate('<<zoom-changed>>')
+
+	def zoom_in(self):
+		if self._scale < ZOOM_MAX:
+			self.scale_all(ZOOM_FACTOR)
+
+	def zoom_out(self):
+		if self._scale > ZOOM_MIN:
+			self.scale_all(1.0 / ZOOM_FACTOR)
+
+	def zoom_reset(self):
+		if self._scale != 1.0:
+			self.scale_all(1.0 / self._scale)
+
+	def zoom_to_fit(self):
+		"""Scale so all content fits in the visible window."""
+		bbox = self.bbox('all')
+		if not bbox:
+			return
+		x1, y1, x2, y2 = bbox
+		content_w = x2 - x1
+		content_h = y2 - y1
+		if content_w <= 0 or content_h <= 0:
+			return
+		canvas_w = self.winfo_width()
+		canvas_h = self.winfo_height()
+		fit_scale = min(canvas_w / content_w, canvas_h / content_h) * 0.9
+		self.scale_all(fit_scale)
+
+	def _content_bbox(self):
+		"""Return bbox of drawn content only, excluding the page background."""
+		items = list(self.find_all())
+		if self.background in items:
+			items.remove(self.background)
+		if not items:
+			return None
+		return self.list_bbox(items)
+
+	def zoom_to_content(self):
+		"""Reset zoom, scale to fit content (max 400%), and center viewport."""
+		# Reset to 1.0 so bbox gives real coordinates
+		if self._scale != 1.0:
+			self.scale_all(1.0 / self._scale)
+		bbox = self._content_bbox()
+		if not bbox:
+			return
+		x1, y1, x2, y2 = bbox
+		content_w = x2 - x1
+		content_h = y2 - y1
+		if content_w <= 0 or content_h <= 0:
+			return
+		canvas_w = self.winfo_width()
+		canvas_h = self.winfo_height()
+		# Scale to fit with 10% margin, capped at 4.0 (400%)
+		fit_scale = min(canvas_w / content_w, canvas_h / content_h) * 0.9
+		fit_scale = min(fit_scale, 4.0)
+		if fit_scale != 1.0:
+			self.scale_all(fit_scale)
+		# Center viewport on content
+		self.update_idletasks()
+		bbox2 = self._content_bbox()
+		if bbox2:
+			cx = (bbox2[0] + bbox2[2]) / 2
+			cy = (bbox2[1] + bbox2[3]) / 2
+			canvas_w = self.winfo_width()
+			canvas_h = self.winfo_height()
+			sr = self.cget('scrollregion').split()
+			if len(sr) == 4:
+				sr_x1, sr_y1, sr_x2, sr_y2 = (float(v) for v in sr)
+				sr_w = sr_x2 - sr_x1
+				sr_h = sr_y2 - sr_y1
+				if sr_w > 0 and sr_h > 0:
+					frac_x = (cx - canvas_w / 2 - sr_x1) / sr_w
+					frac_y = (cy - canvas_h / 2 - sr_y1) / sr_h
+					self.xview_moveto(max(0.0, min(1.0, frac_x)))
+					self.yview_moveto(max(0.0, min(1.0, frac_y)))
 
 	def selected_to_real_clipboard_as_SVG( self):
 		"""exports selected molecules as SVG to system clipboard"""

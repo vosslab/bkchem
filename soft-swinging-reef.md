@@ -109,7 +109,7 @@ Use `render_geometry.make_box_target(bbox)` for target construction. Use `FakeVe
 
 ## Design Decisions
 
-1. **No new `BondRenderContext` field**: `context.label_targets` already has all vertex→target mappings. Avoids modifying the frozen dataclass.
+1. **No new `BondRenderContext` field**: `context.label_targets` already has all vertex->target mappings. Avoids modifying the frozen dataclass.
 
 2. **Closer-endpoint retreat**: Target centroid determines which endpoint to shorten. When the label is near the end, `retreat_endpoint_until_legal(start, end, ...)` retreats end. When near the start, swap roles: `retreat_endpoint_until_legal(end, start, ...)` retreats start.
 

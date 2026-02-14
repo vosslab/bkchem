@@ -1,6 +1,25 @@
 # Changelog
 
 ## 2026-02-14
+- Add gap/perp gate harness
+  [tools/gap_perp_gate.py](tools/gap_perp_gate.py) that runs glyph-bond
+  alignment measurement on fixture buckets (haworth, oasa_generic, bkchem)
+  and emits compact JSON with per-label stats and failure reason counts.
+  Phase 0 of
+  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md).
+- Add gate test
+  [tests/test_gap_perp_gate.py](tests/test_gap_perp_gate.py) verifying gate
+  report structure, reason tallies, empty-bucket handling, and haworth
+  corpus file count.
+
+- Add wavy bond to GUI draw mode bond type submenu so users can select and
+  draw wavy bonds from the toolbar (the rendering was already implemented but
+  not wired into the GUI).
+- Fix wavy and hashed bond rendering in GUI: scale wavy amplitude/wavelength
+  off `wedge_width` (not `line_width`) so waves are visible, increase sample
+  density to 32/wavelength with explicit peak/valley points, and space hashed
+  bond lines at `0.6 * wedge_width` minimum so they don't collapse into a
+  solid block.
 - Rewrite
   [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md)
   into a focused execution plan for getting gap/perp into spec across shared

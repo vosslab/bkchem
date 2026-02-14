@@ -67,7 +67,7 @@ class BondDisplayMixin:
   def focus(self):
     items = self.visible_items()
 
-    if self.type in "nahd":
+    if self.type in "nahds":
       [self.paper.itemconfig(item, fill=self.paper.highlight_color, width=self.line_width + 1) for item in items]
     elif self.type == "o":
       [self.paper.itemconfig(item, fill=self.paper.highlight_color, outline=self.paper.highlight_color) for item in items]
@@ -77,7 +77,7 @@ class BondDisplayMixin:
   def unfocus(self):
     items = self.visible_items()
 
-    if self.type in "nahd":
+    if self.type in "nahds":
       [self.paper.itemconfig(item, fill=self.line_color, width=self.line_width) for item in items]
     elif self.type == "o":
       [self.paper.itemconfig(item, fill=self.line_color, outline=self.line_color) for item in items]
