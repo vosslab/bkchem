@@ -421,3 +421,122 @@ def test_no_hardcoded_tolerance_fallback():
 	# new behavior: alignment_tolerance = 0.07 (default)
 	assert constraints.alignment_tolerance == 0.07
 	assert constraints.alignment_tolerance != max(2.0 * 0.5, 0.25)
+
+
+#============================================
+# _resolve_endpoint_with_constraints tests (Phase 2)
+#============================================
+
+#============================================
+def test_resolve_endpoint_none_target():
+	"""None target returns bond_start unchanged."""
+	result = render_geometry._resolve_endpoint_with_constraints(
+		(5.0, 3.0), None,
+	)
+	assert result == pytest.approx((5.0, 3.0), abs=1e-10)
+
+
+#============================================
+def test_resolve_endpoint_matches_clip_to_target():
+	"""Default constraints produce identical results to _clip_to_target()
+	for axis-aligned bonds (direction snapping preserves the angle)."""
+	box = render_geometry.make_box_target((8.0, -2.0, 12.0, 2.0))
+	cases = [
+		((0.0, 0.0), "horizontal"),
+		((10.0, -20.0), "vertical"),
+	]
+	for bond_start, label in cases:
+		old = render_geometry._clip_to_target(bond_start, box)
+		new = render_geometry._resolve_endpoint_with_constraints(bond_start, box)
+		assert new == pytest.approx(old, abs=1e-10), f"mismatch for {label} bond"
+
+
+#============================================
+def test_resolve_endpoint_alignment_correction():
+	"""Explicit alignment_center triggers centerline correction."""
+	box = render_geometry.make_box_target((8.0, -2.0, 12.0, 8.0))
+	bond_start = (0.0, 0.0)
+	# with alignment_center at (10, 5): endpoint should correct toward (10, 5)
+	constraints = render_geometry.AttachConstraints(
+		direction_policy="auto",
+		alignment_center=(10.0, 5.0),
+		alignment_tolerance=0.07,
+	)
+	ep_corrected = render_geometry._resolve_endpoint_with_constraints(
+		bond_start, box, constraints=constraints,
+	)
+	# the corrected line should pass closer to (10, 5)
+	perp = render_geometry._perpendicular_distance_to_line(
+		(10.0, 5.0), bond_start, ep_corrected,
+	)
+	assert perp < 1.0
+
+
+#============================================
+def test_resolve_endpoint_gap_retreat():
+	"""target_gap > 0 creates a gap between endpoint and target."""
+	box = render_geometry.make_box_target((8.0, -2.0, 12.0, 2.0))
+	bond_start = (0.0, 0.0)
+	constraints = render_geometry.AttachConstraints(
+		direction_policy="auto",
+		target_gap=2.0,
+	)
+	ep = render_geometry._resolve_endpoint_with_constraints(
+		bond_start, box, constraints=constraints,
+	)
+	# endpoint should be further from the box than without gap
+	ep_no_gap = render_geometry._resolve_endpoint_with_constraints(bond_start, box)
+	assert ep[0] < ep_no_gap[0]  # retreated toward start (leftward)
+
+
+#============================================
+def test_resolve_endpoint_legality_retreat():
+	"""Endpoint inside target gets retreated out with nonzero line_width."""
+	# box covers the endpoint area; with line_width > 0 the stroke footprint
+	# extends inside the box, triggering legality retreat.
+	box = render_geometry.make_box_target((7.0, -3.0, 13.0, 3.0))
+	bond_start = (0.0, 0.0)
+	ep_thin = render_geometry._resolve_endpoint_with_constraints(
+		bond_start, box, line_width=0.0,
+	)
+	ep_wide = render_geometry._resolve_endpoint_with_constraints(
+		bond_start, box, line_width=4.0,
+	)
+	# wider line should retreat more (or at least not advance)
+	assert ep_wide[0] <= ep_thin[0] + 1e-10
+
+
+#============================================
+def test_build_bond_ops_triple_clips_offsets():
+	"""Triple bond offset lines respect label targets."""
+	v1 = _FakeVertex("A")
+	v2 = _FakeVertex("B")
+	box_b = render_geometry.make_box_target((18.0, -3.0, 24.0, 3.0))
+
+	class FakeEdge:
+		order = 3
+		type = 'n'
+		vertices = (v1, v2)
+		properties_ = {}
+
+	context = render_geometry.BondRenderContext(
+		molecule=None,
+		line_width=1.0,
+		bond_width=3.0,
+		wedge_width=4.0,
+		bold_line_width_multiplier=1.0,
+		bond_second_line_shortening=0.0,
+		label_targets={v2: box_b},
+	)
+	ops = render_geometry.build_bond_ops(
+		FakeEdge(), (0.0, 0.0), (20.0, 0.0), context,
+	)
+	# should have 3 line ops (center + 2 offsets)
+	from oasa import render_ops
+	line_ops = [op for op in ops if isinstance(op, render_ops.LineOp)]
+	assert len(line_ops) == 3
+	# offset lines (indices 1 and 2) should have their v2-end clipped
+	# (p2[0] should be < 20.0 because of the label box)
+	for op in line_ops[1:]:
+		x2 = op.p2[0]
+		assert x2 < 20.0, f"offset line end {x2} not clipped by label target"

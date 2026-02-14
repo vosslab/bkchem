@@ -1279,7 +1279,7 @@ class chem_paper(Canvas, object):
 			o.unselect()
 			o.select()
 
-	def scale_all( self, scale):
+	def scale_all( self, scale, center_on_viewport=False):
 		"""Scale canvas, used to zoom in and out of the frame.
 	should not affect the *actual* size of the objects."""
 		new_scale = self._scale * scale
@@ -1287,7 +1287,13 @@ class chem_paper(Canvas, object):
 		actual_factor = new_scale / self._scale
 		if actual_factor == 1.0:
 			return
-		self.scale('all', 0, 0, actual_factor, actual_factor)
+		if center_on_viewport:
+			# scale around the center of the visible viewport
+			ox = self.canvasx(self.winfo_width() / 2)
+			oy = self.canvasy(self.winfo_height() / 2)
+		else:
+			ox, oy = 0, 0
+		self.scale('all', ox, oy, actual_factor, actual_factor)
 		self._scale = new_scale
 		# Some geometries are required to scale, others not.
 		# So we need to redraw everything.
@@ -1297,11 +1303,11 @@ class chem_paper(Canvas, object):
 
 	def zoom_in(self):
 		if self._scale < ZOOM_MAX:
-			self.scale_all(ZOOM_FACTOR)
+			self.scale_all(ZOOM_FACTOR, center_on_viewport=True)
 
 	def zoom_out(self):
 		if self._scale > ZOOM_MIN:
-			self.scale_all(1.0 / ZOOM_FACTOR)
+			self.scale_all(1.0 / ZOOM_FACTOR, center_on_viewport=True)
 
 	def zoom_reset(self):
 		if self._scale != 1.0:

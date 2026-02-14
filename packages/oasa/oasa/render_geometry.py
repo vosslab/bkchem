@@ -585,7 +585,11 @@ def _context_attach_target_for_vertex(context, vertex):
 
 #============================================
 def _clip_to_target(bond_start, target):
-	"""Clip one endpoint to one target using default Phase B policy."""
+	"""Clip one endpoint to one target using default Phase B policy.
+
+	Deprecated: superseded by _resolve_endpoint_with_constraints() which
+	adds centerline correction, legality retreat, and target-gap retreat.
+	"""
 	if target is None:
 		return bond_start
 	return resolve_attach_endpoint(
@@ -594,6 +598,46 @@ def _clip_to_target(bond_start, target):
 		interior_hint=target.centroid(),
 		constraints=AttachConstraints(direction_policy="auto"),
 	)
+
+
+#============================================
+def _resolve_endpoint_with_constraints(bond_start, target, constraints=None, line_width=0.0):
+	"""Resolve one bond endpoint using the full 4-step constraint pipeline."""
+	if target is None:
+		return bond_start
+	if constraints is None:
+		constraints = AttachConstraints(direction_policy="auto")
+
+	# Step 1: boundary resolve
+	endpoint = resolve_attach_endpoint(
+		bond_start=bond_start, target=target,
+		interior_hint=target.centroid(), constraints=constraints,
+	)
+
+	# Step 2: centerline correction
+	alignment_center = constraints.alignment_center
+	if alignment_center is None:
+		alignment_center = target.centroid()
+	endpoint = _correct_endpoint_for_alignment(
+		bond_start=bond_start, endpoint=endpoint,
+		alignment_center=alignment_center, target=target,
+		tolerance=constraints.alignment_tolerance,
+	)
+
+	# Step 3: legality retreat (forbidden = target, no allowed sub-regions)
+	endpoint = retreat_endpoint_until_legal(
+		line_start=bond_start, line_end=endpoint,
+		line_width=line_width, forbidden_regions=[target], allowed_regions=[],
+	)
+
+	# Step 4: target-gap retreat
+	if constraints.target_gap > 0.0:
+		endpoint = _retreat_to_target_gap(
+			line_start=bond_start, legal_endpoint=endpoint,
+			target_gap=constraints.target_gap, forbidden_regions=[target],
+		)
+
+	return endpoint
 
 
 #============================================
@@ -720,9 +764,9 @@ def build_bond_ops(edge, start, end, context):
 	target_v1 = _context_attach_target_for_vertex(context, v1)
 	target_v2 = _context_attach_target_for_vertex(context, v2)
 	if target_v1 is not None:
-		start = _clip_to_target(end, target_v1)
+		start = _resolve_endpoint_with_constraints(end, target_v1)
 	if target_v2 is not None:
-		end = _clip_to_target(start, target_v2)
+		end = _resolve_endpoint_with_constraints(start, target_v2)
 	start, end = _apply_bond_length_policy(edge, start, end)
 	edge_line_width = _edge_line_width(edge, context)
 	if context.label_targets:
@@ -780,9 +824,9 @@ def build_bond_ops(edge, start, end, context):
 					x1, y1 = geometry.elongate_line(x2, y2, x1, y1,
 							-context.bond_second_line_shortening * length)
 			if target_v1 is not None:
-				x1, y1 = _clip_to_target((x2, y2), target_v1)
+				x1, y1 = _resolve_endpoint_with_constraints((x2, y2), target_v1)
 			if target_v2 is not None:
-				x2, y2 = _clip_to_target((x1, y1), target_v2)
+				x2, y2 = _resolve_endpoint_with_constraints((x1, y1), target_v2)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
@@ -796,9 +840,9 @@ def build_bond_ops(edge, start, end, context):
 				start[0], start[1], end[0], end[1], i * context.bond_width * 0.5
 			)
 			if target_v1 is not None:
-				x1, y1 = _clip_to_target((x2, y2), target_v1)
+				x1, y1 = _resolve_endpoint_with_constraints((x2, y2), target_v1)
 			if target_v2 is not None:
-				x2, y2 = _clip_to_target((x1, y1), target_v2)
+				x2, y2 = _resolve_endpoint_with_constraints((x1, y1), target_v2)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
@@ -814,6 +858,10 @@ def build_bond_ops(edge, start, end, context):
 			x1, y1, x2, y2 = geometry.find_parallel(
 				start[0], start[1], end[0], end[1], i * context.bond_width * 0.7
 			)
+			if target_v1 is not None:
+				x1, y1 = _resolve_endpoint_with_constraints((x2, y2), target_v1)
+			if target_v2 is not None:
+				x2, y2 = _resolve_endpoint_with_constraints((x1, y1), target_v2)
 			if context.label_targets:
 				(x1, y1), (x2, y2) = _avoid_cross_label_overlaps(
 					(x1, y1), (x2, y2), half_width=edge_line_width / 2.0,
