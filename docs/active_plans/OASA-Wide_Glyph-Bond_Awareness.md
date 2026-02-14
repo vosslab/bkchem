@@ -116,7 +116,7 @@ Current results from `output_smoke/glyph_bond_alignment_report.txt`:
 - Bond endpoints for generic OASA/BKChem now report non-trivial gap/perp metrics.
 - No regression in bond-length guards or cross-label avoidance tests.
 
-## Phase 3: composite target alignment fix
+## Phase 3: composite target alignment fix [COMPLETE]
 
 ### Changes
 

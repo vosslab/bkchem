@@ -41,7 +41,7 @@ Last updated: 2026-02-13
 
 ## In progress
 - [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md):
-  Phases 0-3 implemented, unit-tested (37 tests), documented. Acceptance gates
+  Phases 0-3 implemented, unit-tested (41 tests), documented. Acceptance gates
   re-baselined 2026-02-13 after measurement tool connector selection fix
   (hashed carrier lines included as candidates, commit feaf57d). All phase
   criteria now PASS: 362/362 alignment (100%), CH2OH gap sd=0.54, HO gap

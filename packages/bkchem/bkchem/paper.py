@@ -1293,29 +1293,26 @@ class chem_paper(Canvas, object):
 			oy = self.canvasy(self.winfo_height() / 2)
 		else:
 			ox, oy = 0, 0
+		items_before = set(self.find_all())
 		self.scale('all', ox, oy, actual_factor, actual_factor)
 		self._scale = new_scale
 		# Some geometries are required to scale, others not.
 		# So we need to redraw everything.
 		self.redraw_all()
+		items_after = set(self.find_all())
+		new_items = items_after - items_before
+		if new_items:
+			with open('/tmp/zoom_item_leak.txt', 'a') as f:
+				f.write("scale_all factor=%.4f leaked %d items:\n" % (actual_factor, len(new_items)))
+				for item_id in sorted(new_items):
+					itype = self.type(item_id)
+					tags = self.gettags(item_id)
+					coords = self.coords(item_id)
+					f.write("  id=%d type=%s tags=%s coords=%s\n" % (item_id, itype, tags, [round(c,1) for c in coords]))
+		self.update_scrollregion()
+		# Re-center viewport on the zoom origin point
 		if center_on_viewport:
-			# Set scrollregion with enough padding so (ox, oy) can be
-			# placed at the viewport center.  This prevents the
-			# scrollregion from being too tight after zoom-out, which
-			# would clamp the scroll position and cause drift.
-			x1, y1, x2, y2 = self.bbox(ALL)
-			canvas_w = self.winfo_width()
-			canvas_h = self.winfo_height()
-			half_w = canvas_w / 2 + 100
-			half_h = canvas_h / 2 + 100
-			sr_x1 = min(x1 - 100, ox - half_w)
-			sr_y1 = min(y1 - 100, oy - half_h)
-			sr_x2 = max(x2 + 100, ox + half_w)
-			sr_y2 = max(y2 + 100, oy + half_h)
-			self.config(scrollregion=(sr_x1, sr_y1, sr_x2, sr_y2))
 			self._center_viewport_on_canvas(ox, oy)
-		else:
-			self.update_scrollregion()
 		self.event_generate('<<zoom-changed>>')
 
 	def zoom_in(self):
@@ -1380,6 +1377,11 @@ class chem_paper(Canvas, object):
 		if not bbox:
 			return
 		x1, y1, x2, y2 = bbox
+		# DEBUG: trace content bbox at scale 1.0
+		import sys
+		n_items = len(self.find_all())
+		print("DEBUG zoom_to_content: scale=%.4f bbox=(%d,%d,%d,%d) n_items=%d"
+			% (self._scale, x1, y1, x2, y2, n_items), file=sys.stderr)
 		content_w = x2 - x1
 		content_h = y2 - y1
 		if content_w <= 0 or content_h <= 0:

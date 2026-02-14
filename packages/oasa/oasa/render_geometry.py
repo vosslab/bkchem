@@ -2523,15 +2523,28 @@ def _correct_endpoint_for_alignment(bond_start, endpoint, alignment_center, targ
 		if hit is not None:
 			return hit
 	elif resolved.kind == "composite":
+		# collect candidates from all children, pick lowest perp error
+		candidates = []
 		for child in (resolved.targets or ()):
 			try:
 				result = _correct_endpoint_for_alignment(
 					bond_start, endpoint, alignment_center, child, tolerance,
 				)
 				if result != endpoint:
-					return result
+					candidates.append(result)
 			except ValueError:
 				continue
+		if candidates:
+			# score: (perp error to centerline, deviation from original endpoint)
+			ex, ey = endpoint
+			best = min(
+				candidates,
+				key=lambda c: (
+					_perpendicular_distance_to_line(alignment_center, bond_start, c),
+					math.hypot(c[0] - ex, c[1] - ey),
+				),
+			)
+			return best
 	return endpoint
 
 

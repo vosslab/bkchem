@@ -1,6 +1,13 @@
 # Changelog
 
 ## 2026-02-14
+- Replace "first child that changes endpoint" behavior in composite target branch
+  of `_correct_endpoint_for_alignment()` with scoring-based candidate selection
+  that minimizes perpendicular error to the desired centerline and tiebreaks by
+  distance from original endpoint. Phase 3 of
+  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md).
+- Add Phase 3 composite target alignment tests in
+  [tests/test_render_geometry.py](tests/test_render_geometry.py).
 - Add "Zoom to Content" button and View menu entry that resets zoom, computes
   bounding box of drawn content only (excluding page background), scales to fit
   with 10% margin capped at 400%, and centers the viewport on the molecules.

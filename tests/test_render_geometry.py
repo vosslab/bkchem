@@ -245,6 +245,100 @@ def test_correct_alignment_coincident_start_center():
 
 
 #============================================
+def test_composite_alignment_picks_best_perp():
+	"""Two children both produce corrections; the one with lower perp error wins."""
+	bond_start = (0.0, 0.0)
+	endpoint = (10.0, 0.0)
+	alignment_center = (9.0, 2.0)
+	tolerance = 0.01
+
+	circle_target = render_geometry.make_circle_target((10.0, 3.0), 2.0)
+	box_target = render_geometry.make_box_target((7.0, 0.0, 11.0, 4.0))
+
+	# circle-only result for comparison
+	circle_result = render_geometry._correct_endpoint_for_alignment(
+		bond_start, endpoint, alignment_center, circle_target, tolerance,
+	)
+
+	# composite: circle first, box second
+	composite = render_geometry.make_composite_target([circle_target, box_target])
+	result = render_geometry._correct_endpoint_for_alignment(
+		bond_start, endpoint, alignment_center, composite, tolerance,
+	)
+
+	# result should have lower or equal perp error compared to circle-only
+	result_perp = render_geometry._perpendicular_distance_to_line(
+		alignment_center, bond_start, result,
+	)
+	circle_perp = render_geometry._perpendicular_distance_to_line(
+		alignment_center, bond_start, circle_result,
+	)
+	assert result_perp <= circle_perp
+
+
+#============================================
+def test_composite_alignment_already_aligned():
+	"""Alignment center on bond line -- endpoint returned unchanged with composite."""
+	bond_start = (0.0, 5.0)
+	endpoint = (7.0, 5.0)
+	alignment_center = (8.0, 5.0)
+	tolerance = 0.07
+
+	circle_target = render_geometry.make_circle_target((8.0, 5.0), 1.5)
+	box_target = render_geometry.make_box_target((6.0, 3.5, 9.0, 6.5))
+	composite = render_geometry.make_composite_target([circle_target, box_target])
+
+	result = render_geometry._correct_endpoint_for_alignment(
+		bond_start, endpoint, alignment_center, composite, tolerance,
+	)
+	assert result == pytest.approx(endpoint)
+
+
+#============================================
+def test_composite_alignment_single_child_match():
+	"""Only one child produces a correction; that single candidate is used."""
+	bond_start = (0.0, 0.0)
+	endpoint = (10.0, 0.0)
+	alignment_center = (9.0, 2.0)
+	tolerance = 0.01
+
+	# box far away -- no intersection with centerline, returns endpoint unchanged
+	far_box = render_geometry.make_box_target((50.0, 50.0, 55.0, 55.0))
+	# circle near alignment_center -- produces valid correction
+	near_circle = render_geometry.make_circle_target((10.0, 3.0), 2.0)
+
+	# circle-only result for comparison
+	circle_result = render_geometry._correct_endpoint_for_alignment(
+		bond_start, endpoint, alignment_center, near_circle, tolerance,
+	)
+
+	composite = render_geometry.make_composite_target([far_box, near_circle])
+	result = render_geometry._correct_endpoint_for_alignment(
+		bond_start, endpoint, alignment_center, composite, tolerance,
+	)
+	assert result == pytest.approx(circle_result)
+
+
+#============================================
+def test_composite_alignment_no_children_match():
+	"""Composite where no child produces a changed endpoint -- returns unchanged."""
+	bond_start = (0.0, 0.0)
+	endpoint = (10.0, 0.0)
+	alignment_center = (9.0, 2.0)
+	tolerance = 0.01
+
+	# both circles far away -- centerline misses both, so no intersection
+	far_circle1 = render_geometry.make_circle_target((50.0, 50.0), 1.0)
+	far_circle2 = render_geometry.make_circle_target((-40.0, 30.0), 0.5)
+
+	composite = render_geometry.make_composite_target([far_circle1, far_circle2])
+	result = render_geometry._correct_endpoint_for_alignment(
+		bond_start, endpoint, alignment_center, composite, tolerance,
+	)
+	assert result == endpoint
+
+
+#============================================
 # _avoid_cross_label_overlaps tests
 #============================================
 
