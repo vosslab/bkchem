@@ -61,6 +61,14 @@ BOND_LENGTH_EXCEPTION_TAGS = (
 	"EXC_RING_INTERIOR_CLEARANCE",
 )
 
+# Shared gap/perp spec for connector endpoint alignment.
+# Gap: distance from connector endpoint to nearest glyph boundary.
+# Perp: perpendicular distance from alignment center to connector line.
+ATTACH_GAP_TARGET = 1.5
+ATTACH_GAP_MIN = 1.3
+ATTACH_GAP_MAX = 1.7
+ATTACH_PERP_TOLERANCE = 0.07
+
 _OVAL_GLYPH_ELEMENTS = {"O", "C", "S"}
 _RECT_GLYPH_ELEMENTS = {"N", "H"}
 _SPECIAL_GLYPH_ELEMENTS = {"P"}
@@ -220,6 +228,7 @@ class AttachConstraints:
 	direction_policy: str = "auto"
 	target_gap: float = 0.0
 	alignment_center: tuple[float, float] | None = None
+	alignment_tolerance: float = ATTACH_PERP_TOLERANCE
 
 
 #============================================
@@ -431,37 +440,37 @@ def _rounded_wedge_ops(start, end, line_width, wedge_width, color):
 def _hashed_ops(start, end, line_width, wedge_width, color1, color2, gradient):
 	x1, y1 = start
 	x2, y2 = end
-	x, y, x0, y0 = geometry.find_parallel(x1, y1, x2, y2, wedge_width / 2.0)
-	xa, ya, xb, yb = geometry.find_parallel(x1, y1, x2, y2, line_width / 2.0)
 	d = geometry.point_distance(x1, y1, x2, y2)
 	if d == 0:
 		return []
-	dx1 = (x0 - xa) / d
-	dy1 = (y0 - ya) / d
-	dx2 = (2 * x2 - x0 - 2 * x1 + xa) / d
-	dy2 = (2 * y2 - y0 - 2 * y1 + ya) / d
-	step_size = max(2 * line_width, 0.6 * wedge_width)
+	# Unit vector along bond and perpendicular
+	ux = (x2 - x1) / d
+	uy = (y2 - y1) / d
+	px = -uy
+	py = ux
+	step_size = max(2 * line_width, 0.4 * wedge_width)
 	ns = round(d / step_size) or 1
 	step_size = d / ns
 	ops = []
 	total = int(round(d / step_size)) + 1
 	middle = max(1, total // 2)
 	for i in range(1, total):
-		coords = [
-			xa + dx1 * i * step_size,
-			ya + dy1 * i * step_size,
-			2 * x1 - xa + dx2 * i * step_size,
-			2 * y1 - ya + dy2 * i * step_size,
-		]
-		if coords[0] == coords[2] and coords[1] == coords[3]:
-			if (dx1 + dx2) > (dy1 + dy2):
-				coords[0] += 1
-			else:
-				coords[1] += 1
+		t = i * step_size
+		frac = t / d
+		# Linearly interpolate half-width from line_width to wedge_width
+		half_w = line_width / 2.0 + frac * (wedge_width / 2.0 - line_width / 2.0)
+		# Center point on bond axis
+		cx = x1 + ux * t
+		cy = y1 + uy * t
+		# Hash line perpendicular to bond axis
+		hx1 = cx + px * half_w
+		hy1 = cy + py * half_w
+		hx2 = cx - px * half_w
+		hy2 = cy - py * half_w
 		color = color1
 		if gradient and color2 and i >= middle:
 			color = color2
-		ops.append(render_ops.LineOp((coords[0], coords[1]), (coords[2], coords[3]),
+		ops.append(render_ops.LineOp((hx1, hy1), (hx2, hy2),
 				width=line_width, cap="butt", color=color))
 	return ops
 
@@ -478,41 +487,39 @@ def _wave_points(start, end, line_width, wedge_width, style):
 	px = -dy
 	py = dx
 	ref = max(wedge_width, line_width)
-	amplitude = max(ref * 0.75, 1.0)
-	wavelength = max(ref * 1.5, 6.0)
-	# Build set of t-values: uniform samples plus explicit peaks/valleys
-	# so Tk's B-spline smoothing cannot flatten extrema.
-	samples_per_wl = 32
-	steps = int(max(d / (wavelength / samples_per_wl), 16))
-	step_size = d / steps
-	t_set = set()
-	for i in range(steps + 1):
-		t_set.add(i * step_size)
-	# inject exact peak (0.25*wl) and valley (0.75*wl) positions
-	n_waves = int(d / wavelength) + 1
-	for n in range(n_waves):
-		for frac in (0.25, 0.75):
-			t_peak = (n + frac) * wavelength
-			if 0 <= t_peak <= d:
-				t_set.add(t_peak)
+	amplitude = max(ref * 0.40, 1.0)
+	wavelength = max(ref * 1.2, 6.0)
+	# Use 4 sparse control points per wavelength (at 0, 0.25, 0.5, 0.75)
+	# so Tk's B-spline smooth=1 creates genuinely smooth curves.
+	# Overshoot amplitude by 1.5x to compensate for B-spline not passing
+	# through control points.
+	amp_ctrl = amplitude * 1.5
+	n_waves = max(1, int(round(d / wavelength)))
+	wl_actual = d / n_waves
 	points = []
-	for t in sorted(t_set):
-		phase = (t / wavelength)
-		if style == "triangle":
-			value = 2 * abs(2 * (phase - math.floor(phase + 0.5))) - 1
-		elif style == "box":
-			value = 1.0 if math.sin(2 * math.pi * phase) >= 0 else -1.0
-		elif style == "half-circle":
-			half = wavelength / 2.0
-			local = (t % half) / half
-			value = math.sqrt(max(0.0, 1 - (2 * local - 1) ** 2))
-			if int(t / half) % 2:
-				value *= -1
-		else:
-			value = math.sin(2 * math.pi * phase)
-		ox = px * amplitude * value
-		oy = py * amplitude * value
-		points.append((x1 + dx * t + ox, y1 + dy * t + oy))
+	for n in range(n_waves):
+		for frac in (0.0, 0.25, 0.5, 0.75):
+			t = (n + frac) * wl_actual
+			if t > d:
+				break
+			phase = frac
+			if style == "triangle":
+				value = 2 * abs(2 * (phase - math.floor(phase + 0.5))) - 1
+			elif style == "box":
+				value = 1.0 if math.sin(2 * math.pi * phase) >= 0 else -1.0
+			elif style == "half-circle":
+				half = wl_actual / 2.0
+				local = ((t % half) / half) if half > 0 else 0
+				value = math.sqrt(max(0.0, 1 - (2 * local - 1) ** 2))
+				if int(t / half) % 2 if half > 0 else False:
+					value *= -1
+			else:
+				value = math.sin(2 * math.pi * phase)
+			ox = px * amp_ctrl * value
+			oy = py * amp_ctrl * value
+			points.append((x1 + dx * t + ox, y1 + dy * t + oy))
+	# Always include endpoint on the baseline
+	points.append((x1 + dx * d, y1 + dy * d))
 	return points
 
 
@@ -525,7 +532,7 @@ def _wavy_ops(start, end, line_width, wedge_width, style, color):
 	for x, y in points[1:]:
 		commands.append(("L", (x, y)))
 	return [render_ops.PathOp(commands=tuple(commands), fill="none", stroke=color or "#000",
-			stroke_width=line_width, cap="round", join="round")]
+			stroke_width=line_width * 1.1, cap="round", join="round")]
 
 
 #============================================
@@ -1535,7 +1542,7 @@ def resolve_label_connector_endpoint_from_text_origin(
 		endpoint=endpoint,
 		alignment_center=alignment_center,
 		target=contract.endpoint_target,
-		tolerance=max(line_width * 0.5, 0.25),
+		tolerance=constraints.alignment_tolerance,
 	)
 	endpoint = retreat_endpoint_until_legal(
 		line_start=bond_start,

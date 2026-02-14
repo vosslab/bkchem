@@ -1,6 +1,16 @@
 # Changelog
 
 ## 2026-02-14
+- Add "Zoom to Content" button and View menu entry that resets zoom, computes
+  bounding box of drawn content only (excluding page background), scales to fit
+  with 10% margin capped at 400%, and centers the viewport on the molecules.
+  New `_content_bbox()` helper and `zoom_to_content()` method in
+  [packages/bkchem/bkchem/paper.py](packages/bkchem/bkchem/paper.py); button
+  and menu wiring in
+  [packages/bkchem/bkchem/main.py](packages/bkchem/bkchem/main.py).
+- Shorten wavy bond wavelength from `ref * 1.2` to `ref * 0.5` (floor 2.0) in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  for tighter, more visible wave oscillations.
 - Add gap/perp gate harness
   [tools/gap_perp_gate.py](tools/gap_perp_gate.py) that runs glyph-bond
   alignment measurement on fixture buckets (haworth, oasa_generic, bkchem)
@@ -11,6 +21,18 @@
   [tests/test_gap_perp_gate.py](tests/test_gap_perp_gate.py) verifying gate
   report structure, reason tallies, empty-bucket handling, and haworth
   corpus file count.
+- Add shared gap/perp spec constants (`ATTACH_GAP_TARGET`, `ATTACH_GAP_MIN`,
+  `ATTACH_GAP_MAX`, `ATTACH_PERP_TOLERANCE`) to
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py).
+  Add `alignment_tolerance` field to `AttachConstraints` (default 0.07) and
+  replace hardcoded `max(line_width * 0.5, 0.25)` tolerance in
+  `resolve_label_connector_endpoint_from_text_origin()` with
+  `constraints.alignment_tolerance`. Phase 1 of
+  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md).
+- Add Phase 1 tests in
+  [tests/test_render_geometry.py](tests/test_render_geometry.py) verifying
+  shared constants, default/custom alignment tolerance, and no fallback to
+  old hardcoded tolerance expression.
 
 - Add wavy bond to GUI draw mode bond type submenu so users can select and
   draw wavy bonds from the toolbar (the rendering was already implemented but

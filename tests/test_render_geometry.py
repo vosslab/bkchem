@@ -355,3 +355,69 @@ def test_cross_label_min_length_guard():
 	# bond is 3.0 which is >= min_length, but after retreat it should not go below 2.0
 	result_length = math.hypot(result[1][0] - result[0][0], result[1][1] - result[0][1])
 	assert result_length >= 2.0 - 1e-6
+
+
+#============================================
+# shared spec constants and constraints (Phase 1) tests
+#============================================
+
+#============================================
+def test_attach_gap_constants_exist():
+	"""Shared gap/perp spec constants should be defined in render_geometry."""
+	assert render_geometry.ATTACH_GAP_TARGET == 1.5
+	assert render_geometry.ATTACH_GAP_MIN == 1.3
+	assert render_geometry.ATTACH_GAP_MAX == 1.7
+	assert render_geometry.ATTACH_PERP_TOLERANCE == 0.07
+
+
+#============================================
+def test_attach_constraints_default_alignment_tolerance():
+	"""Default AttachConstraints should use ATTACH_PERP_TOLERANCE."""
+	constraints = render_geometry.AttachConstraints()
+	assert constraints.alignment_tolerance == render_geometry.ATTACH_PERP_TOLERANCE
+	assert constraints.alignment_tolerance == 0.07
+
+
+#============================================
+def test_attach_constraints_custom_alignment_tolerance():
+	"""AttachConstraints should accept a custom alignment_tolerance."""
+	constraints = render_geometry.AttachConstraints(alignment_tolerance=0.5)
+	assert constraints.alignment_tolerance == 0.5
+
+
+#============================================
+def test_alignment_correction_uses_constraints_tolerance():
+	"""_correct_endpoint_for_alignment behavior changes with tolerance."""
+	# bond from (0,0) to (10,0), alignment center at (10, 0.5)
+	# perp distance from (10, 0.5) to the line y=0 is 0.5
+	box = render_geometry.make_box_target((8.0, -2.0, 12.0, 2.0))
+	bond_start = (0.0, 0.0)
+	endpoint = (10.0, 0.0)
+	alignment_center = (10.0, 0.5)
+	# loose tolerance (1.0 > 0.5): no correction needed
+	ep_loose = render_geometry._correct_endpoint_for_alignment(
+		bond_start, endpoint, alignment_center, box, 1.0,
+	)
+	assert ep_loose == pytest.approx(endpoint, abs=1e-10)
+	# tight tolerance (0.1 < 0.5): correction fires
+	ep_tight = render_geometry._correct_endpoint_for_alignment(
+		bond_start, endpoint, alignment_center, box, 0.1,
+	)
+	assert ep_tight != pytest.approx(endpoint, abs=1e-2)
+	# the corrected endpoint should aim closer to alignment center
+	perp_after = render_geometry._perpendicular_distance_to_line(
+		alignment_center, bond_start, ep_tight,
+	)
+	assert perp_after < 0.5
+
+
+#============================================
+def test_no_hardcoded_tolerance_fallback():
+	"""When constraints is None, default alignment_tolerance is 0.07,
+	not the old max(line_width * 0.5, 0.25) expression."""
+	# default constraints should use 0.07
+	constraints = render_geometry.AttachConstraints(line_width=2.0)
+	# old formula: max(2.0 * 0.5, 0.25) = 1.0
+	# new behavior: alignment_tolerance = 0.07 (default)
+	assert constraints.alignment_tolerance == 0.07
+	assert constraints.alignment_tolerance != max(2.0 * 0.5, 0.25)
