@@ -58,6 +58,8 @@ def _make_minimal_file_report():
 			"alignment_tolerance": 1.5,
 			"alignment_score": 0.667,
 			"connector_line_index": 0,
+			"bond_len": 10.0,
+			"connector_line_length": 10.0,
 			"hull_boundary_points": None,
 			"hull_ellipse_fit": None,
 			"hull_contact_point": None,
@@ -159,6 +161,7 @@ def test_summary_stats_alignment_by_glyph():
 	assert glyph["count"] == 1
 	assert glyph["aligned_count"] == 1
 	assert glyph["alignment_rate"] == pytest.approx(1.0)
+	assert glyph["measurements"][0]["bond_len"] == pytest.approx(10.0)
 
 
 #============================================

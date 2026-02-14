@@ -1,6 +1,11 @@
 # Changelog
 
 ## 2026-02-14
+- Rewrite
+  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md)
+  into a focused execution plan for getting gap/perp into spec across shared
+  OASA and BKChem rendering paths (not Haworth-only), with current baseline
+  metrics, phased implementation, and hard acceptance gates.
 - Update glyph-bond measurement pass/fail criteria in
   [tools/measurelib/analysis.py](tools/measurelib/analysis.py) so labels are
   marked aligned only when `1.3 <= gap <= 1.7` and `perp <= 0.07`; all other
@@ -13,6 +18,13 @@
 - Update alignment tests in
   [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
   to validate the new combined error formula and pass/fail rule.
+- Add per-label `bond_len` reporting to
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py) and include
+  `bond_len=...` in diagnostic SVG annotation blocks in
+  [tools/measurelib/diagnostic_svg.py](tools/measurelib/diagnostic_svg.py),
+  alongside `gap/perp/err`.
+- Propagate per-label bond lengths through JSON/report data points in
+  [tools/measurelib/reporting.py](tools/measurelib/reporting.py).
 
 ## 2026-02-13
 - Tighten gap and perp renderer parameters to meet gap 1.3-1.7 and perp < 0.07

@@ -414,6 +414,14 @@ def write_diagnostic_svg(
 		hull_gap = metric.get("hull_signed_gap_along_bond")
 		perp_dist = metric.get("endpoint_perpendicular_distance_to_alignment_center")
 		alignment_err = metric.get("endpoint_alignment_error")
+		bond_len = metric.get("bond_len")
+		if bond_len is None:
+			bond_len = metric.get("connector_line_length")
+		if bond_len is None:
+			bond_len = math.hypot(
+				float(line["x2"]) - float(line["x1"]),
+				float(line["y2"]) - float(line["y1"]),
+			)
 		# prefer hull gap when available (curved glyphs); else signed gap
 		gap_value = hull_gap if hull_gap is not None else signed_gap
 		if gap_value is not None:
@@ -429,6 +437,11 @@ def write_diagnostic_svg(
 		if alignment_err is not None:
 			try:
 				annotation_lines.append(f"err={float(alignment_err):.2f}")
+			except (TypeError, ValueError):
+				pass
+		if bond_len is not None:
+			try:
+				annotation_lines.append(f"bond_len={float(bond_len):.2f}")
 			except (TypeError, ValueError):
 				pass
 		if annotation_lines and isinstance(endpoint, (list, tuple)) and len(endpoint) == 2:

@@ -172,6 +172,8 @@ def summary_stats(file_reports: list[dict]) -> dict:
 						"hull_signed_gap_along_bond": label.get("hull_signed_gap_along_bond"),
 						"optical_gate_debug": label.get("optical_gate_debug"),
 						"alignment_mode": label.get("alignment_mode", "independent_glyph_primitives"),
+						"bond_len": label.get("bond_len"),
+						"connector_line_length": label.get("connector_line_length"),
 					}
 				)
 		geometry_checks = report.get("geometry_checks", {})
@@ -408,6 +410,8 @@ def summary_stats(file_reports: list[dict]) -> dict:
 				"distance_to_tolerance_ratio": display_float(item.get("distance_to_tolerance_ratio")),
 				"alignment_score": display_float(item.get("alignment_score")),
 					"connector_line_index": item.get("connector_line_index"),
+					"bond_len": display_float(item.get("bond_len")),
+					"connector_line_length": display_float(item.get("connector_line_length")),
 					"endpoint": display_point(item.get("endpoint")),
 					"hull_boundary_points": [
 						display_point(point)
@@ -437,6 +441,7 @@ def summary_stats(file_reports: list[dict]) -> dict:
 							"alignment_center_point",
 							"alignment_center_char",
 							"connector_line_index",
+							"bond_len",
 							"endpoint",
 							"hull_boundary_points",
 							"hull_ellipse_fit",
@@ -461,6 +466,7 @@ def summary_stats(file_reports: list[dict]) -> dict:
 							"alignment_center_point",
 							"alignment_center_char",
 							"connector_line_index",
+							"bond_len",
 							"endpoint",
 							"hull_boundary_points",
 							"hull_ellipse_fit",
@@ -628,6 +634,7 @@ def top_misses(file_reports: list[dict], limit: int = 20) -> list[dict]:
 					"text": label["text"],
 					"reason": label["reason"],
 					"distance": distance,
+					"bond_len": label.get("bond_len"),
 					"endpoint": label["endpoint"],
 				}
 			)

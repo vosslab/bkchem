@@ -131,6 +131,7 @@ def test_analyze_svg_file_detects_aligned_endpoint(tmp_path):
 	expected_err = (g * g) + (p * p)
 	assert label["endpoint_alignment_error"] == pytest.approx(expected_err, rel=1e-6)
 	assert label["aligned"] == ((1.3 <= gap <= 1.7) and (perp <= 0.07))
+	assert label["bond_len"] == pytest.approx(18.0, abs=1.0)
 	assert report["line_length_stats"]["all_lines"]["count"] == 1
 	assert report["line_length_stats"]["connector_lines"]["count"] == 1
 	assert report["line_length_stats"]["all_lines"]["mean"] == pytest.approx(18.0, abs=1.0)
@@ -221,6 +222,7 @@ def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	expected_err = (g * g) + (p * p)
 	assert label["endpoint_alignment_error"] == pytest.approx(expected_err, rel=1e-6)
 	assert label["aligned"] == ((1.3 <= gap <= 1.7) and (perp <= 0.07))
+	assert label["bond_len"] == pytest.approx(12.0, abs=1.0)
 	assert label["alignment_mode"] == "independent_glyph_primitives"
 	assert report["line_length_stats"]["all_lines"]["count"] == 1
 	assert report["line_length_stats"]["connector_lines"]["count"] == 1
@@ -248,6 +250,7 @@ def test_analyze_svg_file_detects_no_connector(tmp_path):
 	assert report["missed_count"] == 0
 	assert report["no_connector_count"] == 1
 	assert report["labels"][0]["reason"] == "no_nearby_connector"
+	assert report["labels"][0]["bond_len"] is None
 	assert report["labels"][0]["endpoint_distance_to_glyph_body"] is not None
 	assert report["labels"][0]["endpoint_distance_to_glyph_body"] > 0.0
 	assert report["labels"][0]["endpoint_signed_distance_to_glyph_body"] is not None

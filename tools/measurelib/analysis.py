@@ -259,7 +259,9 @@ def analyze_svg_file(
 							[independent_endpoint[0], independent_endpoint[1]]
 							if independent_endpoint is not None else None
 						),
-						"independent_glyph_model": independent_model_name,
+					"independent_glyph_model": independent_model_name,
+					"bond_len": None,
+					"connector_line_length": None,
 					"aligned": False,
 					"reason": "no_nearby_connector",
 					"connector_line_index": None,
@@ -332,6 +334,9 @@ def analyze_svg_file(
 			aligned_count += 1
 		else:
 			missed_count += 1
+		bond_len = None
+		if best_line_index is not None and 0 <= best_line_index < len(line_lengths_all):
+			bond_len = float(line_lengths_all[best_line_index])
 		label_metrics.append(
 				{
 					"label_index": label_index,
@@ -368,6 +373,8 @@ def analyze_svg_file(
 						if independent_endpoint is not None else None
 					),
 					"independent_glyph_model": independent_model_name,
+					"bond_len": bond_len,
+					"connector_line_length": bond_len,
 					"alignment_tolerance": alignment_tolerance,
 					"aligned": bool(is_aligned),
 					"reason": alignment_reason,

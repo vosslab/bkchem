@@ -21,6 +21,7 @@ from measurelib.diagnostic_svg import (
 	metric_endpoint,
 	select_alignment_primitive,
 	viewbox_bounds,
+	write_diagnostic_svg,
 )
 
 import defusedxml.ElementTree as ET
@@ -312,3 +313,42 @@ def test_select_alignment_primitive_closest_when_multiple():
 	assert result is not None
 	assert result["cx"] == pytest.approx(10.0)
 	assert result["cy"] == pytest.approx(15.0)
+
+
+#============================================
+def test_write_diagnostic_svg_includes_bond_len_annotation(tmp_path):
+	svg_path = tmp_path / "input.svg"
+	out_path = tmp_path / "out.svg"
+	svg_path.write_text(
+		(
+			"<?xml version='1.0' encoding='utf-8'?>"
+			"<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'>"
+			"<line x1='10' y1='10' x2='20' y2='10' stroke='#000' stroke-width='1'/>"
+			"<text x='30' y='30' text-anchor='start' font-family='sans-serif' font-size='12'>OH</text>"
+			"</svg>"
+		),
+		encoding="utf-8",
+	)
+	lines = [{"x1": 10.0, "y1": 10.0, "x2": 20.0, "y2": 10.0, "width": 1.0}]
+	labels = [{"text": "OH", "svg_estimated_primitives": [], "svg_estimated_box": [30.0, 18.0, 44.0, 32.0]}]
+	label_metrics = [
+		{
+			"label_index": 0,
+			"connector_line_index": 0,
+			"endpoint": [20.0, 10.0],
+			"aligned": True,
+			"endpoint_signed_distance_to_glyph_body": 1.5,
+			"endpoint_perpendicular_distance_to_alignment_center": 0.03,
+			"endpoint_alignment_error": 0.2,
+			"bond_len": 10.0,
+		}
+	]
+	write_diagnostic_svg(
+		svg_path=svg_path,
+		output_path=out_path,
+		lines=lines,
+		labels=labels,
+		label_metrics=label_metrics,
+	)
+	out_text = out_path.read_text(encoding="utf-8")
+	assert "bond_len=10.00" in out_text
