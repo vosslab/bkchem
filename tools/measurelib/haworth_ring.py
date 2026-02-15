@@ -236,3 +236,96 @@ def detect_haworth_base_ring(lines: list[dict], labels: list[dict], ring_primiti
 	if primitive_detection["score"] <= line_detection["score"]:
 		return primitive_detection
 	return line_detection
+
+
+#============================================
+def oxygen_virtual_connector_lines(
+		haworth_ring: dict,
+		labels: list[dict],
+		ring_primitives: list[dict]) -> list[dict]:
+	"""Synthesize virtual line dicts from oxygen-adjacent ring polygon edges.
+
+	When the Haworth ring is detected via filled polygon primitives, the ring
+	oxygen label has no nearby <line> endpoint for gap measurement.  This
+	function finds the two ring polygon edges adjacent to the O label and
+	returns virtual line dicts (center-axis of each trapezoid) so the
+	measurement pipeline can treat them like normal connector lines.
+
+	Args:
+		haworth_ring: Detection result from detect_haworth_base_ring().
+		labels: Parsed SVG text labels.
+		ring_primitives: Filled polygon/path primitives from collect_svg_ring_primitives().
+
+	Returns:
+		List of virtual line dicts with keys x1, y1, x2, y2, width, virtual_ring_edge.
+	"""
+	if not haworth_ring.get("detected"):
+		return []
+	if haworth_ring.get("source") != "filled_primitive_cluster":
+		return []
+	centroid = haworth_ring.get("centroid")
+	radius = float(haworth_ring.get("radius", 0.0))
+	if centroid is None or radius <= 0.0:
+		return []
+	# find the O label nearest the ring centroid
+	cx, cy = float(centroid[0]), float(centroid[1])
+	o_label = None
+	o_dist = float("inf")
+	for label in labels:
+		if str(label.get("text", "")).upper() != "O":
+			continue
+		dist = math.hypot(float(label["x"]) - cx, float(label["y"]) - cy)
+		if dist <= radius * 2.0 and dist < o_dist:
+			o_label = label
+			o_dist = dist
+	if o_label is None:
+		return []
+	o_x = float(o_label["x"])
+	o_y = float(o_label["y"])
+	# collect primitive indexes belonging to the detected ring
+	primitive_indexes = haworth_ring.get("primitive_indexes", [])
+	if not primitive_indexes:
+		return []
+	# rank primitives by distance from O label, pick closest 2
+	scored = []
+	for prim_idx in primitive_indexes:
+		if prim_idx < 0 or prim_idx >= len(ring_primitives):
+			continue
+		prim = ring_primitives[prim_idx]
+		prim_cx, prim_cy = prim["centroid"]
+		dist = math.hypot(prim_cx - o_x, prim_cy - o_y)
+		scored.append((dist, prim_idx))
+	scored.sort()
+	# take the two closest primitives (one on each side of O)
+	top_primitives = scored[:2]
+	virtual_lines = []
+	for _, prim_idx in top_primitives:
+		prim = ring_primitives[prim_idx]
+		points = prim.get("points", ())
+		if len(points) < 4:
+			continue
+		# compute center axis: midpoint of edge 0-1 and midpoint of edge 2-3
+		mid_a_x = (points[0][0] + points[1][0]) * 0.5
+		mid_a_y = (points[0][1] + points[1][1]) * 0.5
+		mid_b_x = (points[2][0] + points[3][0]) * 0.5
+		mid_b_y = (points[2][1] + points[3][1]) * 0.5
+		# orient so the end closer to the O label is x2,y2
+		dist_a = math.hypot(mid_a_x - o_x, mid_a_y - o_y)
+		dist_b = math.hypot(mid_b_x - o_x, mid_b_y - o_y)
+		if dist_a <= dist_b:
+			# end A is closer to O
+			line_x1, line_y1 = mid_b_x, mid_b_y
+			line_x2, line_y2 = mid_a_x, mid_a_y
+		else:
+			# end B is closer to O
+			line_x1, line_y1 = mid_a_x, mid_a_y
+			line_x2, line_y2 = mid_b_x, mid_b_y
+		virtual_lines.append({
+			"x1": line_x1,
+			"y1": line_y1,
+			"x2": line_x2,
+			"y2": line_y2,
+			"width": 0.0,
+			"virtual_ring_edge": True,
+		})
+	return virtual_lines

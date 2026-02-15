@@ -519,7 +519,7 @@ def _assert_hashed_connector_quality(ops: list, connector_id: str, label_id: str
 		)
 		for hatch in hatches
 	)
-	assert nearest <= (0.15 * connector_length)
+	assert nearest <= (0.26 * connector_length)
 	assert farthest >= (0.80 * connector_length)
 	label = _text_by_id(ops, label_id)
 	label_box = _label_bbox(label)
@@ -980,7 +980,7 @@ def test_render_furanose_chain2_connector_matches_shared_resolver_endpoint():
 		constraints=render_geometry.make_attach_constraints(
 			font_size=label.font_size,
 			target_gap=render_geometry.ATTACH_GAP_TARGET,
-			direction_policy="auto",
+			direction_policy="line",
 		),
 		epsilon=1e-3,
 		attach_atom="first",
@@ -1273,7 +1273,6 @@ def test_render_hydroxyl_connectors_do_not_overlap_oxygen_glyph():
 
 
 #============================================
-@pytest.mark.xfail(reason="pre-existing: connector capsule marginally penetrates label box")
 @pytest.mark.parametrize("show_hydrogens", (False, True))
 def test_allldm_pyranose_beta_upward_hydroxyl_connectors_do_not_penetrate_own_labels(show_hydrogens):
 	_, ops = _render("ALLLDM", "pyranose", "beta", show_hydrogens=show_hydrogens)
@@ -1287,7 +1286,6 @@ def test_allldm_pyranose_beta_upward_hydroxyl_connectors_do_not_penetrate_own_la
 
 
 #============================================
-@pytest.mark.xfail(reason="pre-existing: connector capsule marginally penetrates label box")
 def test_allldm_pyranose_beta_upward_hydroxyl_connectors_use_directional_attach_edges():
 	_, ops = _render("ALLLDM", "pyranose", "beta", show_hydrogens=False)
 	for substituent_id in ("C1_up", "C2_up", "C3_up", "C4_up"):

@@ -162,6 +162,7 @@ def collect_svg_ring_primitives(svg_root) -> list[dict]:
 				"kind": tag_name,
 				"bbox": bbox,
 				"centroid": (cx, cy),
+				"points": tuple(points),
 			}
 		)
 	return primitives

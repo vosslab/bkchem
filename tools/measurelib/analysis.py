@@ -45,7 +45,7 @@ from measurelib.glyph_model import (
 	primitive_center,
 )
 from measurelib.lcf_optical import optical_center_via_isolation_render
-from measurelib.haworth_ring import detect_haworth_base_ring
+from measurelib.haworth_ring import detect_haworth_base_ring, oxygen_virtual_connector_lines
 from measurelib.hatch_detect import (
 	detect_double_bond_pairs,
 	detect_hashed_carrier_map,
@@ -86,6 +86,16 @@ def analyze_svg_file(
 		index for index, label in enumerate(labels) if label["is_measurement_label"]
 	]
 	haworth_base_ring = detect_haworth_base_ring(lines, labels, ring_primitives)
+	# synthesize virtual connector lines from ring polygon edges near the O label
+	virtual_ring_lines = oxygen_virtual_connector_lines(
+		haworth_base_ring, labels, ring_primitives,
+	)
+	virtual_ring_line_start = len(lines)
+	lines.extend(virtual_ring_lines)
+	virtual_ring_line_indexes = set(range(
+		virtual_ring_line_start,
+		virtual_ring_line_start + len(virtual_ring_lines),
+	))
 	excluded_line_indexes = set()
 	if exclude_haworth_base_ring and haworth_base_ring["detected"]:
 		excluded_line_indexes = set(haworth_base_ring["line_indexes"])
@@ -118,12 +128,15 @@ def analyze_svg_file(
 			"x2": (float(p_line["x2"]) + float(s_line["x2"])) * 0.5,
 			"y2": (float(p_line["y2"]) + float(s_line["y2"])) * 0.5,
 		}
+		# secondary also maps to the same midline for perp distance correction
+		double_bond_midline_map[secondary_idx] = double_bond_midline_map[primary_idx]
 	width_pool = [
 		float(lines[index].get("width", 1.0))
 		for index in checked_line_indexes
 		if index not in pre_decorative_hatched_stroke_index_set
 		and index not in pre_hashed_carrier_index_set
 		and index not in double_bond_secondary_indexes
+		and index not in virtual_ring_line_indexes
 	]
 	if width_pool:
 		width_pool_sorted = sorted(width_pool)
@@ -135,7 +148,6 @@ def analyze_svg_file(
 		index
 		for index in checked_line_indexes
 		if index not in pre_decorative_hatched_stroke_index_set
-		and index not in double_bond_secondary_indexes
 		and float(lines[index].get("width", 1.0)) >= min_connector_width
 	]
 	if not connector_candidate_line_indexes:
@@ -143,7 +155,6 @@ def analyze_svg_file(
 			index
 			for index in checked_line_indexes
 			if index not in pre_decorative_hatched_stroke_index_set
-			and index not in double_bond_secondary_indexes
 		]
 		if not fallback_pool:
 			fallback_pool = list(checked_line_indexes)
@@ -161,6 +172,10 @@ def analyze_svg_file(
 	for carrier_index in sorted(pre_hashed_carrier_index_set):
 		if carrier_index not in connector_candidate_line_indexes:
 			connector_candidate_line_indexes.append(carrier_index)
+	# Virtual ring edge lines are connector candidates for the O label
+	for virt_index in sorted(virtual_ring_line_indexes):
+		if virt_index not in connector_candidate_line_indexes:
+			connector_candidate_line_indexes.append(virt_index)
 	connector_candidate_line_indexes.sort()
 	checked_label_indexes = list(range(len(labels)))
 	line_lengths_all = [line_length(line) for line in lines]
@@ -623,6 +638,7 @@ def analyze_svg_file(
 		index for index in checked_line_indexes
 		if index not in decorative_hatched_stroke_index_set
 		and index not in double_bond_secondary_indexes
+		and index not in virtual_ring_line_indexes
 	]
 	location_origin = overlap_origin(lines, haworth_base_ring)
 	checked_bond_lengths_by_quadrant: dict[str, list[float]] = {}
@@ -682,9 +698,15 @@ def analyze_svg_file(
 	if write_diagnostic_svg and diagnostic_svg_dir is not None:
 		diagnostic_svg_name = f"{svg_path.stem}.diagnostic.svg"
 		diagnostic_svg_path = (diagnostic_svg_dir / diagnostic_svg_name).resolve()
-		# include ring bonds in perpendicular markers for full diagnostic view
+		# include ring bonds and double bond secondaries in perpendicular markers
+		# note: haworth_base_ring["line_indexes"] is always empty for primitive-cluster
+		# detected rings (all 78 current SVGs), but kept for correctness if
+		# line-cycle detection ever fires
 		diagnostic_bond_line_indexes = sorted(
-			set(checked_bond_line_indexes) | set(haworth_base_ring["line_indexes"])
+			set(checked_bond_line_indexes)
+			| set(haworth_base_ring["line_indexes"])
+			| double_bond_secondary_indexes
+			| virtual_ring_line_indexes
 		)
 		do_write_diagnostic_svg(
 			svg_path=svg_path,

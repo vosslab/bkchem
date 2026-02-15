@@ -1,6 +1,55 @@
 # Changelog
 
 ## 2026-02-15
+- Add ring oxygen gap measurement via virtual connector lines.  Haworth sugar
+  SVGs render ring edges as filled `<polygon>` elements, not `<line>` elements,
+  so the ring oxygen "O" label had no nearby line endpoint and got
+  `no_connector` in measurements.  Store polygon vertex coordinates in ring
+  primitives (`"points"` key) in
+  [tools/measurelib/svg_parse.py](tools/measurelib/svg_parse.py).  New
+  `oxygen_virtual_connector_lines()` in
+  [tools/measurelib/haworth_ring.py](tools/measurelib/haworth_ring.py) finds the
+  two ring polygon edges closest to the O label and synthesizes virtual line
+  dicts from their center axes.  Integrate virtual lines into the analysis
+  pipeline in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py): append to
+  `lines` list, include in connector candidates, exclude from width pool, bond
+  length statistics, and checked bond indexes.  Include virtual lines in
+  diagnostic perpendicular markers.
+- Replace CH2OH fan-out solver with standard OASA connector path in Haworth
+  furanose two-carbon tail renderer.  Delete `_chain2_label_offset_candidates()`
+  and `_solve_chain2_label_with_resolver()` (53-candidate fan-out solver) from
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+  Use same standard 3-step connector path as the HO arm and all simple OH
+  connectors: `_align_text_origin_to_endpoint_target_centroid()` +
+  `label_target_from_text_origin()` +
+  `resolve_label_connector_endpoint_from_text_origin()` with
+  `direction_policy="line"`.  Remove `min_standoff_factor` floor hack so
+  `branch_standoff` uses `segment_length` directly.  Before: CH2OH arm ~10.2
+  units vs HO arm ~17.0 units (67% mismatch); hatched connector overlapped
+  CH2OH glyph in up case.  After: both arms use the same geometry-derived
+  length with standard gaps.  Mark H-024 and H-025 as removed in
+  [docs/HAWORTH_OVERRIDES.md](docs/HAWORTH_OVERRIDES.md).  Update
+  `direction_policy` in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to match.
+- Fix two-carbon tail bond lengths in Haworth furanose renderer.  Unify
+  `min_standoff_factor` from direction-asymmetric values (`up=1.75`,
+  `down=1.35`) to a single `1.35` floor so standard `segment_length` wins.
+  Normalize `ho_length_factor` and `ch2_length_factor` from `0.90`/`0.95`/`1.20`
+  to `1.0` for both up and down directions so arm lengths match the base
+  `segment_length` used by simple hydroxyl connectors.  Before: CH2OH bond
+  ~20.3 units with text overlap, HO bond ~12.8 units with sub-minimum gap.
+  After: both arms ~16 units with 1.3-1.7 gaps matching standard connectors.
+  Changes in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+  Update H-025 status in
+  [docs/HAWORTH_OVERRIDES.md](docs/HAWORTH_OVERRIDES.md).
+  Relax hashed connector nearest-hatch threshold from 15% to 18% of connector
+  length in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to
+  accommodate shorter normalized connectors.  Remove 3 `xfail` markers from
+  ALLLDM pyranose beta upward hydroxyl connector tests that now pass with
+  unified standoff.
 - Fix regression expectations in
   [tests/test_attach_targets.py](tests/test_attach_targets.py) for
   `label_target()` box geometry after calibrated text top/bottom offsets in
@@ -16,8 +65,12 @@
   [tools/measurelib/diagnostic_svg.py](tools/measurelib/diagnostic_svg.py)
   draws short perpendicular lines at both ends of every checked bond line:
   magenta `#ff00ff` for endpoints used for gap measurement, dark blue
-  `#00008b` for other endpoints.  Include Haworth base ring bonds in the
-  perpendicular marker set so ring bond endpoints are also marked.  Markers
+  `#00008b` for other endpoints.  Include Haworth base ring bonds and
+  double bond secondary lines in the perpendicular marker set so both
+  primary and secondary bond lines get endpoint markers.  Double bond
+  secondary lines now included in connector candidates so labels like
+  CH2OH find the correct nearest bond endpoint (secondary going toward
+  the label) instead of the primary going the wrong direction.  Markers
   are drawn as a background layer before per-label overlays.  Remove
   per-metric orange perpendicular line (now redundant).  Change hull contact
   point marker from circle to ellipse (rx=1.5, ry=0.8).  Legend updated with
