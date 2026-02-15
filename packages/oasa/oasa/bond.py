@@ -60,6 +60,8 @@ class bond(edge, object):
     self.stereochemistry = None
     self.line_color = None
     self.wavy_style = None
+    # boolean, used by double bonds: True forces centered rendering
+    self.center = None
 
 
   def __str__( self):

@@ -352,3 +352,129 @@ def test_write_diagnostic_svg_includes_bond_len_annotation(tmp_path):
 	)
 	out_text = out_path.read_text(encoding="utf-8")
 	assert "bond_len=10.00" in out_text
+
+
+#============================================
+def test_perpendicular_markers_appear_when_params_provided(tmp_path):
+	"""Magenta and dark blue perpendicular lines appear when bond index params are provided."""
+	svg_path = tmp_path / "input.svg"
+	out_path = tmp_path / "out.svg"
+	svg_path.write_text(
+		(
+			"<?xml version='1.0' encoding='utf-8'?>"
+			"<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'>"
+			"<line x1='10' y1='10' x2='50' y2='10' stroke='#000' stroke-width='1'/>"
+			"<line x1='60' y1='20' x2='90' y2='20' stroke='#000' stroke-width='1'/>"
+			"</svg>"
+		),
+		encoding="utf-8",
+	)
+	lines = [
+		{"x1": 10.0, "y1": 10.0, "x2": 50.0, "y2": 10.0, "width": 1.0},
+		{"x1": 60.0, "y1": 20.0, "x2": 90.0, "y2": 20.0, "width": 1.0},
+	]
+	labels = [{"text": "OH", "svg_estimated_primitives": [], "svg_estimated_box": [52.0, 5.0, 66.0, 15.0]}]
+	# metric references line 0 endpoint p2 (50,10) as connector
+	label_metrics = [
+		{
+			"label_index": 0,
+			"connector_line_index": 0,
+			"endpoint": [50.0, 10.0],
+			"aligned": True,
+		}
+	]
+	# line 0 is a connector, line 1 is not
+	write_diagnostic_svg(
+		svg_path=svg_path,
+		output_path=out_path,
+		lines=lines,
+		labels=labels,
+		label_metrics=label_metrics,
+		checked_bond_line_indexes=[0, 1],
+		connector_line_indexes={0},
+	)
+	out_text = out_path.read_text(encoding="utf-8")
+	# magenta for connector measurement endpoints
+	assert "#ff00ff" in out_text
+	# dark blue for other bond endpoints
+	assert "#00008b" in out_text
+	# legend entries should be present
+	assert "Connector endpoint" in out_text
+	assert "Other endpoint" in out_text
+
+
+#============================================
+def test_perpendicular_markers_absent_when_params_omitted(tmp_path):
+	"""No perpendicular markers or legend entries when bond index params are omitted."""
+	svg_path = tmp_path / "input.svg"
+	out_path = tmp_path / "out.svg"
+	svg_path.write_text(
+		(
+			"<?xml version='1.0' encoding='utf-8'?>"
+			"<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'>"
+			"<line x1='10' y1='10' x2='50' y2='10' stroke='#000' stroke-width='1'/>"
+			"</svg>"
+		),
+		encoding="utf-8",
+	)
+	lines = [{"x1": 10.0, "y1": 10.0, "x2": 50.0, "y2": 10.0, "width": 1.0}]
+	labels = []
+	label_metrics = []
+	# no checked_bond_line_indexes or connector_line_indexes
+	write_diagnostic_svg(
+		svg_path=svg_path,
+		output_path=out_path,
+		lines=lines,
+		labels=labels,
+		label_metrics=label_metrics,
+	)
+	out_text = out_path.read_text(encoding="utf-8")
+	# no perpendicular marker colors should appear
+	assert "#ff00ff" not in out_text
+	assert "#00008b" not in out_text
+	# endpoint legend entries should not appear
+	assert "Connector endpoint" not in out_text
+	assert "Other endpoint" not in out_text
+
+
+#============================================
+def test_hull_contact_point_drawn_as_ellipse(tmp_path):
+	"""Hull contact point marker should be an ellipse with rx/ry attributes."""
+	svg_path = tmp_path / "input.svg"
+	out_path = tmp_path / "out.svg"
+	svg_path.write_text(
+		(
+			"<?xml version='1.0' encoding='utf-8'?>"
+			"<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'>"
+			"<line x1='10' y1='10' x2='30' y2='10' stroke='#000' stroke-width='1'/>"
+			"<text x='40' y='15' text-anchor='start' font-family='sans-serif' font-size='12'>OH</text>"
+			"</svg>"
+		),
+		encoding="utf-8",
+	)
+	lines = [{"x1": 10.0, "y1": 10.0, "x2": 30.0, "y2": 10.0, "width": 1.0}]
+	labels = [{"text": "OH", "svg_estimated_primitives": [], "svg_estimated_box": [40.0, 5.0, 54.0, 25.0]}]
+	label_metrics = [
+		{
+			"label_index": 0,
+			"connector_line_index": 0,
+			"endpoint": [30.0, 10.0],
+			"aligned": True,
+			"hull_contact_point": [35.0, 10.0],
+			"hull_boundary_points": None,
+			"hull_ellipse_fit": None,
+		}
+	]
+	write_diagnostic_svg(
+		svg_path=svg_path,
+		output_path=out_path,
+		lines=lines,
+		labels=labels,
+		label_metrics=label_metrics,
+	)
+	out_text = out_path.read_text(encoding="utf-8")
+	# hull contact point should be drawn as an ellipse with rx and ry
+	assert 'rx="1.5"' in out_text
+	assert 'ry="0.8"' in out_text
+	# should use the hull contact point color
+	assert "#ff5400" in out_text

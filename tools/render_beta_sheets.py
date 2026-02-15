@@ -68,8 +68,8 @@ def _build_strand_atoms(x_start: float, y_base: float,
 	"""Compute coordinate dicts for one strand's atoms and side groups.
 
 	Backbone per residue is Ca - C'(=O) - N, repeating left-to-right (or
-	right-to-left for direction=-1).  Terminal groups are +H3N on the
-	N-terminus and COOH on the C-terminus.
+	right-to-left for direction=-1).  Terminal labels are direction-aware:
+	for direction=1 use H3N+/COO-, for direction=-1 use NH3+/-OOC.
 
 	Args:
 		x_start: x coordinate of first Ca atom (cm)
@@ -171,26 +171,39 @@ def _build_strand_atoms(x_start: float, y_base: float,
 			'type': 'n1', 'center': False,
 		})
 
-	# N-terminus: H3N text element with superscript charge, one step behind Ca1
+	# N-terminus text element with circled plus mark, one step behind Ca1.
+	# Reverse strands use NH3 so the C->N read direction is left-to-right.
 	atom_counter += 1
 	h3n_x = x_start - direction * DX_CM
 	# virtual index -1 is odd -> DOWN position
 	h3n_y = y_base + DY_CM
 	h3n_aid = "a%d" % atom_counter
-	# charge rendered via <sup> markup (bkchem built-in style), not plain "+"
+	if direction == 1:
+		n_term_name = 'H3N'
+		n_term_ftext = 'H<sub>3</sub>N'
+		n_term_pos = 'center-last'
+	else:
+		n_term_name = 'NH3'
+		n_term_ftext = 'NH<sub>3</sub>'
+		n_term_pos = 'center-first'
+	# charge rendered via bkchem circled mark, not text
+	# mark offset: slight right, away from backbone (down for DOWN atom)
 	atoms.append({
-		'id': h3n_aid, 'kind': 'text', 'name': 'H3N',
+		'id': h3n_aid, 'kind': 'text', 'name': n_term_name,
 		'symbol': 'N', 'x': h3n_x, 'y': h3n_y,
-		'pos': 'center-last', 'valency': None,
-		'label': 'H<sub>3</sub>N<sup>+</sup>',
-		'ftext': 'H<sub>3</sub>N<sup>+</sup>',
+		'pos': n_term_pos, 'valency': None,
+		'charge': 1,
+		'label': n_term_ftext,
+		'ftext': n_term_ftext,
+		'marks': [{'type': 'plus', 'x': h3n_x + 0.107, 'y': h3n_y + 0.398}],
 	})
 	bonds.append({
 		'start': h3n_aid, 'end': backbone_ids[0],
 		'type': 'n1', 'center': False,
 	})
 
-	# C-terminus: COO- text element with superscript charge, one step ahead of last Ca
+	# C-terminus text element with circled minus mark, one step ahead of last Ca.
+	# Reverse strands use OOC with a leading minus (-OOC).
 	atom_counter += 1
 	last_bb_idx = backbone_count - 1
 	last_x = x_start + last_bb_idx * direction * DX_CM
@@ -198,16 +211,32 @@ def _build_strand_atoms(x_start: float, y_base: float,
 	# virtual index = backbone_count: zigzag alternates from last atom
 	if backbone_count % 2 == 0:
 		coo_y = y_base
+		# mark goes above for UP atom
+		mark_dy = -0.398
 	else:
 		coo_y = y_base + DY_CM
+		# mark goes below for DOWN atom
+		mark_dy = 0.398
 	coo_aid = "a%d" % atom_counter
-	# charge rendered via <sup> markup (bkchem built-in style), not plain "-"
+	if direction == 1:
+		c_term_name = 'COO'
+		c_term_ftext = 'COO'
+		c_term_pos = 'center-first'
+		mark_dx = 0.107
+	else:
+		c_term_name = 'OOC'
+		c_term_ftext = 'OOC'
+		c_term_pos = 'center-last'
+		mark_dx = -0.107
+	# charge rendered via bkchem circled mark, not text
 	atoms.append({
-		'id': coo_aid, 'kind': 'text', 'name': 'COO',
+		'id': coo_aid, 'kind': 'text', 'name': c_term_name,
 		'symbol': 'C', 'x': coo_x, 'y': coo_y,
-		'pos': 'center-first', 'valency': None,
-		'label': 'COO<sup>-</sup>',
-		'ftext': 'COO<sup>-</sup>',
+		'pos': c_term_pos, 'valency': None,
+		'charge': -1,
+		'label': c_term_ftext,
+		'ftext': c_term_ftext,
+		'marks': [{'type': 'minus', 'x': coo_x + mark_dx, 'y': coo_y + mark_dy}],
 	})
 	bonds.append({
 		'start': backbone_ids[-1], 'end': coo_aid,
@@ -274,6 +303,18 @@ def _write_cdml_strand(doc, mol_el, atoms: list, bonds: list,
 		pt.setAttribute('x', '%.3fcm' % atom['x'])
 		pt.setAttribute('y', '%.3fcm' % atom['y'])
 		el.appendChild(pt)
+
+		# <mark> children for charge marks (circled +/-)
+		for mark_data in atom.get('marks', []):
+			mk = doc.createElement('mark')
+			mk.setAttribute('type', mark_data['type'])
+			mk.setAttribute('x', '%.3fcm' % mark_data['x'])
+			mk.setAttribute('y', '%.3fcm' % mark_data['y'])
+			mk.setAttribute('auto', '1')
+			mk.setAttribute('size', '10')
+			mk.setAttribute('draw_circle', 'yes')
+			el.appendChild(mk)
+
 		mol_el.appendChild(el)
 
 	# bond elements matching bkchem template attributes
@@ -406,6 +447,19 @@ def _build_oasa_strand(mol, atoms: list, bonds: list) -> dict:
 		# set label property for non-standard display
 		if atom_data['label']:
 			a.properties_["label"] = atom_data['label']
+		# set charge (vertex_label_text appends +/- to display text)
+		if atom_data.get('charge'):
+			a.charge = atom_data['charge']
+		# store mark data for circled charge rendering
+		if atom_data.get('marks'):
+			a.properties_["marks"] = [
+				{
+					'type': m['type'],
+					'x': m['x'] * POINTS_PER_CM,
+					'y': m['y'] * POINTS_PER_CM,
+				}
+				for m in atom_data['marks']
+			]
 		mol.add_vertex(a)
 		atom_map[atom_data['id']] = a
 

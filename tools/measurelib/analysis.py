@@ -16,6 +16,7 @@ from measurelib.constants import (
 	LATTICE_ANGLE_TOLERANCE_DEGREES,
 	MAX_ENDPOINT_TO_LABEL_DISTANCE_FACTOR,
 	MIN_CONNECTOR_LINE_WIDTH,
+	MULTI_CONNECTOR_GAP_RATIO_MAX,
 )
 from measurelib.util import (
 	group_length_append,
@@ -33,6 +34,8 @@ from measurelib.svg_parse import (
 	collect_svg_wedge_bonds,
 )
 from measurelib.glyph_model import (
+	all_endpoints_near_glyph_primitives,
+	all_endpoints_near_text_path,
 	label_svg_estimated_box,
 	label_svg_estimated_primitives,
 	label_text_path,
@@ -44,6 +47,7 @@ from measurelib.glyph_model import (
 from measurelib.lcf_optical import optical_center_via_isolation_render
 from measurelib.haworth_ring import detect_haworth_base_ring
 from measurelib.hatch_detect import (
+	detect_double_bond_pairs,
 	detect_hashed_carrier_map,
 	overlap_origin,
 	quadrant_label,
@@ -95,11 +99,31 @@ def analyze_svg_file(
 		for stroke_index in stroke_indexes
 	}
 	pre_hashed_carrier_index_set = set(pre_hashed_carrier_map.keys())
+	# detect double bond offset pairs and collect secondary line indexes
+	double_bond_pairs = detect_double_bond_pairs(
+		lines, checked_line_indexes,
+		excluded_indexes=pre_decorative_hatched_stroke_index_set | pre_hashed_carrier_index_set,
+	)
+	double_bond_secondary_indexes = set()
+	# map primary index -> midline dict for perp distance correction
+	double_bond_midline_map: dict[int, dict] = {}
+	for primary_idx, secondary_idx in double_bond_pairs:
+		double_bond_secondary_indexes.add(secondary_idx)
+		# compute midline between primary and secondary (true bond axis)
+		p_line = lines[primary_idx]
+		s_line = lines[secondary_idx]
+		double_bond_midline_map[primary_idx] = {
+			"x1": (float(p_line["x1"]) + float(s_line["x1"])) * 0.5,
+			"y1": (float(p_line["y1"]) + float(s_line["y1"])) * 0.5,
+			"x2": (float(p_line["x2"]) + float(s_line["x2"])) * 0.5,
+			"y2": (float(p_line["y2"]) + float(s_line["y2"])) * 0.5,
+		}
 	width_pool = [
 		float(lines[index].get("width", 1.0))
 		for index in checked_line_indexes
 		if index not in pre_decorative_hatched_stroke_index_set
 		and index not in pre_hashed_carrier_index_set
+		and index not in double_bond_secondary_indexes
 	]
 	if width_pool:
 		width_pool_sorted = sorted(width_pool)
@@ -111,6 +135,7 @@ def analyze_svg_file(
 		index
 		for index in checked_line_indexes
 		if index not in pre_decorative_hatched_stroke_index_set
+		and index not in double_bond_secondary_indexes
 		and float(lines[index].get("width", 1.0)) >= min_connector_width
 	]
 	if not connector_candidate_line_indexes:
@@ -118,6 +143,7 @@ def analyze_svg_file(
 			index
 			for index in checked_line_indexes
 			if index not in pre_decorative_hatched_stroke_index_set
+			and index not in double_bond_secondary_indexes
 		]
 		if not fallback_pool:
 			fallback_pool = list(checked_line_indexes)
@@ -151,13 +177,15 @@ def analyze_svg_file(
 	for label_index in measurement_label_indexes:
 		label = labels[label_index]
 		independent_primitives = label.get("svg_estimated_primitives", [])
-		# Determine alignment character by element priority
+		# Determine alignment character from first/last letter of label
 		canonical_text = str(label.get("canonical_text", label.get("text", "")))
+		alpha_chars = [ch for ch in canonical_text if ch.isalpha()]
 		alignment_center_char = None
-		for char in ("C", "O", "N", "S", "P", "H"):
-			if char in canonical_text.upper():
-				alignment_center_char = char
-				break
+		if len(alpha_chars) == 1:
+			alignment_center_char = alpha_chars[0].upper()
+		elif len(alpha_chars) > 1:
+			# default to first letter; refine after endpoint found
+			alignment_center_char = alpha_chars[0].upper()
 		if alignment_center_char is None and independent_primitives:
 			first = min(independent_primitives, key=lambda p: int(p.get("char_index", 10**9)))
 			alignment_center_char = str(first.get("char", "")) or None
@@ -194,6 +222,26 @@ def analyze_svg_file(
 				primitives=independent_primitives,
 			)
 			independent_model_name = "svg_primitives_ellipse_box"
+		# refine alignment center to whichever end of label the bond approaches
+		if independent_endpoint is not None and len(alpha_chars) > 1:
+			# use bounding box center for accurate left/right comparison
+			label_box = label.get("svg_estimated_box")
+			if label_box:
+				label_cx = (float(label_box[0]) + float(label_box[2])) * 0.5
+			else:
+				label_cx = float(label["x"])
+			ep_x = float(independent_endpoint[0])
+			if ep_x > label_cx:
+				alignment_center_char = alpha_chars[-1].upper()
+			else:
+				alignment_center_char = alpha_chars[0].upper()
+			# re-find alignment center point from primitives for refined char
+			alignment_center = None
+			for p in sorted(independent_primitives, key=lambda p: int(p.get("char_index", 10**9))):
+				if str(p.get("char", "")).upper() == alignment_center_char.upper():
+					alignment_center = primitive_center(p)
+					if alignment_center is not None:
+						break
 		optical_gate_debug = {}
 		alignment_center, alignment_center_char = optical_center_via_isolation_render(
 			label=label,
@@ -231,7 +279,7 @@ def analyze_svg_file(
 					"text_raw": label.get("text_raw", label["text"]),
 					"anchor": label["anchor"],
 					"font_size": label["font_size"],
-						"endpoint": None,
+					"endpoint": None,
 					"endpoint_distance_to_label": None,
 					"endpoint_distance_to_target": None,
 					"endpoint_alignment_error": None,
@@ -244,46 +292,232 @@ def analyze_svg_file(
 						[alignment_center[0], alignment_center[1]]
 						if alignment_center is not None else None
 					),
-						"alignment_center_char": alignment_center_char,
-						"optical_gate_debug": optical_gate_debug if optical_gate_debug else None,
-						"hull_boundary_points": hull_boundary_points,
-						"hull_ellipse_fit": hull_ellipse_fit,
-						"hull_contact_point": hull_contact_point,
-						"hull_signed_gap_along_bond": hull_signed_gap,
-						"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
+					"alignment_center_char": alignment_center_char,
+					"optical_gate_debug": optical_gate_debug if optical_gate_debug else None,
+					"hull_boundary_points": hull_boundary_points,
+					"hull_ellipse_fit": hull_ellipse_fit,
+					"hull_contact_point": hull_contact_point,
+					"hull_signed_gap_along_bond": hull_signed_gap,
+					"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
 					"endpoint_penetration_depth_to_glyph_body": independent_penetration_depth,
 					"endpoint_distance_to_glyph_body_independent": independent_distance,
 					"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
-						"independent_connector_line_index": independent_line_index,
-						"independent_endpoint": (
-							[independent_endpoint[0], independent_endpoint[1]]
-							if independent_endpoint is not None else None
-						),
+					"independent_connector_line_index": independent_line_index,
+					"independent_endpoint": (
+						[independent_endpoint[0], independent_endpoint[1]]
+						if independent_endpoint is not None else None
+					),
 					"independent_glyph_model": independent_model_name,
 					"bond_len": None,
 					"connector_line_length": None,
 					"aligned": False,
 					"reason": "no_nearby_connector",
 					"connector_line_index": None,
+					"connectors": [],
 					"attach_policy": None,
 					"endpoint_target_kind": None,
 					"alignment_mode": "independent_glyph_primitives",
 				}
 			)
 			continue
-		if best_line_index is not None:
-			connector_line_indexes.add(best_line_index)
-		alignment_tolerance = 1.0
-		perp_distance = None
-		if best_line_index is not None and 0 <= best_line_index < len(lines) and alignment_center is not None:
-			line = lines[best_line_index]
-			perp_distance = point_to_infinite_line_distance(
-				point=alignment_center,
-				line_start=(line["x1"], line["y1"]),
-				line_end=(line["x2"], line["y2"]),
+		# -- multi-connector: find all nearby endpoints from both sides --
+		label_box = label.get("svg_estimated_box")
+		if label_box:
+			label_cx = (float(label_box[0]) + float(label_box[2])) * 0.5
+		else:
+			label_cx = float(label["x"])
+		if independent_text_path is not None:
+			all_nearby = all_endpoints_near_text_path(
+				lines=lines,
+				line_indexes=connector_candidate_line_indexes,
+				path_obj=independent_text_path,
+				label_center_x=label_cx,
+				search_limit=search_limit,
 			)
 		else:
-			perp_distance = float(best_distance)
+			all_nearby = all_endpoints_near_glyph_primitives(
+				lines=lines,
+				line_indexes=connector_candidate_line_indexes,
+				primitives=independent_primitives,
+				search_limit=search_limit,
+			)
+		# group by side, pick best (nearest) from each side
+		side_best: dict[str, dict] = {}
+		for nearby in all_nearby:
+			side = nearby["side"]
+			if side not in side_best or nearby["distance"] < side_best[side]["distance"]:
+				side_best[side] = nearby
+		# discard spurious far-side connectors: if one side's gap is much
+		# larger than the other, the distant side is not a real connection
+		if len(side_best) > 1:
+			min_gap = min(abs(e.get("signed_distance") or e["distance"]) for e in side_best.values())
+			if min_gap > 0:
+				side_best = {
+					s: e for s, e in side_best.items()
+					if abs(e.get("signed_distance") or e["distance"]) <= min_gap * MULTI_CONNECTOR_GAP_RATIO_MAX
+				}
+		# build connector list: one per side that has a bond
+		connector_entries = []
+		for side in sorted(side_best.keys()):
+			entry = side_best[side]
+			c_endpoint = entry["endpoint"]
+			c_line_index = entry["line_index"]
+			c_signed_distance = entry["signed_distance"]
+			# determine alignment center for this side
+			if len(alpha_chars) > 1:
+				if side == "right":
+					side_align_char = alpha_chars[-1].upper()
+				else:
+					side_align_char = alpha_chars[0].upper()
+			else:
+				side_align_char = alignment_center_char
+			# find alignment center from primitives for this connector's side
+			side_align_center = None
+			if side_align_char:
+				for p in sorted(independent_primitives, key=lambda p: int(p.get("char_index", 10**9))):
+					if str(p.get("char", "")).upper() == side_align_char.upper():
+						side_align_center = primitive_center(p)
+						if side_align_center is not None:
+							break
+			# run optical refinement for this connector's side
+			side_optical_debug = {}
+			side_align_center, side_align_char = optical_center_via_isolation_render(
+				label=label,
+				center=side_align_center,
+				center_char=side_align_char,
+				svg_path=str(svg_path),
+				gate_debug=side_optical_debug,
+			)
+			# compute perp distance; for double bond primaries use the midline
+			# (true bond axis) instead of the offset primary line
+			c_perp_distance = None
+			if c_line_index is not None and 0 <= c_line_index < len(lines) and side_align_center is not None:
+				if c_line_index in double_bond_midline_map:
+					midline = double_bond_midline_map[c_line_index]
+					c_perp_distance = point_to_infinite_line_distance(
+						point=side_align_center,
+						line_start=(midline["x1"], midline["y1"]),
+						line_end=(midline["x2"], midline["y2"]),
+					)
+				else:
+					c_line = lines[c_line_index]
+					c_perp_distance = point_to_infinite_line_distance(
+						point=side_align_center,
+						line_start=(c_line["x1"], c_line["y1"]),
+						line_end=(c_line["x2"], c_line["y2"]),
+					)
+			else:
+				c_perp_distance = float(entry["distance"])
+			# compute gap and alignment
+			c_gap_value = float(c_signed_distance) if c_signed_distance is not None else None
+			c_alignment_error = None
+			if c_gap_value is not None and c_perp_distance is not None:
+				gap_norm = (c_gap_value - ALIGNMENT_GAP_TARGET) / ALIGNMENT_GAP_TOLERANCE
+				perp_norm = max(0.0, float(c_perp_distance) / ALIGNMENT_PERP_TOLERANCE)
+				c_alignment_error = (gap_norm * gap_norm) + (perp_norm * perp_norm)
+			c_aligned = False
+			c_reason = "missing_gap_or_perp"
+			if c_gap_value is not None and c_perp_distance is not None:
+				in_gap = ALIGNMENT_GAP_MIN <= c_gap_value <= ALIGNMENT_GAP_MAX
+				in_perp = float(c_perp_distance) <= ALIGNMENT_PERP_TOLERANCE
+				c_aligned = bool(in_gap and in_perp)
+				if c_aligned:
+					c_reason = "ok"
+				elif not in_gap and not in_perp:
+					c_reason = "gap_and_perp_out_of_range"
+				elif not in_gap:
+					c_reason = "gap_out_of_range"
+				else:
+					c_reason = "perp_out_of_range"
+			c_bond_len = None
+			if c_line_index is not None and 0 <= c_line_index < len(line_lengths_all):
+				c_bond_len = float(line_lengths_all[c_line_index])
+			connector_entries.append({
+				"side": side,
+				"endpoint": [c_endpoint[0], c_endpoint[1]],
+				"line_index": c_line_index,
+				"signed_distance": c_signed_distance,
+				"gap": c_gap_value,
+				"perp": c_perp_distance,
+				"alignment_error": c_alignment_error,
+				"aligned": c_aligned,
+				"reason": c_reason,
+				"bond_len": c_bond_len,
+				"alignment_center_char": side_align_char,
+				"alignment_center_point": (
+					[side_align_center[0], side_align_center[1]]
+					if side_align_center is not None else None
+				),
+			})
+			if c_line_index is not None:
+				connector_line_indexes.add(c_line_index)
+		# primary connector = nearest overall (first connector entry or best_line_index)
+		if connector_entries:
+			primary = min(connector_entries, key=lambda c: abs(c.get("signed_distance") or float("inf")))
+		else:
+			# fallback to the single nearest endpoint already found
+			primary = None
+		# use primary connector for backward-compatible top-level fields
+		if primary is not None:
+			best_endpoint = tuple(primary["endpoint"])
+			best_line_index = primary["line_index"]
+			best_distance = abs(primary.get("signed_distance") or 0.0)
+			perp_distance = primary["perp"]
+			alignment_error = primary["alignment_error"]
+			alignment_reason = primary["reason"]
+			alignment_center_char = primary.get("alignment_center_char", alignment_center_char)
+			ac_point = primary.get("alignment_center_point")
+			if ac_point is not None:
+				alignment_center = (float(ac_point[0]), float(ac_point[1]))
+		else:
+			if best_line_index is not None:
+				connector_line_indexes.add(best_line_index)
+			perp_distance = None
+			if best_line_index is not None and 0 <= best_line_index < len(lines) and alignment_center is not None:
+				if best_line_index in double_bond_midline_map:
+					midline = double_bond_midline_map[best_line_index]
+					perp_distance = point_to_infinite_line_distance(
+						point=alignment_center,
+						line_start=(midline["x1"], midline["y1"]),
+						line_end=(midline["x2"], midline["y2"]),
+					)
+				else:
+					line = lines[best_line_index]
+					perp_distance = point_to_infinite_line_distance(
+						point=alignment_center,
+						line_start=(line["x1"], line["y1"]),
+						line_end=(line["x2"], line["y2"]),
+					)
+			else:
+				perp_distance = float(best_distance)
+			gap_value = float(independent_signed_distance) if independent_signed_distance is not None else None
+			alignment_error = None
+			if gap_value is not None and perp_distance is not None:
+				gap_normalized = (gap_value - ALIGNMENT_GAP_TARGET) / ALIGNMENT_GAP_TOLERANCE
+				perp_normalized = max(0.0, float(perp_distance) / ALIGNMENT_PERP_TOLERANCE)
+				alignment_error = (gap_normalized * gap_normalized) + (perp_normalized * perp_normalized)
+			alignment_reason = "missing_gap_or_perp"
+			if gap_value is not None and perp_distance is not None:
+				in_gap_range = ALIGNMENT_GAP_MIN <= gap_value <= ALIGNMENT_GAP_MAX
+				perp_in_range = float(perp_distance) <= ALIGNMENT_PERP_TOLERANCE
+				if in_gap_range and perp_in_range:
+					alignment_reason = "ok"
+				elif not in_gap_range and not perp_in_range:
+					alignment_reason = "gap_and_perp_out_of_range"
+				elif not in_gap_range:
+					alignment_reason = "gap_out_of_range"
+				else:
+					alignment_reason = "perp_out_of_range"
+		# label aligned only if ALL connectors pass (or single connector passes)
+		if connector_entries:
+			is_aligned = all(c["aligned"] for c in connector_entries)
+		else:
+			is_aligned = alignment_reason == "ok"
+		alignment_tolerance = 1.0
+		if is_aligned:
+			aligned_count += 1
+		else:
+			missed_count += 1
 		independent_gap_distance = None
 		independent_penetration_depth = None
 		hull_boundary_points = None
@@ -300,90 +534,57 @@ def analyze_svg_file(
 		if independent_signed_distance is not None:
 			independent_gap_distance = max(0.0, float(independent_signed_distance))
 			independent_penetration_depth = max(0.0, -float(independent_signed_distance))
-		# Hull stop-at-boundary metric overrides curved-glyph gap metric by design.
-		if hull_signed_gap is not None and alignment_center_char in {"C", "S"}:
-			independent_gap_distance = max(0.0, float(hull_signed_gap))
-			independent_penetration_depth = max(0.0, -float(hull_signed_gap))
-			reported_signed_distance_to_glyph_body = float(hull_signed_gap)
-			reported_distance_to_glyph_body = abs(float(hull_signed_gap))
-		gap_value = None
-		if hull_signed_gap is not None:
-			gap_value = float(hull_signed_gap)
-		elif reported_signed_distance_to_glyph_body is not None:
-			gap_value = float(reported_signed_distance_to_glyph_body)
-		alignment_error = None
-		if gap_value is not None and perp_distance is not None:
-			gap_normalized = (gap_value - ALIGNMENT_GAP_TARGET) / ALIGNMENT_GAP_TOLERANCE
-			perp_normalized = max(0.0, float(perp_distance) / ALIGNMENT_PERP_TOLERANCE)
-			alignment_error = (gap_normalized * gap_normalized) + (perp_normalized * perp_normalized)
-		is_aligned = False
-		alignment_reason = "missing_gap_or_perp"
-		if gap_value is not None and perp_distance is not None:
-			in_gap_range = ALIGNMENT_GAP_MIN <= gap_value <= ALIGNMENT_GAP_MAX
-			perp_in_range = float(perp_distance) <= ALIGNMENT_PERP_TOLERANCE
-			is_aligned = bool(in_gap_range and perp_in_range)
-			if is_aligned:
-				alignment_reason = "ok"
-			elif not in_gap_range and not perp_in_range:
-				alignment_reason = "gap_and_perp_out_of_range"
-			elif not in_gap_range:
-				alignment_reason = "gap_out_of_range"
-			else:
-				alignment_reason = "perp_out_of_range"
-		if is_aligned:
-			aligned_count += 1
-		else:
-			missed_count += 1
 		bond_len = None
 		if best_line_index is not None and 0 <= best_line_index < len(line_lengths_all):
 			bond_len = float(line_lengths_all[best_line_index])
 		label_metrics.append(
-				{
-					"label_index": label_index,
-					"text": label["text"],
-					"text_raw": label.get("text_raw", label["text"]),
-					"anchor": label["anchor"],
-					"font_size": label["font_size"],
-					"endpoint": [best_endpoint[0], best_endpoint[1]],
-					"endpoint_distance_to_label": best_distance,
-					"endpoint_distance_to_target": None,
-					"endpoint_alignment_error": alignment_error,
-					"endpoint_distance_to_glyph_body": reported_distance_to_glyph_body,
-					"endpoint_signed_distance_to_glyph_body": reported_signed_distance_to_glyph_body,
-					"endpoint_distance_to_c_center": None,
-					"c_center_point": None,
-					"endpoint_perpendicular_distance_to_alignment_center": perp_distance,
-					"alignment_center_point": (
-						[alignment_center[0], alignment_center[1]]
-						if alignment_center is not None else None
-					),
-						"alignment_center_char": alignment_center_char,
-						"optical_gate_debug": optical_gate_debug if optical_gate_debug else None,
-						"hull_boundary_points": hull_boundary_points,
-						"hull_ellipse_fit": hull_ellipse_fit,
-						"hull_contact_point": hull_contact_point,
-						"hull_signed_gap_along_bond": hull_signed_gap,
-						"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
-					"endpoint_penetration_depth_to_glyph_body": independent_penetration_depth,
-					"endpoint_distance_to_glyph_body_independent": independent_distance,
-					"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
-					"independent_connector_line_index": independent_line_index,
-					"independent_endpoint": (
-						[independent_endpoint[0], independent_endpoint[1]]
-						if independent_endpoint is not None else None
-					),
-					"independent_glyph_model": independent_model_name,
-					"bond_len": bond_len,
-					"connector_line_length": bond_len,
-					"alignment_tolerance": alignment_tolerance,
-					"aligned": bool(is_aligned),
-					"reason": alignment_reason,
-					"connector_line_index": best_line_index,
-					"attach_policy": None,
-					"endpoint_target_kind": None,
-					"alignment_mode": "independent_glyph_primitives",
-				}
-			)
+			{
+				"label_index": label_index,
+				"text": label["text"],
+				"text_raw": label.get("text_raw", label["text"]),
+				"anchor": label["anchor"],
+				"font_size": label["font_size"],
+				"endpoint": [best_endpoint[0], best_endpoint[1]],
+				"endpoint_distance_to_label": best_distance,
+				"endpoint_distance_to_target": None,
+				"endpoint_alignment_error": alignment_error,
+				"endpoint_distance_to_glyph_body": reported_distance_to_glyph_body,
+				"endpoint_signed_distance_to_glyph_body": reported_signed_distance_to_glyph_body,
+				"endpoint_distance_to_c_center": None,
+				"c_center_point": None,
+				"endpoint_perpendicular_distance_to_alignment_center": perp_distance,
+				"alignment_center_point": (
+					[alignment_center[0], alignment_center[1]]
+					if alignment_center is not None else None
+				),
+				"alignment_center_char": alignment_center_char,
+				"optical_gate_debug": optical_gate_debug if optical_gate_debug else None,
+				"hull_boundary_points": hull_boundary_points,
+				"hull_ellipse_fit": hull_ellipse_fit,
+				"hull_contact_point": hull_contact_point,
+				"hull_signed_gap_along_bond": hull_signed_gap,
+				"endpoint_gap_distance_to_glyph_body": independent_gap_distance,
+				"endpoint_penetration_depth_to_glyph_body": independent_penetration_depth,
+				"endpoint_distance_to_glyph_body_independent": independent_distance,
+				"endpoint_signed_distance_to_glyph_body_independent": independent_signed_distance,
+				"independent_connector_line_index": independent_line_index,
+				"independent_endpoint": (
+					[independent_endpoint[0], independent_endpoint[1]]
+					if independent_endpoint is not None else None
+				),
+				"independent_glyph_model": independent_model_name,
+				"bond_len": bond_len,
+				"connector_line_length": bond_len,
+				"alignment_tolerance": alignment_tolerance,
+				"aligned": bool(is_aligned),
+				"reason": alignment_reason,
+				"connector_line_index": best_line_index,
+				"connectors": connector_entries,
+				"attach_policy": None,
+				"endpoint_target_kind": None,
+				"alignment_mode": "independent_glyph_primitives",
+			}
+		)
 	aligned_connector_pairs = set()
 	for metric in label_metrics:
 		connector_index = metric.get("connector_line_index")
@@ -419,7 +620,9 @@ def analyze_svg_file(
 	)
 	decorative_hatched_stroke_index_set = set(decorative_hatched_stroke_indexes)
 	checked_bond_line_indexes = [
-		index for index in checked_line_indexes if index not in decorative_hatched_stroke_index_set
+		index for index in checked_line_indexes
+		if index not in decorative_hatched_stroke_index_set
+		and index not in double_bond_secondary_indexes
 	]
 	location_origin = overlap_origin(lines, haworth_base_ring)
 	checked_bond_lengths_by_quadrant: dict[str, list[float]] = {}
@@ -479,12 +682,19 @@ def analyze_svg_file(
 	if write_diagnostic_svg and diagnostic_svg_dir is not None:
 		diagnostic_svg_name = f"{svg_path.stem}.diagnostic.svg"
 		diagnostic_svg_path = (diagnostic_svg_dir / diagnostic_svg_name).resolve()
+		# include ring bonds in perpendicular markers for full diagnostic view
+		diagnostic_bond_line_indexes = sorted(
+			set(checked_bond_line_indexes) | set(haworth_base_ring["line_indexes"])
+		)
 		do_write_diagnostic_svg(
 			svg_path=svg_path,
 			output_path=diagnostic_svg_path,
 			lines=lines,
 			labels=labels,
 			label_metrics=label_metrics,
+			double_bond_midline_map=double_bond_midline_map,
+			checked_bond_line_indexes=diagnostic_bond_line_indexes,
+			connector_line_indexes=connector_line_indexes,
 		)
 	return {
 		"svg": str(svg_path),
@@ -535,6 +745,11 @@ def analyze_svg_file(
 		"excluded_line_indexes": sorted(excluded_line_indexes),
 		"decorative_hatched_stroke_indexes": decorative_hatched_stroke_indexes,
 		"decorative_hatched_stroke_count": len(decorative_hatched_stroke_indexes),
+		"decorative_double_bond_offset_indexes": sorted(double_bond_secondary_indexes),
+		"decorative_double_bond_offset_count": len(double_bond_secondary_indexes),
+		"double_bond_pairs": [
+			{"primary": p, "secondary": s} for p, s in double_bond_pairs
+		],
 		"line_lengths": {
 			"all_lines": line_lengths_all,
 			"checked_lines_raw": line_lengths_checked_raw,

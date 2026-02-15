@@ -27,7 +27,10 @@ __all__ = [
 	# constants
 	"ALIGNMENT_DISTANCE_ZERO_EPSILON", "ALIGNMENT_INFINITE_LINE_FONT_TOLERANCE_FACTOR",
 	"BOND_GLYPH_GAP_TOLERANCE", "BOND_GLYPH_INTERIOR_EPSILON",
-	"CANONICAL_LATTICE_ANGLES", "DEFAULT_DIAGNOSTIC_SVG_DIR",
+	"CANONICAL_LATTICE_ANGLES",
+	"DOUBLE_BOND_LENGTH_RATIO_MIN", "DOUBLE_BOND_PARALLEL_TOLERANCE_DEGREES",
+	"DOUBLE_BOND_PERP_DISTANCE_MAX", "DOUBLE_BOND_PERP_DISTANCE_MIN",
+	"DEFAULT_DIAGNOSTIC_SVG_DIR",
 	"DEFAULT_INPUT_GLOB", "DEFAULT_JSON_REPORT", "DEFAULT_TEXT_REPORT",
 	"GLYPH_BOX_OVERLAP_EPSILON", "GLYPH_CURVED_CHAR_SET", "GLYPH_STEM_CHAR_SET",
 	"HASHED_CARRIER_MAX_WIDTH", "HASHED_CARRIER_MIN_LENGTH",
@@ -39,7 +42,8 @@ __all__ = [
 	"HAWORTH_RING_MIN_PRIMITIVES", "HAWORTH_RING_SEARCH_RADIUS",
 	"LATTICE_ANGLE_TOLERANCE_DEGREES", "LENGTH_ROUND_DECIMALS",
 	"MAX_ENDPOINT_TO_LABEL_DISTANCE_FACTOR", "MIN_ALIGNMENT_DISTANCE_TOLERANCE",
-	"MIN_BOND_LENGTH_FOR_ANGLE_CHECK", "MIN_CONNECTOR_LINE_WIDTH", "SVG_FLOAT_PATTERN",
+	"MIN_BOND_LENGTH_FOR_ANGLE_CHECK", "MIN_CONNECTOR_LINE_WIDTH",
+	"MULTI_CONNECTOR_GAP_RATIO_MAX", "SVG_FLOAT_PATTERN",
 	"MATPLOTLIB_TEXTPATH_AVAILABLE",
 	# new public names
 	"alignment_score", "compact_float", "compact_sorted_values",
@@ -67,6 +71,7 @@ __all__ = [
 	"parse_float", "path_points", "points_bbox", "polygon_points",
 	"resolve_svg_paths", "svg_number_tokens", "svg_tag_with_namespace",
 	"visible_text",
+	"all_endpoints_near_glyph_primitives", "all_endpoints_near_text_path",
 	"canonicalize_label_text", "font_family_candidates",
 	"glyph_char_advance", "glyph_char_vertical_bounds",
 	"glyph_primitive_from_char", "glyph_primitives_bounds",
@@ -82,7 +87,7 @@ __all__ = [
 	"detect_haworth_base_ring", "detect_haworth_ring_from_line_cycles",
 	"detect_haworth_ring_from_primitives", "empty_haworth_ring_detection",
 	"find_candidate_cycles",
-	"default_overlap_origin", "detect_hashed_carrier_map",
+	"default_overlap_origin", "detect_double_bond_pairs", "detect_hashed_carrier_map",
 	"is_hashed_carrier_candidate", "is_hatch_stroke_candidate",
 	"overlap_origin", "quadrant_label", "ring_region_label",
 	"count_bond_bond_overlaps", "count_bond_glyph_overlaps",
@@ -127,6 +132,7 @@ __all__ = [
 	"_label_svg_estimated_box", "_label_svg_estimated_primitives",
 	"_label_text_path", "_line_closest_endpoint_to_box",
 	"_line_closest_endpoint_to_target", "_nearest_endpoint_to_box",
+	"_all_endpoints_near_glyph_primitives", "_all_endpoints_near_text_path",
 	"_nearest_endpoint_to_glyph_primitives", "_nearest_endpoint_to_text_path",
 	"_path_line_segments", "_point_to_label_signed_distance",
 	"_point_to_text_path_signed_distance", "_primitive_center",
@@ -135,7 +141,7 @@ __all__ = [
 	"_detect_haworth_base_ring", "_detect_haworth_ring_from_line_cycles",
 	"_detect_haworth_ring_from_primitives", "_empty_haworth_ring_detection",
 	"_find_candidate_cycles",
-	"_default_overlap_origin", "_detect_hashed_carrier_map",
+	"_default_overlap_origin", "_detect_double_bond_pairs", "_detect_hashed_carrier_map",
 	"_is_hashed_carrier_candidate", "_is_hatch_stroke_candidate",
 	"_overlap_origin", "_quadrant_label", "_ring_region_label",
 	"_count_bond_bond_overlaps", "_count_bond_glyph_overlaps",
@@ -155,6 +161,10 @@ from measurelib.constants import (
 	BOND_GLYPH_GAP_TOLERANCE,
 	BOND_GLYPH_INTERIOR_EPSILON,
 	CANONICAL_LATTICE_ANGLES,
+	DOUBLE_BOND_LENGTH_RATIO_MIN,
+	DOUBLE_BOND_PARALLEL_TOLERANCE_DEGREES,
+	DOUBLE_BOND_PERP_DISTANCE_MAX,
+	DOUBLE_BOND_PERP_DISTANCE_MIN,
 	DEFAULT_DIAGNOSTIC_SVG_DIR,
 	DEFAULT_INPUT_GLOB,
 	DEFAULT_JSON_REPORT,
@@ -180,6 +190,7 @@ from measurelib.constants import (
 	MIN_ALIGNMENT_DISTANCE_TOLERANCE,
 	MIN_BOND_LENGTH_FOR_ANGLE_CHECK,
 	MIN_CONNECTOR_LINE_WIDTH,
+	MULTI_CONNECTOR_GAP_RATIO_MAX,
 	SVG_FLOAT_PATTERN,
 )
 from measurelib.util import (
@@ -251,6 +262,8 @@ from measurelib.svg_parse import (
 )
 from measurelib.glyph_model import (
 	MATPLOTLIB_TEXTPATH_AVAILABLE,
+	all_endpoints_near_glyph_primitives,
+	all_endpoints_near_text_path,
 	canonicalize_label_text,
 	font_family_candidates,
 	glyph_char_advance,
@@ -288,6 +301,7 @@ from measurelib.haworth_ring import (
 )
 from measurelib.hatch_detect import (
 	default_overlap_origin,
+	detect_double_bond_pairs,
 	detect_hashed_carrier_map,
 	is_hashed_carrier_candidate,
 	is_hatch_stroke_candidate,
@@ -401,6 +415,8 @@ _label_text_path = label_text_path
 _line_closest_endpoint_to_box = line_closest_endpoint_to_box
 _line_closest_endpoint_to_target = line_closest_endpoint_to_target
 _nearest_endpoint_to_box = nearest_endpoint_to_box
+_all_endpoints_near_glyph_primitives = all_endpoints_near_glyph_primitives
+_all_endpoints_near_text_path = all_endpoints_near_text_path
 _nearest_endpoint_to_glyph_primitives = nearest_endpoint_to_glyph_primitives
 _nearest_endpoint_to_text_path = nearest_endpoint_to_text_path
 _path_line_segments = path_line_segments
@@ -417,6 +433,7 @@ _detect_haworth_ring_from_primitives = detect_haworth_ring_from_primitives
 _empty_haworth_ring_detection = empty_haworth_ring_detection
 _find_candidate_cycles = find_candidate_cycles
 _default_overlap_origin = default_overlap_origin
+_detect_double_bond_pairs = detect_double_bond_pairs
 _detect_hashed_carrier_map = detect_hashed_carrier_map
 _is_hashed_carrier_candidate = is_hashed_carrier_candidate
 _is_hatch_stroke_candidate = is_hatch_stroke_candidate

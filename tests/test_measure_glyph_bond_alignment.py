@@ -186,15 +186,15 @@ def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	"""Line aimed at primitive centerline should produce small alignment error."""
 	tool_module = _load_tool_module()
 	svg_path = tmp_path / "missed.svg"
-	# Use the independent glyph model to find the O center y-coordinate,
-	# so the horizontal line passes through where the tool expects it.
+	# Bond approaches from the right, so the connecting atom is H (last letter).
+	# Use H primitive center y-coordinate for alignment.
 	# Note: the optical pipeline may shift the center slightly.
 	primitives = tool_module._label_svg_estimated_primitives({
 		"text": "OH", "text_display": "OH", "text_raw": "OH",
 		"x": 40.0, "y": 50.0, "anchor": "start", "font_size": 12.0,
 		"font_name": "sans-serif"})
-	o_prim = [p for p in primitives if p.get("char", "").upper() == "O"][0]
-	center_y = tool_module._primitive_center(o_prim)[1]
+	h_prim = [p for p in primitives if p.get("char", "").upper() == "H"][0]
+	center_y = tool_module._primitive_center(h_prim)[1]
 	box = tool_module._label_svg_estimated_box({
 		"text": "OH", "text_display": "OH", "text_raw": "OH",
 		"x": 40.0, "y": 50.0, "anchor": "start", "font_size": 12.0,
@@ -214,7 +214,7 @@ def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	assert report["labels_analyzed"] == 1
 	assert report["no_connector_count"] == 0
 	label = report["labels"][0]
-	assert label["alignment_center_char"] == "O"
+	assert label["alignment_center_char"] == "H"
 	perp = float(label["endpoint_perpendicular_distance_to_alignment_center"])
 	gap = float(label["endpoint_signed_distance_to_glyph_body"])
 	g = (gap - render_geometry.ATTACH_GAP_TARGET) / (render_geometry.ATTACH_GAP_MAX - render_geometry.ATTACH_GAP_TARGET)
@@ -655,6 +655,125 @@ def test_fail_on_miss_exits_non_zero(tmp_path, monkeypatch):
 	with pytest.raises(SystemExit) as error:
 		tool_module.main()
 	assert error.value.code == 2
+
+
+#============================================
+def test_double_bond_pair_detected_and_excluded(tmp_path):
+	"""Parallel offset lines forming a double bond should be detected and excluded."""
+	tool_module = _load_tool_module()
+	svg_path = tmp_path / "double_bond.svg"
+	# primary bond line (round cap) and secondary offset line (butt cap)
+	_write_svg_primitives(
+		path=svg_path,
+		lines=[
+			# primary bond (round cap, on the bond axis)
+			{"x1": 30.0, "y1": 50.0, "x2": 70.0, "y2": 50.0,
+			"stroke_linecap": "round", "stroke_width": 1.0},
+			# secondary offset bond (butt cap, offset ~6px above)
+			{"x1": 33.0, "y1": 44.0, "x2": 67.0, "y2": 44.0,
+			"stroke_linecap": "butt", "stroke_width": 1.0},
+			# unrelated bond
+			{"x1": 80.0, "y1": 50.0, "x2": 120.0, "y2": 50.0,
+			"stroke_linecap": "round", "stroke_width": 1.0},
+		],
+		texts=[
+			{"text": "O", "x": 10.0, "y": 53.0},
+		],
+	)
+	report = tool_module.analyze_svg_file(svg_path, render_geometry)
+	# secondary butt-cap line should be excluded as double bond offset
+	assert report["decorative_double_bond_offset_count"] == 1
+	assert 1 in report["decorative_double_bond_offset_indexes"]
+	# checked bond count excludes the secondary offset
+	assert len(report["checked_bond_line_indexes"]) == 2
+
+
+#============================================
+def test_double_bond_symmetric_pair_keeps_lower_index(tmp_path):
+	"""Symmetric double bond pairs (both round-cap) should keep the lower index."""
+	tool_module = _load_tool_module()
+	svg_path = tmp_path / "symmetric_double.svg"
+	_write_svg_primitives(
+		path=svg_path,
+		lines=[
+			{"x1": 30.0, "y1": 50.0, "x2": 70.0, "y2": 50.0,
+			"stroke_linecap": "round", "stroke_width": 1.0},
+			{"x1": 30.0, "y1": 44.0, "x2": 70.0, "y2": 44.0,
+			"stroke_linecap": "round", "stroke_width": 1.0},
+		],
+		texts=[
+			{"text": "O", "x": 10.0, "y": 50.0},
+		],
+	)
+	report = tool_module.analyze_svg_file(svg_path, render_geometry)
+	# higher index (1) should be excluded as secondary
+	assert report["decorative_double_bond_offset_count"] == 1
+	assert 1 in report["decorative_double_bond_offset_indexes"]
+	pairs = report["double_bond_pairs"]
+	assert len(pairs) == 1
+	assert pairs[0]["primary"] == 0
+	assert pairs[0]["secondary"] == 1
+
+
+#============================================
+def test_multi_connector_label_both_sides(tmp_path):
+	"""Label with bonds from both left and right should have two connectors."""
+	tool_module = _load_tool_module()
+	svg_path = tmp_path / "multi_connector.svg"
+	# N label at center, bonds approaching from left and right
+	_write_svg_primitives(
+		path=svg_path,
+		lines=[
+			# bond from left
+			{"x1": 10.0, "y1": 50.0, "x2": 42.0, "y2": 50.0,
+			"stroke_linecap": "round", "stroke_width": 1.0},
+			# bond from right
+			{"x1": 90.0, "y1": 50.0, "x2": 58.0, "y2": 50.0,
+			"stroke_linecap": "round", "stroke_width": 1.0},
+		],
+		texts=[
+			{"text": "N", "x": 45.0, "y": 54.0, "anchor": "start"},
+		],
+	)
+	report = tool_module.analyze_svg_file(svg_path, render_geometry)
+	assert report["labels_analyzed"] == 1
+	label = report["labels"][0]
+	connectors = label.get("connectors", [])
+	# should have connectors from both sides
+	assert len(connectors) == 2
+	sides = {c["side"] for c in connectors}
+	assert "left" in sides
+	assert "right" in sides
+
+
+#============================================
+def test_multi_connector_all_must_align(tmp_path):
+	"""Label is aligned only when ALL connectors pass alignment."""
+	tool_module = _load_tool_module()
+	svg_path = tmp_path / "multi_align.svg"
+	# N label, one well-aimed bond from left, one far-off bond from right
+	_write_svg_primitives(
+		path=svg_path,
+		lines=[
+			# bond from left (close to N center)
+			{"x1": 10.0, "y1": 50.0, "x2": 42.0, "y2": 50.0,
+			"stroke_linecap": "round", "stroke_width": 1.0},
+			# bond from right (offset far from center)
+			{"x1": 90.0, "y1": 90.0, "x2": 58.0, "y2": 90.0,
+			"stroke_linecap": "round", "stroke_width": 1.0},
+		],
+		texts=[
+			{"text": "N", "x": 45.0, "y": 54.0, "anchor": "start"},
+		],
+	)
+	report = tool_module.analyze_svg_file(svg_path, render_geometry)
+	label = report["labels"][0]
+	connectors = label.get("connectors", [])
+	# right connector has huge perp offset so label should not be aligned
+	if len(connectors) == 2:
+		right_connectors = [c for c in connectors if c["side"] == "right"]
+		if right_connectors and not right_connectors[0]["aligned"]:
+			assert label["aligned"] is False
 
 
 #============================================

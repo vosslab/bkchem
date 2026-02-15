@@ -1,6 +1,213 @@
 # Changelog
 
 ## 2026-02-15
+- Fix regression expectations in
+  [tests/test_attach_targets.py](tests/test_attach_targets.py) for
+  `label_target()` box geometry after calibrated text top/bottom offsets in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py).
+  Update legacy-value fixtures for `O`, `OH`, and `NH3+` to current
+  deterministic coordinates.
+- Speed up
+  [tests/test_beta_sheet_measurement.py](tests/test_beta_sheet_measurement.py)
+  by memoizing the expensive render-and-measure result so the suite computes
+  it once per test session instead of once per test function.
+- Draw perpendicular cross-lines at all bond endpoints in diagnostic SVG
+  overlay.  New `_draw_bond_perpendicular_markers()` helper in
+  [tools/measurelib/diagnostic_svg.py](tools/measurelib/diagnostic_svg.py)
+  draws short perpendicular lines at both ends of every checked bond line:
+  magenta `#ff00ff` for endpoints used for gap measurement, dark blue
+  `#00008b` for other endpoints.  Include Haworth base ring bonds in the
+  perpendicular marker set so ring bond endpoints are also marked.  Markers
+  are drawn as a background layer before per-label overlays.  Remove
+  per-metric orange perpendicular line (now redundant).  Change hull contact
+  point marker from circle to ellipse (rx=1.5, ry=0.8).  Legend updated with
+  perpendicular line swatches for "Connector endpoint" and "Other endpoint".
+  Tests in
+  [tests/test_measurelib_diagnostic_svg.py](tests/test_measurelib_diagnostic_svg.py)
+  cover perpendicular marker presence, backward compatibility, and hull
+  contact ellipse.
+- Render charge marks as circled symbols in OASA SVG output instead of
+  appending +/- as inline text.  Store mark data in vertex `properties_` in
+  [tools/render_beta_sheets.py](tools/render_beta_sheets.py), suppress charge
+  text suffix in `vertex_label_text()` when marks are present, and generate
+  `CircleOp`/`LineOp` for circled plus (blue) and minus (red) marks in
+  `build_vertex_ops()` in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py).
+  Update bond count expectations in
+  [tests/test_beta_sheet_measurement.py](tests/test_beta_sheet_measurement.py)
+  to account for the 6 new mark lines.
+- Fix furanose beta MR OH / ML CH2OH text collision in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+  When MR carries a simple hydroxyl and ML carries a chain-like tail
+  (e.g. ALRRDM furanose beta), skip the oxygen clearance override entirely so
+  the MR OH bond stays at the default 13.5 length instead of being pushed up
+  to 18.49 where it collides with the CH2OH text.  Remove unused constant
+  `FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR` from
+  [packages/oasa/oasa/haworth/renderer_config.py](packages/oasa/oasa/haworth/renderer_config.py).
+- Rebalance furanose "up" two-carbon tail branch length factors in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+  `ho_length_factor` changed from 0.72 to 0.90, `ch2_length_factor` from 1.08
+  to 0.95 in `_furanose_two_carbon_tail_profile()`.  This reduces the HO vs
+  CH2OH branch length ratio from ~2.5:1 to ~1.3:1.
+- Use round linecaps for all Haworth bond lines in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+  The hashed-bond carrier line in `_add_branch_connector_ops()` was the only
+  remaining `cap="butt"` bond line; changed to `cap="round"` for visual
+  consistency with all other bond connectors.  Hatch cross-strokes retain butt
+  caps since they are decorative marks, not bond lines.  Add `CircleOp` rounding
+  caps at back ring vertices (ML, TL, MR for pyranose) so the thin polygon ring
+  edges also appear rounded where they meet instead of showing square corners.
+  Make the hashed-bond carrier line fully transparent (`color="none"`) so only
+  the hatch cross-strokes are visible.  Add `HASHED_BOND_WEDGE_RATIO` constant
+  (4.6, up from hardcoded 2.8) to
+  [packages/oasa/oasa/haworth/renderer_config.py](packages/oasa/oasa/haworth/renderer_config.py)
+  to widen the hatch bond fan angle.
+- Empirically calibrate glyph bounding-box vertical offset in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py).
+  `_label_box_coords()` `bottom_offset` changed from `0.035` to `0.008` based
+  on rsvg/Pango pixel measurements (actual descent is 0.1 SVG units at 12pt,
+  ratio 0.008).  Previous value overestimated descent, inflating glyph boxes
+  and causing Haworth ring-edge overlap failures.  Add
+  `_text_ink_bearing_correction()` helper that computes the left and right
+  bearing gap between Cairo advance width and actual ink extent.
+- Increase oxygen exclusion safety margin in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+  `_oxygen_exclusion_radius()` safety factor raised from `0.05` to `0.09` to
+  compensate for the tighter glyph box: ring edges now maintain visual
+  clearance from the oxygen label despite the smaller bounding box.
+- Improve glyph calibration tool
+  [tools/calibrate_glyph_model.py](tools/calibrate_glyph_model.py).
+  `_generate_subscript_svg()` now generates proper SVG `<tspan>` subscript
+  structure matching the renderer's output (font-size scaling, dy offsets)
+  instead of rendering plain text.  Fix pyflakes lint: remove unused imports
+  (`math`, `pathlib`, `glyph_char_advance`, `glyph_text_width`), unused
+  variable (`sub_dy`), and unnecessary f-string prefixes.
+- Alignment measurement improvement: Haworth OH/HO alignment increased from
+  ~52% to 100% (HO) and 94.7% (OH).  Overall alignment (excluding ring
+  oxygens) improved from ~33.9% to 81.3%.  Bond-end gap values now land in
+  the [1.3, 1.7] target range (avg 1.52) for both alpha and beta anomers.
+
+- Add Cairo PDF parity measurement tool for comparing PDF and SVG renderer
+  output.  New `tools/measure_cairo_pdf_parity.py` CLI supports two modes:
+  parity mode (SVG+PDF pair comparison) and PDF-only mode (standalone PDF
+  analysis).  New modules:
+  [tools/measurelib/pdf_parse.py](tools/measurelib/pdf_parse.py) extracts
+  lines, labels, ring primitives, and wedge bonds from Cairo-generated PDF
+  files via `pdfplumber` with Y-coordinate flipping to SVG space;
+  [tools/measurelib/parity.py](tools/measurelib/parity.py) performs
+  nearest-neighbor matching of SVG and PDF primitives with configurable
+  tolerance and computes a parity score;
+  [tools/measurelib/pdf_analysis.py](tools/measurelib/pdf_analysis.py)
+  runs the full structural analysis pipeline (Haworth detection, hatch
+  detection, violations) on PDF-extracted primitives.  Tests in
+  [tests/test_cairo_pdf_parity.py](tests/test_cairo_pdf_parity.py) cover
+  PDF extraction, parity matching, file pairing, and standalone PDF
+  analysis (19 tests).  Existing SVG measurement tool is unchanged.
+- Fix antiparallel reverse-strand terminal text orientation in
+  [tools/render_beta_sheets.py](tools/render_beta_sheets.py) so C->N chains
+  read as `-OOC ... NH3+` (instead of `COO- ... H3N+`).  Add direction-aware
+  terminal label text/position handling (`COO`/`H3N` for forward strands,
+  `OOC`/`NH3` for reverse strands) and charge-mark side placement.  Add
+  regression coverage in
+  [tests/test_beta_sheet_measurement.py](tests/test_beta_sheet_measurement.py)
+  to assert reverse-strand terminal labels and charge mark positions.
+- Add double bond pair detection and exclusion to glyph-bond alignment
+  measurement tool.  New `detect_double_bond_pairs()` in
+  [tools/measurelib/hatch_detect.py](tools/measurelib/hatch_detect.py) finds
+  parallel line pairs (C=O double bonds) and excludes the secondary offset line
+  from measurement.  Uses linecap attribute to classify primary (round-cap) vs
+  secondary (butt-cap) lines.  Add `DOUBLE_BOND_*` constants to
+  [tools/measurelib/constants.py](tools/measurelib/constants.py).  Report now
+  includes `decorative_double_bond_offset_count` and `double_bond_pairs`.
+- Add multi-bond label support to glyph-bond alignment measurement tool.
+  New `all_endpoints_near_glyph_primitives()` and
+  `all_endpoints_near_text_path()` in
+  [tools/measurelib/glyph_model.py](tools/measurelib/glyph_model.py) return all
+  bond endpoints within search distance, grouped by approach side (left/right).
+  Per-label measurement loop in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py) now builds a
+  `connectors` list with independent alignment metrics for each side.  A label
+  is aligned only if all its connectors pass.  Backward-compatible top-level
+  fields are preserved from the primary (nearest) connector.
+- Update re-exports in
+  [tools/measure_glyph_bond_alignment.py](tools/measure_glyph_bond_alignment.py)
+  for new double bond and multi-connector public names.
+- Add tests for double bond detection and multi-connector labels in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py).
+  Update expected bond counts in
+  [tests/test_beta_sheet_measurement.py](tests/test_beta_sheet_measurement.py)
+  to reflect double bond exclusion (42 detected, 6 excluded, 36 checked).
+- Fix double-bond perpendicular distance measurement in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py).  Perpendicular
+  distance was measured from the glyph optical center to the primary drawn line,
+  but for C=O double bonds the two parallel lines are offset ~6 SVG units from
+  the true bond axis.  The O glyph center sits on the bond axis (between the
+  two lines), giving a spurious perp offset of ~3.  Fix: compute a midline by
+  averaging primary and secondary line coordinates, then measure perpendicular
+  distance to the midline.  O label perp values drop from 3.03 to 0.03.
+  Update infinite-line overlay in
+  [tools/measurelib/diagnostic_svg.py](tools/measurelib/diagnostic_svg.py)
+  to draw the midline for double-bond primaries.
+- Add gap-ratio filter to multi-connector label detection in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py).  Distant bonds
+  from the far side of a label were incorrectly included as secondary connectors
+  (e.g. O labels getting a spurious connector with gap=27 alongside the real
+  C=O connector with gap=8).  Discard connectors whose gap exceeds
+  `MULTI_CONNECTOR_GAP_RATIO_MAX` (3.0) times the minimum gap among all sides.
+  Add constant to
+  [tools/measurelib/constants.py](tools/measurelib/constants.py).
+
+- Fix double-bond centering inconsistency in OASA generic renderer.
+  `molecule_to_ops()` in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py)
+  was passing `point_for_atom=None`, so `_double_bond_side()` compared
+  transformed bond coordinates against raw (untransformed) atom positions.
+  Neighbor atoms appeared on the wrong side, producing offset double bonds
+  where centered was correct.  Fix: pass a `point_for_atom` callback that
+  applies the same `transform_xy` used for bond coordinates.
+- Add `center` attribute to OASA bond class in
+  [packages/oasa/oasa/bond.py](packages/oasa/oasa/bond.py).  Parse
+  `center="yes"` from CDML in
+  [packages/oasa/oasa/cdml_bond_io.py](packages/oasa/oasa/cdml_bond_io.py).
+  Honor the attribute in `build_bond_ops()` in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
+  when `edge.center` is set, skip geometric side detection and force centered
+  double-bond rendering.
+
+- Add N, O, R, and H-only atoms to the glyph-bond measurement tool.
+  `is_measurement_label()` in
+  [tools/measurelib/glyph_model.py](tools/measurelib/glyph_model.py) now uses
+  first/last letter logic instead of substring search; measurable atoms are
+  {C, O, S, N, R} plus H-only labels.  Add R to `GLYPH_STEM_CHAR_SET` in
+  [tools/measurelib/constants.py](tools/measurelib/constants.py).  Replace
+  element-priority alignment center selection in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py) with first/last
+  letter logic that picks the connecting character based on which side of the
+  label the bond approaches.  Add bounding-box fallback in
+  [tools/measurelib/lcf_optical.py](tools/measurelib/lcf_optical.py) to use
+  character shape type for optical fitting: curved glyphs (C, O, S) get
+  ellipse fitting, stem glyphs (N, H, R) get bounding-box center.  Update
+  tests in
+  [tests/test_measurelib_glyph_model.py](tests/test_measurelib_glyph_model.py)
+  and
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py)
+  for new measurement label set and first/last letter alignment.
+
+- Add CPK default colors for charge marks in
+  [packages/bkchem/bkchem/marks.py](packages/bkchem/bkchem/marks.py): `plus`
+  marks default to blue (`#0000FF`) and `minus` marks default to red
+  (`#FF0000`) instead of inheriting the atom's line color.  Override the
+  `line_color` property in each subclass with a CPK fallback; explicit color
+  set via `set_color()` or `_line_color` still takes precedence.
+- Add zoom scaling for all mark subclasses in
+  [packages/bkchem/bkchem/marks.py](packages/bkchem/bkchem/marks.py).  Add
+  `_scaled_size()` helper to the base `mark` class that multiplies `self.size`
+  by `self.paper._scale`.  Update `draw()` in `radical`, `biradical`,
+  `electronpair`, `plus`, `minus`, and `text_mark` to use `_scaled_size()`
+  for canvas pixel dimensions so marks grow/shrink proportionally with zoom.
+  The inset constant in `plus`/`minus` cross/dash lines also scales.  SVG
+  export and CDML serialization remain unscaled (model coordinates).  Skip
+  `pz_orbital` (mixes model coords with size differently).
 - Fix bond drawing after zoom for shown atoms (N, O, R, H3N, COOH).  Bonds
   connected to labeled atoms drew as long diagonal lines after zoom because
   `molecule.redraw()` redraws bonds before atoms, and bonds call `atom.bbox()`
@@ -20,15 +227,15 @@
   bkchem-quality beta-sheet CDML and SVG fixtures.  Write CDML directly via
   `xml.dom.minidom` (not `oasa.cdml_writer`) to emit proper bkchem element
   types: `<atom>` for backbone C/N/O, `<query>` for R groups, and
-  `<text><ftext>` with `<sub>`/`<sup>` markup for terminals.  N-terminus uses
-  `H<sub>3</sub>N<sup>+</sup>` (superscript charge); C-terminus uses
-  `COO<sup>-</sup>` (carboxylate with superscript negative charge).  C=O bonds
-  use `type="n2" center="yes" bond_width="6.0"`.  Geometry matches the
-  hand-drawn reference template (0.700 cm bond length, 30-degree zigzag).
+  `<text><ftext>` with `<sub>` markup for terminals.  N-terminus H3N uses
+  `<mark type="plus" draw_circle="yes"/>` (bkchem circled charge mark);
+  C-terminus COO uses `<mark type="minus" draw_circle="yes"/>` (carboxylate).
+  C=O bonds use `type="n2" center="yes" bond_width="6.0"`.  Geometry matches
+  the hand-drawn reference template (0.700 cm bond length, 30-degree zigzag).
   Four residues per strand, 19 atoms and 18 bonds each, 38 atoms total per
   file (no cross-strand H-bonds).  SVG rendered via `render_out.render_to_svg()`
-  with `show_hydrogens_on_hetero=False` and subscript/superscript labels via
-  `<tspan>`.  Fixtures at
+  with `show_hydrogens_on_hetero=False`; oasa charge display appends +/- via
+  `vertex_label_text`.  Fixtures at
   [tests/fixtures/oasa_generic/](tests/fixtures/oasa_generic/), SVGs at
   `output_smoke/oasa_generic_renders/`.
 - Fix gap retreat reference mismatch: change `_retreat_to_target_gap()` in

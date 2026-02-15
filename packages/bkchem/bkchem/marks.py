@@ -72,6 +72,11 @@ class mark( simple_parent):
     return self.atom.paper
 
 
+  def _scaled_size(self) -> float:
+    """Return mark size scaled by the current zoom factor."""
+    return self.size * self.paper._scale
+
+
   def draw( self):
     pass
 
@@ -236,7 +241,8 @@ class radical( mark):
       warnings.warn( "draw called on already drawn mark!", UserWarning, 2)
       self.delete()
     x, y = self.get_xy_on_paper()
-    s = round( self.size / 2)
+    # scale mark size by zoom factor
+    s = round( self._scaled_size() / 2)
     self.items = [self.paper.create_oval( x-s, y-s, x+s, y+s,
                                           fill=self.line_color, outline=self.line_color,
                                           tags='mark')]
@@ -273,7 +279,8 @@ class biradical( mark):
     if self.items:
       warnings.warn( "draw called on already drawn mark!", UserWarning, 2)
       self.delete()
-    s = round( self.size / 2)
+    # scale mark size by zoom factor
+    s = round( self._scaled_size() / 2)
     x1, y1 = self.get_xy_on_paper()
     x2, y2 = self.atom.get_xy_on_paper()
     x, y = geometry.find_parallel( x1, y1, x2, y2, s*1.5)[0:2]
@@ -352,7 +359,8 @@ class electronpair( mark):
     if self.items:
       warnings.warn( "draw called on already drawn mark!", UserWarning, 2)
       self.delete()
-    s = round( self.size / 2)
+    # scale mark size by zoom factor
+    s = round( self._scaled_size() / 2)
     x1, y1 = self.get_xy_on_paper()
     x2, y2 = self.atom.get_xy_on_paper()
     # one end
@@ -393,10 +401,26 @@ class plus( mark):
                       ('draw_circle',)
   meta__save_attrs = {"draw_circle": bool}
 
+  # CPK convention: positive charge is blue
+  _cpk_color = '#0000FF'
+
 
   def __init__( self, atom, x, y, size=10, auto=1):
     mark.__init__( self, atom, x, y, size=size, auto=auto)
     self.draw_circle = True
+
+
+  @property
+  def line_color(self):
+    """Line color with CPK blue default for positive charge."""
+    if not hasattr(self, "_line_color") or not self._line_color:
+      return self._cpk_color
+    return self._line_color
+
+
+  @line_color.setter
+  def line_color(self, color):
+    self._line_color = color
 
 
   def draw( self):
@@ -404,11 +428,13 @@ class plus( mark):
       warnings.warn( "draw called on already drawn mark!", UserWarning, 2)
       self.delete()
     x, y = self.get_xy_on_paper()
-    s = round( self.size / 2)
+    # scale mark size by zoom factor
+    s = round( self._scaled_size() / 2)
+    inset = max(1, round(2 * self.paper._scale))
 
-    self.items = [self.paper.create_line( x-s+2, y, x+s-2, y,
+    self.items = [self.paper.create_line( x-s+inset, y, x+s-inset, y,
                                           fill=self.line_color, tags='mark')]
-    self.items.append( self.paper.create_line( x, y-s+2, x, y+s-2,
+    self.items.append( self.paper.create_line( x, y-s+inset, x, y+s-inset,
                                                fill=self.line_color, tags='mark'))
     if self.draw_circle:
       self.items.append( self.paper.create_oval( x-s, y-s, x+s, y+s, fill='',
@@ -454,10 +480,26 @@ class minus( mark):
                       ('draw_circle',)
   meta__save_attrs = {"draw_circle": bool}
 
+  # CPK convention: negative charge is red
+  _cpk_color = '#FF0000'
+
 
   def __init__( self, atom, x, y, size=10, auto=1):
     mark.__init__( self, atom, x, y, size=size, auto=auto)
     self.draw_circle = True
+
+
+  @property
+  def line_color(self):
+    """Line color with CPK red default for negative charge."""
+    if not hasattr(self, "_line_color") or not self._line_color:
+      return self._cpk_color
+    return self._line_color
+
+
+  @line_color.setter
+  def line_color(self, color):
+    self._line_color = color
 
 
   def draw( self):
@@ -465,8 +507,10 @@ class minus( mark):
       warnings.warn( "draw called on already drawn mark!", UserWarning, 2)
       self.delete()
     x, y = self.get_xy_on_paper()
-    s = round( self.size / 2)
-    self.items = [self.paper.create_line( x-s+2, y, x+s-2, y,
+    # scale mark size by zoom factor
+    s = round( self._scaled_size() / 2)
+    inset = max(1, round(2 * self.paper._scale))
+    self.items = [self.paper.create_line( x-s+inset, y, x+s-inset, y,
                                           fill=self.line_color, tags='mark')]
     if self.draw_circle:
       self.items.append( self.paper.create_oval( x-s, y-s, x+s, y+s, fill='',
@@ -530,11 +574,14 @@ class text_mark( mark):
 
 
   def draw( self):
-    self.items = [self.paper.create_text( self.x,
-                                          self.y,
+    # scale font size by zoom factor (same pattern as atom on_screen_font)
+    scaled_font_size = int(round(self.size * self.paper._scale))
+    x, y = self.get_xy_on_paper()
+    self.items = [self.paper.create_text( x,
+                                          y,
                                           text=self.text,
                                           fill=self.line_color,
-                                          font=(self.atom.font_family, int(self.size), "normal"),
+                                          font=(self.atom.font_family, scaled_font_size, "normal"),
                                           tags="mark")]
 
 

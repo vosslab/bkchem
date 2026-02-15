@@ -71,6 +71,12 @@ ATTACH_PERP_TOLERANCE = 0.07
 # fraction of font_size used as the target gap between bond endpoint and glyph body
 ATTACH_GAP_FONT_FRACTION = 0.058
 
+# Ratio of wide-end width to narrow-end width for hashed (dashed-wedge)
+# bonds.  Higher values produce a wider fan angle between the first and
+# last hatch stroke.  Used by both standard OASA bond rendering and the
+# Haworth sugar renderer.
+HASHED_BOND_WEDGE_RATIO = 4.6
+
 _OVAL_GLYPH_ELEMENTS = {"O", "C", "S"}
 _RECT_GLYPH_ELEMENTS = {"N", "H"}
 _SPECIAL_GLYPH_ELEMENTS = {"P"}
@@ -864,7 +870,11 @@ def build_bond_ops(edge, start, end, context):
 		return ops
 
 	if edge.order == 2:
-		side = _double_bond_side(context, v1, v2, start, end, has_shown_vertex)
+		# honor explicit center="yes" from CDML; skip geometric side detection
+		if getattr(edge, "center", None):
+			side = 0
+		else:
+			side = _double_bond_side(context, v1, v2, start, end, has_shown_vertex)
 		if side:
 			ops.extend(_line_ops(start, end, edge_line_width, color1, color2, gradient, cap="round"))
 			x1, y1, x2, y2 = geometry.find_parallel(
@@ -934,14 +944,16 @@ def vertex_label_text(vertex, show_hydrogens_on_hetero):
 				text += "H"
 			elif vertex.free_valency > 1:
 				text += "H%d" % vertex.free_valency
-	if vertex.charge == 1:
-		text += "+"
-	elif vertex.charge == -1:
-		text += "-"
-	elif vertex.charge > 1:
-		text += str(vertex.charge) + "+"
-	elif vertex.charge < -1:
-		text += str(vertex.charge)
+	# only append charge as text if no circled marks handle it
+	if not vertex.properties_.get("marks"):
+		if vertex.charge == 1:
+			text += "+"
+		elif vertex.charge == -1:
+			text += "-"
+		elif vertex.charge > 1:
+			text += str(vertex.charge) + "+"
+		elif vertex.charge < -1:
+			text += str(vertex.charge)
 	return text
 
 
@@ -1003,6 +1015,55 @@ def _text_char_advances(text, font_size, font_name):
 	if len(advances) != len(visible):
 		return fallback
 	return advances
+
+
+#============================================
+def _text_ink_bearing_correction(text, font_size, font_name):
+	"""Return (left_bearing, right_bearing) for the visible label text.
+
+	The left bearing is the gap between the text origin and the first ink pixel.
+	The right bearing is the gap between the last ink pixel and the advance end.
+	These represent the amount by which sum(advances) overestimates ink width.
+	"""
+	visible = _visible_label_text(text)
+	if not visible:
+		return (0.0, 0.0)
+	if _cairo is None:
+		return (0.0, 0.0)
+	try:
+		surface = _cairo.ImageSurface(_cairo.FORMAT_A8, 1, 1)
+		context = _cairo.Context(surface)
+		context.select_font_face(font_name or "sans-serif", 0, 0)
+	except Exception:
+		return (0.0, 0.0)
+	segments = render_ops._text_segments(str(text or ""))
+	# Get left bearing of first segment's first character
+	left_bearing = 0.0
+	for chunk, tags in segments:
+		if not chunk:
+			continue
+		segment_state = render_ops._segment_baseline_state(tags)
+		segment_size = render_ops._segment_font_size(font_size, segment_state)
+		context.set_font_size(segment_size)
+		first_char = chunk[0]
+		extents = context.text_extents(first_char)
+		left_bearing = max(0.0, float(extents.x_bearing))
+		break
+	# Get right bearing of last segment's last character
+	right_bearing = 0.0
+	for chunk, tags in reversed(segments):
+		if not chunk:
+			continue
+		segment_state = render_ops._segment_baseline_state(tags)
+		segment_size = render_ops._segment_font_size(font_size, segment_state)
+		context.set_font_size(segment_size)
+		last_char = chunk[-1]
+		extents = context.text_extents(last_char)
+		# right_bearing = advance - left_bearing - ink_width
+		char_right = float(extents.x_advance) - float(extents.x_bearing) - float(extents.width)
+		right_bearing = max(0.0, char_right)
+		break
+	return (left_bearing, right_bearing)
 
 
 #============================================
@@ -1181,8 +1242,11 @@ def _label_box_coords(x, y, text, anchor, font_size, font_name=None):
 		box_width = sum(char_advances)
 	else:
 		box_width = font_size * 0.60 * text_len
-	top_offset = -font_size * 0.75
-	bottom_offset = font_size * 0.125
+	# Empirically calibrated against rsvg/Pango rendering of sans-serif at 12pt.
+	# top_offset: ascent above baseline (calibrated: 8.8 / 12.0 = 0.733)
+	# bottom_offset: descent below baseline (calibrated: 0.1 / 12.0 = 0.008)
+	top_offset = -font_size * 0.733
+	bottom_offset = font_size * 0.008
 	text_x, text_y = _label_text_origin(x, y, anchor, font_size, text_len)
 	if anchor == "start":
 		x1 = text_x
@@ -2727,13 +2791,50 @@ def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
 		weight="bold",
 		color=color,
 	))
+
+	# render circled charge marks (plus/minus) when present
+	for mark_data in vertex.properties_.get("marks", []):
+		mark_type = mark_data["type"]
+		mx, my = transform_point(mark_data["x"], mark_data["y"])
+		# scale mark proportionally with font_size (standard_size=10 at font_size=16)
+		radius = font_size * 5.0 / 16.0
+		inset = font_size * 2.0 / 16.0
+		# CPK convention: plus=blue, minus=red
+		if mark_type == "plus":
+			mark_color = "#0000ff"
+		else:
+			mark_color = "#ff0000"
+		# circle outline
+		ops.append(render_ops.CircleOp(
+			center=(mx, my),
+			radius=radius,
+			fill=None,
+			stroke=mark_color,
+			stroke_width=1.0,
+		))
+		# horizontal line (both plus and minus)
+		ops.append(render_ops.LineOp(
+			p1=(mx - radius + inset, my),
+			p2=(mx + radius - inset, my),
+			width=1.0,
+			color=mark_color,
+		))
+		# vertical line (plus only)
+		if mark_type == "plus":
+			ops.append(render_ops.LineOp(
+				p1=(mx, my - radius + inset),
+				p2=(mx, my + radius - inset),
+				width=1.0,
+				color=mark_color,
+			))
+
 	return ops
 
 
 _DEFAULT_STYLE = {
 	"line_width": 2.0,
 	"bond_width": 6.0,
-	"wedge_width": 6.0,
+	"wedge_width": 2.0 * HASHED_BOND_WEDGE_RATIO,
 	"bold_line_width_multiplier": 1.2,
 	"bond_second_line_shortening": 0.0,
 	"color_atoms": True,
@@ -2879,7 +2980,7 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 		shown_vertices=shown_vertices,
 		bond_coords=bond_coords,
 		bond_coords_provider=bond_coords.get,
-		point_for_atom=None,
+		point_for_atom=(lambda a: transform_xy(a.x, a.y)) if transform_xy else None,
 		label_targets=label_targets,
 		attach_targets=attach_targets,
 		attach_constraints=attach_constraints,

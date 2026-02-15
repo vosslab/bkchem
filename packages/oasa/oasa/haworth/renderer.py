@@ -23,9 +23,8 @@ from .renderer_config import (
 	RING_SLOT_SEQUENCE,
 	RING_RENDER_CONFIG,
 	CARBON_NUMBER_VERTEX_WEIGHT,
-OXYGEN_COLOR,
-FURANOSE_TOP_UP_CLEARANCE_FACTOR,
-FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR,
+	OXYGEN_COLOR,
+	FURANOSE_TOP_UP_CLEARANCE_FACTOR,
 )
 
 # Use a tight epsilon for retreat binary-search convergence. The strict
@@ -564,6 +563,23 @@ def render(
 						op_id=f"ring_edge_{edge_index}",
 					)
 				)
+	# Round the back-vertex corners where thin polygon edges meet.
+	# Each non-front, non-oxygen vertex gets a small filled circle whose
+	# radius matches the half-width of the thin back edges.
+	cap_radius = back_thickness / 2.0
+	for vertex_index in range(ring_size):
+		if vertex_index in front_vertices or vertex_index == o_index:
+			continue
+		vx, vy = coords[vertex_index]
+		ops.append(
+			render_ops.CircleOp(
+				center=(vx, vy),
+				radius=cap_radius,
+				fill=line_color,
+				z=1,
+				op_id=f"ring_vertex_cap_{vertex_index}",
+			)
+		)
 	ops.append(
 		render_ops.TextOp(
 			x=ox,
@@ -624,20 +640,21 @@ def render(
 				anchor = "start" if slot == "BL" else "end"
 			effective_length = sub_length
 			if spec.ring_type == "furanose" and direction == "up" and slot in ("ML", "MR"):
-				oxygen_top = oy - (font_size * 0.65)
-				target_y = oxygen_top - (font_size * FURANOSE_TOP_UP_CLEARANCE_FACTOR)
-				if (
-						slot == "MR"
-						and left_top_is_chain_like
-						and is_first_hydroxyl
-						and down_label == "H"
-				):
-					# Keep right-top OH visually separate from left CH2OH
-					# by nudging it down toward ring center (not on one header line).
-					target_y += font_size * FURANOSE_TOP_RIGHT_HYDROXYL_EXTRA_CLEARANCE_FACTOR
-				min_length = max(0.0, vertex[1] - target_y)
-				if min_length > effective_length:
-					effective_length = min_length
+				# When MR carries a simple hydroxyl and ML carries a chain-like
+				# tail, the clearance override would push MR OH too high and
+				# collide with the ML CH2OH text.  Skip clearance in that case.
+				skip_clearance = (
+					slot == "MR"
+					and left_top_is_chain_like
+					and is_first_hydroxyl
+					and down_label == "H"
+				)
+				if not skip_clearance:
+					oxygen_top = oy - (font_size * 0.65)
+					target_y = oxygen_top - (font_size * FURANOSE_TOP_UP_CLEARANCE_FACTOR)
+					min_length = max(0.0, vertex[1] - target_y)
+					if min_length > effective_length:
+						effective_length = min_length
 			if (
 					spec.ring_type == "furanose"
 					and _text.is_two_carbon_tail_label(label)
@@ -942,7 +959,9 @@ def _oxygen_exclusion_radius(
 	label_w = max(0.0, label_box[2] - label_box[0])
 	label_h = max(0.0, label_box[3] - label_box[1])
 	label_radius = max(label_w, label_h) * 0.5
-	safety_margin = max(0.25, font_size * 0.05)
+	# Safety margin includes glyph bearing clearance (advance-width extends
+	# beyond the ink bounding box, and ring edges should respect that space).
+	safety_margin = max(0.25, font_size * 0.09)
 	return label_radius + (max(0.0, oxygen_side_thickness) * 0.5) + safety_margin
 
 
@@ -1593,8 +1612,8 @@ def _furanose_two_carbon_tail_profile(
 	# Cartesian targets for the "up" case map to 210 deg and 330 deg.
 	if direction == "up":
 		profile = {
-			"ho_length_factor": 0.72,
-			"ch2_length_factor": 1.08,
+			"ho_length_factor": 0.90,
+			"ch2_length_factor": 0.95,
 			"ho_anchor": "end",
 			"ch2_anchor": "start",
 			"ho_text_direction": "up",
@@ -1657,19 +1676,20 @@ def _append_branch_connector_ops(
 	length = math.hypot(end[0] - start[0], end[1] - start[1])
 	if length <= 1e-9:
 		return
+	# Carrier line is fully transparent; hatch strokes alone define the bond.
 	ops.append(
 		render_ops.LineOp(
 			p1=start,
 			p2=end,
 			width=max(0.18, connector_width * 0.22),
-			cap="butt",
-			color=color,
+			cap="round",
+			color="none",
 			z=4,
 			op_id=op_id,
 		)
 	)
 	line_width = max(0.8, connector_width * 0.72)
-	wedge_width = max(line_width * 2.8, font_size * 0.24)
+	wedge_width = max(line_width * _render_geometry.HASHED_BOND_WEDGE_RATIO, font_size * 0.24)
 	hashed_ops = _render_geometry._hashed_ops(
 		start=start,
 		end=end,

@@ -3,7 +3,7 @@
 # Standard Library
 import math
 
-from measurelib.constants import GLYPH_CURVED_CHAR_SET, GLYPH_STEM_CHAR_SET
+from measurelib.constants import CONNECTING_ATOM_SET, GLYPH_CURVED_CHAR_SET, GLYPH_STEM_CHAR_SET
 from measurelib.util import (
 	line_length,
 	normalize_box,
@@ -32,9 +32,17 @@ except Exception:
 def is_measurement_label(visible_text: str) -> bool:
 	"""Return True for labels expected to own a bond connector endpoint."""
 	text = str(visible_text or "")
-	if text in ("OH", "HO"):
+	# extract only alphabetic characters
+	alpha_chars = [ch for ch in text if ch.isalpha()]
+	if not alpha_chars:
+		return False
+	# standalone H is measurable (but not H2, H3, etc.)
+	if text.strip() == "H":
 		return True
-	return ("C" in text) or ("S" in text)
+	# first or last letter must be a connecting atom (uppercase match only,
+	# so lowercase r in "Br" does not match R)
+	return (alpha_chars[0] in CONNECTING_ATOM_SET) \
+		or (alpha_chars[-1] in CONNECTING_ATOM_SET)
 
 
 #============================================
@@ -368,6 +376,126 @@ def nearest_endpoint_to_glyph_primitives(
 	if best_endpoint is None:
 		return None, None, None, None
 	return best_endpoint, best_distance, best_line_index, best_signed_distance
+
+
+#============================================
+def all_endpoints_near_glyph_primitives(
+		lines: list[dict],
+		line_indexes: list[int],
+		primitives: list[dict],
+		search_limit: float) -> list[dict]:
+	"""Return all bond endpoints within search distance of glyph primitives.
+
+	Each result dict contains the endpoint, its signed distance to the glyph
+	body, the line index, and the approach side relative to the glyph center.
+
+	Args:
+		lines: full list of SVG line primitives.
+		line_indexes: candidate line indexes to check.
+		primitives: glyph primitives for the label.
+		search_limit: maximum unsigned distance to consider.
+
+	Returns:
+		list of dicts with keys: endpoint, signed_distance, line_index, side.
+	"""
+	if not primitives:
+		return []
+	# compute glyph center x for left/right classification
+	bounds = glyph_primitives_bounds(primitives)
+	if bounds is None:
+		return []
+	label_cx = (bounds[0] + bounds[2]) * 0.5
+	results = []
+	for line_index in line_indexes:
+		if line_index < 0 or line_index >= len(lines):
+			continue
+		line = lines[line_index]
+		p1 = (line["x1"], line["y1"])
+		p2 = (line["x2"], line["y2"])
+		s1 = point_to_glyph_primitives_signed_distance(p1, primitives)
+		s2 = point_to_glyph_primitives_signed_distance(p2, primitives)
+		if not math.isfinite(s1) or not math.isfinite(s2):
+			continue
+		d1 = max(0.0, s1)
+		d2 = max(0.0, s2)
+		# pick the closer endpoint of this line
+		if d1 <= d2:
+			endpoint = p1
+			signed_distance = s1
+			distance = abs(s1)
+		else:
+			endpoint = p2
+			signed_distance = s2
+			distance = abs(s2)
+		if distance > search_limit:
+			continue
+		# classify approach side
+		ep_x = float(endpoint[0])
+		side = "right" if ep_x > label_cx else "left"
+		results.append({
+			"endpoint": endpoint,
+			"signed_distance": signed_distance,
+			"distance": distance,
+			"line_index": line_index,
+			"side": side,
+		})
+	return results
+
+
+#============================================
+def all_endpoints_near_text_path(
+		lines: list[dict],
+		line_indexes: list[int],
+		path_obj,
+		label_center_x: float,
+		search_limit: float) -> list[dict]:
+	"""Return all bond endpoints within search distance of a text path.
+
+	Args:
+		lines: full list of SVG line primitives.
+		line_indexes: candidate line indexes to check.
+		path_obj: matplotlib text path object.
+		label_center_x: x-coordinate of label center for left/right classification.
+		search_limit: maximum unsigned distance to consider.
+
+	Returns:
+		list of dicts with keys: endpoint, signed_distance, line_index, side.
+	"""
+	if path_obj is None:
+		return []
+	results = []
+	for line_index in line_indexes:
+		if line_index < 0 or line_index >= len(lines):
+			continue
+		line = lines[line_index]
+		p1 = (line["x1"], line["y1"])
+		p2 = (line["x2"], line["y2"])
+		s1 = point_to_text_path_signed_distance(p1, path_obj)
+		s2 = point_to_text_path_signed_distance(p2, path_obj)
+		if not math.isfinite(s1) or not math.isfinite(s2):
+			continue
+		d1 = abs(s1)
+		d2 = abs(s2)
+		if d1 <= d2:
+			endpoint = p1
+			signed_distance = s1
+			distance = d1
+		else:
+			endpoint = p2
+			signed_distance = s2
+			distance = d2
+		if distance > search_limit:
+			continue
+		ep_x = float(endpoint[0])
+		side = "right" if ep_x > label_center_x else "left"
+		results.append({
+			"endpoint": endpoint,
+			"signed_distance": signed_distance,
+			"distance": distance,
+			"line_index": line_index,
+			"side": side,
+		})
+	return results
 
 
 #============================================

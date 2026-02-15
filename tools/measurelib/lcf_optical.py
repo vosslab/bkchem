@@ -12,6 +12,7 @@ import cv2
 import numpy
 import scipy.spatial
 
+from measurelib.constants import CONNECTING_CURVED_ATOMS
 from measurelib.util import compact_float
 from measurelib.glyph_model import (
 	glyph_char_advance,
@@ -555,19 +556,31 @@ def optical_center_via_isolation_render(
 	binary_mask = _lcf_extract_binary_mask(glyph_image)
 	contour_points = _lcf_extract_contour_points(binary_mask)
 	hull_result = _lcf_compute_convex_hull(contour_points)
-	# Use hull vertices for ellipse fitting (closes openings in C/S glyphs,
-	# gives rectangular envelope for stem chars like N/H)
+	# Curved glyphs (C, O, S, ...) get ellipse fitting; stem glyphs (N, H, R, ...)
+	# use bounding-box center of the convex hull.
 	fit_points = hull_result["vertices"]
-	ellipse = _lcf_fit_axis_aligned_ellipse(fit_points)
+	use_ellipse = (target in CONNECTING_CURVED_ATOMS) and (len(fit_points) >= 5)
+	if use_ellipse:
+		ellipse = _lcf_fit_axis_aligned_ellipse(fit_points)
+		pixel_cx, pixel_cy = ellipse["center"]
+		pixel_rx = ellipse["semi_x"]
+		pixel_ry = ellipse["semi_y"]
+	else:
+		# Bounding-box center for stem glyphs or too few hull points.
+		xs = [float(p[0]) for p in fit_points]
+		ys = [float(p[1]) for p in fit_points]
+		pixel_cx = (min(xs) + max(xs)) * 0.5
+		pixel_cy = (min(ys) + max(ys)) * 0.5
+		pixel_rx = (max(xs) - min(xs)) * 0.5
+		pixel_ry = (max(ys) - min(ys)) * 0.5
 	# Map pixel center to SVG coordinates
-	pixel_cx, pixel_cy = ellipse["center"]
 	svg_cx, svg_cy = _lcf_pixel_to_svg(pixel_cx, pixel_cy, svg_dims, zoom)
 	# Map semi-axes to SVG units
 	vb = svg_dims["viewBox"]
 	vp_w = svg_dims["viewport_width"] * zoom
 	scale = min(vp_w / vb["width"], svg_dims["viewport_height"] * zoom / vb["height"])
-	svg_rx = ellipse["semi_x"] / scale
-	svg_ry = ellipse["semi_y"] / scale
+	svg_rx = pixel_rx / scale
+	svg_ry = pixel_ry / scale
 	# Populate gate_debug for downstream metrics and diagnostics
 	if gate_debug is not None:
 		gate_debug["pipeline"] = "optical_isolation_render"

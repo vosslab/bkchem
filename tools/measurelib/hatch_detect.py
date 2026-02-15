@@ -4,6 +4,10 @@
 import math
 
 from measurelib.constants import (
+	DOUBLE_BOND_LENGTH_RATIO_MIN,
+	DOUBLE_BOND_PARALLEL_TOLERANCE_DEGREES,
+	DOUBLE_BOND_PERP_DISTANCE_MAX,
+	DOUBLE_BOND_PERP_DISTANCE_MIN,
 	HASHED_CARRIER_MAX_WIDTH,
 	HASHED_CARRIER_MIN_LENGTH,
 	HASHED_CARRIER_MIN_STROKES,
@@ -84,6 +88,97 @@ def detect_hashed_carrier_map(lines: list[dict], checked_line_indexes: list[int]
 			continue
 		carrier_map[carrier_index] = sorted(set(supporting_strokes))
 	return carrier_map
+
+
+#============================================
+def detect_double_bond_pairs(
+		lines: list[dict],
+		checked_line_indexes: list[int],
+		excluded_indexes: set[int] | None = None) -> list[tuple[int, int]]:
+	"""Return (primary, secondary) index pairs for double bond offset lines.
+
+	Two lines form a double bond pair when they are nearly parallel, similar
+	length, and separated by a small perpendicular distance.  For asymmetric
+	pairs the round-cap line is primary and the butt-cap line is secondary.
+
+	Args:
+		lines: full list of SVG line primitives.
+		checked_line_indexes: indexes eligible for pairing.
+		excluded_indexes: indexes already classified (hatch strokes, etc.)
+			that should not participate.
+
+	Returns:
+		list of (primary_index, secondary_index) tuples.
+	"""
+	if excluded_indexes is None:
+		excluded_indexes = set()
+	# build candidate list excluding already-classified lines
+	candidates = [
+		idx for idx in checked_line_indexes
+		if 0 <= idx < len(lines) and idx not in excluded_indexes
+	]
+	paired: set[int] = set()
+	pairs: list[tuple[int, int]] = []
+	for i_pos in range(len(candidates)):
+		idx_a = candidates[i_pos]
+		if idx_a in paired:
+			continue
+		line_a = lines[idx_a]
+		len_a = line_length(line_a)
+		if len_a < 1e-6:
+			continue
+		angle_a = line_angle_degrees(line_a)
+		start_a, end_a = line_endpoints(line_a)
+		best_partner = None
+		best_perp = float("inf")
+		for j_pos in range(i_pos + 1, len(candidates)):
+			idx_b = candidates[j_pos]
+			if idx_b in paired:
+				continue
+			line_b = lines[idx_b]
+			len_b = line_length(line_b)
+			if len_b < 1e-6:
+				continue
+			# check parallel
+			angle_b = line_angle_degrees(line_b)
+			angle_diff = angle_difference_degrees(angle_a, angle_b)
+			parallel_err = min(angle_diff, abs(angle_diff - 180.0))
+			if parallel_err > DOUBLE_BOND_PARALLEL_TOLERANCE_DEGREES:
+				continue
+			# check length ratio
+			ratio = min(len_a, len_b) / max(len_a, len_b)
+			if ratio < DOUBLE_BOND_LENGTH_RATIO_MIN:
+				continue
+			# check perpendicular distance: midpoint of B to segment A
+			mid_b = line_midpoint(line_b)
+			perp_dist = math.sqrt(
+				point_to_segment_distance_sq(mid_b, start_a, end_a)
+			)
+			if not (DOUBLE_BOND_PERP_DISTANCE_MIN <= perp_dist <= DOUBLE_BOND_PERP_DISTANCE_MAX):
+				continue
+			if perp_dist < best_perp:
+				best_perp = perp_dist
+				best_partner = idx_b
+		if best_partner is None:
+			continue
+		# determine primary vs secondary by linecap
+		cap_a = str(lines[idx_a].get("linecap", "")).strip().lower()
+		cap_b = str(lines[best_partner].get("linecap", "")).strip().lower()
+		if cap_a == "round" and cap_b == "butt":
+			# asymmetric: round is primary, butt is secondary
+			primary_idx = idx_a
+			secondary_idx = best_partner
+		elif cap_b == "round" and cap_a == "butt":
+			primary_idx = best_partner
+			secondary_idx = idx_a
+		else:
+			# symmetric: keep lower index as primary
+			primary_idx = min(idx_a, best_partner)
+			secondary_idx = max(idx_a, best_partner)
+		paired.add(primary_idx)
+		paired.add(secondary_idx)
+		pairs.append((primary_idx, secondary_idx))
+	return pairs
 
 
 #============================================

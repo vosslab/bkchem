@@ -94,6 +94,10 @@ def read_cdml_bond_attributes(bond_el, bond, preserve_attrs=None, known_attrs=No
 			bond.wavy_style = value
 			bond.properties_["wavy_style"] = value
 			continue
+		if name == "center":
+			bond.center = (value == "yes")
+			bond.properties_["center"] = value
+			continue
 		if name in preserve_attrs:
 			bond.properties_[name] = value
 			continue

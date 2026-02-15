@@ -8,6 +8,7 @@ import xml.etree.ElementTree as StdET
 # Third Party
 import defusedxml.ElementTree as ET
 
+from measurelib.constants import CONNECTING_CURVED_ATOMS
 from measurelib.util import normalize_box, point_distance_sq
 from measurelib.geometry import points_close
 from measurelib.svg_parse import svg_number_tokens, svg_tag_with_namespace
@@ -173,12 +174,91 @@ def select_alignment_primitive(label: dict, metric: dict) -> dict | None:
 
 
 #============================================
+def _draw_bond_perpendicular_markers(
+		overlay_group,
+		tag_line: str,
+		lines: list[dict],
+		checked_bond_line_indexes: list[int],
+		connector_line_indexes: set[int],
+		label_metrics: list[dict]) -> None:
+	"""Draw perpendicular cross-lines at both endpoints of every checked bond.
+
+	Magenta (#ff00ff) marks endpoints used for gap measurement; dark blue
+	(#00008b) marks other endpoints.
+
+	Args:
+		overlay_group: SVG group element to append markers to.
+		tag_line: namespace-qualified line tag name.
+		lines: all SVG line dicts.
+		checked_bond_line_indexes: indexes of bond lines to mark.
+		connector_line_indexes: indexes of lines used for glyph measurement.
+		label_metrics: per-label metric dicts with connector_line_index and endpoint.
+	"""
+	# build set of (line_index, "p1"|"p2") keys for measurement endpoints
+	measurement_endpoint_keys: set[tuple[int, str]] = set()
+	for metric in label_metrics:
+		cli = metric.get("connector_line_index")
+		ep = metric.get("endpoint")
+		if cli is None or not isinstance(ep, (list, tuple)) or len(ep) != 2:
+			continue
+		if cli < 0 or cli >= len(lines):
+			continue
+		line = lines[cli]
+		# exact float comparison: coords are copied directly from line attrs
+		ep_x = float(ep[0])
+		ep_y = float(ep[1])
+		if ep_x == float(line["x1"]) and ep_y == float(line["y1"]):
+			measurement_endpoint_keys.add((cli, "p1"))
+		elif ep_x == float(line["x2"]) and ep_y == float(line["y2"]):
+			measurement_endpoint_keys.add((cli, "p2"))
+	half = 6.0
+	for line_index in checked_bond_line_indexes:
+		if line_index < 0 or line_index >= len(lines):
+			continue
+		line = lines[line_index]
+		x1 = float(line["x1"])
+		y1 = float(line["y1"])
+		x2 = float(line["x2"])
+		y2 = float(line["y2"])
+		dx = x2 - x1
+		dy = y2 - y1
+		length = math.hypot(dx, dy)
+		if length <= 1e-12:
+			continue
+		# perpendicular unit vector
+		nx = -dy / length
+		ny = dx / length
+		# draw perpendicular cross-line at each endpoint
+		for ep_key, ex, ey in [("p1", x1, y1), ("p2", x2, y2)]:
+			is_measurement = (line_index, ep_key) in measurement_endpoint_keys
+			color = "#ff00ff" if is_measurement else "#00008b"
+			pa = (ex - nx * half, ey - ny * half)
+			pb = (ex + nx * half, ey + ny * half)
+			overlay_group.append(
+				StdET.Element(
+					tag_line,
+					attrib={
+						"x1": f"{pa[0]:.6f}",
+						"y1": f"{pa[1]:.6f}",
+						"x2": f"{pb[0]:.6f}",
+						"y2": f"{pb[1]:.6f}",
+						"stroke": color,
+						"stroke-width": "0.2",
+					},
+				)
+			)
+
+
+#============================================
 def write_diagnostic_svg(
 		svg_path: pathlib.Path,
 		output_path: pathlib.Path,
 		lines: list[dict],
 		labels: list[dict],
-		label_metrics: list[dict]) -> None:
+		label_metrics: list[dict],
+		double_bond_midline_map: dict[int, dict] | None = None,
+		checked_bond_line_indexes: list[int] | None = None,
+		connector_line_indexes: set[int] | None = None) -> None:
 	"""Write diagnostic overlay SVG with primitives and alignment guide lines."""
 	svg_root = ET.parse(svg_path).getroot()
 	tag_group = svg_tag_with_namespace(svg_root, "g")
@@ -198,6 +278,16 @@ def write_diagnostic_svg(
 			"stroke-linejoin": "round",
 		},
 	)
+	# draw perpendicular markers at all bond endpoints as background layer
+	if checked_bond_line_indexes is not None and connector_line_indexes is not None:
+		_draw_bond_perpendicular_markers(
+			overlay_group=overlay_group,
+			tag_line=tag_line,
+			lines=lines,
+			checked_bond_line_indexes=checked_bond_line_indexes,
+			connector_line_indexes=connector_line_indexes,
+			label_metrics=label_metrics,
+		)
 	for metric in label_metrics:
 		label_index = metric.get("label_index")
 		line_index = metric.get("connector_line_index")
@@ -239,25 +329,47 @@ def write_diagnostic_svg(
 			)
 			drawn_target = True
 		if isinstance(hull_fit, dict):
-			group.append(
-				StdET.Element(
-					tag_ellipse,
-					attrib={
-						"cx": f"{float(hull_fit.get('cx', 0.0)):.6f}",
-						"cy": f"{float(hull_fit.get('cy', 0.0)):.6f}",
-						"rx": f"{max(0.0, float(hull_fit.get('rx', 0.0))):.6f}",
-						"ry": f"{max(0.0, float(hull_fit.get('ry', 0.0))):.6f}",
-						"stroke": color,
-						"stroke-width": stroke_w_thin,
-						"stroke-opacity": stroke_opac,
-						"stroke-dasharray": "2 1",
-					},
+			fit_cx = float(hull_fit.get("cx", 0.0))
+			fit_cy = float(hull_fit.get("cy", 0.0))
+			fit_rx = max(0.0, float(hull_fit.get("rx", 0.0)))
+			fit_ry = max(0.0, float(hull_fit.get("ry", 0.0)))
+			center_char = str(metric.get("alignment_center_char", ""))
+			if center_char in CONNECTING_CURVED_ATOMS:
+				# ellipse for curved glyphs (C, O, S)
+				group.append(
+					StdET.Element(
+						tag_ellipse,
+						attrib={
+							"cx": f"{fit_cx:.6f}",
+							"cy": f"{fit_cy:.6f}",
+							"rx": f"{fit_rx:.6f}",
+							"ry": f"{fit_ry:.6f}",
+							"stroke": color,
+							"stroke-width": stroke_w_thin,
+							"stroke-opacity": stroke_opac,
+							"stroke-dasharray": "2 1",
+						},
+					)
 				)
-			)
-			diagnostic_center_point = (
-				float(hull_fit.get("cx", 0.0)),
-				float(hull_fit.get("cy", 0.0)),
-			)
+			else:
+				# rectangle for stem glyphs (N, H, R)
+				group.append(
+					StdET.Element(
+						tag_rect,
+						attrib={
+							"x": f"{fit_cx - fit_rx:.6f}",
+							"y": f"{fit_cy - fit_ry:.6f}",
+							"width": f"{2.0 * fit_rx:.6f}",
+							"height": f"{2.0 * fit_ry:.6f}",
+							"fill": "none",
+							"stroke": color,
+							"stroke-width": stroke_w_thin,
+							"stroke-opacity": stroke_opac,
+							"stroke-dasharray": "2 1",
+						},
+					)
+				)
+			diagnostic_center_point = (fit_cx, fit_cy)
 			drawn_target = True
 		if alignment_primitive is not None:
 			kind = str(alignment_primitive.get("kind", ""))
@@ -336,8 +448,16 @@ def write_diagnostic_svg(
 					},
 				)
 			)
-		start = (float(line["x1"]), float(line["y1"]))
-		end = (float(line["x2"]), float(line["y2"]))
+		# for double bond primaries, draw the midline (true bond axis)
+		midline = None
+		if double_bond_midline_map and line_index is not None:
+			midline = double_bond_midline_map.get(int(line_index))
+		if midline is not None:
+			start = (float(midline["x1"]), float(midline["y1"]))
+			end = (float(midline["x2"]), float(midline["y2"]))
+		else:
+			start = (float(line["x1"]), float(line["y1"]))
+			end = (float(line["x2"]), float(line["y2"]))
 		infinite = clip_infinite_line_to_bounds(start, end, bounds)
 		if infinite is not None:
 			pa, pb = infinite
@@ -371,41 +491,21 @@ def write_diagnostic_svg(
 						},
 					)
 				)
+				# hull contact point as small ellipse
 				group.append(
 					StdET.Element(
-						tag_circle,
+						tag_ellipse,
 						attrib={
 							"cx": f"{float(hull_contact_point[0]):.6f}",
 							"cy": f"{float(hull_contact_point[1]):.6f}",
-							"r": "1.0",
+							"rx": "1.5",
+							"ry": "0.8",
 							"fill": "#ff5400",
 							"fill-opacity": "0.5",
 							"stroke-width": "0.2",
 						},
 					)
 				)
-			dx = end[0] - start[0]
-			dy = end[1] - start[1]
-			length = math.hypot(dx, dy)
-			if length > 1e-12:
-				nx = -dy / length
-				ny = dx / length
-				half = 6.0
-				p1 = (ep_x - (nx * half), ep_y - (ny * half))
-				p2 = (ep_x + (nx * half), ep_y + (ny * half))
-				group.append(
-					StdET.Element(
-						tag_line,
-						attrib={
-							"x1": f"{p1[0]:.6f}",
-							"y1": f"{p1[1]:.6f}",
-								"x2": f"{p2[0]:.6f}",
-								"y2": f"{p2[1]:.6f}",
-								"stroke": "#ff5400",
-								"stroke-width": "0.2",
-							},
-						)
-					)
 		# -- distance annotations pushed toward closest SVG edge --
 		annotation_lines = []
 		signed_gap = metric.get("endpoint_signed_distance_to_glyph_body")
@@ -552,7 +652,8 @@ def write_diagnostic_svg(
 		tag_group,
 		attrib={"id": "codex-diagnostic-legend", "font-size": "4", "font-family": "sans-serif"},
 	)
-	# white background
+	# white background (taller when bond endpoint markers are shown)
+	legend_height = "25" if checked_bond_line_indexes is not None else "14"
 	legend_group.append(
 		StdET.Element(
 			tag_rect,
@@ -560,7 +661,7 @@ def write_diagnostic_svg(
 				"x": f"{legend_x - 1.0:.1f}",
 				"y": f"{legend_y - 5.0:.1f}",
 				"width": "36",
-				"height": "14",
+				"height": legend_height,
 				"fill": "white",
 				"fill-opacity": "0.85",
 				"stroke": "#999999",
@@ -610,6 +711,48 @@ def write_diagnostic_svg(
 	violation_label.set("y", f"{legend_y + 4.5:.1f}")
 	violation_label.set("fill", "#d00000")
 	legend_group.append(violation_label)
+	# connector endpoint and other endpoint legend entries (only when markers drawn)
+	if checked_bond_line_indexes is not None:
+		# magenta perpendicular line swatch + "Connector endpoint"
+		legend_group.append(
+			StdET.Element(
+				tag_line,
+				attrib={
+					"x1": f"{legend_x:.1f}",
+					"y1": f"{legend_y + 8.5:.1f}",
+					"x2": f"{legend_x + 4.0:.1f}",
+					"y2": f"{legend_y + 8.5:.1f}",
+					"stroke": "#ff00ff",
+					"stroke-width": "0.3",
+				},
+			)
+		)
+		connector_label = StdET.Element(tag_text)
+		connector_label.text = "Connector endpoint"
+		connector_label.set("x", f"{legend_x + 6.0:.1f}")
+		connector_label.set("y", f"{legend_y + 9.5:.1f}")
+		connector_label.set("fill", "#ff00ff")
+		legend_group.append(connector_label)
+		# dark blue perpendicular line swatch + "Other endpoint"
+		legend_group.append(
+			StdET.Element(
+				tag_line,
+				attrib={
+					"x1": f"{legend_x:.1f}",
+					"y1": f"{legend_y + 13.5:.1f}",
+					"x2": f"{legend_x + 4.0:.1f}",
+					"y2": f"{legend_y + 13.5:.1f}",
+					"stroke": "#00008b",
+					"stroke-width": "0.3",
+				},
+			)
+		)
+		other_label = StdET.Element(tag_text)
+		other_label.text = "Other endpoint"
+		other_label.set("x", f"{legend_x + 6.0:.1f}")
+		other_label.set("y", f"{legend_y + 14.5:.1f}")
+		other_label.set("fill", "#00008b")
+		legend_group.append(other_label)
 	overlay_group.append(legend_group)
 	svg_root.append(overlay_group)
 	output_path.parent.mkdir(parents=True, exist_ok=True)

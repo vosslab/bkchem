@@ -58,16 +58,44 @@ def _make_line(x1, y1, x2, y2, width=1.0):
 
 #============================================
 @pytest.mark.parametrize("text, expected", [
-	("OH", True),
-	("HO", True),
+	# starts with C
 	("CH3", True),
 	("C2H5", True),
+	("COO-", True),
+	# ends with C
+	# (none common in chemistry)
+	# starts with O
+	("O", True),
+	("OH", True),
+	# ends with O
+	("HO", True),
+	# starts with S
 	("SCH3", True),
 	("SH", True),
+	# ends with S
+	# (none common in chemistry)
+	# starts with N
+	("N", True),
+	("NH", True),
+	("NH2", True),
+	("NH3", True),
+	# ends with N
+	("HN", True),
+	("H2N", True),
+	("H3N", True),
+	# starts with R (uppercase only, side chain)
+	("R", True),
+	# ends with R (uppercase only)
+	# (none common in chemistry)
+	# standalone H only (H2, H3 are not measurable)
+	("H", True),
+	("H2", False),
+	("H3", False),
+	# non-measurable: first and last letter not in {C, O, S, N, R}
 	("Br", False),
-	("N", False),
-	("", False),
 	("F", False),
+	("", False),
+	("123", False),
 ])
 def test_is_measurement_label(text, expected):
 	assert is_measurement_label(text) is expected
