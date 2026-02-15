@@ -1,5 +1,8 @@
 # Haworth Schematic Renderer - Implementation Plan (Attempt 2)
 
+Status: Closed (2026-02-14). Core Haworth schematic renderer (Phases 1-5c) complete.
+SMILES conversion phases (6, 7) and stretch goals (6b) deferred to backlog.
+
 ## Phase Status Tracker
 
 Use this checklist to track implementation progress against this plan.
@@ -12,9 +15,9 @@ Use this checklist to track implementation progress against this plan.
 - [x] Phase 5b: NEUROtiker Archive Reference Testing
 - [x] Phase 5c: Rendering Polish and Documentation
 - [x] Phase 0 Exit Checklist fully closed
-- [ ] Phase 6b: Stretch Goals (Future Work)
-- [ ] Phase 6: Sugar Code to SMILES
-- [ ] Phase 7: SMILES to Sugar Code (Best-Effort)
+- [-] Phase 6b: Stretch Goals (deferred to backlog)
+- [-] Phase 6: Sugar Code to SMILES (deferred to backlog)
+- [-] Phase 7: SMILES to Sugar Code (deferred to backlog)
 
 ## Background
 

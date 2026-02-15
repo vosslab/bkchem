@@ -660,6 +660,14 @@ def render(
 					and _text.is_two_carbon_tail_label(label)
 					and slot in ("ML", "MR")
 			):
+				# Down-direction two-carbon tails need the same minimum standoff
+				# as up-direction tails get from oxygen clearance, so both
+				# branch arms have adequate length for labels.
+				if direction == "down":
+					oxygen_top = oy - (font_size * 0.65)
+					target_y = oxygen_top - (font_size * FURANOSE_TOP_UP_CLEARANCE_FACTOR)
+					min_length = max(0.0, vertex[1] - target_y)
+					effective_length = max(effective_length, min_length)
 				# Defer branched tail placement until simple labels are finalized so
 				# chain2 collision search can see full label occupancy.
 				two_carbon_tail_jobs.append(
@@ -1382,24 +1390,9 @@ def _add_furanose_two_carbon_tail_ops(
 		chain_attach_site="core_center",
 		font_name=font_name,
 	)
-	# Position text at ch2_end with standard offsets
+	# Position text at ch2_end with standard offsets (matches _add_chain_ops)
 	ch2_x = ch2_end[0] + _text.anchor_x_offset(ch2_text, ch2_anchor, font_size)
 	ch2_y = ch2_end[1] + _text.baseline_shift(ch2_direction, font_size, ch2_text)
-	# Align C attach point centroid to ch2_end
-	ch2_x, ch2_y = _align_text_origin_to_endpoint_target_centroid(
-		text_x=ch2_x,
-		text_y=ch2_y,
-		text=ch2_text,
-		anchor=ch2_anchor,
-		font_size=font_size,
-		target_centroid=ch2_end,
-		line_width=ch2_resolver_width,
-		attach_atom="first",
-		attach_element="C",
-		attach_site="core_center",
-		chain_attach_site="core_center",
-		font_name=font_name,
-	)
 	# Compute label target for forbidden regions
 	ch2_label_target = _render_geometry.label_target_from_text_origin(
 		text_x=ch2_x,
@@ -1410,6 +1403,8 @@ def _add_furanose_two_carbon_tail_ops(
 		font_name=font_name,
 	)
 	# Resolve connector endpoint (standard path, matching HO arm)
+	# Compensate for round-cap extending connector_width/2 into the gap
+	ch2_gap = _render_geometry.ATTACH_GAP_TARGET + (connector_width * 0.5)
 	ch2_connector_end, ch2_contract = _render_geometry.resolve_label_connector_endpoint_from_text_origin(
 		bond_start=branch_point,
 		text_x=ch2_x,
@@ -1420,12 +1415,13 @@ def _add_furanose_two_carbon_tail_ops(
 		line_width=ch2_resolver_width,
 		constraints=_render_geometry.make_attach_constraints(
 			font_size=font_size,
-			target_gap=_render_geometry.ATTACH_GAP_TARGET,
-			direction_policy="line",
+			target_gap=ch2_gap,
+			direction_policy="auto",
 		),
 		epsilon=RETREAT_SOLVER_EPSILON,
 		attach_atom="first",
 		attach_element="C",
+		attach_site="core_center",
 		chain_attach_site="core_center",
 		font_name=font_name,
 	)
@@ -1567,18 +1563,6 @@ def _append_branch_connector_ops(
 	length = math.hypot(end[0] - start[0], end[1] - start[1])
 	if length <= 1e-9:
 		return
-	# Carrier line is fully transparent; hatch strokes alone define the bond.
-	ops.append(
-		render_ops.LineOp(
-			p1=start,
-			p2=end,
-			width=max(0.18, connector_width * 0.22),
-			cap="round",
-			color="none",
-			z=4,
-			op_id=op_id,
-		)
-	)
 	line_width = max(0.8, connector_width * 0.72)
 	wedge_width = max(line_width * _render_geometry.HASHED_BOND_WEDGE_RATIO, font_size * 0.24)
 	hashed_ops = _render_geometry._hashed_ops(
@@ -1596,16 +1580,48 @@ def _append_branch_connector_ops(
 	def _is_hatch_legal(hatch_line: render_ops.LineOp) -> bool:
 		if not forbidden_regions:
 			return True
+		# Hatch strokes must never overlap label text, so ignore
+		# allowed_regions here.  The allowed carve-out exists for
+		# the invisible carrier line to reach the attach point;
+		# individual hatch marks must stop before the text.
 		return _render_geometry.validate_attachment_paint(
 			line_start=hatch_line.p1,
 			line_end=hatch_line.p2,
 			line_width=hatch_line.width,
 			forbidden_regions=forbidden_regions,
-			allowed_regions=allowed_regions,
 			epsilon=STRICT_OVERLAP_EPSILON,
 		)
 	if forbidden_regions:
 		kept = [line for line in kept if _is_hatch_legal(line)]
+	# Trim carrier end (label side) to the last surviving hatch stroke.
+	# When forbidden-region filtering removes hatches near a label, the
+	# carrier must not extend past the last visible stroke into the glyph.
+	# Keep carrier start at the original start for branch connectivity.
+	carrier_end = end
+	if kept:
+		dx = end[0] - start[0]
+		dy = end[1] - start[1]
+		inv_len_sq = 1.0 / (dx * dx + dy * dy)
+		# project each hatch midpoint onto the carrier axis
+		def _project_t(hatch: render_ops.LineOp) -> float:
+			mx = (hatch.p1[0] + hatch.p2[0]) * 0.5 - start[0]
+			my = (hatch.p1[1] + hatch.p2[1]) * 0.5 - start[1]
+			return (mx * dx + my * dy) * inv_len_sq
+		t_values = [_project_t(h) for h in kept]
+		t_max = max(t_values)
+		carrier_end = (start[0] + dx * t_max, start[1] + dy * t_max)
+	# Carrier line is fully transparent; hatch strokes alone define the bond.
+	ops.append(
+		render_ops.LineOp(
+			p1=start,
+			p2=carrier_end,
+			width=max(0.18, connector_width * 0.22),
+			cap="round",
+			color="none",
+			z=4,
+			op_id=op_id,
+		)
+	)
 	for index, hashed in enumerate(kept, start=1):
 		ops.append(
 			render_ops.LineOp(

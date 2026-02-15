@@ -1,22 +1,22 @@
 # Roadmap
 
 ## Active planning sources
-- [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md)
-  staged Haworth work and testing outcomes.
-- [docs/RENDER_BACKEND_UNIFICATION.md](docs/RENDER_BACKEND_UNIFICATION.md)
-  render ops unification plan.
-- [docs/ROUNDED_WEDGES_PLAN.md](docs/ROUNDED_WEDGES_PLAN.md)
-  rounded wedge geometry plan.
+- [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md)
+  glyph-bond alignment plan.
 - [docs/TODO_CODE.md](docs/TODO_CODE.md) coding backlog.
 - [docs/TODO_REPO.md](docs/TODO_REPO.md) repo and release backlog.
 
+## Archived plans
+- [docs/archive/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/archive/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  Haworth schematic renderer (core phases 1-5c complete, SMILES phases deferred).
+- [docs/archive/RENDER_BACKEND_UNIFICATION.md](docs/archive/RENDER_BACKEND_UNIFICATION.md)
+  render ops unification plan.
+- [docs/archive/ROUNDED_WEDGES_PLAN.md](docs/archive/ROUNDED_WEDGES_PLAN.md)
+  rounded wedge geometry plan.
+
 ## Near-term focus
-- Complete Haworth stages that remain in
-  [docs/HAWORTH_IMPLEMENTATION_PLAN.md](docs/HAWORTH_IMPLEMENTATION_PLAN.md).
-- Finish render ops drift guards in
-  [docs/RENDER_BACKEND_UNIFICATION.md](docs/RENDER_BACKEND_UNIFICATION.md).
-- Implement the rounded wedge geometry plan in
-  [docs/ROUNDED_WEDGES_PLAN.md](docs/ROUNDED_WEDGES_PLAN.md).
+- Finish glyph-bond alignment work in
+  [docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md](docs/active_plans/OASA-Wide_Glyph-Bond_Awareness.md).
 
 ## Known gaps
 - Add dates and milestones once a release schedule is agreed.

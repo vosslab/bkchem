@@ -37,3 +37,9 @@
     - `packages/bkchem/bkchem/format_loader.py` and
       `packages/bkchem/bkchem/format_menus.yaml` for BKChem format wiring.
     - [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) to list new formats.
+- Multi-ring Haworth layout coordinator for disaccharides/polysaccharides
+  (see [docs/archive/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/archive/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  Phase 6b).
+- Haworth text collision detection with bounding box analysis
+  (see [docs/archive/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/archive/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md)
+  Phase 6b).

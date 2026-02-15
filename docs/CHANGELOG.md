@@ -1,6 +1,69 @@
 # Changelog
 
 ## 2026-02-15
+- Trim hatched bond carrier line endpoint to last surviving hatch stroke in
+  Haworth renderer.  When forbidden-region filtering removes hatch strokes
+  near a label, the invisible carrier line no longer extends past the last
+  visible stroke into the glyph boundary.  Prevents false-negative gap
+  measurements from the carrier endpoint reaching into label space.  Fix in
+  `_append_branch_connector_ops()` in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+- Implement Phase 6: expand sugar_code_to_smiles() from 2-entry bootstrap to
+  generalized algorithmic Fischer-to-SMILES builder.  Supports all ~148 sugar
+  codes in sugar_codes.yml across pyranose/furanose ring forms and alpha/beta
+  anomeric configurations.  Uses fixed ring traversal order with position-based
+  chirality mapping (Fischer R/L to SMILES @/@@) derived from the existing
+  Haworth spec up/down labels.  Handles aldoses and ketoses including tetroses
+  through heptoses with 1-3 carbon exocyclic chains, plus modified sugars
+  (deoxy, amino, N-acetyl, fluoro, phosphate, carboxyl) in
+  [packages/oasa/oasa/sugar_code_smiles.py](packages/oasa/oasa/sugar_code_smiles.py).
+  Tests expanded from 6 to 446 in
+  [tests/test_sugar_code_smiles.py](tests/test_sugar_code_smiles.py).
+- Implement Phase 7: create smiles_to_sugar_code() reverse converter with
+  two-tier approach.  Tier 1 builds a lookup table at module load from all
+  sugar_codes.yml entries via Phase 6 sugar_code_to_smiles().  Tier 2 parses
+  the SMILES into a molecule, finds sugar-like rings, and tries candidate
+  matches.  New module
+  [packages/oasa/oasa/smiles_to_sugar_code.py](packages/oasa/oasa/smiles_to_sugar_code.py)
+  with SugarCodeResult dataclass and SugarCodeError exception.  All standard
+  sugar codes round-trip perfectly (sugar code -> SMILES -> sugar code).
+  447 tests in
+  [tests/test_smiles_to_sugar_code.py](tests/test_smiles_to_sugar_code.py).
+  Registered in
+  [packages/oasa/oasa/__init__.py](packages/oasa/oasa/__init__.py).
+- Widen HOH2C solid connector gap using standard OASA geometry.  The CH2OH arm
+  in `_add_furanose_two_carbon_tail_ops()` used a custom
+  `_align_text_origin_to_endpoint_target_centroid()` step and
+  `direction_policy="line"` that differed from the standard `_add_chain_ops`
+  path.  Remove the custom alignment, switch to `direction_policy="auto"` with
+  `attach_site="core_center"`, and add round-cap compensation
+  (`connector_width * 0.5`) to `target_gap` so the visual gap after the round
+  cap extends is at least `ATTACH_GAP_TARGET`.  Affects furanose sugars with
+  two-carbon tails in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
+- Extend down-direction furanose two-carbon tail connectors to match up-direction
+  lengths.  Down-direction tails (e.g., ARRLDM furanose beta, ALRLDM furanose
+  alpha) had very short HO and HOH2C branch arms because no oxygen clearance
+  extension was applied for `direction == "down"`.  Add the same minimum
+  effective_length formula used by up-direction tails inside the two-carbon-tail
+  block in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py),
+  giving symmetric trunk lengths for both directions.
+- Fix hatched connector overlap with CH2OH text in furanose two-carbon tails.
+  Hatch strokes near the label end were incorrectly allowed through the
+  forbidden-region filter because `allowed_regions` (the attach-point carve-out
+  for the invisible carrier line) overrode the text bounding-box exclusion.
+  Remove `allowed_regions` from hatch stroke legality checks in
+  `_append_branch_connector_ops()` in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py)
+  so individual hatch marks always stop before the label text.  Affects
+  furanose sugars with hatched CH2OH branch (up direction: ALLRDM, ALRRDM,
+  ARLRDM, etc.) and hatched HO branch (down direction: ARRLDM, etc.).
+- Close and archive Haworth schematic renderer implementation plan (attempt 2).
+  Core phases 1-5c complete. Deferred SMILES conversion phases (6, 7) and
+  stretch goals (6b) to [docs/TODO_CODE.md](docs/TODO_CODE.md). Move plan to
+  [docs/archive/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md](docs/archive/HAWORTH_IMPLEMENTATION_PLAN_attempt2.md).
+  Fix stale [docs/ROADMAP.md](docs/ROADMAP.md) references to archived plans.
 - Add ring oxygen gap measurement via virtual connector lines.  Haworth sugar
   SVGs render ring edges as filled `<polygon>` elements, not `<line>` elements,
   so the ring oxygen "O" label had no nearby line endpoint and got
