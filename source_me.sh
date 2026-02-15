@@ -7,6 +7,12 @@
 # Usage:
 #   source source_me.sh
 #   . source_me.sh
+set | grep -q '^BASH_VERSION=' || echo "use bash for your shell"
+set | grep -q '^BASH_VERSION=' || exit 1
+
+# Set Python environment optimizations
+export PYTHONUNBUFFERED=1
+export PYTHONDONTWRITEBYTECODE=1
 
 source $HOME/.bashrc
 
@@ -18,10 +24,6 @@ export PYTHONPATH="${REPO_ROOT}/packages/oasa:${REPO_ROOT}/packages/bkchem:${PYT
 
 # Use Python 3.12 (per AGENTS.md)
 export PYTHON="/opt/homebrew/opt/python@3.12/bin/python3.12"
-
-# Avoid .pyc files and enable unbuffered output
-export PYTHONDONTWRITEBYTECODE=1
-export PYTHONUNBUFFERED=1
 
 echo "Environment configured:"
 echo "  REPO_ROOT=${REPO_ROOT}"
