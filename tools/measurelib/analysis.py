@@ -36,6 +36,7 @@ from measurelib.svg_parse import (
 from measurelib.glyph_model import (
 	all_endpoints_near_glyph_primitives,
 	all_endpoints_near_text_path,
+	label_geometry_text,
 	label_svg_estimated_box,
 	label_svg_estimated_primitives,
 	label_text_path,
@@ -61,6 +62,51 @@ from measurelib.violations import (
 	count_lattice_angle_violations,
 )
 from measurelib.diagnostic_svg import write_diagnostic_svg as do_write_diagnostic_svg
+
+
+#============================================
+def _select_key_letter(alpha_chars: list, position: str) -> str | None:
+	"""Select key letter for bond alignment from displayed text alpha characters.
+
+	KEY LETTER SELECTION HEURISTIC (do not change without understanding):
+	- H is ONLY selected when it is the sole character in the label.
+	  When the label has multiple characters, H is NEVER a valid key letter.
+	- For multi-character labels, search from the specified end inward
+	  until a non-H alphabetic character is found.
+	- This prevents selecting terminal hydrogens (e.g., H in CH2OH or HOH2C)
+	  as alignment targets when the actual connecting atom (C, O, N, S) is
+	  the correct bond endpoint.
+	- Key letters come from the START or END of the DISPLAYED text,
+	  not from the canonical/normalized form.
+
+	See also: is_measurement_label() in measurelib/glyph_model.py for the
+	related but distinct label filtering heuristic.
+
+	Args:
+		alpha_chars: alphabetic characters extracted from DISPLAYED label text.
+		position: "first" to search from start, "last" to search from end.
+
+	Returns:
+		uppercase key letter, or None if no valid character found.
+	"""
+	if not alpha_chars:
+		return None
+	# single-character label: always return that char (even if H)
+	if len(alpha_chars) == 1:
+		return alpha_chars[0].upper()
+	# multi-character label: skip H, search inward from specified end
+	if position == "last":
+		for ch in reversed(alpha_chars):
+			if ch.upper() != "H":
+				return ch.upper()
+	else:
+		for ch in alpha_chars:
+			if ch.upper() != "H":
+				return ch.upper()
+	# fallback: all chars are H (shouldn't happen in chemistry)
+	if position == "last":
+		return alpha_chars[-1].upper()
+	return alpha_chars[0].upper()
 
 
 #============================================
@@ -192,15 +238,14 @@ def analyze_svg_file(
 	for label_index in measurement_label_indexes:
 		label = labels[label_index]
 		independent_primitives = label.get("svg_estimated_primitives", [])
-		# Determine alignment character from first/last letter of label
-		canonical_text = str(label.get("canonical_text", label.get("text", "")))
-		alpha_chars = [ch for ch in canonical_text if ch.isalpha()]
-		alignment_center_char = None
-		if len(alpha_chars) == 1:
-			alignment_center_char = alpha_chars[0].upper()
-		elif len(alpha_chars) > 1:
-			# default to first letter; refine after endpoint found
-			alignment_center_char = alpha_chars[0].upper()
+		# Determine alignment character from first/last letter of label.
+		# Use DISPLAYED text order for positional key letter selection.
+		# Canonical text (e.g., "CH2OH") reverses the displayed order
+		# (e.g., "HOH2C"), which breaks first/last character heuristics.
+		displayed_text = label_geometry_text(label)
+		alpha_chars = [ch for ch in displayed_text if ch.isalpha()]
+		# default to first non-H letter; refine after endpoint found
+		alignment_center_char = _select_key_letter(alpha_chars, "first")
 		if alignment_center_char is None and independent_primitives:
 			first = min(independent_primitives, key=lambda p: int(p.get("char_index", 10**9)))
 			alignment_center_char = str(first.get("char", "")) or None
@@ -247,9 +292,9 @@ def analyze_svg_file(
 				label_cx = float(label["x"])
 			ep_x = float(independent_endpoint[0])
 			if ep_x > label_cx:
-				alignment_center_char = alpha_chars[-1].upper()
+				alignment_center_char = _select_key_letter(alpha_chars, "last")
 			else:
-				alignment_center_char = alpha_chars[0].upper()
+				alignment_center_char = _select_key_letter(alpha_chars, "first")
 			# re-find alignment center point from primitives for refined char
 			alignment_center = None
 			for p in sorted(independent_primitives, key=lambda p: int(p.get("char_index", 10**9))):
@@ -381,9 +426,9 @@ def analyze_svg_file(
 			# determine alignment center for this side
 			if len(alpha_chars) > 1:
 				if side == "right":
-					side_align_char = alpha_chars[-1].upper()
+					side_align_char = _select_key_letter(alpha_chars, "last")
 				else:
-					side_align_char = alpha_chars[0].upper()
+					side_align_char = _select_key_letter(alpha_chars, "first")
 			else:
 				side_align_char = alignment_center_char
 			# find alignment center from primitives for this connector's side

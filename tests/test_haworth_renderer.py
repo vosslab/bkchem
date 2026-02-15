@@ -623,8 +623,9 @@ def _assert_connector_endpoint_on_attach_element(
 		chain_attach_site="core_center",
 		font_name=label.font_name,
 	)
-	# epsilon must accommodate ATTACH_GAP_TARGET (1.5 px) plus tolerance
-	gap_epsilon = render_geometry.ATTACH_GAP_TARGET + 0.5
+	# epsilon must accommodate ATTACH_GAP_TARGET retreat from endpoint
+	# plus additional retreat to maintain gap from full label text
+	gap_epsilon = render_geometry.ATTACH_GAP_TARGET * 2.0
 	assert render_geometry._point_in_attach_target_closed(connector.p2, contract.endpoint_target, epsilon=gap_epsilon), (
 		f"{connector_id} endpoint {connector.p2} not inside {label_id} "
 		f"{attach_element}-target {contract.endpoint_target} (epsilon={gap_epsilon})"

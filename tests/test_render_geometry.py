@@ -179,6 +179,35 @@ def test_retreat_gap_degenerate_zero_length():
 
 
 #============================================
+def test_retreat_gap_diagonal_approach_converges():
+	# bond approaches a box corner at ~45 degrees; single-pass retreat
+	# under-corrects because retreat distance != perpendicular gap.
+	# The iterative loop should converge to the target gap.
+	# box from (10, 10) to (20, 20), bond from (0, 0) toward (10, 10)
+	box = render_geometry.make_box_target((10.0, 10.0, 20.0, 20.0))
+	target_gap = 3.0
+	# start endpoint just outside the box corner at 45 degrees
+	# distance from (9, 9) to box corner (10,10) = sqrt(2) ~ 1.414
+	start = (0.0, 0.0)
+	endpoint = (9.0, 9.0)
+	result = render_geometry._retreat_to_target_gap(
+		start, endpoint, target_gap, [box],
+	)
+	# verify the achieved gap meets the target
+	achieved_gap = render_geometry._min_distance_point_to_target_boundary(
+		result, box,
+	)
+	assert achieved_gap >= target_gap - 0.01, (
+		f"achieved gap {achieved_gap:.4f} should be >= target {target_gap} - 0.01"
+	)
+	# verify endpoint stayed on the 45-degree line (x == y)
+	assert result[0] == pytest.approx(result[1], abs=1e-6)
+	# verify endpoint moved toward start
+	assert result[0] < 9.0, "endpoint should have retreated"
+	assert result[0] > 0.0, "endpoint should not retreat past start"
+
+
+#============================================
 # _correct_endpoint_for_alignment tests
 #============================================
 

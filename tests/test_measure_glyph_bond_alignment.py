@@ -186,15 +186,16 @@ def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	"""Line aimed at primitive centerline should produce small alignment error."""
 	tool_module = _load_tool_module()
 	svg_path = tmp_path / "missed.svg"
-	# Bond approaches from the right, so the connecting atom is H (last letter).
-	# Use H primitive center y-coordinate for alignment.
+	# Bond approaches from the right of "OH", so the key letter is O
+	# (H is never a valid key letter in multi-character labels).
+	# Use O primitive center y-coordinate for alignment.
 	# Note: the optical pipeline may shift the center slightly.
 	primitives = tool_module._label_svg_estimated_primitives({
 		"text": "OH", "text_display": "OH", "text_raw": "OH",
 		"x": 40.0, "y": 50.0, "anchor": "start", "font_size": 12.0,
 		"font_name": "sans-serif"})
-	h_prim = [p for p in primitives if p.get("char", "").upper() == "H"][0]
-	center_y = tool_module._primitive_center(h_prim)[1]
+	o_prim = [p for p in primitives if p.get("char", "").upper() == "O"][0]
+	center_y = tool_module._primitive_center(o_prim)[1]
 	box = tool_module._label_svg_estimated_box({
 		"text": "OH", "text_display": "OH", "text_raw": "OH",
 		"x": 40.0, "y": 50.0, "anchor": "start", "font_size": 12.0,
@@ -214,7 +215,7 @@ def test_analyze_svg_file_detects_collinear_line_as_aligned(tmp_path):
 	assert report["labels_analyzed"] == 1
 	assert report["no_connector_count"] == 0
 	label = report["labels"][0]
-	assert label["alignment_center_char"] == "H"
+	assert label["alignment_center_char"] == "O"
 	perp = float(label["endpoint_perpendicular_distance_to_alignment_center"])
 	gap = float(label["endpoint_signed_distance_to_glyph_body"])
 	g = (gap - render_geometry.ATTACH_GAP_TARGET) / (render_geometry.ATTACH_GAP_MAX - render_geometry.ATTACH_GAP_TARGET)
@@ -774,6 +775,77 @@ def test_multi_connector_all_must_align(tmp_path):
 		right_connectors = [c for c in connectors if c["side"] == "right"]
 		if right_connectors and not right_connectors[0]["aligned"]:
 			assert label["aligned"] is False
+
+
+#============================================
+def test_key_letter_never_selects_h_from_multichar_label(tmp_path):
+	"""Key letter selection must skip H in multi-character labels."""
+	tool_module = _load_tool_module()
+	# "HOH2C" displayed text with bond from right -> key letter should be "C"
+	svg_path = tmp_path / "hoh2c_right.svg"
+	primitives = tool_module._label_svg_estimated_primitives({
+		"text": "HOH2C", "text_display": "HOH2C", "text_raw": "HOH2C",
+		"x": 30.0, "y": 40.0, "anchor": "start", "font_size": 12.0,
+		"font_name": "sans-serif"})
+	c_prim = [p for p in primitives if p.get("char", "").upper() == "C"][0]
+	c_center = tool_module._primitive_center(c_prim)
+	box = tool_module._label_svg_estimated_box({
+		"text": "HOH2C", "text_display": "HOH2C", "text_raw": "HOH2C",
+		"x": 30.0, "y": 40.0, "anchor": "start", "font_size": 12.0,
+		"font_name": "sans-serif"})
+	x_right = box[2] + 8.0
+	_write_svg(
+		path=svg_path,
+		text="HOH2C",
+		text_x=30.0,
+		text_y=40.0,
+		x1=x_right,
+		y1=c_center[1],
+		x2=x_right + 14.0,
+		y2=c_center[1],
+	)
+	report = tool_module.analyze_svg_file(svg_path, render_geometry)
+	assert report["labels_analyzed"] == 1
+	label = report["labels"][0]
+	assert label["alignment_center_char"] == "C"
+	# "H" alone with bond from left -> key letter should be "H"
+	svg_path2 = tmp_path / "h_alone.svg"
+	_write_svg(
+		path=svg_path2,
+		text="H",
+		text_x=50.0,
+		text_y=40.0,
+		x1=30.0,
+		y1=40.0,
+		x2=46.0,
+		y2=40.0,
+	)
+	report2 = tool_module.analyze_svg_file(svg_path2, render_geometry)
+	assert report2["labels_analyzed"] == 1
+	label2 = report2["labels"][0]
+	assert label2["alignment_center_char"] == "H"
+	# "OH" with bond from left -> key letter should be "O" (skip H)
+	svg_path3 = tmp_path / "oh_left.svg"
+	o_prims = tool_module._label_svg_estimated_primitives({
+		"text": "OH", "text_display": "OH", "text_raw": "OH",
+		"x": 50.0, "y": 40.0, "anchor": "start", "font_size": 12.0,
+		"font_name": "sans-serif"})
+	o_prim = [p for p in o_prims if p.get("char", "").upper() == "O"][0]
+	o_center = tool_module._primitive_center(o_prim)
+	_write_svg(
+		path=svg_path3,
+		text="OH",
+		text_x=50.0,
+		text_y=40.0,
+		x1=30.0,
+		y1=o_center[1],
+		x2=46.0,
+		y2=o_center[1],
+	)
+	report3 = tool_module.analyze_svg_file(svg_path3, render_geometry)
+	assert report3["labels_analyzed"] == 1
+	label3 = report3["labels"][0]
+	assert label3["alignment_center_char"] == "O"
 
 
 #============================================

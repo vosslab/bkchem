@@ -29,6 +29,11 @@ except Exception:
 
 
 #============================================
+# NOTE: is_measurement_label() decides WHICH labels get measured.
+# The separate _select_key_letter() in analysis.py decides WHICH CHARACTER
+# within a measured label is the bond alignment target.  Both skip standalone
+# H differently: this function allows H-only labels; _select_key_letter()
+# skips H in multi-character labels.  Change one, review the other.
 def is_measurement_label(visible_text: str) -> bool:
 	"""Return True for labels expected to own a bond connector endpoint."""
 	text = str(visible_text or "")

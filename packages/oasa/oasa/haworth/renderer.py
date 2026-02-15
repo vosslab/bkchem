@@ -1584,12 +1584,15 @@ def _append_branch_connector_ops(
 		# allowed_regions here.  The allowed carve-out exists for
 		# the invisible carrier line to reach the attach point;
 		# individual hatch marks must stop before the text.
+		# Use epsilon=0 so any hatch touching the glyph box is rejected.
+		# STRICT_OVERLAP_EPSILON (0.5) shrinks the box and is too forgiving
+		# for hatches which have no retreat step unlike solid connectors.
 		return _render_geometry.validate_attachment_paint(
 			line_start=hatch_line.p1,
 			line_end=hatch_line.p2,
 			line_width=hatch_line.width,
 			forbidden_regions=forbidden_regions,
-			epsilon=STRICT_OVERLAP_EPSILON,
+			epsilon=0.0,
 		)
 	if forbidden_regions:
 		kept = [line for line in kept if _is_hatch_legal(line)]

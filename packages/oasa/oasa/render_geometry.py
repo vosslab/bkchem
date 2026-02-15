@@ -1714,6 +1714,22 @@ def resolve_label_connector_endpoint_from_text_origin(
 			target_gap=constraints.target_gap,
 			forbidden_regions=[contract.endpoint_target],
 		)
+		# After retreating from the endpoint atom, the bond may still be
+		# too close to the full label box (e.g. the bond over "HOH2C"
+		# clears the C glyph but passes above the "2" subscript).
+		# Apply a minimum gap from the full label using the base gap
+		# constant, not the (possibly larger) connector-specific target.
+		full_text_min_gap = ATTACH_GAP_TARGET
+		full_gap = _min_distance_point_to_target_boundary(
+			endpoint, contract.full_target,
+		)
+		if full_gap < full_text_min_gap:
+			endpoint = _retreat_to_target_gap(
+				line_start=bond_start,
+				legal_endpoint=endpoint,
+				target_gap=full_text_min_gap,
+				forbidden_regions=[contract.full_target],
+			)
 	return endpoint, contract
 
 
@@ -2560,14 +2576,13 @@ def _min_distance_point_to_target_boundary(point, target):
 
 #============================================
 def _retreat_to_target_gap(line_start, legal_endpoint, target_gap, forbidden_regions):
-	"""Retreat legal_endpoint further toward line_start to achieve target_gap."""
+	"""Retreat legal_endpoint further toward line_start to achieve target_gap.
+
+	Iterates up to 4 times to handle diagonal approach angles where
+	retreating along the bond axis produces less perpendicular gap than
+	the retreat distance.  Converges in 2-3 iterations for typical cases.
+	"""
 	if target_gap <= 0.0:
-		return legal_endpoint
-	current_gap = min(
-		_min_distance_point_to_target_boundary(legal_endpoint, region)
-		for region in forbidden_regions
-	) if forbidden_regions else 0.0
-	if current_gap >= target_gap:
 		return legal_endpoint
 	sx, sy = line_start
 	ex, ey = legal_endpoint
@@ -2576,14 +2591,28 @@ def _retreat_to_target_gap(line_start, legal_endpoint, target_gap, forbidden_reg
 	length = math.hypot(dx, dy)
 	if length <= 1e-12:
 		return legal_endpoint
-	needed = target_gap - current_gap
-	retreat_fraction = needed / length
-	if retreat_fraction >= 1.0:
-		return line_start
-	return (
-		ex - (dx * retreat_fraction),
-		ey - (dy * retreat_fraction),
-	)
+	if not forbidden_regions:
+		# no geometry to re-measure against; single retreat by target_gap
+		retreat_fraction = target_gap / length
+		if retreat_fraction >= 1.0:
+			return line_start
+		return (ex - (dx * retreat_fraction), ey - (dy * retreat_fraction))
+	# iterate: re-measure gap after each retreat to handle diagonal approach
+	# angles where retreat distance != gap distance
+	for _ in range(4):
+		current_gap = min(
+			_min_distance_point_to_target_boundary((ex, ey), region)
+			for region in forbidden_regions
+		)
+		if current_gap >= target_gap:
+			break
+		needed = target_gap - current_gap
+		retreat_fraction = needed / length
+		if retreat_fraction >= 1.0:
+			return line_start
+		ex = ex - (dx * retreat_fraction)
+		ey = ey - (dy * retreat_fraction)
+	return (ex, ey)
 
 
 #============================================

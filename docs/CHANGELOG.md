@@ -1,6 +1,40 @@
 # Changelog
 
 ## 2026-02-15
+- Fix bond line overlapping C glyph in HOH2C connector on two-carbon down
+  tails.  Two changes in
+  [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
+  (1) make `_retreat_to_target_gap()` iterative (up to 4 iterations) so
+  diagonal approach angles converge to the correct gap instead of
+  under-retreating on a single pass; (2) add a second retreat pass against
+  the full label text box after the endpoint-atom retreat, using
+  `ATTACH_GAP_TARGET` as the minimum gap, so the bond clears non-attach
+  characters (like the subscript "2") that are closer than the target atom.
+  Add diagonal convergence test in
+  [tests/test_render_geometry.py](tests/test_render_geometry.py).  Update
+  attach-element epsilon in
+  [tests/test_haworth_renderer.py](tests/test_haworth_renderer.py) to
+  accommodate the additional full-label retreat.
+- Fix key letter selection in glyph bond alignment measurement.  The character
+  selection heuristic used canonical text ("CH2OH") instead of displayed text
+  ("HOH2C") and did not skip terminal H in multi-character labels, causing the
+  measurement tool to pick "H" at the far left of "HOH2C" instead of "C" at
+  the bond endpoint on the right.  Add `_select_key_letter()` helper in
+  [tools/measurelib/analysis.py](tools/measurelib/analysis.py) that searches
+  inward from the specified end, skipping H for multi-character labels.  Switch
+  alpha_chars extraction from canonical to displayed text via
+  `label_geometry_text()`.  Add cross-reference comment in
+  [tools/measurelib/glyph_model.py](tools/measurelib/glyph_model.py) linking
+  `is_measurement_label()` to the key letter heuristic.  Update and add tests
+  in
+  [tests/test_measure_glyph_bond_alignment.py](tests/test_measure_glyph_bond_alignment.py).
+- Fix hatch strokes touching glyph letters by using `epsilon=0.0` for hatch
+  filtering in `validate_attachment_paint()`.  The previous `STRICT_OVERLAP_EPSILON`
+  (0.5) shrank the forbidden box, allowing hatches up to 0.5 px inside the glyph
+  boundary.  Solid connectors avoid this via an additional retreat step that
+  hatches lack, so hatches need exact boundary enforcement.  Fix in
+  `_append_branch_connector_ops()` in
+  [packages/oasa/oasa/haworth/renderer.py](packages/oasa/oasa/haworth/renderer.py).
 - Trim hatched bond carrier line endpoint to last surviving hatch stroke in
   Haworth renderer.  When forbidden-region filtering removes hatch strokes
   near a label, the invisible carrier line no longer extends past the last
