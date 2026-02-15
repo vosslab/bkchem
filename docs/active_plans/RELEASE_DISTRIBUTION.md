@@ -23,7 +23,7 @@ Planned approach:
 -  - Linux: Flatpak (or similar)
 -  - Windows: installer built from `packages/bkchem/bkchem.iss`
 - Develop automated tooling to build:
-  - macOS `bkchem.dmg`
+  - macOS `bkchem.dmg` -- built by [devel/build_macos_dmg.py](../../devel/build_macos_dmg.py)
   - Windows installer
   - Linux Flatpak
 

@@ -4,6 +4,7 @@ packaging  # version parsing/comparison helpers used by tooling/tests
 pdfplumber
 pillow
 pyflakes  # static analysis lint checks
+pyinstaller  # macOS/Windows app bundling for BKChem GUI
 pytest  # automated test runner
 reportlab
 rich  # formatted terminal output in developer tools

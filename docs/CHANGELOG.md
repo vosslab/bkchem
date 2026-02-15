@@ -1,6 +1,19 @@
 # Changelog
 
 ## 2026-02-15
+- Add macOS DMG build script
+  [devel/build_macos_dmg.py](devel/build_macos_dmg.py) that produces a
+  self-contained `BKChem.app` bundle via PyInstaller and wraps it in a
+  `BKChem-VERSION.dmg` disk image.  Generates `.icns` icon from
+  `bkchem.svg` via `rsvg-convert` + `iconutil`.  Bundles embedded Python
+  3.12, Tcl/Tk, pycairo, Pmw, oasa, bkchem_data, oasa_data, and addons.
+  Patches `Info.plist` with version, bundle ID, Retina support, and
+  `.cdml` file association.  Post-build verification checks executable,
+  data dirs, Tcl/Tk, and libcairo presence.  Add `pyinstaller` to
+  [pip_requirements-dev.txt](pip_requirements-dev.txt) and `librsvg` to
+  [Brewfile](Brewfile).  Update
+  [docs/active_plans/RELEASE_DISTRIBUTION.md](docs/active_plans/RELEASE_DISTRIBUTION.md)
+  to reference the new script.
 - Fix bond line overlapping C glyph in HOH2C connector on two-carbon down
   tails.  Two changes in
   [packages/oasa/oasa/render_geometry.py](packages/oasa/oasa/render_geometry.py):
