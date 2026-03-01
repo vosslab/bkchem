@@ -61,6 +61,14 @@ class TemplateMode(bkchem_qt.modes.base_mode.BaseMode):
 		except (ImportError, AttributeError):
 			_log.warning("Could not load OASA known_groups for templates")
 			self._template_names = []
+		# populate submode data so the SubModeRibbon can render choices
+		if self._template_names:
+			self.submodes = [list(self._template_names)]
+			self.submodes_names = [list(self._template_names)]
+			self.submode = [0]
+			self.group_labels = ["Templates"]
+			self.group_layouts = ["grid"]
+			self._current_template = self._template_names[0]
 
 	#============================================
 	def set_template(self, name: str) -> None:
@@ -74,6 +82,17 @@ class TemplateMode(bkchem_qt.modes.base_mode.BaseMode):
 			self.status_message.emit(f"Template: {name}")
 		else:
 			_log.warning("Unknown template name: %s", name)
+
+	#============================================
+	def on_submode_switch(self, submode_index: int, name: str) -> None:
+		"""Handle submode switch by selecting the named template.
+
+		Args:
+			submode_index: Group index (always 0 for templates).
+			name: Template name selected.
+		"""
+		if submode_index == 0:
+			self.set_template(name)
 
 	#============================================
 	@property

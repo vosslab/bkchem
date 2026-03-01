@@ -171,7 +171,11 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 		# dispatch to active mode
 		if self._mode_manager is not None:
 			scene_pos = self.mapToScene(event.position().toPoint())
-			self._mode_manager.mouse_press(scene_pos, event)
+			# right-click dispatches through mouse_press3 (Tk parity)
+			if event.button() == PySide6.QtCore.Qt.MouseButton.RightButton:
+				self._mode_manager.mouse_press3(scene_pos, event)
+			else:
+				self._mode_manager.mouse_press(scene_pos, event)
 		super().mousePressEvent(event)
 
 	#============================================
@@ -265,6 +269,79 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 		"""Reset the view transform to identity (100% zoom)."""
 		self.resetTransform()
 		self._zoom_percent = 100.0
+		self.zoom_changed.emit(self._zoom_percent)
+
+	#============================================
+	def zoom_in(self) -> None:
+		"""Zoom in by one notch, clamped to maximum."""
+		factor = ZOOM_FACTOR_PER_NOTCH
+		proposed = self._zoom_percent * factor
+		if proposed > ZOOM_MAX_PERCENT:
+			factor = ZOOM_MAX_PERCENT / self._zoom_percent
+		self._zoom_percent *= factor
+		self.scale(factor, factor)
+		self.zoom_changed.emit(self._zoom_percent)
+
+	#============================================
+	def zoom_out(self) -> None:
+		"""Zoom out by one notch, clamped to minimum."""
+		factor = 1.0 / ZOOM_FACTOR_PER_NOTCH
+		proposed = self._zoom_percent * factor
+		if proposed < ZOOM_MIN_PERCENT:
+			factor = ZOOM_MIN_PERCENT / self._zoom_percent
+		self._zoom_percent *= factor
+		self.scale(factor, factor)
+		self.zoom_changed.emit(self._zoom_percent)
+
+	#============================================
+	def set_zoom_percent(self, percent: float) -> None:
+		"""Set zoom to an exact percentage value.
+
+		Args:
+			percent: Target zoom percentage (e.g. 200 for 200%).
+		"""
+		percent = max(ZOOM_MIN_PERCENT, min(percent, ZOOM_MAX_PERCENT))
+		self.resetTransform()
+		scale_factor = percent / 100.0
+		self.scale(scale_factor, scale_factor)
+		self._zoom_percent = percent
+		self.zoom_changed.emit(self._zoom_percent)
+
+	#============================================
+	def zoom_to_fit(self) -> None:
+		"""Zoom and pan to fit the paper rectangle in the viewport."""
+		scene = self.scene()
+		if scene is None:
+			return
+		paper = scene.paper_rect
+		self.fitInView(
+			paper,
+			PySide6.QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+		)
+		# derive zoom percent from the resulting transform
+		t = self.transform()
+		self._zoom_percent = t.m11() * 100.0
+		self.zoom_changed.emit(self._zoom_percent)
+
+	#============================================
+	def zoom_to_content(self) -> None:
+		"""Zoom and pan to fit all scene content with a small margin."""
+		scene = self.scene()
+		if scene is None:
+			return
+		content_rect = scene.itemsBoundingRect()
+		if content_rect.isEmpty():
+			return
+		# add a 10% margin around content
+		margin = max(content_rect.width(), content_rect.height()) * 0.1
+		content_rect.adjust(-margin, -margin, margin, margin)
+		self.fitInView(
+			content_rect,
+			PySide6.QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+		)
+		# derive zoom percent from the resulting transform
+		t = self.transform()
+		self._zoom_percent = t.m11() * 100.0
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================

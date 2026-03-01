@@ -142,6 +142,8 @@ class AtomModel(PySide6.QtCore.QObject):
 	@x.setter
 	def x(self, value: float):
 		self._x = float(value)
+		# sync to OASA atom so render ops see correct coordinates
+		self._chem_atom.x = self._x
 		self.property_changed.emit("x", self._x)
 
 	#============================================
@@ -154,6 +156,8 @@ class AtomModel(PySide6.QtCore.QObject):
 	@y.setter
 	def y(self, value: float):
 		self._y = float(value)
+		# sync to OASA atom so render ops see correct coordinates
+		self._chem_atom.y = self._y
 		self.property_changed.emit("y", self._y)
 
 	#============================================
@@ -166,6 +170,8 @@ class AtomModel(PySide6.QtCore.QObject):
 	@z.setter
 	def z(self, value: float):
 		self._z = float(value)
+		# sync to OASA atom so render ops see correct coordinates
+		self._chem_atom.z = self._z
 		self.property_changed.emit("z", self._z)
 
 	# ------------------------------------------------------------------
@@ -245,6 +251,10 @@ class AtomModel(PySide6.QtCore.QObject):
 		self._x = float(x)
 		self._y = float(y)
 		self._z = float(z)
+		# sync to OASA atom so render ops see correct coordinates
+		self._chem_atom.x = self._x
+		self._chem_atom.y = self._y
+		self._chem_atom.z = self._z
 		self.property_changed.emit("x", self._x)
 		self.property_changed.emit("y", self._y)
 		self.property_changed.emit("z", self._z)

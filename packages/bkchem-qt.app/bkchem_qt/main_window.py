@@ -12,11 +12,11 @@ import PySide6.QtWidgets
 # local repo modules
 import bkchem_qt.canvas.scene
 import bkchem_qt.canvas.view
-from bkchem_qt.canvas.view import ZOOM_FACTOR_PER_NOTCH
 import bkchem_qt.config.preferences
 import bkchem_qt.widgets.status_bar
 import bkchem_qt.widgets.mode_toolbar
 import bkchem_qt.widgets.edit_ribbon
+import bkchem_qt.widgets.zoom_controls
 import bkchem_qt.widgets.submode_ribbon
 import bkchem_qt.widgets.icon_loader
 import bkchem_qt.modes.config
@@ -38,6 +38,7 @@ import bkchem_qt.modes.file_actions_mode
 import bkchem_qt.actions.file_actions
 import bkchem_qt.actions.context_menu
 import bkchem_qt.io.cdml_io
+import bkchem_qt.bridge.oasa_bridge
 import bkchem_qt.dialogs.about_dialog
 import bkchem_qt.dialogs.preferences_dialog
 import bkchem_qt.dialogs.theme_chooser_dialog
@@ -113,6 +114,8 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self._view = bkchem_qt.canvas.view.ChemView(self._scene, parent=self)
 		# wire the document so modes can access undo stack and molecules
 		self._view.set_document(self._document)
+		# wire scene into document for selection query forwarding
+		self._document.set_scene(self._scene)
 
 		# set initial viewport background from YAML theme
 		surround = bkchem_qt.themes.theme_loader.get_canvas_surround(theme)
@@ -476,9 +479,12 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 
 	#============================================
 	def _setup_status_bar(self) -> None:
-		"""Create and install the status bar."""
+		"""Create and install the status bar with zoom controls."""
 		self._status_bar = bkchem_qt.widgets.status_bar.StatusBar(self)
 		self.setStatusBar(self._status_bar)
+		# add zoom controls as a permanent widget on the right
+		self._zoom_controls = bkchem_qt.widgets.zoom_controls.ZoomControls(self)
+		self._status_bar.addPermanentWidget(self._zoom_controls)
 
 	#============================================
 	def _connect_signals(self) -> None:
@@ -506,6 +512,31 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 
 		# theme changes -> icon refresh and menu text update
 		self._theme_manager.theme_changed.connect(self._on_theme_changed)
+
+		# zoom controls -> handler methods
+		self._zoom_controls.zoom_in_clicked.connect(self.on_zoom_in)
+		self._zoom_controls.zoom_out_clicked.connect(self.on_zoom_out)
+		self._zoom_controls.reset_zoom_clicked.connect(self.on_reset_zoom)
+		self._zoom_controls.zoom_to_fit_clicked.connect(self.on_zoom_to_fit)
+		self._zoom_controls.zoom_to_content_clicked.connect(
+			self.on_zoom_to_content
+		)
+		self._zoom_controls.zoom_slider_changed.connect(
+			lambda pct: self._view.set_zoom_percent(float(pct))
+		)
+		# view zoom -> zoom controls display
+		self._view.zoom_changed.connect(
+			self._zoom_controls.update_zoom_display
+		)
+
+		# selection and undo changes -> update menu enabled states
+		self._document.selection_changed.connect(self._update_menu_predicates)
+		self._document.undo_stack.canUndoChanged.connect(
+			lambda _: self._update_menu_predicates()
+		)
+		self._document.undo_stack.canRedoChanged.connect(
+			lambda _: self._update_menu_predicates()
+		)
 
 		# trigger initial mode visibility (submode ribbon + edit ribbon)
 		self._on_mode_changed("edit")
@@ -541,38 +572,186 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 
 	#============================================
 	def on_cut(self) -> None:
-		"""Cut: not yet implemented."""
-		self.statusBar().showMessage(self.tr("Cut: not yet implemented"), 3000)
+		"""Cut selected items: copy to clipboard then delete."""
+		if not self._document.has_selection:
+			return
+		# copy first, then delete
+		self.on_copy()
+		self._delete_selected()
 
 	#============================================
 	def on_copy(self) -> None:
-		"""Copy: not yet implemented."""
-		self.statusBar().showMessage(self.tr("Copy: not yet implemented"), 3000)
+		"""Copy selected molecules to clipboard as CDML."""
+		mols = self._document.selected_mols
+		if not mols:
+			self.statusBar().showMessage(
+				self.tr("Nothing selected to copy"), 3000,
+			)
+			return
+		# serialize selected molecules to CDML XML string
+		cdml_text = self._selected_mols_to_cdml(mols)
+		if not cdml_text:
+			return
+		# place on clipboard with custom MIME and plain text fallback
+		clipboard = PySide6.QtWidgets.QApplication.clipboard()
+		mime_data = PySide6.QtCore.QMimeData()
+		mime_data.setData(
+			"application/x-bkchem-cdml",
+			PySide6.QtCore.QByteArray(cdml_text.encode("utf-8")),
+		)
+		mime_data.setText(cdml_text)
+		clipboard.setMimeData(mime_data)
+		self.statusBar().showMessage(
+			self.tr("Copied %d molecule(s)") % len(mols), 3000,
+		)
 
 	#============================================
 	def on_paste(self) -> None:
-		"""Paste: not yet implemented."""
-		self.statusBar().showMessage(self.tr("Paste: not yet implemented"), 3000)
+		"""Paste molecules from clipboard CDML data."""
+		clipboard = PySide6.QtWidgets.QApplication.clipboard()
+		mime_data = clipboard.mimeData()
+		cdml_text = None
+		# prefer custom MIME type
+		if mime_data.hasFormat("application/x-bkchem-cdml"):
+			raw = mime_data.data("application/x-bkchem-cdml")
+			cdml_text = bytes(raw).decode("utf-8")
+		elif mime_data.hasText():
+			# try plain text as CDML fallback
+			text = mime_data.text()
+			if "<cdml" in text or "<molecule" in text:
+				cdml_text = text
+		if not cdml_text:
+			self.statusBar().showMessage(
+				self.tr("No CDML data on clipboard"), 3000,
+			)
+			return
+		molecules = bkchem_qt.io.cdml_io.load_cdml_string(cdml_text)
+		if not molecules:
+			self.statusBar().showMessage(
+				self.tr("Could not parse clipboard data"), 3000,
+			)
+			return
+		# offset pasted molecules to avoid exact overlap
+		for mol_model in molecules:
+			for atom_model in mol_model.atoms:
+				atom_model.x = atom_model.x + 20.0
+				atom_model.y = atom_model.y + 20.0
+		bkchem_qt.actions.file_actions._add_molecules_to_scene(
+			self, molecules,
+		)
+		self.statusBar().showMessage(
+			self.tr("Pasted %d molecule(s)") % len(molecules), 3000,
+		)
+
+	#============================================
+	def on_select_all(self) -> None:
+		"""Select all interactive items in the scene."""
+		import bkchem_qt.canvas.items.atom_item
+		import bkchem_qt.canvas.items.bond_item
+		for item in self._scene.items():
+			if isinstance(item, bkchem_qt.canvas.items.atom_item.AtomItem):
+				item.setSelected(True)
+			elif isinstance(item, bkchem_qt.canvas.items.bond_item.BondItem):
+				item.setSelected(True)
+
+	#============================================
+	def _selected_mols_to_cdml(self, mols: list) -> str:
+		"""Serialize a list of MoleculeModels to CDML XML string.
+
+		Args:
+			mols: List of MoleculeModel instances to serialize.
+
+		Returns:
+			CDML XML string, or empty string on failure.
+		"""
+		import xml.dom.minidom as dom
+		import oasa.cdml_writer
+		from bkchem_qt.io.cdml_io import _px_to_cm_text
+
+		xml_doc = dom.Document()
+		cdml_el = xml_doc.createElement("cdml")
+		cdml_el.setAttribute(
+			"version", str(oasa.cdml_writer.DEFAULT_CDML_VERSION),
+		)
+		cdml_el.setAttribute(
+			"xmlns", str(oasa.cdml_writer.CDML_NAMESPACE),
+		)
+		for mol_model in mols:
+			oasa_mol = bkchem_qt.bridge.oasa_bridge.qt_mol_to_oasa_mol(
+				mol_model,
+			)
+			mol_el = oasa.cdml_writer.write_cdml_molecule_element(
+				oasa_mol, doc=xml_doc, coord_to_text=_px_to_cm_text,
+			)
+			cdml_el.appendChild(mol_el)
+		xml_doc.appendChild(cdml_el)
+		xml_text = xml_doc.toxml(encoding="utf-8").decode("utf-8")
+		return xml_text
+
+	#============================================
+	def _delete_selected(self) -> None:
+		"""Delete all selected atoms and bonds with undo support."""
+		import bkchem_qt.canvas.items.atom_item
+		import bkchem_qt.canvas.items.bond_item
+		import bkchem_qt.undo.commands
+		scene = self._scene
+		undo_stack = self._document.undo_stack
+		# begin undo macro for compound delete
+		undo_stack.beginMacro("Cut")
+		# delete selected bonds first
+		for bond_item in list(self._document.selected_bonds):
+			bond_model = bond_item.bond_model
+			mol = self._document._find_molecule_for_bond(bond_model)
+			if mol is not None:
+				cmd = bkchem_qt.undo.commands.RemoveBondCommand(
+					scene, mol, bond_model, bond_item,
+				)
+				undo_stack.push(cmd)
+		# delete selected atoms and their remaining connected bonds
+		for atom_item in list(self._document.selected_atoms):
+			atom_model = atom_item.atom_model
+			mol = self._document._find_molecule_for_atom(atom_model)
+			if mol is None:
+				continue
+			# find connected bond items still in scene
+			connected = []
+			for item in scene.items():
+				if isinstance(
+					item, bkchem_qt.canvas.items.bond_item.BondItem
+				):
+					bm = item.bond_model
+					if bm.atom1 is atom_model or bm.atom2 is atom_model:
+						connected.append((bm, item))
+			cmd = bkchem_qt.undo.commands.RemoveAtomCommand(
+				scene, mol, atom_model, atom_item, connected,
+			)
+			undo_stack.push(cmd)
+		undo_stack.endMacro()
 
 	#============================================
 	def on_zoom_in(self) -> None:
 		"""Zoom in on the canvas."""
-		self._view.scale(ZOOM_FACTOR_PER_NOTCH, ZOOM_FACTOR_PER_NOTCH)
-		self._view._zoom_percent *= ZOOM_FACTOR_PER_NOTCH
-		self._view.zoom_changed.emit(self._view._zoom_percent)
+		self._view.zoom_in()
 
 	#============================================
 	def on_zoom_out(self) -> None:
 		"""Zoom out on the canvas."""
-		factor = 1.0 / ZOOM_FACTOR_PER_NOTCH
-		self._view.scale(factor, factor)
-		self._view._zoom_percent *= factor
-		self._view.zoom_changed.emit(self._view._zoom_percent)
+		self._view.zoom_out()
 
 	#============================================
 	def on_reset_zoom(self) -> None:
 		"""Reset zoom to 100%."""
 		self._view.reset_zoom()
+
+	#============================================
+	def on_zoom_to_fit(self) -> None:
+		"""Zoom to fit the paper in the viewport."""
+		self._view.zoom_to_fit()
+
+	#============================================
+	def on_zoom_to_content(self) -> None:
+		"""Zoom to fit all drawn content."""
+		self._view.zoom_to_content()
 
 	#============================================
 	def on_toggle_grid(self) -> None:
@@ -585,6 +764,20 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 	# ------------------------------------------------------------------
 	# Mode and submode switching
 	# ------------------------------------------------------------------
+
+	#============================================
+	def _update_menu_predicates(self) -> None:
+		"""Re-evaluate enabled_when predicates on all menu actions.
+
+		Called when selection changes, undo/redo state changes, or
+		tab switches to keep menu items in sync with document state.
+		Guards against calls during shutdown when C++ objects are deleted.
+		"""
+		import shiboken6
+		if not shiboken6.isValid(self):
+			return
+		if hasattr(self, '_menu_builder') and self._menu_builder is not None:
+			self._menu_builder.update_menu_states(self)
 
 	#============================================
 	def _on_mode_changed(self, mode_name: str) -> None:
@@ -648,6 +841,15 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self._document = bkchem_qt.models.document.Document(self)
 		# re-wire so modes access the new document
 		self._view.set_document(self._document)
+		self._document.set_scene(self._scene)
+		# re-wire predicate signals for the new document
+		self._document.selection_changed.connect(self._update_menu_predicates)
+		self._document.undo_stack.canUndoChanged.connect(
+			lambda _: self._update_menu_predicates()
+		)
+		self._document.undo_stack.canRedoChanged.connect(
+			lambda _: self._update_menu_predicates()
+		)
 		self._tab_widget.setTabText(0, self.tr("Untitled"))
 
 	#============================================

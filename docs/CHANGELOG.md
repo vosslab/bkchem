@@ -1,8 +1,253 @@
 # Changelog
 
+## 2026-03-01
+
+### Additions and New Features
+
+- Completed full-app stub elimination: all 48 stub action handlers across 8
+  action files replaced with working implementations. Anti-stub gate test
+  `test_no_stubs.py` confirms zero stubs remain.
+
+- Implemented 5 file action handlers in
+  [`packages/bkchem-qt.app/bkchem_qt/actions/file_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/file_actions.py):
+  `file.save_as` (wired to existing `_on_save_as`), `file.close_tab` (wired to
+  `app.close`), `file.save_as_template` (CDML template save with QFileDialog),
+  `file.load_same_tab` (dirty guard, clear scene/document, fresh Document, then
+  open_file), `file.properties` (read-only dialog showing molecule/atom/bond
+  counts, paper size, file path, dirty state).
+
+- Implemented 5 edit action handlers:
+  `edit.select_all` (iterates scene items, selects all AtomItem/BondItem),
+  `edit.copy` (serializes selected molecules to CDML XML via oasa.cdml_writer,
+  places on clipboard as `application/x-bkchem-cdml` MIME with plain text
+  fallback), `edit.cut` (copy then delete with undo macro),
+  `edit.paste` (reads CDML from clipboard, parses with cdml_io.load_cdml_string,
+  offsets by 20px, adds to scene), `edit.selected_to_svg` (renders selection
+  to SVG via QSvgGenerator, places on clipboard as `image/svg+xml`).
+  Modified
+  [`packages/bkchem-qt.app/bkchem_qt/main_window.py`](packages/bkchem-qt.app/bkchem_qt/main_window.py)
+  (added on_cut, on_copy, on_paste, on_select_all, _selected_mols_to_cdml,
+  _delete_selected methods) and
+  [`packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py)
+  (added _selected_to_svg function, wired select_all handler).
+
+- Implemented all 6 repair action handlers in
+  [`packages/bkchem-qt.app/bkchem_qt/actions/repair_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/repair_actions.py):
+  `repair.clean_geometry` (full OASA coordinate regeneration via
+  `coords_generator.calculate_coords` with force=1, converts to OASA mol and
+  back, maps fresh coordinates to existing AtomModels with undo support),
+  `repair.normalize_bond_lengths` (uniform scaling from molecule centroid so
+  average bond length matches `DEFAULT_BOND_LENGTH_PX`),
+  `repair.snap_to_hex_grid` (snaps each atom to nearest hex grid point via
+  `scene.snap_to_grid()`), `repair.normalize_bond_angles` (snaps each bond
+  angle to nearest 30-degree multiple, processes higher-degree atoms first as
+  anchors), `repair.normalize_rings` (reshapes OASA-detected SSSR cycles to
+  regular polygons preserving centroid and orientation),
+  `repair.straighten_bonds` (snaps terminal bond angles to nearest 30-degree
+  direction). All actions use shared `_get_target_mols_and_items()` helper
+  (selected molecules if any, otherwise all), shared `_apply_moves_with_undo()`
+  for MoveAtomsCommand integration, and `has_molecules` predicate for
+  enabled_when.
+
+- Implemented 4 options menu action handlers in
+  [`packages/bkchem-qt.app/bkchem_qt/actions/options_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/options_actions.py):
+  `options.standard` (QDialog with QFormLayout for bond length, line width,
+  font size, font family with OK/Cancel persistence to Preferences),
+  `options.language` (QInputDialog language picker with restart notice),
+  `options.logging` (QInputDialog level picker with immediate Python
+  logging.setLevel application), `options.inchi_path` (QFileDialog with
+  exists/executable validation and confirmation). Added 7 new KEY constants
+  and DEFAULTS entries to
+  [`packages/bkchem-qt.app/bkchem_qt/config/preferences.py`](packages/bkchem-qt.app/bkchem_qt/config/preferences.py)
+  for the new preference keys.
+
+- Implemented 1 help menu action handler in
+  [`packages/bkchem-qt.app/bkchem_qt/actions/help_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/help_actions.py):
+  `help.keyboard_shortcuts` (modal QDialog with QTableWidget showing all
+  registered shortcuts from ActionRegistry, sorted by category, with
+  accelerator format conversion from `(C-S-x)` to `Ctrl+Shift+X`).
+
+- Implemented all 14 chemistry action handlers in
+  [`packages/bkchem-qt.app/bkchem_qt/actions/chemistry_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/chemistry_actions.py):
+  `chemistry.info` (molecule summary with formula, weight, atom/bond counts),
+  `chemistry.check` (valency violation detection), `chemistry.read_smiles` and
+  `chemistry.read_inchi` (parse via OASA, generate coords, add to scene),
+  `chemistry.gen_smiles` and `chemistry.gen_inchi` (export to clipboard with
+  dialog), `chemistry.set_name` and `chemistry.set_id` (undoable via
+  ChangePropertyCommand). Placeholder dialogs for `expand_groups`,
+  `oxidation_number`, `read_peptide`, `create_fragment`, `view_fragments`, and
+  `convert_to_linear`. All actions have appropriate predicates: import actions
+  always enabled, export/set actions require `one_mol_selected`, check/modify
+  actions require `has_selection`. Added `name` and `mol_id` properties to
+  [`packages/bkchem-qt.app/bkchem_qt/models/molecule_model.py`](packages/bkchem-qt.app/bkchem_qt/models/molecule_model.py)
+  with string getter/setter pairs for molecule metadata.
+
+- Implemented all 7 object action handlers in
+  [`packages/bkchem-qt.app/bkchem_qt/actions/object_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/object_actions.py):
+  `bring_to_front`, `send_back`, `swap_on_stack`, `vertical_mirror`,
+  `horizontal_mirror`, `scale`, and `configure`. Z-order actions
+  (`bring_to_front`, `send_back`, `swap_on_stack`) manipulate QGraphicsItem
+  z-values directly (presentation-only, no undo needed). Mirror and scale
+  actions compute position offsets relative to the selection centroid and push
+  MoveAtomsCommand for undo support. Scale uses the existing ScaleDialog with
+  X/Y factors and aspect ratio lock. Configure opens AtomDialog or BondDialog
+  for a single selected atom or bond. All 7 actions have `has_selection`
+  predicates so they are disabled when nothing is selected.
+
+- Implemented all 6 align action handlers in
+  [`packages/bkchem-qt.app/bkchem_qt/actions/align_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/align_actions.py):
+  top, bottom, left, right, center horizontally, center vertically. Actions
+  group selected atoms by parent MoleculeModel, compute per-group bounding
+  boxes, then shift each group so the relevant edge (or center) matches the
+  alignment target. Moves are applied immediately and pushed as a
+  MoveAtomsCommand for undo support. All 6 actions have `has_selection`
+  predicates so they are disabled when nothing is selected.
+
+- Milestone 3 (Draw/edit mode completion + undo boundaries): Added bond click
+  toggle in draw mode: clicking an existing bond cycles order (1->2->3->1) or
+  switches type, with display variant cycling for same type+order (centering,
+  width sign, endpoint swap for wedge/hash/wavy). Port of Tk
+  `bond_type_control.toggle_type()`. Added overlap merge: after drawing, atoms
+  within 4px threshold are merged by redirecting bonds and removing the
+  duplicate, matching Tk `paper_layout.handle_overlap()` and
+  `molecule_lib.handle_overlap()`. Added axis-lock drag in edit mode: Ctrl locks
+  X axis (vertical only), Shift locks Y axis (horizontal only), matching Tk
+  `edit_mode.mouse_drag` modifier behavior. All changes have undo support.
+  Files modified:
+  [`packages/bkchem-qt.app/bkchem_qt/modes/draw_mode.py`](packages/bkchem-qt.app/bkchem_qt/modes/draw_mode.py),
+  [`packages/bkchem-qt.app/bkchem_qt/modes/edit_mode.py`](packages/bkchem-qt.app/bkchem_qt/modes/edit_mode.py).
+
+- Milestone 2 (Selection system + delete pipeline): Added
+  `selected_to_unique_top_levels()` to Document for chemistry-aware selection
+  dedup (maps atoms/bonds to parent molecules). Added `one_mol_selected`
+  property. Enhanced `_delete_selected()` in EditMode with orphan atom cleanup
+  after bond deletion via `_find_orphan_atoms_after_bond_delete()`. Added
+  selection-driven menu predicates: `edit.cut`, `edit.copy`, `edit.selected_to_svg`
+  now have `enabled_when` predicates tied to `has_selection`; `edit.undo`/`edit.redo`
+  predicates tied to `canUndo()`/`canRedo()`. Wired `Document.selection_changed`
+  and `QUndoStack.canUndoChanged`/`canRedoChanged` signals to menu predicate
+  updates in MainWindow. Added shiboken6 guards for C++ object lifetime during
+  shutdown. Files modified:
+  [`packages/bkchem-qt.app/bkchem_qt/models/document.py`](packages/bkchem-qt.app/bkchem_qt/models/document.py),
+  [`packages/bkchem-qt.app/bkchem_qt/modes/edit_mode.py`](packages/bkchem-qt.app/bkchem_qt/modes/edit_mode.py),
+  [`packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py),
+  [`packages/bkchem-qt.app/bkchem_qt/main_window.py`](packages/bkchem-qt.app/bkchem_qt/main_window.py).
+
+- Milestone 1 (Document/mode wiring and dispatch contract): Added complete event
+  dispatch contract to `BaseMode` matching Tk `modes_lib.py` interface: added
+  `mouse_press3` (right-click), `enter_object`/`leave_object` (hover tracking
+  during drag), `on_paper_switch` (tab switch), `cleanup`, and `copy_settings`
+  lifecycle hooks. Files modified:
+  [`packages/bkchem-qt.app/bkchem_qt/modes/base_mode.py`](packages/bkchem-qt.app/bkchem_qt/modes/base_mode.py),
+  [`packages/bkchem-qt.app/bkchem_qt/modes/mode_manager.py`](packages/bkchem-qt.app/bkchem_qt/modes/mode_manager.py).
+
+- Added right-click dispatch path: `view.py` now routes right-click through
+  `mouse_press3` instead of `mouse_press`, matching Tk's `mouse_down3` contract.
+  `ModeManager` dispatches `mouse_press3` to the active mode. `EditMode` moved
+  context menu handling from inline `mouse_press` check to dedicated
+  `mouse_press3` method. Files modified:
+  [`packages/bkchem-qt.app/bkchem_qt/canvas/view.py`](packages/bkchem-qt.app/bkchem_qt/canvas/view.py),
+  [`packages/bkchem-qt.app/bkchem_qt/modes/edit_mode.py`](packages/bkchem-qt.app/bkchem_qt/modes/edit_mode.py).
+
+- Added Document selection query helpers and scene wiring: `Document.set_scene()`
+  connects QGraphicsScene selection changes to a new `selection_changed` signal.
+  Added `selected_atoms`, `selected_bonds`, `selected_mols`, `has_selection`
+  properties and `bonds_to_update()`/`atoms_to_update()` helpers porting Tk
+  `paper_selection.py` patterns. Wired scene into document in `MainWindow`
+  setup and new-document flow. Files modified:
+  [`packages/bkchem-qt.app/bkchem_qt/models/document.py`](packages/bkchem-qt.app/bkchem_qt/models/document.py),
+  [`packages/bkchem-qt.app/bkchem_qt/main_window.py`](packages/bkchem-qt.app/bkchem_qt/main_window.py).
+
+- Implemented Tk-parity click-to-place bond drawing in Qt `DrawMode`. Clicking
+  an existing atom now immediately adds a new bonded atom at fixed bond length
+  and smart angle (120 deg zigzag, transoid alternation, least-crowded for 2+
+  neighbors). Clicking empty space snaps to the hex grid and creates a standalone
+  atom with a bonded neighbor. Dragging from an atom shows a preview snapped to
+  15-degree angle increments. Ported geometry helpers from Tk `molecule_lib`:
+  `_find_place()`, `_get_angle()`, `_find_least_crowded_place()`,
+  `_point_on_circle()`, `_on_which_side()`. Bond length now uses the scene grid
+  spacing (26.5) instead of the old hardcoded 40.0. File modified:
+  [`packages/bkchem-qt.app/bkchem_qt/modes/draw_mode.py`](packages/bkchem-qt.app/bkchem_qt/modes/draw_mode.py).
+
+- Added an extensive evaluation of Tk `main.py`/`paper.py` and their submodules
+  to guide Qt parity work, including architecture decomposition, runtime
+  contracts to preserve, mapping of current Qt failures to missing contracts,
+  and screenshot-gated milestone acceptance criteria. File created:
+  [`docs/active_plans/TK_MAIN_PAPER_QT_PARITY_EVALUATION_2026-03-01.md`](docs/active_plans/TK_MAIN_PAPER_QT_PARITY_EVALUATION_2026-03-01.md).
+
+- Added a drawing-environment deep dive for Tk event and mutation flow, with
+  operation-by-operation call chains for bond drawing, atom label editing,
+  selection/move/delete behavior, bond type toggling, rotate mode,
+  bond-transform mode, and repair transformations. Includes a Qt parity
+  checklist and targeted test focus list. File created:
+  [`docs/active_plans/TK_DRAWING_ENVIRONMENT_EVENT_FLOW_2026-03-01.md`](docs/active_plans/TK_DRAWING_ENVIRONMENT_EVENT_FLOW_2026-03-01.md).
+
+### Fixes and Maintenance
+
+- Fixed pyflakes lint: removed unused `import io` from
+  [`packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py)
+  and unused `from oasa import dom_extensions as dom_ext` from
+  [`packages/bkchem-qt.app/bkchem_qt/main_window.py`](packages/bkchem-qt.app/bkchem_qt/main_window.py).
+  All 92 bkchem_qt pyflakes tests now pass.
+
+### Developer Tests and Notes
+
+- Added anti-stub gate test
+  [`packages/bkchem-qt.app/tests/test_no_stubs.py`](packages/bkchem-qt.app/tests/test_no_stubs.py)
+  with 4 tests: `test_no_stub_handlers` (inspects handler source code and
+  bytecode constants for 'not yet implemented', 'stub', 'TODO' patterns),
+  `test_all_handlers_are_callable`, `test_minimum_action_count` (asserts >= 48
+  registered actions), `test_action_categories_present` (asserts all 8 menu
+  categories have registered actions).
+
+- Added 15 Milestone 3 draw/edit mode tests covering: bond click toggle (order
+  cycling 1->2->3->1, type switching, undo macro, atom priority over bond),
+  overlap merge (same position, within/outside threshold, bond redirection),
+  axis-lock drag (Ctrl locks X, Shift locks Y, free movement without modifiers),
+  undo boundaries (draw creates separate entries, bond toggle undoable),
+  and bond finding helpers. Full Qt test suite: 135 tests. File created:
+  [`packages/bkchem-qt.app/tests/test_milestone3_draw_edit.py`](packages/bkchem-qt.app/tests/test_milestone3_draw_edit.py).
+
+- Added 15 Milestone 2 selection and delete tests covering: top-level dedup
+  (`selected_to_unique_top_levels`), bond/atom deletion with orphan cleanup,
+  single-undo-macro for delete, `bonds_to_update`/`atoms_to_update` adjacency
+  helpers, and menu predicate wiring (`edit.cut` enabled_when, undo predicate).
+  File created:
+  [`packages/bkchem-qt.app/tests/test_milestone2_selection.py`](packages/bkchem-qt.app/tests/test_milestone2_selection.py).
+
+- Added 24 Milestone 1 contract enforcement tests covering: BaseMode contract
+  methods (mouse_press3, enter_object, leave_object, lifecycle hooks), right-click
+  dispatch separation, Document scene wiring and selection queries (selected_atoms,
+  selected_bonds, selected_mols, has_selection, selection_changed signal), mode
+  switch lifecycle (deactivate cleans state, submodes rebuild), and document
+  authority (undo stack, scene re-wiring on new document). Full Qt test suite
+  passes: 105 tests. File created:
+  [`packages/bkchem-qt.app/tests/test_milestone1_contract.py`](packages/bkchem-qt.app/tests/test_milestone1_contract.py).
+
+- Added 6 bond placement tests to `test_interactions.py`: fixed-length bonds,
+  120-degree angle placement, grid snapping, drag angle snapping, zero-neighbor
+  default angle, and least-crowded placement. Full Qt test suite passes: 81
+  tests (up from 75). File modified:
+  [`packages/bkchem-qt.app/tests/test_interactions.py`](packages/bkchem-qt.app/tests/test_interactions.py).
+
 ## 2026-02-28
 
 ### Additions and New Features
+
+- Added zoom controls workstream for BKChem-Qt. Added public zoom API methods
+  to `ChemView` (`zoom_in`, `zoom_out`, `set_zoom_percent`, `zoom_to_fit`,
+  `zoom_to_content`) with proper clamping. Refactored `MainWindow` zoom handlers
+  to delegate to the view API instead of manipulating private state. Replaced
+  lambda stubs in `view_actions.py` with real handlers. Created `ZoomControls`
+  status bar widget with buttons (-, +, 100%, Fit, Content) and a horizontal
+  slider for continuous zoom. Wired zoom controls signals to main window
+  handlers and view feedback. File created:
+  [`packages/bkchem-qt.app/bkchem_qt/widgets/zoom_controls.py`](packages/bkchem-qt.app/bkchem_qt/widgets/zoom_controls.py),
+  [`packages/bkchem-qt.app/tests/test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py).
+  Files modified:
+  [`packages/bkchem-qt.app/bkchem_qt/canvas/view.py`](packages/bkchem-qt.app/bkchem_qt/canvas/view.py),
+  [`packages/bkchem-qt.app/bkchem_qt/main_window.py`](packages/bkchem-qt.app/bkchem_qt/main_window.py),
+  [`packages/bkchem-qt.app/bkchem_qt/actions/view_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/view_actions.py).
 
 - Added Qt submode framework: modes now display context-sensitive submode
   buttons in a horizontal ribbon below the mode toolbar, matching the Tk
@@ -41,6 +286,22 @@
 - Wired Insert > Biomolecule Template menu action to activate the `biotemplate`
   mode in the Qt app instead of showing a stub message. File modified:
   [`packages/bkchem-qt.app/bkchem_qt/actions/insert_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/insert_actions.py).
+
+- Populated dynamic submode data in `TemplateMode._load_templates()` so the
+  `SubModeRibbon` renders template choices in a grid layout. Added
+  `on_submode_switch()` override to route submode button clicks to
+  `set_template()`. File modified:
+  [`packages/bkchem-qt.app/bkchem_qt/modes/template_mode.py`](packages/bkchem-qt.app/bkchem_qt/modes/template_mode.py).
+
+- Added mode submode parity tests (`test_mode_submode_parity.py`) verifying
+  that template, draw, and biotemplate modes have non-empty submodes and that
+  template submode switching updates `_current_template`. File created:
+  [`packages/bkchem-qt.app/tests/test_mode_submode_parity.py`](packages/bkchem-qt.app/tests/test_mode_submode_parity.py).
+
+- Added theme chooser integration tests (`test_theme_chooser.py`) verifying
+  dialog theme listing, preselection, apply, and cancel flows using
+  monkeypatched `choose_theme`. File created:
+  [`packages/bkchem-qt.app/tests/test_theme_chooser.py`](packages/bkchem-qt.app/tests/test_theme_chooser.py).
 
 - Added theme chooser dialog to Qt app. Options > Theme now opens a list dialog
   (`ThemeChooserDialog`) instead of toggling between dark and light. The dialog
@@ -451,6 +712,23 @@
   smaller dots (1.0 vs 1.5), non-cosmetic pen for zoom-correct scaling.
   File modified:
   [`packages/bkchem-qt.app/bkchem_qt/canvas/scene.py`](packages/bkchem-qt.app/bkchem_qt/canvas/scene.py).
+- Fixed `AtomModel` coordinate synchronization bug: x/y/z setters and
+  `set_xyz()` updated local `_x/_y/_z` fields but never synced back to the
+  underlying `_chem_atom.x/.y/.z`. This caused OASA render ops to see `None`
+  coordinates when traversing bond neighbors, crashing template placement and
+  any bond rendering that followed atom creation. File modified:
+  [`packages/bkchem-qt.app/bkchem_qt/models/atom_model.py`](packages/bkchem-qt.app/bkchem_qt/models/atom_model.py).
+- Fixed CDML roundtrip test `test_save_cdml_produces_valid_xml`: the test
+  asserted `root.tag == "cdml"` but ElementTree returns the namespace-qualified
+  tag `"{http://...}cdml"`. Now strips namespace prefix before comparison and
+  uses namespace-aware `findall()` for child elements. Fixed
+  `test_coordinates_preserved_within_tolerance`: test created 2 disconnected
+  atoms that split into separate molecules on reload; now connects them with a
+  bond to keep the molecule intact. Files modified:
+  [`packages/bkchem-qt.app/tests/test_cdml_roundtrip.py`](packages/bkchem-qt.app/tests/test_cdml_roundtrip.py).
+- Added `pytest-qt` to
+  [`pip_requirements-dev.txt`](pip_requirements-dev.txt)
+  for Qt widget testing with qtbot fixture.
 
 ### Removals and Deprecations
 
@@ -474,6 +752,27 @@
   `drawBackground()` override with `painter.fillRect()` works reliably. This
   appears to be a Qt 6 macOS compositor issue where the brush-based rendering
   path is not honored during viewport compositing.
+
+### Developer Tests and Notes
+
+- Created shared pytest `conftest.py` for BKChem-Qt tests with session-scoped
+  `qapp` and `theme_manager` fixtures and function-scoped `main_window`
+  fixture. Migrated 4 test files (`test_document_wiring.py`,
+  `test_toolbar_actions.py`, `test_interactions.py`, `test_cdml_roundtrip.py`)
+  from subprocess `python -c` patterns to in-process fixture-based tests for
+  faster execution and better tracebacks. Test count grew from 51 pass / 3 fail
+  to 75 pass / 0 fail. File created:
+  [`packages/bkchem-qt.app/tests/conftest.py`](packages/bkchem-qt.app/tests/conftest.py).
+  Files modified:
+  [`packages/bkchem-qt.app/tests/test_document_wiring.py`](packages/bkchem-qt.app/tests/test_document_wiring.py),
+  [`packages/bkchem-qt.app/tests/test_toolbar_actions.py`](packages/bkchem-qt.app/tests/test_toolbar_actions.py),
+  [`packages/bkchem-qt.app/tests/test_interactions.py`](packages/bkchem-qt.app/tests/test_interactions.py),
+  [`packages/bkchem-qt.app/tests/test_cdml_roundtrip.py`](packages/bkchem-qt.app/tests/test_cdml_roundtrip.py).
+- Added grid visual parity test suite for BKChem-Qt. Tests verify grid is
+  visible by default, toggles on/off correctly, snap_to_grid returns a
+  2-tuple of floats, grid group has child items when visible, and grid
+  survives theme changes (dark/light apply_theme rebuilds). File created:
+  [`packages/bkchem-qt.app/tests/test_grid_parity.py`](packages/bkchem-qt.app/tests/test_grid_parity.py).
 
 ## 2026-02-26
 

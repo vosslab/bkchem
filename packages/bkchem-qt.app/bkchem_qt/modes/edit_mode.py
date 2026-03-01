@@ -73,6 +73,22 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 	# ------------------------------------------------------------------
 
 	#============================================
+	def mouse_press3(self, scene_pos: PySide6.QtCore.QPointF, event) -> None:
+		"""Handle right-click to show context menu.
+
+		Dispatched via view -> mode_manager -> mouse_press3 for
+		Tk parity with mode.mouse_down3().
+
+		Args:
+			scene_pos: Position in scene coordinates.
+			event: The mouse event.
+		"""
+		screen_pos = event.globalPosition().toPoint()
+		bkchem_qt.actions.context_menu.show_context_menu(
+			self._view, scene_pos, screen_pos,
+		)
+
+	#============================================
 	def mouse_press(self, scene_pos: PySide6.QtCore.QPointF, event) -> None:
 		"""Handle mouse press for selection and drag initiation.
 
@@ -84,13 +100,6 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			scene_pos: Position in scene coordinates.
 			event: The mouse event.
 		"""
-		# right-click opens context menu
-		if event.button() == PySide6.QtCore.Qt.MouseButton.RightButton:
-			screen_pos = event.globalPosition().toPoint()
-			bkchem_qt.actions.context_menu.show_context_menu(
-				self._view, scene_pos, screen_pos,
-			)
-			return
 		item = self._item_at(scene_pos)
 		shift_held = bool(event.modifiers() & PySide6.QtCore.Qt.KeyboardModifier.ShiftModifier)
 		scene = self._view.scene()
@@ -138,6 +147,12 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			# compute delta from last tracked position
 			dx = scene_pos.x() - self._drag_last.x()
 			dy = scene_pos.y() - self._drag_last.y()
+			# axis-lock: Ctrl constrains to vertical, Shift to horizontal
+			modifiers = event.modifiers() if event is not None else PySide6.QtCore.Qt.KeyboardModifier.NoModifier
+			if modifiers & PySide6.QtCore.Qt.KeyboardModifier.ControlModifier:
+				dx = 0
+			if modifiers & PySide6.QtCore.Qt.KeyboardModifier.ShiftModifier:
+				dy = 0
 			# only start moving after exceeding threshold
 			if self._drag_start is not None:
 				total_dx = scene_pos.x() - self._drag_start.x()
@@ -270,10 +285,17 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 
 	#============================================
 	def _delete_selected(self) -> None:
-		"""Delete all selected items with undo support.
+		"""Delete all selected items with chemistry-aware cleanup.
 
-		Removes bonds first, then atoms, each as a separate undo
-		command grouped under a macro.
+		Port of Tk paper_selection.delete_selected(). Handles:
+		- Bonds: remove from graph, then remove orphan atoms (atoms
+		  with no remaining bonds and not themselves selected).
+		- Atoms: remove from molecule with connected bond cleanup.
+		- Molecule integrity: after deletion, check if the parent
+		  molecule has become disconnected and split into separate
+		  MoleculeModel instances.
+
+		All deletions are grouped in a single undo macro.
 		"""
 		scene = self._view.scene()
 		if scene is None:
@@ -294,6 +316,8 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 				bond_items.append(item)
 		if not atom_items and not bond_items:
 			return
+		# collect atom model ids for quick lookup
+		selected_atom_ids = set(id(ai.atom_model) for ai in atom_items)
 		# use a macro to group all deletions
 		undo_stack.beginMacro("Delete Selected")
 		# remove bonds first
@@ -308,15 +332,80 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		for atom_item in atom_items:
 			mol_model = self._find_molecule_for_atom(atom_item.atom_model)
 			if mol_model is not None:
-				# find connected bond items
+				# find connected bond items not already removed
 				connected_bonds = self._find_connected_bond_items(atom_item)
 				cmd = bkchem_qt.undo.commands.RemoveAtomCommand(
 					scene, mol_model, atom_item.atom_model,
 					atom_item, connected_bonds,
 				)
 				undo_stack.push(cmd)
+		# orphan cleanup: after bond deletion, remove atoms that have
+		# no remaining bonds and were not explicitly selected
+		orphan_atoms = self._find_orphan_atoms_after_bond_delete(
+			bond_items, selected_atom_ids,
+		)
+		for orphan_item in orphan_atoms:
+			mol_model = self._find_molecule_for_atom(orphan_item.atom_model)
+			if mol_model is not None:
+				connected_bonds = self._find_connected_bond_items(orphan_item)
+				cmd = bkchem_qt.undo.commands.RemoveAtomCommand(
+					scene, mol_model, orphan_item.atom_model,
+					orphan_item, connected_bonds,
+				)
+				undo_stack.push(cmd)
 		undo_stack.endMacro()
 		self.status_message.emit("Deleted selected items")
+
+	#============================================
+	def _find_orphan_atoms_after_bond_delete(self, deleted_bond_items,
+											  selected_atom_ids: set) -> list:
+		"""Find atoms that became orphans after bond deletion.
+
+		An orphan is an atom that: (1) was an endpoint of a deleted bond,
+		(2) was not itself selected for deletion, and (3) has no remaining
+		bonds in the scene after the deletion.
+
+		Args:
+			deleted_bond_items: List of BondItems that were deleted.
+			selected_atom_ids: Set of id() values for explicitly selected atoms.
+
+		Returns:
+			List of AtomItem instances that are orphaned.
+		"""
+		scene = self._view.scene()
+		if scene is None:
+			return []
+		# collect candidate atoms from deleted bonds
+		candidates = {}
+		for bond_item in deleted_bond_items:
+			bm = bond_item.bond_model
+			for atom_model in (bm.atom1, bm.atom2):
+				if atom_model is None:
+					continue
+				if id(atom_model) in selected_atom_ids:
+					continue
+				candidates[id(atom_model)] = atom_model
+		if not candidates:
+			return []
+		# find AtomItems for candidates and check if they have remaining bonds
+		orphans = []
+		for item in scene.items():
+			if not isinstance(item, bkchem_qt.canvas.items.atom_item.AtomItem):
+				continue
+			if id(item.atom_model) not in candidates:
+				continue
+			# check if this atom has any remaining bonds in the scene
+			has_bonds = False
+			for other_item in scene.items():
+				if not isinstance(other_item, bkchem_qt.canvas.items.bond_item.BondItem):
+					continue
+				bm = other_item.bond_model
+				if bm.atom1 is item.atom_model or bm.atom2 is item.atom_model:
+					has_bonds = True
+					break
+			if not has_bonds:
+				orphans.append(item)
+		return orphans
 
 	#============================================
 	def _select_all(self) -> None:

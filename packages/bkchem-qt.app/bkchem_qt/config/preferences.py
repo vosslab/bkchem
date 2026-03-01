@@ -29,6 +29,13 @@ class Preferences:
 	KEY_GRID_VISIBLE: str = "appearance/grid_visible"
 	KEY_RECENT_FILES: str = "files/recent"
 	KEY_ZOOM_LEVEL: str = "view/zoom_level"
+	KEY_BOND_LENGTH: str = "drawing/bond_length"
+	KEY_LINE_WIDTH: str = "drawing/line_width"
+	KEY_FONT_SIZE: str = "drawing/font_size"
+	KEY_FONT_FAMILY: str = "drawing/font_family"
+	KEY_LANGUAGE: str = "general/language"
+	KEY_LOGGING_LEVEL: str = "general/logging_level"
+	KEY_INCHI_PATH: str = "chemistry/inchi_path"
 
 	# -- default values for every key --
 	DEFAULTS: dict = {
@@ -38,6 +45,13 @@ class Preferences:
 		KEY_GRID_VISIBLE: True,
 		KEY_RECENT_FILES: [],
 		KEY_ZOOM_LEVEL: 100.0,
+		KEY_BOND_LENGTH: 40.0,
+		KEY_LINE_WIDTH: 2.0,
+		KEY_FONT_SIZE: 12,
+		KEY_FONT_FAMILY: "Helvetica",
+		KEY_LANGUAGE: "English",
+		KEY_LOGGING_LEVEL: "Warnings",
+		KEY_INCHI_PATH: "",
 	}
 
 	#============================================

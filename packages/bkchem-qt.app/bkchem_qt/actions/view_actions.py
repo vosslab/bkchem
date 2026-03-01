@@ -48,9 +48,7 @@ def register_view_actions(registry, app) -> None:
 		label_key='Zoom to Fit',
 		help_key='Fit drawing to window',
 		accelerator=None,
-		handler=lambda: app.statusBar().showMessage(
-			"Zoom to Fit: not yet implemented", 3000
-		),
+		handler=app.on_zoom_to_fit,
 		enabled_when=None,
 	))
 
@@ -60,8 +58,6 @@ def register_view_actions(registry, app) -> None:
 		label_key='Zoom to Content',
 		help_key='Fit and center on drawn content',
 		accelerator=None,
-		handler=lambda: app.statusBar().showMessage(
-			"Zoom to Content: not yet implemented", 3000
-		),
+		handler=app.on_zoom_to_content,
 		enabled_when=None,
 	))

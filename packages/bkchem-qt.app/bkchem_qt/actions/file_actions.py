@@ -176,6 +176,106 @@ def _add_molecules_to_scene(main_window, molecules: list) -> None:
 
 
 #============================================
+def _save_as_template(app) -> None:
+	"""Save the current document as a template file.
+
+	Prompts for a save location and saves via CDML serialization.
+	Template files are standard CDML files saved to the templates dir.
+
+	Args:
+		app: MainWindow instance.
+	"""
+	if not app.document.molecules:
+		app.statusBar().showMessage("No molecules to save as template", 3000)
+		return
+	file_path = PySide6.QtWidgets.QFileDialog.getSaveFileName(
+		app, "Save As Template", "",
+		"CDML Template (*.cdml);;All Files (*)",
+	)[0]
+	if not file_path:
+		return
+	bkchem_qt.io.cdml_io.save_cdml_file(file_path, app.document)
+	app.statusBar().showMessage("Template saved: %s" % file_path, 3000)
+
+
+#============================================
+def _load_same_tab(app) -> None:
+	"""Open a file replacing the current tab contents.
+
+	Checks for unsaved changes before clearing, then loads the
+	selected file into the current scene and document.
+
+	Args:
+		app: MainWindow instance.
+	"""
+	# dirty guard: prompt to save unsaved changes
+	if app.document.dirty:
+		reply = PySide6.QtWidgets.QMessageBox.question(
+			app, "Unsaved Changes",
+			"Save changes before opening a new file?",
+			(PySide6.QtWidgets.QMessageBox.StandardButton.Save
+			 | PySide6.QtWidgets.QMessageBox.StandardButton.Discard
+			 | PySide6.QtWidgets.QMessageBox.StandardButton.Cancel),
+			PySide6.QtWidgets.QMessageBox.StandardButton.Save,
+		)
+		if reply == PySide6.QtWidgets.QMessageBox.StandardButton.Cancel:
+			return
+		if reply == PySide6.QtWidgets.QMessageBox.StandardButton.Save:
+			app._on_save()
+	# clear the current scene and document
+	app._scene.clear()
+	app._scene._build_paper()
+	app._scene._build_grid()
+	import bkchem_qt.models.document
+	app._document = bkchem_qt.models.document.Document(app)
+	app._view.set_document(app._document)
+	app._document.set_scene(app._scene)
+	# re-wire predicate signals
+	app._document.selection_changed.connect(app._update_menu_predicates)
+	app._document.undo_stack.canUndoChanged.connect(
+		lambda _: app._update_menu_predicates()
+	)
+	app._document.undo_stack.canRedoChanged.connect(
+		lambda _: app._update_menu_predicates()
+	)
+	# open file into the fresh document
+	open_file(app)
+	# update tab title from loaded file
+	app._tab_widget.setTabText(0, app._document.title())
+
+
+#============================================
+def _document_properties(app) -> None:
+	"""Show a document properties dialog.
+
+	Displays paper size, molecule count, atom count, bond count,
+	and file path in a read-only information dialog.
+
+	Args:
+		app: MainWindow instance.
+	"""
+	doc = app.document
+	n_mols = len(doc.molecules)
+	n_atoms = sum(len(m.atoms) for m in doc.molecules)
+	n_bonds = sum(len(m.bonds) for m in doc.molecules)
+	file_path = doc.file_path or "(unsaved)"
+	# get paper dimensions from the scene
+	paper_rect = app._scene.paper_rect
+	paper_w = int(paper_rect.width())
+	paper_h = int(paper_rect.height())
+	info_text = ""
+	info_text += "File: %s\n" % file_path
+	info_text += "Paper size: %d x %d px\n" % (paper_w, paper_h)
+	info_text += "Molecules: %d\n" % n_mols
+	info_text += "Atoms: %d\n" % n_atoms
+	info_text += "Bonds: %d\n" % n_bonds
+	info_text += "Unsaved changes: %s" % ("Yes" if doc.dirty else "No")
+	PySide6.QtWidgets.QMessageBox.information(
+		app, "Document Properties", info_text,
+	)
+
+
+#============================================
 def register_file_actions(registry, app) -> None:
 	"""Register all File menu actions for BKChem-Qt.
 
@@ -211,7 +311,7 @@ def register_file_actions(registry, app) -> None:
 		label_key='Save As...',
 		help_key='Save the file under a different name',
 		accelerator='(C-S-s)',
-		handler=lambda: app.statusBar().showMessage("Save As: not yet implemented", 3000),
+		handler=app._on_save_as,
 		enabled_when=None,
 	))
 	# save as a template file
@@ -220,7 +320,7 @@ def register_file_actions(registry, app) -> None:
 		label_key='Save As Template',
 		help_key='Save the file as template, certain criteria must be met for this to work',
 		accelerator=None,
-		handler=lambda: app.statusBar().showMessage("Save As Template: not yet implemented", 3000),
+		handler=lambda: _save_as_template(app),
 		enabled_when=None,
 	))
 	# open a file in a new tab
@@ -238,7 +338,7 @@ def register_file_actions(registry, app) -> None:
 		label_key='Open in same tab',
 		help_key='Open a file replacing the current one',
 		accelerator=None,
-		handler=lambda: app.statusBar().showMessage("Open in same tab: not yet implemented", 3000),
+		handler=lambda: _load_same_tab(app),
 		enabled_when=None,
 	))
 	# document properties dialog
@@ -247,7 +347,7 @@ def register_file_actions(registry, app) -> None:
 		label_key='Document Properties...',
 		help_key='Set the paper size and other properties of the document',
 		accelerator=None,
-		handler=lambda: app.statusBar().showMessage("Document Properties: not yet implemented", 3000),
+		handler=lambda: _document_properties(app),
 		enabled_when=None,
 	))
 	# close the current tab
@@ -256,7 +356,7 @@ def register_file_actions(registry, app) -> None:
 		label_key='Close tab',
 		help_key='Close the current tab, exit when there is only one tab',
 		accelerator='(C-w)',
-		handler=lambda: app.statusBar().showMessage("Close tab: not yet implemented", 3000),
+		handler=app.close,
 		enabled_when=None,
 	))
 	# exit the application

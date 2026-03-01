@@ -144,6 +144,17 @@ class ModeManager(PySide6.QtCore.QObject):
 			self._current_mode.mouse_move(scene_pos, event)
 
 	#============================================
+	def mouse_press3(self, scene_pos: PySide6.QtCore.QPointF, event) -> None:
+		"""Dispatch a right-click (button-3) press event to the active mode.
+
+		Args:
+			scene_pos: Position in scene coordinates.
+			event: The mouse event.
+		"""
+		if self._current_mode is not None:
+			self._current_mode.mouse_press3(scene_pos, event)
+
+	#============================================
 	def mouse_double_click(self, scene_pos: PySide6.QtCore.QPointF, event) -> None:
 		"""Dispatch a mouse double-click event to the active mode.
 

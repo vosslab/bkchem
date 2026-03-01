@@ -6,5 +6,6 @@ pillow
 pyflakes  # static analysis lint checks
 pyinstaller  # macOS/Windows app bundling for BKChem GUI
 pytest  # automated test runner
+pytest-qt  # Qt widget testing with qtbot fixture
 reportlab
 rich  # formatted terminal output in developer tools

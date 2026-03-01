@@ -124,12 +124,49 @@ class BaseMode(PySide6.QtCore.QObject):
 		"""
 
 	#============================================
+	def mouse_press3(self, scene_pos: PySide6.QtCore.QPointF, event) -> None:
+		"""Handle a right-click (button-3) mouse press event.
+
+		Tk equivalent: mode.mouse_down3(event, modifiers). Override
+		in subclasses to show context menus or perform right-click
+		actions.
+
+		Args:
+			scene_pos: Position in scene coordinates.
+			event: The mouse event.
+		"""
+
+	#============================================
 	def mouse_double_click(self, scene_pos: PySide6.QtCore.QPointF, event) -> None:
 		"""Handle a mouse double-click event at the given scene position.
 
 		Args:
 			scene_pos: Position in scene coordinates.
 			event: The QGraphicsSceneMouseEvent or QMouseEvent.
+		"""
+
+	#============================================
+	def enter_object(self, item, event) -> None:
+		"""Handle the cursor entering an interactive item during drag.
+
+		Tk equivalent: mode.enter_object(object, event). Called when
+		the cursor moves over a new AtomItem or BondItem during a
+		drag operation. Override in subclasses for hover feedback.
+
+		Args:
+			item: The AtomItem or BondItem being entered.
+			event: The mouse event.
+		"""
+
+	#============================================
+	def leave_object(self, event) -> None:
+		"""Handle the cursor leaving an interactive item during drag.
+
+		Tk equivalent: mode.leave_object(event). Called when the
+		cursor moves away from a previously hovered item during drag.
+
+		Args:
+			event: The mouse event.
 		"""
 
 	#============================================
@@ -146,6 +183,45 @@ class BaseMode(PySide6.QtCore.QObject):
 
 		Args:
 			event: The QKeyEvent.
+		"""
+
+	# ------------------------------------------------------------------
+	# Lifecycle hooks
+	# ------------------------------------------------------------------
+
+	#============================================
+	def on_paper_switch(self, old_paper, new_paper) -> None:
+		"""Called when the active paper/tab changes.
+
+		Tk equivalent: mode.on_paper_switch(old_paper, new_paper).
+		Override in subclasses to react to document switching, e.g.
+		to refresh cached state or reset transient drawing state.
+
+		Args:
+			old_paper: The previous document/paper (may be None).
+			new_paper: The new document/paper.
+		"""
+
+	#============================================
+	def cleanup(self) -> None:
+		"""Clean up mode state before switching away.
+
+		Tk equivalent: mode.cleanup(paper). Called by the mode manager
+		before deactivate when switching modes. Override in subclasses
+		to release resources, cancel pending operations, etc.
+		Subclasses should call super().cleanup() last.
+		"""
+
+	#============================================
+	def copy_settings(self, old_mode) -> None:
+		"""Copy relevant settings from a previous mode.
+
+		Tk equivalent: mode.copy_settings(old_mode). Called after
+		activation to transfer shared state like selection or zoom
+		from the outgoing mode.
+
+		Args:
+			old_mode: The previously active mode instance.
 		"""
 
 	# ------------------------------------------------------------------

@@ -48,6 +48,9 @@ class MoleculeModel(PySide6.QtCore.QObject):
 		# tracking dicts: oasa object -> Qt model wrapper
 		self._atom_models = {}
 		self._bond_models = {}
+		# metadata properties
+		self._name = ""
+		self._mol_id = ""
 		# template attachment points
 		self._t_bond_first = None
 		self._t_bond_second = None
@@ -76,6 +79,28 @@ class MoleculeModel(PySide6.QtCore.QObject):
 			List of BondModel instances.
 		"""
 		return list(self._bond_models.values())
+
+	#============================================
+	@property
+	def name(self) -> str:
+		"""User-assigned molecule name."""
+		return self._name
+
+	#============================================
+	@name.setter
+	def name(self, value: str):
+		self._name = str(value)
+
+	#============================================
+	@property
+	def mol_id(self) -> str:
+		"""User-assigned molecule identifier."""
+		return self._mol_id
+
+	#============================================
+	@mol_id.setter
+	def mol_id(self, value: str):
+		self._mol_id = str(value)
 
 	# ------------------------------------------------------------------
 	# Graph mutation
