@@ -36,10 +36,20 @@ class BondAlignMode(bkchem_qt.modes.base_mode.BaseMode):
 			parent: Optional parent QObject.
 		"""
 		super().__init__(view, parent)
-		self._name = "Align"
+		self._name = "bondalign"
 		# current alignment submode operation
 		self._operation = ALIGN_HORIZONTAL
 		self._cursor = PySide6.QtCore.Qt.CursorShape.SizeAllCursor
+
+	#============================================
+	@property
+	def status_hint(self) -> str:
+		"""Return bond alignment mode interaction hint for the status bar.
+
+		Returns:
+			A short description of available alignment interactions.
+		"""
+		return "Select atoms then click to apply alignment"
 
 	#============================================
 	@property
@@ -68,7 +78,7 @@ class BondAlignMode(bkchem_qt.modes.base_mode.BaseMode):
 			scene_pos: Position in scene coordinates.
 			event: The mouse event.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		# collect selected atom items

@@ -132,8 +132,10 @@ class PlatformMenuAdapter:
 		self._menubar = parent_window.menuBar()
 		# menu_name -> QMenu
 		self._menus = {}
-		# (menu_name, label) -> QAction
+		# action_key -> QAction (frozen English key lookup)
 		self._actions = {}
+		# (menu_name, label) -> QAction (legacy label-based lookup)
+		self._actions_by_label = {}
 
 	#============================================
 	def add_menu(self, name: str, help_text: str, side: str = 'left') -> None:
@@ -150,7 +152,8 @@ class PlatformMenuAdapter:
 	#============================================
 	def add_command(self, menu_name: str, label: str,
 					accelerator: str, help_text: str,
-					command: object) -> None:
+					command: object,
+					action_key: str = None) -> None:
 		"""Add a command entry to a menu.
 
 		Args:
@@ -159,6 +162,7 @@ class PlatformMenuAdapter:
 			accelerator: Keyboard shortcut string or None.
 			help_text: Status help text (accepted for compat).
 			command: Callable to invoke when triggered.
+			action_key: Frozen English key for lookup (e.g. 'file.save').
 		"""
 		menu = self._menus[menu_name]
 		action = menu.addAction(label)
@@ -169,8 +173,11 @@ class PlatformMenuAdapter:
 		# connect the callback
 		if command is not None:
 			action.triggered.connect(command)
-		# store for later lookup
-		self._actions[(menu_name, label)] = action
+		# store by frozen key if provided
+		if action_key is not None:
+			self._actions[action_key] = action
+		# store by label for legacy lookup
+		self._actions_by_label[(menu_name, label)] = action
 
 	#============================================
 	def add_separator(self, menu_name: str) -> None:
@@ -197,7 +204,8 @@ class PlatformMenuAdapter:
 
 	#============================================
 	def add_command_to_cascade(self, cascade_name: str, label: str,
-								help_text: str, command: object) -> None:
+								help_text: str, command: object,
+								action_key: str = None) -> None:
 		"""Add a command to an existing cascade submenu.
 
 		Args:
@@ -205,16 +213,35 @@ class PlatformMenuAdapter:
 			label: Command label text.
 			help_text: Status help text (accepted for compat).
 			command: Callable to invoke when triggered.
+			action_key: Frozen English key for lookup (e.g. 'file.export_svg').
 		"""
 		menu = self._menus[cascade_name]
 		action = menu.addAction(label)
 		if command is not None:
 			action.triggered.connect(command)
-		self._actions[(cascade_name, label)] = action
+		# store by frozen key if provided
+		if action_key is not None:
+			self._actions[action_key] = action
+		# store by label for legacy lookup
+		self._actions_by_label[(cascade_name, label)] = action
+
+	#============================================
+	def get_action_by_key(self, action_key: str):
+		"""Look up a QAction by its frozen English key.
+
+		Args:
+			action_key: Dotted key like 'file.save' or 'edit.undo'.
+
+		Returns:
+			The QAction, or None if not found.
+		"""
+		return self._actions.get(action_key)
 
 	#============================================
 	def get_action(self, menu_name: str, label: str):
-		"""Look up a QAction by menu name and label.
+		"""Look up a QAction by menu name and label (legacy).
+
+		Prefer get_action_by_key() for new code.
 
 		Args:
 			menu_name: The menu containing the action.
@@ -223,25 +250,58 @@ class PlatformMenuAdapter:
 		Returns:
 			The QAction, or None if not found.
 		"""
-		return self._actions.get((menu_name, label))
+		return self._actions_by_label.get((menu_name, label))
 
 	#============================================
-	def set_item_state(self, menu_name: str, label: str,
-						enabled: bool) -> None:
-		"""Enable or disable a menu item.
+	def set_item_state_by_key(self, action_key: str,
+								enabled: bool) -> None:
+		"""Enable or disable a menu item by frozen English key.
 
 		Args:
-			menu_name: Parent menu label.
-			label: The item label to configure.
+			action_key: Dotted key like 'file.save'.
 			enabled: True to enable, False to disable.
 		"""
-		action = self._actions.get((menu_name, label))
+		action = self._actions.get(action_key)
 		if action is not None:
 			try:
 				action.setEnabled(enabled)
 			except RuntimeError:
 				# C++ QAction already deleted during teardown
 				pass
+
+	#============================================
+	def set_item_state(self, menu_name: str, label: str,
+						enabled: bool) -> None:
+		"""Enable or disable a menu item (legacy label-based).
+
+		Prefer set_item_state_by_key() for new code.
+
+		Args:
+			menu_name: Parent menu label.
+			label: The item label to configure.
+			enabled: True to enable, False to disable.
+		"""
+		action = self._actions_by_label.get((menu_name, label))
+		if action is not None:
+			try:
+				action.setEnabled(enabled)
+			except RuntimeError:
+				# C++ QAction already deleted during teardown
+				pass
+
+	#============================================
+	def register_direct_action(self, action_key: str,
+								qaction) -> None:
+		"""Register a QAction created outside the menu builder.
+
+		Used for actions added directly to menus (e.g. grid toggle,
+		export items) that are not in the YAML menu structure.
+
+		Args:
+			action_key: Frozen English key for the action.
+			qaction: The QAction instance to register.
+		"""
+		self._actions[action_key] = qaction
 
 	#============================================
 	def component(self, name: str):

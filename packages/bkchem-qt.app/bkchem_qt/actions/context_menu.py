@@ -7,8 +7,10 @@ import PySide6.QtWidgets
 # local repo modules
 import bkchem_qt.canvas.items.atom_item
 import bkchem_qt.canvas.items.bond_item
+import bkchem_qt.canvas.scene_queries
 import bkchem_qt.dialogs.atom_dialog
 import bkchem_qt.dialogs.bond_dialog
+import bkchem_qt.io.clipboard_manager
 import bkchem_qt.undo.commands
 
 
@@ -73,77 +75,6 @@ def show_context_menu(view, scene_pos, screen_pos) -> None:
 	menu.exec(screen_pos)
 
 
-#============================================
-def _find_undo_stack(view):
-	"""Locate the document's QUndoStack through the view.
-
-	Args:
-		view: The ChemView widget.
-
-	Returns:
-		QUndoStack or None.
-	"""
-	if hasattr(view, "document") and view.document is not None:
-		return view.document.undo_stack
-	return None
-
-
-#============================================
-def _find_molecule_for_atom(view, atom_model):
-	"""Find the MoleculeModel containing an atom.
-
-	Args:
-		view: The ChemView widget.
-		atom_model: The AtomModel to search for.
-
-	Returns:
-		MoleculeModel or None.
-	"""
-	if not hasattr(view, "document") or view.document is None:
-		return None
-	for mol_model in view.document.molecules:
-		if atom_model in mol_model.atoms:
-			return mol_model
-	return None
-
-
-#============================================
-def _find_molecule_for_bond(view, bond_model):
-	"""Find the MoleculeModel containing a bond.
-
-	Args:
-		view: The ChemView widget.
-		bond_model: The BondModel to search for.
-
-	Returns:
-		MoleculeModel or None.
-	"""
-	if not hasattr(view, "document") or view.document is None:
-		return None
-	for mol_model in view.document.molecules:
-		if bond_model in mol_model.bonds:
-			return mol_model
-	return None
-
-
-#============================================
-def _find_connected_bond_items(scene, atom_model):
-	"""Find all BondItems connected to an atom.
-
-	Args:
-		scene: The QGraphicsScene.
-		atom_model: The AtomModel whose bonds to find.
-
-	Returns:
-		List of (BondModel, BondItem) tuples.
-	"""
-	connected = []
-	for item in scene.items():
-		if isinstance(item, bkchem_qt.canvas.items.bond_item.BondItem):
-			bm = item.bond_model
-			if bm.atom1 is atom_model or bm.atom2 is atom_model:
-				connected.append((bm, item))
-	return connected
 
 
 #============================================
@@ -202,12 +133,12 @@ def _delete_atom(view, atom_item) -> None:
 	scene = view.scene()
 	if scene is None:
 		return
-	undo_stack = _find_undo_stack(view)
+	undo_stack = bkchem_qt.canvas.scene_queries.find_undo_stack(view)
 	atom_model = atom_item.atom_model
-	mol_model = _find_molecule_for_atom(view, atom_model)
+	mol_model = bkchem_qt.canvas.scene_queries.find_molecule_for_atom(view, atom_model)
 	if mol_model is None or undo_stack is None:
 		return
-	connected_bonds = _find_connected_bond_items(scene, atom_model)
+	connected_bonds = bkchem_qt.canvas.scene_queries.find_connected_bond_items(scene, atom_model)
 	cmd = bkchem_qt.undo.commands.RemoveAtomCommand(
 		scene, mol_model, atom_model, atom_item, connected_bonds,
 	)
@@ -223,7 +154,7 @@ def _set_atom_symbol(view, atom_model, symbol: str) -> None:
 		atom_model: The AtomModel to change.
 		symbol: New element symbol.
 	"""
-	undo_stack = _find_undo_stack(view)
+	undo_stack = bkchem_qt.canvas.scene_queries.find_undo_stack(view)
 	if undo_stack is None:
 		atom_model.symbol = symbol
 		return
@@ -300,9 +231,9 @@ def _delete_bond(view, bond_item) -> None:
 	scene = view.scene()
 	if scene is None:
 		return
-	undo_stack = _find_undo_stack(view)
+	undo_stack = bkchem_qt.canvas.scene_queries.find_undo_stack(view)
 	bond_model = bond_item.bond_model
-	mol_model = _find_molecule_for_bond(view, bond_model)
+	mol_model = bkchem_qt.canvas.scene_queries.find_molecule_for_bond(view, bond_model)
 	if mol_model is None or undo_stack is None:
 		return
 	cmd = bkchem_qt.undo.commands.RemoveBondCommand(
@@ -320,7 +251,7 @@ def _set_bond_order(view, bond_model, order: int) -> None:
 		bond_model: The BondModel to change.
 		order: New bond order (1, 2, or 3).
 	"""
-	undo_stack = _find_undo_stack(view)
+	undo_stack = bkchem_qt.canvas.scene_queries.find_undo_stack(view)
 	old_order = bond_model.order
 	if old_order == order:
 		return
@@ -343,7 +274,7 @@ def _set_bond_type(view, bond_model, bond_type: str) -> None:
 		bond_model: The BondModel to change.
 		bond_type: New bond type character.
 	"""
-	undo_stack = _find_undo_stack(view)
+	undo_stack = bkchem_qt.canvas.scene_queries.find_undo_stack(view)
 	old_type = bond_model.type
 	if old_type == bond_type:
 		return
@@ -369,10 +300,16 @@ def _empty_context_menu(view) -> PySide6.QtWidgets.QMenu:
 	"""
 	menu = PySide6.QtWidgets.QMenu(view)
 
-	# paste action (stub)
+	# paste action -- enabled only when clipboard has CDML content
 	paste_action = menu.addAction("Paste")
 	paste_action.setShortcut(PySide6.QtGui.QKeySequence.StandardKey.Paste)
-	paste_action.setEnabled(False)
+	# use ClipboardManager to check for pasteable CDML data
+	clipboard_mgr = bkchem_qt.io.clipboard_manager.ClipboardManager()
+	paste_action.setEnabled(clipboard_mgr.can_paste())
+	# connect to main window's paste handler
+	main_window = view.window()
+	if hasattr(main_window, 'on_paste'):
+		paste_action.triggered.connect(main_window.on_paste)
 
 	menu.addSeparator()
 

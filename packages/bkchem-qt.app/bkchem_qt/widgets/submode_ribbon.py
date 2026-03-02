@@ -382,8 +382,6 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 			candidate_keys.append(self._current_mode_name)
 		if mode.name:
 			candidate_keys.append(str(mode.name).lower())
-		if "align" in candidate_keys:
-			candidate_keys.append("bondalign")
 
 		for yaml_key in candidate_keys:
 			mode_def = modes_defs.get(yaml_key)

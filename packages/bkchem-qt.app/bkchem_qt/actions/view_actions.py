@@ -42,11 +42,11 @@ def register_view_actions(registry, app) -> None:
 		enabled_when=None,
 	))
 
-	# fit drawing to window
+	# zoom to page
 	registry.register(MenuAction(
 		id='view.zoom_to_fit',
-		label_key='Zoom to Fit',
-		help_key='Fit drawing to window',
+		label_key='Zoom to Page',
+		help_key='Fit drawing to page',
 		accelerator=None,
 		handler=app.on_zoom_to_fit,
 		enabled_when=None,

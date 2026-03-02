@@ -112,24 +112,23 @@ def test_context_menu_delete_atom(main_window):
 
 
 #============================================
-def test_stub_modes_emit_not_implemented(main_window):
-	"""Stub modes emit 'not yet implemented' status messages."""
-	stub_modes = ["vector", "bracket", "plus", "repair", "misc"]
-	for mode_name in stub_modes:
+def test_implemented_modes_no_crash_on_press(main_window):
+	"""All modes handle mouse press without crashing or saying not implemented."""
+	# modes that were previously stubs are now implemented
+	mode_names = ["vector", "bracket", "plus", "misc", "repair"]
+	for mode_name in mode_names:
 		main_window._mode_manager.set_mode(mode_name)
 		mode = main_window._mode_manager.current_mode
 		messages = []
 		mode.status_message.connect(messages.append)
-		# simulate a mouse press
+		# simulate a mouse press -- should not crash
 		pos = PySide6.QtCore.QPointF(100.0, 100.0)
 		mode.mouse_press(pos, None)
-		assert len(messages) > 0, (
-			f"{mode_name}: should emit status message"
-		)
-		assert "not yet implemented" in messages[-1], (
-			f"{mode_name}: message should say 'not yet implemented', "
-			f"got: {messages[-1]}"
-		)
+		# if any messages were emitted, none should say 'not yet implemented'
+		for msg in messages:
+			assert "not yet implemented" not in msg, (
+				f"{mode_name}: should be implemented, got: {msg}"
+			)
 		# disconnect to avoid accumulation across modes
 		mode.status_message.disconnect(messages.append)
 

@@ -58,6 +58,16 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		# items being dragged
 		self._moved_items = []
 
+	#============================================
+	@property
+	def status_hint(self) -> str:
+		"""Return edit mode interaction hint for the status bar.
+
+		Returns:
+			A short description of available edit interactions.
+		"""
+		return "Click to select | Drag to move | Shift-click for multi-select"
+
 	# ------------------------------------------------------------------
 	# Lifecycle
 	# ------------------------------------------------------------------
@@ -109,7 +119,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		"""
 		item = self._item_at(scene_pos)
 		shift_held = bool(event.modifiers() & PySide6.QtCore.Qt.KeyboardModifier.ShiftModifier)
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		if item is not None:
@@ -153,7 +163,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			event: The mouse event.
 		"""
 		if self._dragging and self._drag_last is not None:
-			scene = self._view.scene()
+			scene = self._env.scene
 			if scene is None:
 				return
 			# compute delta from last tracked position
@@ -215,7 +225,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			scene_pos: Position in scene coordinates.
 			event: The mouse event.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if self._dragging and self._drag_start is not None and scene is not None:
 			# build items_and_offsets list from actual moved distances
 			# (important when drag movement is snapped to grid).
@@ -233,7 +243,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 					continue
 				items_and_offsets.append((item, dx, dy))
 			if items_and_offsets:
-				undo_stack = self._find_undo_stack()
+				undo_stack = self._env.undo_stack
 				if undo_stack is not None:
 					cmd = bkchem_qt.undo.commands.MoveAtomsCommand(
 						items_and_offsets,
@@ -303,7 +313,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			return
 		# escape clears selection
 		if key == PySide6.QtCore.Qt.Key.Key_Escape:
-			scene = self._view.scene()
+			scene = self._env.scene
 			if scene is not None:
 				scene.clearSelection()
 			return
@@ -363,13 +373,13 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 
 		All deletions are grouped in a single undo macro.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		selected = scene.selectedItems()
 		if not selected:
 			return
-		undo_stack = self._find_undo_stack()
+		undo_stack = self._env.undo_stack
 		if undo_stack is None:
 			return
 		# separate atoms and bonds
@@ -388,7 +398,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		undo_stack.beginMacro("Delete Selected")
 		# remove bonds first
 		for bond_item in bond_items:
-			mol_model = self._find_molecule_for_bond(bond_item.bond_model)
+			mol_model = self._env.find_molecule_for_bond(bond_item.bond_model)
 			if mol_model is not None:
 				cmd = bkchem_qt.undo.commands.RemoveBondCommand(
 					scene, mol_model, bond_item.bond_model, bond_item,
@@ -396,10 +406,10 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 				undo_stack.push(cmd)
 		# remove atoms (which also removes their connected bonds)
 		for atom_item in atom_items:
-			mol_model = self._find_molecule_for_atom(atom_item.atom_model)
+			mol_model = self._env.find_molecule_for_atom(atom_item.atom_model)
 			if mol_model is not None:
 				# find connected bond items not already removed
-				connected_bonds = self._find_connected_bond_items(atom_item)
+				connected_bonds = self._env.find_connected_bond_items(atom_item.atom_model)
 				cmd = bkchem_qt.undo.commands.RemoveAtomCommand(
 					scene, mol_model, atom_item.atom_model,
 					atom_item, connected_bonds,
@@ -411,9 +421,9 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			bond_items, selected_atom_ids,
 		)
 		for orphan_item in orphan_atoms:
-			mol_model = self._find_molecule_for_atom(orphan_item.atom_model)
+			mol_model = self._env.find_molecule_for_atom(orphan_item.atom_model)
 			if mol_model is not None:
-				connected_bonds = self._find_connected_bond_items(orphan_item)
+				connected_bonds = self._env.find_connected_bond_items(orphan_item.atom_model)
 				cmd = bkchem_qt.undo.commands.RemoveAtomCommand(
 					scene, mol_model, orphan_item.atom_model,
 					orphan_item, connected_bonds,
@@ -438,7 +448,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		Returns:
 			List of AtomItem instances that are orphaned.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return []
 		# collect candidate atoms from deleted bonds
@@ -476,7 +486,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 	#============================================
 	def _select_all(self) -> None:
 		"""Select all interactive items in the scene."""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		for item in scene.items():
@@ -494,7 +504,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			dx: Horizontal offset in scene units.
 			dy: Vertical offset in scene units.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		selected = scene.selectedItems()
@@ -506,7 +516,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 				model.y = model.y + dy
 				items_and_offsets.append((item, dx, dy))
 		if items_and_offsets:
-			undo_stack = self._find_undo_stack()
+			undo_stack = self._env.undo_stack
 			if undo_stack is not None:
 				cmd = bkchem_qt.undo.commands.MoveAtomsCommand(items_and_offsets)
 				undo_stack.push(cmd)
@@ -541,7 +551,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		if not accepted:
 			return
 		# push undo commands for each changed property
-		undo_stack = self._find_undo_stack()
+		undo_stack = self._env.undo_stack
 		if undo_stack is None:
 			return
 		undo_stack.beginMacro("Edit Atom Properties")
@@ -582,7 +592,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		if not accepted:
 			return
 		# push undo commands for each changed property
-		undo_stack = self._find_undo_stack()
+		undo_stack = self._env.undo_stack
 		if undo_stack is None:
 			return
 		undo_stack.beginMacro("Edit Bond Properties")
@@ -610,7 +620,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		Args:
 			scene_pos: Current mouse position in scene coordinates.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None or self._rubber_band_origin is None:
 			return
 		# compute the rectangle from origin to current position
@@ -631,7 +641,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		Args:
 			scene_pos: Final mouse position in scene coordinates.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None or self._rubber_band_origin is None:
 			return
 		rect = PySide6.QtCore.QRectF(self._rubber_band_origin, scene_pos).normalized()
@@ -647,82 +657,8 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 	def _cancel_rubber_band(self) -> None:
 		"""Remove the rubber band rectangle from the scene."""
 		if self._rubber_band is not None:
-			scene = self._view.scene()
+			scene = self._env.scene
 			if scene is not None:
 				scene.removeItem(self._rubber_band)
 			self._rubber_band = None
 
-	# ------------------------------------------------------------------
-	# Lookup helpers
-	# ------------------------------------------------------------------
-
-	#============================================
-	def _find_undo_stack(self):
-		"""Locate the document's QUndoStack through the view.
-
-		Returns:
-			QUndoStack or None if not accessible.
-		"""
-		view = self._view
-		# the view is expected to expose a document property
-		if hasattr(view, "document") and view.document is not None:
-			return view.document.undo_stack
-		return None
-
-	#============================================
-	def _find_molecule_for_atom(self, atom_model):
-		"""Find the MoleculeModel that contains a given AtomModel.
-
-		Args:
-			atom_model: The AtomModel to search for.
-
-		Returns:
-			MoleculeModel or None.
-		"""
-		view = self._view
-		if not hasattr(view, "document") or view.document is None:
-			return None
-		for mol_model in view.document.molecules:
-			if atom_model in mol_model.atoms:
-				return mol_model
-		return None
-
-	#============================================
-	def _find_molecule_for_bond(self, bond_model):
-		"""Find the MoleculeModel that contains a given BondModel.
-
-		Args:
-			bond_model: The BondModel to search for.
-
-		Returns:
-			MoleculeModel or None.
-		"""
-		view = self._view
-		if not hasattr(view, "document") or view.document is None:
-			return None
-		for mol_model in view.document.molecules:
-			if bond_model in mol_model.bonds:
-				return mol_model
-		return None
-
-	#============================================
-	def _find_connected_bond_items(self, atom_item):
-		"""Find all BondItems connected to a given AtomItem.
-
-		Args:
-			atom_item: The AtomItem whose bonds to find.
-
-		Returns:
-			List of (BondModel, BondItem) tuples.
-		"""
-		scene = self._view.scene()
-		if scene is None:
-			return []
-		connected = []
-		atom_model = atom_item.atom_model
-		for item in scene.items():
-			if isinstance(item, bkchem_qt.canvas.items.bond_item.BondItem):
-				bond_model = item.bond_model
-				if bond_model.atom1 is atom_model or bond_model.atom2 is atom_model:
-					connected.append((bond_model, item))
-		return connected

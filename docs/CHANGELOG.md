@@ -2,8 +2,109 @@
 
 ## 2026-03-02
 
+### Additions and New Features
+
+- Created `ClipboardManager` class in
+  [clipboard_manager.py](../packages/bkchem-qt.app/bkchem_qt/io/clipboard_manager.py)
+  to centralize CDML clipboard logic. Provides `copy_selection(document)`,
+  `paste()`, and `can_paste()` methods. Extracted serialization logic from
+  `MainWindow._selected_mols_to_cdml()` (now removed) into module-level
+  `_mols_to_cdml()` helper. Updated `on_copy()` and `on_paste()` in
+  [main_window.py](../packages/bkchem-qt.app/bkchem_qt/main_window.py) to
+  delegate to the manager. Updated `_empty_context_menu()` in
+  [context_menu.py](../packages/bkchem-qt.app/bkchem_qt/actions/context_menu.py)
+  to use `ClipboardManager.can_paste()` instead of inline clipboard inspection.
+- Wired Recent Files functionality to the BKChem-Qt File menu. Added
+  `push_recent_file()` and `_record_recent_file()` to
+  [file_actions.py](../packages/bkchem-qt.app/bkchem_qt/actions/file_actions.py)
+  to track opened and saved files in QSettings, capped at 10 entries with
+  most-recent-first ordering and deduplication. Added
+  `refresh_recent_files_menu()` and `_open_recent_file()` to
+  [main_window.py](../packages/bkchem-qt.app/bkchem_qt/main_window.py) to
+  populate the "Recent files" cascade submenu (already defined in menus.yaml)
+  with clickable entries showing the filename and full-path tooltip. The submenu
+  refreshes on each open/save and shows a disabled "(No recent files)" placeholder
+  when empty. Missing files are caught with a warning dialog before load attempt.
+- Added `PropertyDock` widget
+  ([bkchem_qt/widgets/property_dock.py](../packages/bkchem-qt.app/bkchem_qt/widgets/property_dock.py))
+  -- a QDockWidget on the right side of the main window that shows editable
+  fields for the currently selected scene item. When a single AtomItem is
+  selected, symbol (QLineEdit), charge (QSpinBox), and show-label (QCheckBox)
+  fields appear. When a single BondItem is selected, order and type QComboBoxes
+  appear. When nothing is selected, a brief document info summary is displayed.
+  Uses a QStackedWidget to switch between atom, bond, and info panels. Wired
+  to the document's `selection_changed` signal via `_connect_signals()` in
+  `main_window.py`.
+- Migrated `PlatformMenuAdapter` from label-based to key-based action lookup
+  (Phase 0.1). Added `action_key` parameter to `add_command()` and
+  `add_command_to_cascade()`. New methods: `get_action_by_key()`,
+  `set_item_state_by_key()`, `register_direct_action()`. All menu state
+  management now uses frozen dotted keys instead of `(menu_name, label)` tuples.
+- Updated `MenuBuilder._build_action_item()` to pass `action.action_id` as
+  `action_key` to the adapter, and `update_menu_states()` to use
+  `set_item_state_by_key()`.
+- Migrated main_window.py backward-compat action aliases from label-based
+  lookups (`get_action("File", "Save")`) to key-based lookups
+  (`get_action_by_key("file.save")`), covering save, open, new, quit, undo,
+  redo, theme, and about actions (Phase 0.3).
+- Registered grid toggle actions with frozen keys `view.toggle_grid` and
+  `view.toggle_grid_snap` via `register_direct_action()`.
+- Added `tests/test_frozen_action_keys.py` with 4 CI tests validating all
+  registered action keys match the dotted lowercase pattern, contain no spaces
+  or uppercase, and that the frozen set of 68 known keys has not shrunk
+  (Phase 0.4).
+- Added `status_hint` property to `BaseMode` and all key mode subclasses
+  (`EditMode`, `DrawMode`, `BondAlignMode`, `RepairMode`, `RotateMode`,
+  `TemplateMode`). Each mode now returns a descriptive string describing
+  available interactions for the status bar (Phase 1.1).
+- `BaseMode.activate()` now emits `self.status_hint` instead of the generic
+  `"{name} mode active"` message, giving users contextual guidance when
+  switching modes.
+- Qt empty-space context menu paste action now checks the clipboard for CDML
+  content (`application/x-bkchem-cdml` mime type or text containing `<cdml` /
+  `<molecule>` tags) and enables/disables accordingly, connected to the main
+  window's `on_paste` handler (Phase 1.2).
+- Mode toolbar tooltips now include keyboard shortcuts from `DEFAULT_KEYBINDINGS`
+  (e.g. "Edit (Ctrl+1)", "Draw (Ctrl+2)") when a binding exists for the mode
+  (Phase 1.3).
+- Wired repair mode to existing `repair_actions.py` handlers (Phase 1.4).
+  `RepairMode` now dispatches submode selections to the 6 existing repair
+  operations (normalize bond lengths, normalize bond angles, normalize rings,
+  straighten bonds, snap to hex grid, clean geometry) instead of emitting
+  "not yet implemented".
+- Created `ModeEnvironment` dependency injection facade (Phase 2.1) in
+  `modes/mode_environment.py`. Provides lazy-resolving properties for `scene`,
+  `document`, `undo_stack`, `window`, plus helper methods
+  `find_molecule_for_atom()`, `find_molecule_for_bond()`, and
+  `find_connected_bond_items()`. All modes now access dependencies via
+  `self._env` instead of navigating `self._view.scene()` etc.
+- Created `canvas/scene_queries.py` (Phase 2.2) consolidating duplicated helper
+  functions: `find_undo_stack`, `find_molecule_for_atom`,
+  `find_molecule_for_bond`, `find_connected_bond_items`. Replaced 3 copies of
+  `_find_undo_stack` (draw_mode, edit_mode, context_menu), 2 copies each of
+  `_find_molecule_for_atom`, `_find_molecule_for_bond`, and
+  `_find_connected_bond_items` (edit_mode, context_menu).
+- Implemented all 4 remaining stub modes (Phase 4.4):
+  `PlusMode` places centered bold `+` QGraphicsTextItem at click position for
+  reaction schemes. `BracketMode` draws `[` and `]` bracket pairs around
+  selected atoms or a user-defined drag region using QPainterPath with hooks.
+  `VectorMode` supports rectangle, oval, and line shapes via submodes with
+  dashed preview during drag. `MiscMode` provides atom numbering (click to
+  assign sequential numbers) and clear-numbers submode.
+
 ### Behavior or Interface Changes
 
+- Removed bondalign/align alias bridge (Phase 0.2). The canonical mode key is
+  now `bondalign` everywhere: `BondAlignMode._name`, mode_manager registration,
+  YAML key lookup, and toolbar wiring. Removed 5 alias fallback sites across
+  `main_window.py`, `bondalign_mode.py`, and `submode_ribbon.py`.
+- All mode files now use `self._env.scene`, `self._env.document`,
+  `self._env.undo_stack` etc. instead of direct `self._view.scene()` and
+  `self._view.document` navigation with repeated `hasattr()` guards.
+- Updated zoom button label from "Fit" to "Page" and tooltip from "Zoom to fit
+  paper" to "Zoom to page" in zoom controls widget. Updated view_actions.py
+  menu label from "Zoom to Fit" to "Zoom to Page" with help text "Fit drawing
+  to page".
 - Qt geometry authority now uses a hard-cut canonical setting key
   `drawing/bond_length_pt` (scene-space points). Legacy
   `drawing/bond_length` is no longer read for runtime geometry and is removed
@@ -24,6 +125,24 @@
 
 ### Fixes and Maintenance
 
+- Extracted MainWindow setup into focused modules (Phase 3.2). Created
+  `bkchem_qt/setup/` package with three modules: `canvas_setup.py` (scene, view,
+  tab widget, theme color initialization), `mode_setup.py` (mode registration,
+  YAML submode injection), and `toolbar_setup.py` (mode toolbar, submode ribbon,
+  edit ribbon, property dock). MainWindow reduced from 1270 to 988 lines. Theme
+  change handler now delegates color updates to `canvas_setup._apply_theme_colors()`.
+- Refactored `edit_mode.py` to use `self._env` (ModeEnvironment) instead of
+  direct `self._view.scene()` access and local lookup helpers. Replaced all 14
+  `self._view.scene()` calls with `self._env.scene`, 5 `_find_undo_stack()`
+  calls with `self._env.undo_stack`, and delegated `_find_molecule_for_atom`,
+  `_find_molecule_for_bond`, and `_find_connected_bond_items` to `self._env`.
+  Removed all 4 duplicate helper methods from EditMode.
+- Refactored `draw_mode.py` to use `self._env` (ModeEnvironment) instead of
+  direct `self._view.scene()`, `self._view.document`, and `self._find_undo_stack()`
+  access. Replaced 14 `self._view.scene()` calls with `self._env.scene`, 5
+  `self._find_undo_stack()` calls with `self._env.undo_stack`, 2 document access
+  patterns with `self._env.document`, and removed the now-redundant
+  `_find_undo_stack()` method. No `self._view` references remain in the file.
 - Added `bkchem_qt/config/geometry_units.py` with shared conversion helpers
   (`cm_to_pt`, `pt_to_cm`) and canonical `resolve_bond_length_pt(...)`.
 - Added `ChemScene.grid_spacing_pt` and
@@ -93,6 +212,11 @@
   pre-centers the viewport before the forced idletasks/scrollregion recompute
   and re-centers again after recompute, so the user does not see a large
   intermediate jump while heavy redraws are in progress.
+- Updated Tk zoom-to-fit UI wording to page terminology (behavior unchanged):
+  - View menu label/help now use `Zoom to Page` / `Fit drawing to page`.
+  - View action registry label/help now use `Zoom to Page` /
+    `Fit drawing to page`.
+  - Per-tab zoom control button text now shows `Page` instead of `Fit`.
 - Added a dedicated `file_actions` mode icon asset from user-provided folder
   artwork:
   - moved source SVG to
@@ -139,6 +263,15 @@
   `zoom_in()` / `zoom_out()` use multiplicative proposal (`*1.15` or `/1.15`)
   followed by nearest-level snap with monotone direction guarantees; e.g.
   `200 / 1.15 = 173.91` now steps to `175`.
+- `zoom_to_fit()` now snaps down to the zoom ladder (fit-safe), matching
+  `zoom_to_content()` snapping behavior.
+- User-directed explicit zoom (`set_zoom_percent`, including slider/direct
+  entry paths) remains exact and is **not** snapped, so arbitrary values such
+  as `173.91%` are preserved when set directly.
+- Added focused Qt zoom regression assertions in
+  [`test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py):
+  `zoom_to_fit()` and `zoom_to_content()` must land on `ZOOM_SNAP_LEVELS`,
+  while `set_zoom_percent(173.91)` must remain exact (non-snapped).
 - Expanded
   [`test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py)
   diagnostics with dense bidirectional zoom sweeps (`25% -> 400%` and
@@ -147,6 +280,16 @@
   (two stable molecule points in viewport space with vector dot-to-baseline
   checks) so visual mirror/inversion regressions fail fast with printed
   diagnostics.
+- Decoupled Qt zoom sweep diagnostics from snap policy:
+  [`test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py)
+  now drives the `25..400` sweep with explicit direct
+  `set_zoom_percent(...)` levels (dense `10%` stepping plus `400%` endpoint)
+  instead of deriving from `ZOOM_SNAP_LEVELS`, so the sweep remains a true
+  non-snapped path.
+- Added a second full-range non-snapped sweep gate in
+  [`test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py):
+  bidirectional direct-set diagnostics now also cover `10% -> 1000%` and
+  `1000% -> 10%` with the same fixed-point inversion and symmetry checks.
 - Updated the first zoom-controls behavior test to import cholesterol and zoom
   to content before zooming, so visual `-s` runs start with actual molecule
   geometry instead of empty-canvas-only zoom changes.

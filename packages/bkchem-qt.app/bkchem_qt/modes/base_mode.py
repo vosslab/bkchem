@@ -8,6 +8,7 @@ import PySide6.QtWidgets
 # local repo modules
 import bkchem_qt.canvas.items.atom_item
 import bkchem_qt.canvas.items.bond_item
+import bkchem_qt.modes.mode_environment
 
 
 #============================================
@@ -36,6 +37,7 @@ class BaseMode(PySide6.QtCore.QObject):
 		"""
 		super().__init__(parent)
 		self._view = view
+		self._env = bkchem_qt.modes.mode_environment.ModeEnvironment(view)
 		self._name = "Base"
 		self._cursor = PySide6.QtCore.Qt.CursorShape.ArrowCursor
 
@@ -63,6 +65,19 @@ class BaseMode(PySide6.QtCore.QObject):
 
 	#============================================
 	@property
+	def status_hint(self) -> str:
+		"""Return a contextual hint string describing available interactions.
+
+		Subclasses override this to provide mode-specific guidance that
+		is displayed in the status bar when the mode activates.
+
+		Returns:
+			A short description of available interactions.
+		"""
+		return "Click to interact"
+
+	#============================================
+	@property
 	def cursor(self) -> PySide6.QtCore.Qt.CursorShape:
 		"""Return the cursor shape for this mode."""
 		return self._cursor
@@ -79,7 +94,7 @@ class BaseMode(PySide6.QtCore.QObject):
 		Subclasses should call super().activate() first.
 		"""
 		self._view.setCursor(PySide6.QtGui.QCursor(self._cursor))
-		self.status_message.emit(f"{self._name} mode active")
+		self.status_message.emit(self.status_hint)
 
 	#============================================
 	def deactivate(self) -> None:
@@ -294,7 +309,7 @@ class BaseMode(PySide6.QtCore.QObject):
 		Returns:
 			An AtomItem, BondItem, or None.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return None
 		# items() returns items in descending z-order (topmost first)

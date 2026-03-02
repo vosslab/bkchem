@@ -102,7 +102,7 @@ class MainTabsMixin:
     zoom_reset_btn = ttk.Button(zoom_frame, text="100%", width=4, style='Zoom.TButton', command=paper.zoom_reset)
     zoom_reset_btn.pack(side='left', padx=2)
 
-    zoom_fit_btn = ttk.Button(zoom_frame, text="Fit", width=3, style='Zoom.TButton', command=paper.zoom_to_fit)
+    zoom_fit_btn = ttk.Button(zoom_frame, text="Page", width=4, style='Zoom.TButton', command=paper.zoom_to_fit)
     zoom_fit_btn.pack(side='left', padx=2)
 
     zoom_content_btn = ttk.Button(zoom_frame, text="Content", width=6, style='Zoom.TButton', command=paper.zoom_to_content)

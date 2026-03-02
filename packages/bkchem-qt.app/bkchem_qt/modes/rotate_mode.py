@@ -47,6 +47,16 @@ class RotateMode(bkchem_qt.modes.base_mode.BaseMode):
 		self._cursor = PySide6.QtCore.Qt.CursorShape.SizeAllCursor
 
 	#============================================
+	@property
+	def status_hint(self) -> str:
+		"""Return rotate mode interaction hint for the status bar.
+
+		Returns:
+			A short description of available rotation interactions.
+		"""
+		return "Click and drag to rotate selected items"
+
+	#============================================
 	def mouse_press(self, scene_pos: PySide6.QtCore.QPointF, event) -> None:
 		"""Set the rotation center and record initial positions.
 
@@ -58,7 +68,7 @@ class RotateMode(bkchem_qt.modes.base_mode.BaseMode):
 			scene_pos: Position in scene coordinates.
 			event: The mouse event.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		# set rotation center to click position
@@ -113,7 +123,7 @@ class RotateMode(bkchem_qt.modes.base_mode.BaseMode):
 			item.atom_model.set_xyz(new_x, new_y, item.atom_model.z)
 		self._accumulated_angle = rotation
 		# update bond items after moving atoms
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is not None:
 			for item in scene.items():
 				if isinstance(item, bkchem_qt.canvas.items.bond_item.BondItem):

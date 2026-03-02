@@ -71,6 +71,16 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		# last atom used for placement (for transoid alternation)
 		self._last_used_atom = None
 
+	#============================================
+	@property
+	def status_hint(self) -> str:
+		"""Return draw mode interaction hint for the status bar.
+
+		Returns:
+			A short description of available draw interactions.
+		"""
+		return "Click atom to extend bond | Click empty space to start new | Drag to set angle"
+
 	# ------------------------------------------------------------------
 	# Drawing settings
 	# ------------------------------------------------------------------
@@ -132,7 +142,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		Returns:
 			Bond length in scene units.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is not None and hasattr(scene, "grid_spacing_pt"):
 			return scene.grid_spacing_pt
 		return bkchem_qt.config.geometry_units.DEFAULT_BOND_LENGTH_PT
@@ -425,7 +435,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		else:
 			# click on empty space: snap to grid, create atom + neighbor
 			self._start_atom = None
-			scene = self._view.scene()
+			scene = self._env.scene
 			sx, sy = scene_pos.x(), scene_pos.y()
 			if (
 				scene is not None
@@ -481,7 +491,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		snap_x, snap_y = self._point_on_circle(
 			start_x, start_y, bond_length, dir_dx, dir_dy,
 		)
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is not None and self._grid_snap_enabled(scene):
 			snap_x, snap_y = scene.snap_to_grid(snap_x, snap_y)
 		# draw or update the preview line
@@ -517,7 +527,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		if self._dragging and self._start_atom is not None:
 			# drag completed: undo the auto-placed atom from mouse_press
 			# and place at the drag endpoint instead
-			undo_stack = self._find_undo_stack()
+			undo_stack = self._env.undo_stack
 			if undo_stack is not None and undo_stack.canUndo():
 				# undo the bond from mouse_press
 				undo_stack.undo()
@@ -532,7 +542,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 				self._create_bond_between(self._start_atom, end_atom)
 			else:
 				# compute snapped position and create atom there
-				scene = self._view.scene()
+				scene = self._env.scene
 				bond_length = self._get_bond_length()
 				dir_dx = scene_pos.x() - start_model.x
 				dir_dy = scene_pos.y() - start_model.y
@@ -572,7 +582,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		Returns:
 			The created AtomItem, or None if creation failed.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return None
 		element = symbol or self._current_element
@@ -587,7 +597,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		# create the visual item
 		atom_item = bkchem_qt.canvas.items.atom_item.AtomItem(atom_model)
 		# push undo command
-		undo_stack = self._find_undo_stack()
+		undo_stack = self._env.undo_stack
 		if undo_stack is not None:
 			cmd = bkchem_qt.undo.commands.AddAtomCommand(
 				scene, mol_model, atom_model, atom_item,
@@ -615,7 +625,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		Returns:
 			The created BondItem, or None if creation failed.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return None
 		mol_model = self._get_active_molecule()
@@ -634,7 +644,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		bond_item = bkchem_qt.canvas.items.bond_item.BondItem(bond_model)
 		scene.addItem(bond_item)
 		# push undo command (bond already added, skip first redo)
-		undo_stack = self._find_undo_stack()
+		undo_stack = self._env.undo_stack
 		if undo_stack is not None:
 			cmd = bkchem_qt.undo.commands.AddBondCommand(
 				scene, mol_model, bond_model, bond_item,
@@ -660,7 +670,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		Returns:
 			AtomItem or None.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return None
 		# check items in a rectangle around the position
@@ -699,7 +709,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		Returns:
 			BondItem or None.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return None
 		items = scene.items(scene_pos)
@@ -729,7 +739,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		model = bond_item.bond_model
 		to_type = self._current_bond_type
 		to_order = self._current_bond_order
-		undo_stack = self._find_undo_stack()
+		undo_stack = self._env.undo_stack
 		if undo_stack is None:
 			return
 		# snapshot for undo
@@ -821,7 +831,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		Molecule merging (eat_molecule) is not yet implemented; only
 		same-molecule overlap is handled.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		# collect all atom items
@@ -862,10 +872,10 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 			survivor_item: AtomItem that stays.
 			duplicate_item: AtomItem to be removed.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
-		undo_stack = self._find_undo_stack()
+		undo_stack = self._env.undo_stack
 		if undo_stack is None:
 			return
 		survivor_model = survivor_item.atom_model
@@ -896,9 +906,9 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 				)
 				undo_stack.push(cmd)
 		# remove the duplicate atom from its molecule
-		view = self._view
-		if hasattr(view, "document") and view.document is not None:
-			for mol_model in view.document.molecules:
+		doc = self._env.document
+		if doc is not None:
+			for mol_model in doc.molecules:
 				if duplicate_model in mol_model.atoms:
 					cmd = bkchem_qt.undo.commands.RemoveAtomCommand(
 						scene, mol_model, duplicate_model,
@@ -916,7 +926,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 	def _remove_preview_line(self) -> None:
 		"""Remove the bond preview line from the scene."""
 		if self._preview_line is not None:
-			scene = self._view.scene()
+			scene = self._env.scene
 			if scene is not None:
 				scene.removeItem(self._preview_line)
 			self._preview_line = None
@@ -924,18 +934,6 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 	# ------------------------------------------------------------------
 	# Lookup helpers
 	# ------------------------------------------------------------------
-
-	#============================================
-	def _find_undo_stack(self):
-		"""Locate the document's QUndoStack through the view.
-
-		Returns:
-			QUndoStack or None if not accessible.
-		"""
-		view = self._view
-		if hasattr(view, "document") and view.document is not None:
-			return view.document.undo_stack
-		return None
 
 	#============================================
 	def _get_active_molecule(self):
@@ -947,10 +945,9 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		Returns:
 			MoleculeModel or None if no document is available.
 		"""
-		view = self._view
-		if not hasattr(view, "document") or view.document is None:
+		doc = self._env.document
+		if doc is None:
 			return None
-		doc = view.document
 		if doc.molecules:
 			return doc.molecules[0]
 		# create a new molecule for the document

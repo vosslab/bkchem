@@ -79,6 +79,7 @@ class MenuBuilder:
 		self._adapter.add_command(
 			menu_name, action.label, action.accelerator,
 			action.help_text, action.handler,
+			action_key=action_id,
 		)
 		self._menu_actions[menu_name].append(action)
 
@@ -114,7 +115,7 @@ class MenuBuilder:
 					enabled = bool(predicate())
 				else:
 					enabled = bool(getattr(app.paper, predicate, False))
-				self._adapter.set_item_state(menu_name, action.label, enabled)
+				self._adapter.set_item_state_by_key(action.id, enabled)
 
 	#============================================
 	def get_plugin_slots(self):

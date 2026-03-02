@@ -65,7 +65,7 @@ class ArrowMode(bkchem_qt.modes.base_mode.BaseMode):
 		"""
 		if self._start_point is None:
 			return
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		# remove old preview line if it exists
@@ -93,7 +93,7 @@ class ArrowMode(bkchem_qt.modes.base_mode.BaseMode):
 			scene_pos: End position in scene coordinates.
 			event: The mouse event.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			self._start_point = None
 			return
@@ -115,7 +115,7 @@ class ArrowMode(bkchem_qt.modes.base_mode.BaseMode):
 	def deactivate(self) -> None:
 		"""Clean up the preview line when leaving arrow mode."""
 		if self._preview_line is not None:
-			scene = self._view.scene()
+			scene = self._env.scene
 			if scene is not None:
 				scene.removeItem(self._preview_line)
 			self._preview_line = None

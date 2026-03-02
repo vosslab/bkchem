@@ -448,9 +448,15 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 			PySide6.QtCore.Qt.AspectRatioMode.KeepAspectRatio,
 		)
 		self._ensure_upright_transform()
-		# derive zoom percent from the resulting transform
+		# derive zoom percent from the resulting transform and snap down to
+		# a stable ladder level without exceeding fit bounds.
 		t = self.transform()
-		self._zoom_percent = abs(t.m11()) * 100.0
+		raw_percent = abs(t.m11()) * 100.0
+		snapped_percent = self._snap_zoom_down(raw_percent)
+		if abs(snapped_percent - raw_percent) > 1e-6:
+			self.set_zoom_percent(snapped_percent)
+			return
+		self._zoom_percent = raw_percent
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================

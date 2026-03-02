@@ -76,7 +76,7 @@ class MarkMode(bkchem_qt.modes.base_mode.BaseMode):
 					break
 		if existing_mark is not None:
 			# toggle off: remove the existing mark
-			scene = self._view.scene()
+			scene = self._env.scene
 			if scene is not None:
 				scene.removeItem(existing_mark)
 			self.status_message.emit(f"Removed {self._current_mark_type} mark")

@@ -15,7 +15,7 @@ SLIDER_DEFAULT = 100
 class ZoomControls(PySide6.QtWidgets.QWidget):
 	"""Horizontal widget with zoom buttons, percentage label, and slider.
 
-	Provides zoom in, zoom out, reset, fit, and content buttons
+	Provides zoom in, zoom out, reset, page, and content buttons
 	alongside a percentage label and a horizontal slider for
 	continuous zoom adjustment.
 
@@ -80,15 +80,15 @@ class ZoomControls(PySide6.QtWidgets.QWidget):
 		self._btn_reset.clicked.connect(self.reset_zoom_clicked.emit)
 		layout.addWidget(self._btn_reset)
 
-		# fit button
-		self._btn_fit = PySide6.QtWidgets.QPushButton("Fit")
-		self._btn_fit.setToolTip("Zoom to fit paper")
+		# page button (zoom to fit paper)
+		self._btn_fit = PySide6.QtWidgets.QPushButton("Page")
+		self._btn_fit.setToolTip("Zoom to page")
 		self._btn_fit.clicked.connect(self.zoom_to_fit_clicked.emit)
 		layout.addWidget(self._btn_fit)
 
 		# content button
 		self._btn_content = PySide6.QtWidgets.QPushButton("Content")
-		self._btn_content.setToolTip("Zoom to fit content")
+		self._btn_content.setToolTip("Zoom to page content")
 		self._btn_content.clicked.connect(
 			self.zoom_to_content_clicked.emit
 		)

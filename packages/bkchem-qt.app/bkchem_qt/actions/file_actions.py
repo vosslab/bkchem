@@ -13,7 +13,11 @@ import bkchem_qt.bridge.worker
 import bkchem_qt.canvas.items.atom_item
 import bkchem_qt.canvas.items.bond_item
 import bkchem_qt.config.geometry_units
+import bkchem_qt.config.preferences
 from bkchem_qt.actions.action_registry import MenuAction
+
+# maximum number of entries in the recent files list
+MAX_RECENT_FILES = 10
 
 # file filter strings for QFileDialog
 CDML_FILTER = "CDML Files (*.cdml);;SVG Files (*.svg);;All Files (*)"
@@ -34,6 +38,45 @@ _EXTENSION_TO_CODEC = {
 	".cml": "cml",
 	".cdxml": "cdxml",
 }
+
+
+#============================================
+def push_recent_file(file_path: str) -> list:
+	"""Add a file path to the recent files list in preferences.
+
+	Moves the path to the front if it already exists, and caps
+	the list at MAX_RECENT_FILES entries. Returns the updated list
+	so callers can refresh menus immediately.
+
+	Args:
+		file_path: Absolute path to the file to record.
+
+	Returns:
+		The updated recent files list (most recent first).
+	"""
+	prefs = bkchem_qt.config.preferences.Preferences.instance()
+	recent = prefs.value(
+		bkchem_qt.config.preferences.Preferences.KEY_RECENT_FILES
+	)
+	# QSettings may return a string for single-item lists
+	if recent is None:
+		recent = []
+	elif isinstance(recent, str):
+		recent = [recent] if recent else []
+	else:
+		recent = list(recent)
+	# normalise to absolute path for consistent dedup
+	abs_path = os.path.abspath(file_path)
+	# remove existing entry (dedup) before inserting at the front
+	recent = [p for p in recent if p != abs_path]
+	recent.insert(0, abs_path)
+	# cap the list length
+	recent = recent[:MAX_RECENT_FILES]
+	prefs.set_value(
+		bkchem_qt.config.preferences.Preferences.KEY_RECENT_FILES,
+		recent,
+	)
+	return recent
 
 
 #============================================
@@ -90,6 +133,7 @@ def open_file_path(main_window, file_path: str) -> None:
 		)
 		if molecules:
 			_add_molecules_to_scene(main_window, molecules)
+			_record_recent_file(main_window, file_path)
 	elif ext in _EXTENSION_TO_CODEC:
 		# use async worker for non-CDML formats (may be large)
 		codec_name = _EXTENSION_TO_CODEC[ext]
@@ -103,6 +147,7 @@ def open_file_path(main_window, file_path: str) -> None:
 		)
 		if molecules:
 			_add_molecules_to_scene(main_window, molecules)
+			_record_recent_file(main_window, file_path)
 
 
 #============================================
@@ -142,6 +187,7 @@ def _load_with_worker(
 			molecules.append(mol_model)
 		if molecules:
 			_add_molecules_to_scene(main_window, molecules)
+			_record_recent_file(main_window, file_path)
 		main_window.statusBar().showMessage(
 			"Loaded %d molecule(s)" % len(molecules), 3000,
 		)
@@ -158,6 +204,21 @@ def _load_with_worker(
 	main_window._active_worker = worker
 	main_window.statusBar().showMessage("Loading file...", 0)
 	worker.start()
+
+
+#============================================
+def _record_recent_file(main_window, file_path: str) -> None:
+	"""Push a file path to recent files and refresh the submenu.
+
+	Args:
+		main_window: MainWindow instance with ``refresh_recent_files_menu``.
+		file_path: Path to the file just opened or saved.
+	"""
+	push_recent_file(file_path)
+	# ask the main window to rebuild the Recent files submenu
+	refresh = getattr(main_window, "refresh_recent_files_menu", None)
+	if callable(refresh):
+		refresh()
 
 
 #============================================

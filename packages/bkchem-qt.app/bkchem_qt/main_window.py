@@ -1,6 +1,7 @@
 """Main application window for BKChem-Qt."""
 
 # Standard Library
+import os
 import pathlib
 
 # PIP3 modules
@@ -10,50 +11,23 @@ import PySide6.QtGui
 import PySide6.QtWidgets
 
 # local repo modules
-import bkchem_qt.canvas.scene
-import bkchem_qt.canvas.view
 import bkchem_qt.config.geometry_units
 import bkchem_qt.config.preferences
 import bkchem_qt.widgets.status_bar
-import bkchem_qt.widgets.mode_toolbar
-import bkchem_qt.widgets.edit_ribbon
 import bkchem_qt.widgets.zoom_controls
-import bkchem_qt.widgets.submode_ribbon
 import bkchem_qt.widgets.icon_loader
-import bkchem_qt.modes.config
-import bkchem_qt.modes.mode_manager
-import bkchem_qt.modes.template_mode
-import bkchem_qt.modes.biotemplate_mode
-import bkchem_qt.modes.arrow_mode
-import bkchem_qt.modes.text_mode
-import bkchem_qt.modes.mark_mode
-import bkchem_qt.modes.atom_mode
-import bkchem_qt.modes.rotate_mode
-import bkchem_qt.modes.bondalign_mode
-import bkchem_qt.modes.bracket_mode
-import bkchem_qt.modes.vector_mode
-import bkchem_qt.modes.repair_mode
-import bkchem_qt.modes.plus_mode
-import bkchem_qt.modes.misc_mode
-import bkchem_qt.modes.file_actions_mode
+import bkchem_qt.setup.canvas_setup
+import bkchem_qt.setup.mode_setup
+import bkchem_qt.setup.toolbar_setup
 import bkchem_qt.actions.file_actions
-import bkchem_qt.actions.context_menu
 import bkchem_qt.io.cdml_io
-import bkchem_qt.bridge.oasa_bridge
+import bkchem_qt.io.clipboard_manager
 import bkchem_qt.dialogs.about_dialog
 import bkchem_qt.dialogs.preferences_dialog
 import bkchem_qt.dialogs.theme_chooser_dialog
 import bkchem_qt.models.document
 import bkchem_qt.io.export
-import bkchem_qt.themes.palettes
 import bkchem_qt.themes.theme_loader
-import bkchem_qt.canvas.items.render_ops_painter
-
-# path to modes.yaml in the shared bkchem_data directory
-_MODES_YAML_PATH = (
-	pathlib.Path(__file__).resolve().parent.parent
-	/ "bkchem_data" / "modes.yaml"
-)
 
 
 #============================================
@@ -76,6 +50,7 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self._theme_manager = theme_manager
 		self._prefs = bkchem_qt.config.preferences.Preferences.instance()
 		self._document = bkchem_qt.models.document.Document(self)
+		self._clipboard_manager = bkchem_qt.io.clipboard_manager.ClipboardManager()
 
 		self.setWindowTitle(self.tr("BKChem-Qt"))
 		style = PySide6.QtWidgets.QApplication.style()
@@ -120,177 +95,18 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 	#============================================
 	def _setup_canvas(self) -> None:
 		"""Create the scene, view, and tab widget for the central area."""
-		theme = self._theme_manager.current_theme
-		bond_length_pt = bkchem_qt.config.geometry_units.resolve_bond_length_pt(
-			self._prefs
+		self._scene, self._view, self._tab_widget = (
+			bkchem_qt.setup.canvas_setup.setup_canvas(
+				self, self._theme_manager, self._prefs, self._document,
+			)
 		)
-		grid_snap_enabled = bool(self._prefs.value(
-			bkchem_qt.config.preferences.Preferences.KEY_GRID_SNAP_ENABLED,
-			True,
-		))
-		self._scene = bkchem_qt.canvas.scene.ChemScene(
-			parent=self,
-			theme_name=theme,
-			grid_spacing_pt=bond_length_pt,
-			grid_snap_enabled=grid_snap_enabled,
-		)
-		self._view = bkchem_qt.canvas.view.ChemView(self._scene, parent=self)
-		# wire the document so modes can access undo stack and molecules
-		self._view.set_document(self._document)
-		# wire scene into document for selection query forwarding
-		self._document.set_scene(self._scene)
-
-		# set initial viewport background from YAML theme
-		surround = bkchem_qt.themes.theme_loader.get_canvas_surround(theme)
-		self._view.set_background_color(surround)
-
-		# set default chemistry line color from YAML theme
-		chem_colors = bkchem_qt.themes.theme_loader.get_chemistry_colors(theme)
-		bkchem_qt.canvas.items.render_ops_painter.set_default_color(
-			chem_colors["default_line"]
-		)
-		# set default area color for atom label background masking
-		bkchem_qt.canvas.items.render_ops_painter.set_default_area_color(
-			chem_colors["default_area"]
-		)
-		# set canvas interaction colors from YAML theme
-		canvas_colors = bkchem_qt.themes.theme_loader.get_canvas_colors(theme)
-		bkchem_qt.canvas.items.render_ops_painter.set_canvas_colors(canvas_colors)
-		# set charge mark colors from YAML theme
-		bkchem_qt.canvas.items.render_ops_painter.set_charge_colors({
-			"plus": chem_colors["charge_plus"],
-			"minus": chem_colors["charge_minus"],
-		})
-		# set the light theme sentinel for dark mode color remapping
-		light_chem = bkchem_qt.themes.theme_loader.get_chemistry_colors("light")
-		bkchem_qt.canvas.items.render_ops_painter.set_light_default_line(
-			light_chem["default_line"]
-		)
-
-		# wrap the view in a tab widget for multi-document support
-		self._tab_widget = PySide6.QtWidgets.QTabWidget(self)
-		self._tab_widget.addTab(self._view, self.tr("Untitled"))
-		self.setCentralWidget(self._tab_widget)
 
 	#============================================
 	def _setup_mode_system(self) -> None:
 		"""Create and register all interaction modes."""
-		self._mode_manager = bkchem_qt.modes.mode_manager.ModeManager(
-			self._view, parent=self
+		self._mode_manager = bkchem_qt.setup.mode_setup.setup_modes(
+			self._view, self
 		)
-		# register file actions mode (before edit/draw in toolbar order)
-		self._mode_manager.register_mode(
-			"file_actions",
-			bkchem_qt.modes.file_actions_mode.FileActionsMode(
-				self._view, main_window=self
-			),
-		)
-		# register additional modes beyond the default edit/draw
-		self._mode_manager.register_mode(
-			"template",
-			bkchem_qt.modes.template_mode.TemplateMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"biotemplate",
-			bkchem_qt.modes.biotemplate_mode.BioTemplateMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"arrow",
-			bkchem_qt.modes.arrow_mode.ArrowMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"text",
-			bkchem_qt.modes.text_mode.TextMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"rotate",
-			bkchem_qt.modes.rotate_mode.RotateMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"mark",
-			bkchem_qt.modes.mark_mode.MarkMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"atom",
-			bkchem_qt.modes.atom_mode.AtomMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"align",
-			bkchem_qt.modes.bondalign_mode.BondAlignMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"bracket",
-			bkchem_qt.modes.bracket_mode.BracketMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"vector",
-			bkchem_qt.modes.vector_mode.VectorMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"repair",
-			bkchem_qt.modes.repair_mode.RepairMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"plus",
-			bkchem_qt.modes.plus_mode.PlusMode(self._view),
-		)
-		self._mode_manager.register_mode(
-			"misc",
-			bkchem_qt.modes.misc_mode.MiscMode(self._view),
-		)
-		# connect the mode manager to the view for event dispatch
-		self._view.set_mode_manager(self._mode_manager)
-		# inject YAML submode data into each registered mode
-		self._inject_submodes_from_yaml()
-
-	#============================================
-	def _inject_submodes_from_yaml(self) -> None:
-		"""Parse modes.yaml and inject submode data into registered modes.
-
-		For each registered mode, looks up its definition in modes.yaml
-		and parses the submodes section. The parsed data is set on the
-		mode object's attributes so the SubModeRibbon can render them.
-		"""
-		if not _MODES_YAML_PATH.is_file():
-			return
-		with open(_MODES_YAML_PATH, "r") as fh:
-			modes_config = yaml.safe_load(fh) or {}
-		modes_defs = modes_config.get("modes", {})
-
-		for mode_name in self._mode_manager.mode_names():
-			mode = self._mode_manager._modes[mode_name]
-			# find the YAML definition for this mode
-			# try direct key match first, then alias lookup
-			yaml_key = mode_name
-			if yaml_key == "align":
-				yaml_key = "bondalign"
-			cfg = modes_defs.get(yaml_key, {})
-			if not cfg:
-				continue
-
-			# set show_edit_pool from YAML
-			mode.show_edit_pool = cfg.get('show_edit_pool', False)
-
-			# dynamic modes populate their own submodes at init time;
-			# skip YAML injection if the mode already has submode data
-			if cfg.get('dynamic') and mode.submodes:
-				continue
-
-			# parse submode groups from YAML
-			parsed = bkchem_qt.modes.config.load_submodes_from_yaml(cfg)
-			(submodes, submodes_names, submode_defaults,
-				icon_map, group_labels, group_layouts,
-				tooltip_map, size_map) = parsed
-
-			mode.submodes = submodes
-			mode.submodes_names = submodes_names
-			# initialize current submode indices from defaults
-			mode.submode = list(submode_defaults)
-			mode.icon_map = icon_map
-			mode.group_labels = group_labels
-			mode.group_layouts = group_layouts
-			mode.tooltip_map = tooltip_map
-			mode.size_map = size_map
 
 	#============================================
 	def _setup_menus(self) -> None:
@@ -318,26 +134,31 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 			export_cascade_label, "Export SVG...",
 			"Export the current document as SVG",
 			self._on_export_svg,
+			action_key="file.export_svg",
 		)
 		self._adapter.add_command_to_cascade(
 			export_cascade_label, "Export PNG...",
 			"Export the current document as PNG",
 			self._on_export_png,
+			action_key="file.export_png",
 		)
 		self._adapter.add_command_to_cascade(
 			export_cascade_label, "Export PDF...",
 			"Export the current document as PDF",
 			self._on_export_pdf,
+			action_key="file.export_pdf",
 		)
-		# backward compatibility aliases for existing code references
-		self._action_save = self._adapter.get_action("File", "Save")
-		self._action_open = self._adapter.get_action("File", "Open")
-		self._action_new = self._adapter.get_action("File", "New")
-		self._action_exit = self._adapter.get_action("File", "Quit")
-		self._action_undo = self._adapter.get_action("Edit", "Undo")
-		self._action_redo = self._adapter.get_action("Edit", "Redo")
-		self._action_toggle_theme = self._adapter.get_action("Options", "Theme")
-		self._action_about = self._adapter.get_action("Help", "About")
+		# retrieve QActions by frozen English key for later enable/disable
+		self._action_save = self._adapter.get_action_by_key("file.save")
+		self._action_open = self._adapter.get_action_by_key("file.load")
+		self._action_new = self._adapter.get_action_by_key("file.new")
+		self._action_exit = self._adapter.get_action_by_key("file.exit")
+		self._action_undo = self._adapter.get_action_by_key("edit.undo")
+		self._action_redo = self._adapter.get_action_by_key("edit.redo")
+		self._action_toggle_theme = self._adapter.get_action_by_key(
+			"options.theme"
+		)
+		self._action_about = self._adapter.get_action_by_key("help.about")
 		# grid toggle is not in menus.yaml (it is a view feature)
 		# create it as a standalone checkable action
 		view_menu = self._adapter.get_menu_component("View")
@@ -349,6 +170,10 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 			self._action_toggle_grid.setCheckable(True)
 			self._action_toggle_grid.setChecked(self._scene.grid_visible)
 			self._action_toggle_grid.triggered.connect(self._on_toggle_grid)
+			# register with frozen key for key-based lookup
+			self._adapter.register_direct_action(
+				"view.toggle_grid", self._action_toggle_grid
+			)
 			self._action_toggle_grid_snap = view_menu.addAction(
 				self.tr("Snap To &Grid")
 			)
@@ -362,6 +187,12 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 			self._action_toggle_grid_snap.triggered.connect(
 				self._on_toggle_grid_snap
 			)
+			# register with frozen key for key-based lookup
+			self._adapter.register_direct_action(
+				"view.toggle_grid_snap", self._action_toggle_grid_snap
+			)
+		# populate the Recent files cascade from stored preferences
+		self.refresh_recent_files_menu()
 
 	#============================================
 	def _setup_menus_legacy(self) -> None:
@@ -479,89 +310,18 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 
 	#============================================
 	def _setup_toolbars(self) -> None:
-		"""Create the mode toolbar, submode ribbon, and edit ribbon.
-
-		The mode toolbar is the topmost toolbar row, using the
-		toolbar_order from modes.yaml for mode sequencing and
-		separator placement. Icons are loaded from pixmaps via icon_loader.
-		"""
-		# validate icon data directory before loading any icons
-		bkchem_qt.widgets.icon_loader.validate_icon_paths()
-		# sync icon_loader with the current theme
-		bkchem_qt.widgets.icon_loader.set_theme(self._theme_manager.current_theme)
-
-		# load modes.yaml for toolbar_order and icon mappings
-		if not _MODES_YAML_PATH.is_file():
-			raise FileNotFoundError(
-				f"modes.yaml not found: {_MODES_YAML_PATH}\n"
-				"Check that the bkchem_data symlink is correct."
-			)
-		with open(_MODES_YAML_PATH, "r") as fh:
-			modes_config = yaml.safe_load(fh) or {}
-
-		toolbar_order = modes_config.get("toolbar_order", [])
-		modes_defs = modes_config.get("modes", {})
-
-		# mode selection toolbar - topmost horizontal toolbar row
-		self._mode_toolbar = bkchem_qt.widgets.mode_toolbar.ModeToolbar(self)
-		registered_modes = set(self._mode_manager.mode_names())
-
-		for entry in toolbar_order:
-			# separator marker in modes.yaml
-			if entry == "---":
-				self._mode_toolbar.add_separator_marker()
-				continue
-			# look up the mode definition for label and icon name
-			mode_def = modes_defs.get(entry, {})
-			label = mode_def.get("label", mode_def.get("name", entry))
-			icon_name = mode_def.get("icon", entry)
-			icon = bkchem_qt.widgets.icon_loader.get_icon(icon_name)
-			tooltip = label.capitalize()
-			# only add if the mode is registered in the mode manager
-			# (some yaml modes like biotemplate/usertemplate may not be registered yet)
-			if entry in registered_modes:
-				self._mode_toolbar.add_mode(entry, label, tooltip=tooltip, icon=icon)
-			elif entry == "bondalign" and "align" in registered_modes:
-				# modes.yaml calls it bondalign, mode_manager registers it as align
-				self._mode_toolbar.add_mode("align", label, tooltip=tooltip, icon=icon)
-
-		self._mode_toolbar.set_active_mode("edit")
-
-		# add separator then Undo/Redo action buttons
-		self._mode_toolbar.add_separator_marker()
-		self._undo_action = self._mode_toolbar.add_action_button(
-			"undo", "Undo", tooltip="Undo last action",
-			callback=self._document.undo_stack.undo,
+		"""Create the mode toolbar, submode ribbon, edit ribbon, and docks."""
+		widgets = bkchem_qt.setup.toolbar_setup.setup_toolbars(
+			self, self._mode_manager, self._document, self._theme_manager,
 		)
-		self._undo_action.setEnabled(self._document.undo_stack.canUndo())
-		self._redo_action = self._mode_toolbar.add_action_button(
-			"redo", "Redo", tooltip="Redo last undone action",
-			callback=self._document.undo_stack.redo,
-		)
-		self._redo_action.setEnabled(self._document.undo_stack.canRedo())
-
-		# mode toolbar is the topmost toolbar row
-		self.addToolBar(self._mode_toolbar)
-
-		# submode ribbon on its own row below mode toolbar
-		self.addToolBarBreak()
-		self._submode_ribbon = (
-			bkchem_qt.widgets.submode_ribbon.SubModeRibbon(self)
-		)
-		self._submode_toolbar = self.addToolBar(
-			self.tr("Submode Ribbon")
-		)
-		self._submode_toolbar.addWidget(self._submode_ribbon)
-		self._submode_toolbar.setMovable(False)
-
-		# edit ribbon on its own row below submode ribbon
-		self.addToolBarBreak()
-		self._edit_ribbon = bkchem_qt.widgets.edit_ribbon.EditRibbon(self)
-		self._edit_ribbon_toolbar = self.addToolBar(
-			self.tr("Edit Ribbon")
-		)
-		self._edit_ribbon_toolbar.addWidget(self._edit_ribbon)
-		self._edit_ribbon_toolbar.setMovable(False)
+		self._mode_toolbar = widgets["mode_toolbar"]
+		self._submode_ribbon = widgets["submode_ribbon"]
+		self._submode_toolbar = widgets["submode_toolbar"]
+		self._edit_ribbon = widgets["edit_ribbon"]
+		self._edit_ribbon_toolbar = widgets["edit_ribbon_toolbar"]
+		self._property_dock = widgets["property_dock"]
+		self._undo_action = widgets["undo_action"]
+		self._redo_action = widgets["redo_action"]
 
 	#============================================
 	def _setup_status_bar(self) -> None:
@@ -612,6 +372,11 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		# view zoom -> zoom controls display
 		self._view.zoom_changed.connect(
 			self._zoom_controls.update_zoom_display
+		)
+
+		# selection changes -> update property dock
+		self._document.selection_changed.connect(
+			self._property_dock.update_from_selection
 		)
 
 		# selection and undo changes -> update menu enabled states
@@ -674,60 +439,30 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 	#============================================
 	def on_copy(self) -> None:
 		"""Copy selected molecules to clipboard as CDML."""
-		mols = self._document.selected_mols
-		if not mols:
+		count = self._clipboard_manager.copy_selection(self._document)
+		if count == 0:
 			self.statusBar().showMessage(
 				self.tr("Nothing selected to copy"), 3000,
 			)
 			return
-		# serialize selected molecules to CDML XML string
-		cdml_text = self._selected_mols_to_cdml(mols)
-		if not cdml_text:
-			return
-		# place on clipboard with custom MIME and plain text fallback
-		clipboard = PySide6.QtWidgets.QApplication.clipboard()
-		mime_data = PySide6.QtCore.QMimeData()
-		mime_data.setData(
-			"application/x-bkchem-cdml",
-			PySide6.QtCore.QByteArray(cdml_text.encode("utf-8")),
-		)
-		mime_data.setText(cdml_text)
-		clipboard.setMimeData(mime_data)
 		self.statusBar().showMessage(
-			self.tr("Copied %d molecule(s)") % len(mols), 3000,
+			self.tr("Copied %d molecule(s)") % count, 3000,
 		)
 
 	#============================================
 	def on_paste(self) -> None:
 		"""Paste molecules from clipboard CDML data."""
-		clipboard = PySide6.QtWidgets.QApplication.clipboard()
-		mime_data = clipboard.mimeData()
-		cdml_text = None
-		# prefer custom MIME type
-		if mime_data.hasFormat("application/x-bkchem-cdml"):
-			raw = mime_data.data("application/x-bkchem-cdml")
-			cdml_text = bytes(raw).decode("utf-8")
-		elif mime_data.hasText():
-			# try plain text as CDML fallback
-			text = mime_data.text()
-			if "<cdml" in text or "<molecule" in text:
-				cdml_text = text
-		if not cdml_text:
+		status, molecules = self._clipboard_manager.paste()
+		if status == "no_data":
 			self.statusBar().showMessage(
 				self.tr("No CDML data on clipboard"), 3000,
 			)
 			return
-		molecules = bkchem_qt.io.cdml_io.load_cdml_string(cdml_text)
-		if not molecules:
+		if status == "parse_error":
 			self.statusBar().showMessage(
 				self.tr("Could not parse clipboard data"), 3000,
 			)
 			return
-		# offset pasted molecules to avoid exact overlap
-		for mol_model in molecules:
-			for atom_model in mol_model.atoms:
-				atom_model.x = atom_model.x + 20.0
-				atom_model.y = atom_model.y + 20.0
 		bkchem_qt.actions.file_actions._add_molecules_to_scene(
 			self, molecules,
 		)
@@ -745,40 +480,6 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 				item.setSelected(True)
 			elif isinstance(item, bkchem_qt.canvas.items.bond_item.BondItem):
 				item.setSelected(True)
-
-	#============================================
-	def _selected_mols_to_cdml(self, mols: list) -> str:
-		"""Serialize a list of MoleculeModels to CDML XML string.
-
-		Args:
-			mols: List of MoleculeModel instances to serialize.
-
-		Returns:
-			CDML XML string, or empty string on failure.
-		"""
-		import xml.dom.minidom as dom
-		import oasa.cdml_writer
-		from bkchem_qt.io.cdml_io import _px_to_cm_text
-
-		xml_doc = dom.Document()
-		cdml_el = xml_doc.createElement("cdml")
-		cdml_el.setAttribute(
-			"version", str(oasa.cdml_writer.DEFAULT_CDML_VERSION),
-		)
-		cdml_el.setAttribute(
-			"xmlns", str(oasa.cdml_writer.CDML_NAMESPACE),
-		)
-		for mol_model in mols:
-			oasa_mol = bkchem_qt.bridge.oasa_bridge.qt_mol_to_oasa_mol(
-				mol_model,
-			)
-			mol_el = oasa.cdml_writer.write_cdml_molecule_element(
-				oasa_mol, doc=xml_doc, coord_to_text=_px_to_cm_text,
-			)
-			cdml_el.appendChild(mol_el)
-		xml_doc.appendChild(cdml_el)
-		xml_text = xml_doc.toxml(encoding="utf-8").decode("utf-8")
-		return xml_text
 
 	#============================================
 	def _delete_selected(self) -> None:
@@ -837,7 +538,7 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 
 	#============================================
 	def on_zoom_to_fit(self) -> None:
-		"""Zoom to fit the paper in the viewport."""
+		"""Zoom to page (fit paper in viewport)."""
 		self._view.zoom_to_fit()
 
 	#============================================
@@ -977,6 +678,8 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self.statusBar().showMessage(
 			self.tr("Saved: %s") % file_path, 3000,
 		)
+		# record in recent files
+		bkchem_qt.actions.file_actions._record_recent_file(self, file_path)
 
 	#============================================
 	def _on_save_as(self) -> None:
@@ -998,6 +701,8 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self.statusBar().showMessage(
 			self.tr("Saved: %s") % file_path, 3000,
 		)
+		# record in recent files
+		bkchem_qt.actions.file_actions._record_recent_file(self, file_path)
 
 	#============================================
 	def _on_export_svg(self) -> None:
@@ -1082,9 +787,10 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		bkchem_qt.widgets.icon_loader.reload_icons()
 
 		# refresh mode toolbar icons
+		modes_yaml_path = bkchem_qt.setup.mode_setup.get_modes_yaml_path()
 		modes_config = {}
-		if _MODES_YAML_PATH.is_file():
-			with open(_MODES_YAML_PATH, "r") as fh:
+		if modes_yaml_path.is_file():
+			with open(modes_yaml_path, "r") as fh:
 				modes_config = yaml.safe_load(fh) or {}
 		modes_defs = modes_config.get("modes", {})
 		for name, action in self._mode_toolbar._actions.items():
@@ -1100,22 +806,8 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self._view.set_background_color(surround)
 		self._scene.apply_theme(theme_name)
 
-		# update default chemistry line and area colors for new theme
-		chem_colors = bkchem_qt.themes.theme_loader.get_chemistry_colors(theme_name)
-		bkchem_qt.canvas.items.render_ops_painter.set_default_color(
-			chem_colors["default_line"]
-		)
-		bkchem_qt.canvas.items.render_ops_painter.set_default_area_color(
-			chem_colors["default_area"]
-		)
-		# update canvas interaction colors for new theme
-		canvas_colors = bkchem_qt.themes.theme_loader.get_canvas_colors(theme_name)
-		bkchem_qt.canvas.items.render_ops_painter.set_canvas_colors(canvas_colors)
-		# update charge mark colors for new theme
-		bkchem_qt.canvas.items.render_ops_painter.set_charge_colors({
-			"plus": chem_colors["charge_plus"],
-			"minus": chem_colors["charge_minus"],
-		})
+		# update chemistry and canvas colors from new theme
+		bkchem_qt.setup.canvas_setup._apply_theme_colors(theme_name)
 
 		# refresh submode ribbon icons for new theme
 		mode = self._mode_manager.current_mode
@@ -1156,6 +848,60 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 			self._action_toggle_grid.setChecked(grid_visible)
 		if hasattr(self, "_action_toggle_grid_snap"):
 			self._action_toggle_grid_snap.setChecked(grid_snap_enabled)
+
+	#============================================
+	def refresh_recent_files_menu(self) -> None:
+		"""Rebuild the Recent files submenu from preferences.
+
+		Clears the existing submenu entries and repopulates from
+		the stored recent files list. Each entry shows just the
+		filename, with the full path as a tooltip. When the list
+		is empty, shows a single disabled placeholder entry.
+		"""
+		recent_menu = self._adapter.get_menu_component("Recent files")
+		if recent_menu is None:
+			return
+		recent_menu.clear()
+		# read the current recent files list
+		recent = self._prefs.value(
+			bkchem_qt.config.preferences.Preferences.KEY_RECENT_FILES
+		)
+		# QSettings may return a string for single-item lists
+		if recent is None:
+			recent = []
+		elif isinstance(recent, str):
+			recent = [recent] if recent else []
+		# populate the submenu
+		if not recent:
+			placeholder = recent_menu.addAction(self.tr("(No recent files)"))
+			placeholder.setEnabled(False)
+			return
+		for file_path in recent:
+			# show just the filename as the menu label
+			display_name = os.path.basename(file_path)
+			action = recent_menu.addAction(display_name)
+			action.setToolTip(file_path)
+			# capture file_path in the lambda closure
+			action.triggered.connect(
+				lambda checked=False, fp=file_path: self._open_recent_file(fp)
+			)
+
+	#============================================
+	def _open_recent_file(self, file_path: str) -> None:
+		"""Open a file from the recent files list.
+
+		Verifies the file still exists before attempting to load.
+
+		Args:
+			file_path: Absolute path to the file to open.
+		"""
+		if not os.path.isfile(file_path):
+			PySide6.QtWidgets.QMessageBox.warning(
+				self, self.tr("File Not Found"),
+				self.tr("The file no longer exists:\n%s") % file_path,
+			)
+			return
+		bkchem_qt.actions.file_actions.open_file_path(self, file_path)
 
 	#============================================
 	def _on_preferences(self) -> None:

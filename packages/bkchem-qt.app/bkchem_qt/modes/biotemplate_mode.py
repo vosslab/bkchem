@@ -177,7 +177,7 @@ class BioTemplateMode(bkchem_qt.modes.base_mode.BaseMode):
 			# category changed: update template list for group 1
 			self._apply_category_selection(name)
 			# refresh the ribbon widget for group 1
-			main_window = self._view.window()
+			main_window = self._env.window
 			if hasattr(main_window, '_submode_ribbon'):
 				main_window._submode_ribbon.refresh_group(1)
 		elif submode_index == 1:
@@ -337,14 +337,13 @@ class BioTemplateMode(bkchem_qt.modes.base_mode.BaseMode):
 		Args:
 			mol_model: The MoleculeModel to add.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
-		view = self._view
-		if not hasattr(view, "document") or view.document is None:
+		doc = self._env.document
+		if doc is None:
 			return
-		doc = view.document
-		undo_stack = doc.undo_stack
+		undo_stack = self._env.undo_stack
 		# register molecule with document
 		doc.add_molecule(mol_model)
 		# group all additions into a single undo macro

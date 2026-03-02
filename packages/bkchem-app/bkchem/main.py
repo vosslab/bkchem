@@ -261,7 +261,7 @@ class BKChem(
 			( _('View'), 'command', _('Zoom Out'), '(C--)', _("Zoom out"), lambda: self.paper.zoom_out(), None),
 			( _('View'), 'separator'),
 			( _('View'), 'command', _('Zoom to 100%'), '(C-0)', _("Reset zoom to 100%"), lambda: self.paper.zoom_reset(), None),
-			( _('View'), 'command', _('Zoom to Fit'), None, _("Fit drawing to window"), lambda: self.paper.zoom_to_fit(), None),
+			( _('View'), 'command', _('Zoom to Page'), None, _("Fit drawing to page"), lambda: self.paper.zoom_to_fit(), None),
 			( _('View'), 'command', _('Zoom to Content'), None, _("Fit and center on drawn content"), lambda: self.paper.zoom_to_content(), None),
 			( _('View'), 'separator'),
 			( _('View'), 'command', _('Show Hex Grid'), '(C-g)', _("Toggle hex grid dot overlay"), lambda: self.paper.toggle_hex_grid(), None),

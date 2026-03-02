@@ -44,6 +44,16 @@ class TemplateMode(bkchem_qt.modes.base_mode.BaseMode):
 		self._template_names = []
 		self._load_templates()
 
+	#============================================
+	@property
+	def status_hint(self) -> str:
+		"""Return template mode interaction hint for the status bar.
+
+		Returns:
+			A short description of available template interactions.
+		"""
+		return "Click to place template | Click atom to fuse"
+
 	# ------------------------------------------------------------------
 	# Template management
 	# ------------------------------------------------------------------
@@ -206,15 +216,14 @@ class TemplateMode(bkchem_qt.modes.base_mode.BaseMode):
 		Args:
 			mol_model: The MoleculeModel to add.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
-		# get or create document reference
-		view = self._view
-		if not hasattr(view, "document") or view.document is None:
+		# get document and undo stack from environment
+		doc = self._env.document
+		if doc is None:
 			return
-		doc = view.document
-		undo_stack = doc.undo_stack
+		undo_stack = self._env.undo_stack
 		# register molecule with document
 		doc.add_molecule(mol_model)
 		# group all additions into a single undo macro

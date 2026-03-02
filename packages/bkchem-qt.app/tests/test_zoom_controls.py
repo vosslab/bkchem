@@ -18,6 +18,8 @@ import bkchem_qt.widgets.zoom_controls
 _CHOLESTEROL_SMILES = (
 	"CC(C)CCCC(C)C1CCC2C3CC=C4C[C@H](O)CC[C@]4(C)C3CC[C@]12C"
 )
+_SWEEP_PERCENT_LEVELS = tuple(list(range(25, 396, 10)) + [400])
+_SWEEP_PERCENT_LEVELS_FULL = tuple(range(10, 1001, 10))
 
 
 #============================================
@@ -350,8 +352,15 @@ def test_reset_zoom_returns_100(main_window):
 
 #============================================
 def test_zoom_to_fit_no_crash(main_window):
-	"""Calling on_zoom_to_fit does not raise an exception."""
+	"""zoom_to_fit should run and land on the configured snap ladder."""
 	main_window.on_zoom_to_fit()
+	assert any(
+		abs(main_window.view.zoom_percent - level) < 1e-6
+		for level in bkchem_qt.canvas.view.ZOOM_SNAP_LEVELS
+	), (
+		"zoom_to_fit should land on snap ladder; "
+		f"got {main_window.view.zoom_percent:.4f}"
+	)
 
 
 #============================================
@@ -362,9 +371,9 @@ def test_zoom_to_content_no_crash(main_window):
 
 #============================================
 def test_set_zoom_percent(main_window):
-	"""set_zoom_percent(200) sets zoom to approximately 200%."""
-	main_window.view.set_zoom_percent(200)
-	assert main_window.view.zoom_percent == pytest.approx(200.0, abs=1.0)
+	"""set_zoom_percent should honor exact user-entered percentages."""
+	main_window.view.set_zoom_percent(173.91)
+	assert main_window.view.zoom_percent == pytest.approx(173.91, abs=0.01)
 
 
 #============================================
@@ -533,13 +542,17 @@ def test_zoom_roundtrip_symmetry_with_cholesterol(main_window):
 
 #============================================
 def test_zoom_sweep_25_to_400_and_400_to_25_no_inversion(main_window):
-	"""Sweep 25%-400% and back while tracking fixed-point orientation."""
+	"""Sweep fixed direct-set zoom levels and verify no orientation inversion."""
 	molecule = _import_cholesterol_from_smiles(main_window)
 	p1_scene, p2_scene = _fixed_atom_pair_scene_points(molecule)
 	main_window.on_zoom_to_content()
 	_flush_events()
-	up_percents = list(range(25, 401, 25))
-	down_percents = list(range(400, 24, -25))
+	assert any(
+		level not in bkchem_qt.canvas.view.ZOOM_SNAP_LEVELS
+		for level in _SWEEP_PERCENT_LEVELS
+	), "Sweep levels must include non-snapped values."
+	up_percents = list(_SWEEP_PERCENT_LEVELS)
+	down_percents = list(reversed(up_percents))
 	up_snapshots = _run_percent_sweep_with_fixed_pair(
 		main_window, up_percents, "up ", p1_scene, p2_scene
 	)
@@ -550,5 +563,32 @@ def test_zoom_sweep_25_to_400_and_400_to_25_no_inversion(main_window):
 	_print_fixed_pair_table("QT FIXED-PAIR TABLE (25% -> 400%)", up_snapshots)
 	_print_diagnostic_table(down_snapshots)
 	_print_fixed_pair_table("QT FIXED-PAIR TABLE (400% -> 25%)", down_snapshots)
+	_print_up_down_coordinate_comparison(up_snapshots, down_snapshots)
+	_assert_up_down_coordinate_symmetry(up_snapshots, down_snapshots)
+
+
+#============================================
+def test_zoom_sweep_10_to_1000_and_1000_to_10_no_inversion(main_window):
+	"""Sweep full direct-set range and verify no orientation inversion."""
+	molecule = _import_cholesterol_from_smiles(main_window)
+	p1_scene, p2_scene = _fixed_atom_pair_scene_points(molecule)
+	main_window.on_zoom_to_content()
+	_flush_events()
+	assert any(
+		level not in bkchem_qt.canvas.view.ZOOM_SNAP_LEVELS
+		for level in _SWEEP_PERCENT_LEVELS_FULL
+	), "Full sweep levels must include non-snapped values."
+	up_percents = list(_SWEEP_PERCENT_LEVELS_FULL)
+	down_percents = list(reversed(up_percents))
+	up_snapshots = _run_percent_sweep_with_fixed_pair(
+		main_window, up_percents, "up ", p1_scene, p2_scene
+	)
+	down_snapshots = _run_percent_sweep_with_fixed_pair(
+		main_window, down_percents, "dn ", p1_scene, p2_scene
+	)
+	_print_diagnostic_table(up_snapshots)
+	_print_fixed_pair_table("QT FIXED-PAIR TABLE (10% -> 1000%)", up_snapshots)
+	_print_diagnostic_table(down_snapshots)
+	_print_fixed_pair_table("QT FIXED-PAIR TABLE (1000% -> 10%)", down_snapshots)
 	_print_up_down_coordinate_comparison(up_snapshots, down_snapshots)
 	_assert_up_down_coordinate_symmetry(up_snapshots, down_snapshots)

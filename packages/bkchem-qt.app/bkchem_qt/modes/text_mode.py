@@ -49,7 +49,7 @@ class TextMode(bkchem_qt.modes.base_mode.BaseMode):
 			scene_pos: Position in scene coordinates where text will be placed.
 			event: The mouse event.
 		"""
-		scene = self._view.scene()
+		scene = self._env.scene
 		if scene is None:
 			return
 		# show input dialog for text entry
