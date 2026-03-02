@@ -15,6 +15,33 @@ from bkchem_qt.canvas.scene import ChemScene  # noqa: F401 (used in type hints)
 ZOOM_MIN_PERCENT = 10.0
 ZOOM_MAX_PERCENT = 1000.0
 ZOOM_FACTOR_PER_NOTCH = 1.15
+ZOOM_SNAP_LEVELS = (
+	10.0,
+	15.0,
+	20.0,
+	25.0,
+	50.0,
+	75.0,
+	100.0,
+	125.0,
+	150.0,
+	175.0,
+	200.0,
+	225.0,
+	250.0,
+	275.0,
+	300.0,
+	325.0,
+	350.0,
+	375.0,
+	400.0,
+	500.0,
+	600.0,
+	700.0,
+	800.0,
+	900.0,
+	1000.0,
+)
 
 
 #============================================
@@ -267,30 +294,129 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 	#============================================
 	def reset_zoom(self) -> None:
 		"""Reset the view transform to identity (100% zoom)."""
+		center_scene = self.mapToScene(self.viewport().rect().center())
 		self.resetTransform()
+		self.centerOn(center_scene)
+		self._ensure_upright_transform()
 		self._zoom_percent = 100.0
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================
-	def zoom_in(self) -> None:
-		"""Zoom in by one notch, clamped to maximum."""
-		factor = ZOOM_FACTOR_PER_NOTCH
-		proposed = self._zoom_percent * factor
-		if proposed > ZOOM_MAX_PERCENT:
-			factor = ZOOM_MAX_PERCENT / self._zoom_percent
-		self._zoom_percent *= factor
+	def _scale_preserve_viewport_center(self, factor: float) -> None:
+		"""Scale while preserving current viewport center in scene coordinates.
+
+		This avoids anchor drift for toolbar/button zoom actions where no
+		mouse-wheel cursor anchor is intended.
+
+		Args:
+			factor: Multiplicative scale factor.
+		"""
+		if abs(factor - 1.0) < 1e-12:
+			return
+		center_scene = self.mapToScene(self.viewport().rect().center())
+		prev_anchor = self.transformationAnchor()
+		self.setTransformationAnchor(
+			PySide6.QtWidgets.QGraphicsView.ViewportAnchor.NoAnchor
+		)
 		self.scale(factor, factor)
+		self.centerOn(center_scene)
+		self.setTransformationAnchor(prev_anchor)
+		self._ensure_upright_transform()
+
+	#============================================
+	def _ensure_upright_transform(self) -> None:
+		"""Normalize transform to prevent accidental scene reflection/inversion.
+
+		Qt zoom operations should not mirror chemistry content. If a platform
+		or transform path introduces a negative axis scale, rebuild an upright
+		transform with absolute axis scales while preserving viewport center.
+		"""
+		t = self.transform()
+		if t.m11() >= 0.0 and t.m22() >= 0.0 and t.determinant() >= 0.0:
+			return
+		center_scene = self.mapToScene(self.viewport().rect().center())
+		sx = abs(t.m11()) if abs(t.m11()) > 1e-12 else 1.0
+		sy = abs(t.m22()) if abs(t.m22()) > 1e-12 else 1.0
+		self.resetTransform()
+		self.scale(sx, sy)
+		self.centerOn(center_scene)
+
+	#============================================
+	def _snap_zoom_down(self, percent: float) -> float:
+		"""Snap zoom to the nearest configured level at or below ``percent``.
+
+		Using a downward snap preserves fit guarantees for content-fit
+		operations by never increasing beyond the computed fit zoom.
+
+		Args:
+			percent: Raw zoom percent to quantize.
+
+		Returns:
+			Snapped zoom percentage in [ZOOM_MIN_PERCENT, ZOOM_MAX_PERCENT].
+		"""
+		percent = max(ZOOM_MIN_PERCENT, min(percent, ZOOM_MAX_PERCENT))
+		for level in reversed(ZOOM_SNAP_LEVELS):
+			if level <= percent + 1e-9:
+				return level
+		return ZOOM_SNAP_LEVELS[0]
+
+	#============================================
+	def _snap_zoom_nearest(self, percent: float) -> float:
+		"""Snap zoom to the nearest configured level.
+
+		Args:
+			percent: Raw zoom percentage.
+
+		Returns:
+			Nearest value from ``ZOOM_SNAP_LEVELS``.
+		"""
+		percent = max(ZOOM_MIN_PERCENT, min(percent, ZOOM_MAX_PERCENT))
+		best = ZOOM_SNAP_LEVELS[0]
+		best_diff = abs(best - percent)
+		for level in ZOOM_SNAP_LEVELS[1:]:
+			diff = abs(level - percent)
+			# tie-break toward the larger level for a stable monotone ladder
+			if diff < best_diff or (abs(diff - best_diff) < 1e-9 and level > best):
+				best = level
+				best_diff = diff
+		return best
+
+	#============================================
+	def zoom_in(self) -> None:
+		"""Zoom in by one notch, snapped to the discrete zoom ladder."""
+		current = self._zoom_percent
+		raw = current * ZOOM_FACTOR_PER_NOTCH
+		raw = max(ZOOM_MIN_PERCENT, min(raw, ZOOM_MAX_PERCENT))
+		target = self._snap_zoom_nearest(raw)
+		if target <= current and current < ZOOM_MAX_PERCENT:
+			for level in ZOOM_SNAP_LEVELS:
+				if level > current:
+					target = level
+					break
+		if abs(target - current) < 1e-9:
+			return
+		factor = target / current
+		self._zoom_percent = target
+		self._scale_preserve_viewport_center(factor)
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================
 	def zoom_out(self) -> None:
-		"""Zoom out by one notch, clamped to minimum."""
-		factor = 1.0 / ZOOM_FACTOR_PER_NOTCH
-		proposed = self._zoom_percent * factor
-		if proposed < ZOOM_MIN_PERCENT:
-			factor = ZOOM_MIN_PERCENT / self._zoom_percent
-		self._zoom_percent *= factor
-		self.scale(factor, factor)
+		"""Zoom out by one notch, snapped to the discrete zoom ladder."""
+		current = self._zoom_percent
+		raw = current / ZOOM_FACTOR_PER_NOTCH
+		raw = max(ZOOM_MIN_PERCENT, min(raw, ZOOM_MAX_PERCENT))
+		target = self._snap_zoom_nearest(raw)
+		if target >= current and current > ZOOM_MIN_PERCENT:
+			for level in reversed(ZOOM_SNAP_LEVELS):
+				if level < current:
+					target = level
+					break
+		if abs(target - current) < 1e-9:
+			return
+		factor = target / current
+		self._zoom_percent = target
+		self._scale_preserve_viewport_center(factor)
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================
@@ -301,9 +427,12 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 			percent: Target zoom percentage (e.g. 200 for 200%).
 		"""
 		percent = max(ZOOM_MIN_PERCENT, min(percent, ZOOM_MAX_PERCENT))
+		center_scene = self.mapToScene(self.viewport().rect().center())
 		self.resetTransform()
 		scale_factor = percent / 100.0
 		self.scale(scale_factor, scale_factor)
+		self.centerOn(center_scene)
+		self._ensure_upright_transform()
 		self._zoom_percent = percent
 		self.zoom_changed.emit(self._zoom_percent)
 
@@ -318,9 +447,10 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 			paper,
 			PySide6.QtCore.Qt.AspectRatioMode.KeepAspectRatio,
 		)
+		self._ensure_upright_transform()
 		# derive zoom percent from the resulting transform
 		t = self.transform()
-		self._zoom_percent = t.m11() * 100.0
+		self._zoom_percent = abs(t.m11()) * 100.0
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================
@@ -369,9 +499,16 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 			content_rect,
 			PySide6.QtCore.Qt.AspectRatioMode.KeepAspectRatio,
 		)
-		# derive zoom percent from the resulting transform
+		self._ensure_upright_transform()
+		# derive zoom percent from the resulting transform and snap to a
+		# stable zoom ladder (downward only so content remains fully visible).
 		t = self.transform()
-		self._zoom_percent = t.m11() * 100.0
+		raw_percent = abs(t.m11()) * 100.0
+		snapped_percent = self._snap_zoom_down(raw_percent)
+		if abs(snapped_percent - raw_percent) > 1e-6:
+			self.set_zoom_percent(snapped_percent)
+			return
+		self._zoom_percent = raw_percent
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================

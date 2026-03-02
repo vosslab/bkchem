@@ -93,6 +93,68 @@
   pre-centers the viewport before the forced idletasks/scrollregion recompute
   and re-centers again after recompute, so the user does not see a large
   intermediate jump while heavy redraws are in progress.
+- Added a dedicated `file_actions` mode icon asset from user-provided folder
+  artwork:
+  - moved source SVG to
+    [`pixmaps/src/file_actions.svg`](packages/bkchem-app/bkchem_data/pixmaps/src/file_actions.svg)
+  - generated matching toolbar PNG assets in
+    [`pixmaps/png/file_actions.png`](packages/bkchem-app/bkchem_data/pixmaps/png/file_actions.png)
+    and
+    [`pixmaps/png-dark/file_actions.png`](packages/bkchem-app/bkchem_data/pixmaps/png-dark/file_actions.png)
+  - existing mode mapping in
+    [`modes.yaml`](packages/bkchem-app/bkchem_data/modes.yaml)
+    (`modes.file_actions.icon: file_actions`) now resolves to this icon.
+- Added an opt-in visual mode for Qt pytest runs in
+  [`tests/conftest.py`](packages/bkchem-qt.app/tests/conftest.py):
+  - set `BKCHEM_QT_TEST_VISUAL=1` to show and raise `MainWindow` during tests
+  - set `BKCHEM_QT_TEST_VISUAL_HOLD_MS=<ms>` to add a per-test observation
+    pause for manual visual checking
+  - when running with `-s` and `QT_QPA_PLATFORM` is not `offscreen`, tests
+    that use the shared `main_window` fixture now auto-show the window for
+    visual inspection without requiring extra flags.
+- Expanded
+  [`test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py)
+  to include cholesterol-backed zoom diagnostics (content round-trip stability,
+  model-coordinate invariance across min/max zoom clamps, and high-zoom
+  viewport center symmetry), aligning Qt zoom coverage more closely with the Tk
+  zoom stress-test style.
+- Fixed Qt programmatic zoom anchor drift in
+  [`canvas/view.py`](packages/bkchem-qt.app/bkchem_qt/canvas/view.py):
+  toolbar/button zoom paths (`zoom_in`, `zoom_out`, `reset_zoom`,
+  `set_zoom_percent`) now preserve the current viewport center in scene space
+  instead of drifting with `AnchorUnderMouse`, which stabilizes
+  zoom-out/zoom-in round-trips on macOS `cocoa` visual runs.
+- Added Qt transform upright guard in
+  [`canvas/view.py`](packages/bkchem-qt.app/bkchem_qt/canvas/view.py) to
+  auto-normalize accidental reflected transforms (negative axis scale /
+  determinant), preventing molecule inversion during zoom paths.
+- Added discrete zoom ladder support in
+  [`canvas/view.py`](packages/bkchem-qt.app/bkchem_qt/canvas/view.py) via
+  `ZOOM_SNAP_LEVELS` (including low-end fine steps `10, 15, 20, 25` and
+  high-end anchors `350, 375, 400`, plus levels up to `1000`).
+  `zoom_to_content()` now snaps to the nearest configured level at or below
+  the computed fit zoom (downward snap), giving stable user-facing zoom values
+  while preserving content-fit safety.
+- Qt toolbar zoom step actions now also snap to the discrete ladder:
+  `zoom_in()` / `zoom_out()` use multiplicative proposal (`*1.15` or `/1.15`)
+  followed by nearest-level snap with monotone direction guarantees; e.g.
+  `200 / 1.15 = 173.91` now steps to `175`.
+- Expanded
+  [`test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py)
+  diagnostics with dense bidirectional zoom sweeps (`25% -> 400%` and
+  `400% -> 25%`), explicit transform orientation assertions
+  (`m11 > 0`, `m22 > 0`, determinant `> 0`), and fixed-point pair tracking
+  (two stable molecule points in viewport space with vector dot-to-baseline
+  checks) so visual mirror/inversion regressions fail fast with printed
+  diagnostics.
+- Updated the first zoom-controls behavior test to import cholesterol and zoom
+  to content before zooming, so visual `-s` runs start with actual molecule
+  geometry instead of empty-canvas-only zoom changes.
+- Added matched up-vs-down coordinate comparison output for fixed points at
+  each zoom level in
+  [`test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py),
+  including per-level point deltas and translation vectors, plus translation-
+  aware symmetry assertions (vector consistency and shift consistency).
 
 ## 2026-03-01
 

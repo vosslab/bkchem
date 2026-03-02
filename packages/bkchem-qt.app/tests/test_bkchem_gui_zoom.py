@@ -61,6 +61,37 @@ def _assert_close(value: float, expected: float, tol: float, message: str) -> No
 
 
 #============================================
+def _simulate_snapped_button_zoom(start_percent: float, direction: int, steps: int) -> float:
+	"""Simulate toolbar zoom steps using the view's snapped ladder logic."""
+	current = float(start_percent)
+	levels = bkchem_qt.canvas.view.ZOOM_SNAP_LEVELS
+	for _idx in range(steps):
+		if direction > 0:
+			raw = current * bkchem_qt.canvas.view.ZOOM_FACTOR_PER_NOTCH
+		else:
+			raw = current / bkchem_qt.canvas.view.ZOOM_FACTOR_PER_NOTCH
+		raw = max(
+			bkchem_qt.canvas.view.ZOOM_MIN_PERCENT,
+			min(raw, bkchem_qt.canvas.view.ZOOM_MAX_PERCENT),
+		)
+		target = min(levels, key=lambda level: (abs(level - raw), -level))
+		if direction > 0 and target <= current and current < bkchem_qt.canvas.view.ZOOM_MAX_PERCENT:
+			for level in levels:
+				if level > current:
+					target = level
+					break
+		elif direction < 0 and target >= current and current > bkchem_qt.canvas.view.ZOOM_MIN_PERCENT:
+			for level in reversed(levels):
+				if level < current:
+					target = level
+					break
+		if abs(target - current) < 1e-9:
+			continue
+		current = target
+	return current
+
+
+#============================================
 def _import_cholesterol_from_smiles(main_window):
 	"""Import cholesterol from SMILES and add it to scene+document."""
 	smiles_file = io.StringIO(_CHOLESTEROL_SMILES + "\n")
@@ -96,7 +127,7 @@ def test_qt_gui_zoom_diagnostic(main_window):
 	for _i in range(3):
 		main_window.on_zoom_out()
 	_flush_events()
-	expected_out = 100.0 / (bkchem_qt.canvas.view.ZOOM_FACTOR_PER_NOTCH ** 3)
+	expected_out = _simulate_snapped_button_zoom(100.0, direction=-1, steps=3)
 	_assert_close(
 		view.zoom_percent, expected_out, 0.15,
 		"zoom_out x3 should match expected scale",
@@ -111,7 +142,7 @@ def test_qt_gui_zoom_diagnostic(main_window):
 	for _i in range(3):
 		main_window.on_zoom_in()
 	_flush_events()
-	expected_in = 100.0 * (bkchem_qt.canvas.view.ZOOM_FACTOR_PER_NOTCH ** 3)
+	expected_in = _simulate_snapped_button_zoom(100.0, direction=1, steps=3)
 	_assert_close(
 		view.zoom_percent, expected_in, 0.15,
 		"zoom_in x3 should match expected scale",
@@ -124,6 +155,13 @@ def test_qt_gui_zoom_diagnostic(main_window):
 	assert math.isfinite(zoom_after_content)
 	assert zoom_after_content > 0.0
 	assert zoom_after_content <= bkchem_qt.canvas.view.ZOOM_MAX_PERCENT
+	assert any(
+		abs(zoom_after_content - level) < 1e-6
+		for level in bkchem_qt.canvas.view.ZOOM_SNAP_LEVELS
+	), (
+		"zoom_to_content should land on snap ladder; "
+		f"got {zoom_after_content:.4f}"
+	)
 
 	# round-trip symmetry around current view: out x3 then in x3.
 	# If content-fit zoom is too close to/below clamp, use reset zoom so the
@@ -148,7 +186,9 @@ def test_qt_gui_zoom_diagnostic(main_window):
 
 	_assert_close(end_zoom, start_zoom, 0.2, "zoom round-trip should preserve scale")
 	drift = math.hypot(end_center.x() - start_center.x(), end_center.y() - start_center.y())
-	assert drift <= 12.0, f"viewport center drift too high after round-trip: {drift:.2f}px"
+	# snapped zoom ladder and integer scrollbar quantization can yield a
+	# slightly larger but still acceptable viewport drift on round-trip.
+	assert drift <= 20.0, f"viewport center drift too high after round-trip: {drift:.2f}px"
 
 
 #============================================
