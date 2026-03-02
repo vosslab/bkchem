@@ -4,6 +4,24 @@
 
 ### Additions and New Features
 
+- Replaced `_oxidation_number()` stub in
+  [chemistry_actions.py](../packages/bkchem-qt.app/bkchem_qt/actions/chemistry_actions.py)
+  with a working implementation. The Qt "Compute oxidation number" menu item now
+  iterates atoms in selected molecules, delegates to
+  `oasa.atom_lib.Atom.oxidation_number` (electronegativity-based algorithm), and
+  displays results as signed Roman numerals (e.g. +III, -II, 0) in a
+  QMessageBox. Added `_int_to_roman_oxidation()` helper for the conversion.
+  Added `oxidation_number` read-only property to `AtomModel` in
+  [atom_model.py](../packages/bkchem-qt.app/bkchem_qt/models/atom_model.py)
+  delegating to `_chem_atom.oxidation_number`.
+- Replaced `_read_peptide()` stub in
+  [chemistry_actions.py](../packages/bkchem-qt.app/bkchem_qt/actions/chemistry_actions.py)
+  with a working implementation. The Qt "Import Peptide Sequence" menu item now
+  prompts for a single-letter amino acid sequence, validates each letter against
+  `oasa.peptide_utils.AMINO_ACID_SMILES`, converts via
+  `oasa.peptide_utils.sequence_to_smiles()`, parses the resulting SMILES, generates
+  2D coordinates, and places the polypeptide structure on the canvas. Follows the
+  same pattern as `_read_smiles()` and `_read_inchi()`.
 - Created `ClipboardManager` class in
   [clipboard_manager.py](../packages/bkchem-qt.app/bkchem_qt/io/clipboard_manager.py)
   to centralize CDML clipboard logic. Provides `copy_selection(document)`,

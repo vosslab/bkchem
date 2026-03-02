@@ -8,6 +8,7 @@ import PySide6.QtWidgets
 
 # local repo modules
 import oasa.periodic_table
+import oasa.peptide_utils
 import bkchem_qt.io.format_bridge
 import bkchem_qt.bridge.oasa_bridge
 import bkchem_qt.actions.file_actions
@@ -180,17 +181,66 @@ def _expand_groups(app) -> None:
 
 
 #============================================
+def _int_to_roman_oxidation(n: int) -> str:
+	"""Convert an integer to a signed Roman numeral oxidation state string.
+
+	Standard chemistry convention: +III, -II, 0, etc.
+
+	Args:
+		n: Integer oxidation number.
+
+	Returns:
+		Signed Roman numeral string (e.g. -2 -> '-II', +3 -> '+III', 0 -> '0').
+	"""
+	if n == 0:
+		return "0"
+	# build the roman numeral from the absolute value
+	abs_n = abs(n)
+	roman_pairs = [
+		(1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+		(100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+		(10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+	]
+	parts = []
+	for value, numeral in roman_pairs:
+		while abs_n >= value:
+			parts.append(numeral)
+			abs_n -= value
+	sign = "+" if n > 0 else "-"
+	roman_str = sign + "".join(parts)
+	return roman_str
+
+
+#============================================
 def _oxidation_number(app) -> None:
-	"""Show placeholder dialog for oxidation number computation.
+	"""Compute and display oxidation numbers for atoms in selected molecules.
+
+	For each selected molecule, iterates atoms and computes the oxidation
+	number via the OASA electronegativity-based algorithm. Results are
+	displayed in a QMessageBox with per-molecule headings.
 
 	Args:
 		app: MainWindow instance.
 	"""
+	mols = app.document.selected_mols
+	if not mols:
+		PySide6.QtWidgets.QMessageBox.information(
+			app, "Oxidation Number", "No molecules selected."
+		)
+		return
+	# build result text for each molecule
+	lines = []
+	for idx, mol in enumerate(mols, start=1):
+		mol_name = mol.name if mol.name else f"Molecule {idx}"
+		lines.append(f"--- {mol_name} ---")
+		for atom_model in mol.atoms:
+			ox_num = atom_model.oxidation_number
+			roman = _int_to_roman_oxidation(ox_num)
+			lines.append(f"  {atom_model.symbol}: {roman}")
+		lines.append("")
+	result_text = "\n".join(lines)
 	PySide6.QtWidgets.QMessageBox.information(
-		app, "Oxidation Number",
-		"Oxidation number computation requires additional "
-		"OASA chemistry support.\n"
-		"This feature will be available in a future release."
+		app, "Oxidation Number", result_text
 	)
 
 
@@ -280,15 +330,75 @@ def _read_inchi(app) -> None:
 
 #============================================
 def _read_peptide(app) -> None:
-	"""Show placeholder dialog for peptide sequence import.
+	"""Prompt for a peptide sequence and import as a molecule.
+
+	Validates single-letter amino acid codes, converts the sequence
+	to SMILES via OASA, generates 2D coordinates, converts to a
+	MoleculeModel, and adds it to the scene.
 
 	Args:
 		app: MainWindow instance.
 	"""
-	PySide6.QtWidgets.QMessageBox.information(
-		app, "Import Peptide Sequence",
-		"Peptide sequence import requires additional OASA support.\n"
-		"This feature will be available in a future release."
+	# build prompt listing supported amino acid codes
+	supported = sorted(oasa.peptide_utils.AMINO_ACID_SMILES.keys())
+	supported_str = ", ".join(supported)
+	prompt_text = (
+		"Enter a single-letter amino acid sequence (e.g. ANKLE):\n"
+		f"Supported: {supported_str}"
+	)
+	text, ok = PySide6.QtWidgets.QInputDialog.getText(
+		app, "Import Peptide Sequence", prompt_text
+	)
+	if not ok or not text.strip():
+		return
+	# validate input letters before sending to OASA
+	sequence = text.strip().upper()
+	bad_letters = [
+		aa for aa in sequence
+		if aa not in oasa.peptide_utils.AMINO_ACID_SMILES
+	]
+	if bad_letters:
+		unique_bad = ", ".join(sorted(set(bad_letters)))
+		PySide6.QtWidgets.QMessageBox.warning(
+			app, "Peptide Sequence Error",
+			f"Unrecognized amino acid code(s): {unique_bad}\n"
+			f"Supported: {supported_str}"
+		)
+		return
+	# convert peptide sequence to SMILES
+	try:
+		smiles_string = oasa.peptide_utils.sequence_to_smiles(sequence)
+	except ValueError as exc:
+		PySide6.QtWidgets.QMessageBox.warning(
+			app, "Peptide Sequence Error",
+			f"Failed to convert peptide sequence:\n{exc}"
+		)
+		return
+	# parse SMILES via OASA smiles_lib
+	try:
+		from oasa import smiles_lib
+		oasa_mol = smiles_lib.text_to_mol(smiles_string)
+	except Exception as exc:
+		PySide6.QtWidgets.QMessageBox.warning(
+			app, "SMILES Error",
+			f"Failed to parse peptide SMILES:\n{exc}"
+		)
+		return
+	# generate 2D coordinates
+	try:
+		from oasa import coords_generator
+		coords_generator.calculate_coords(oasa_mol, bond_length=1.0, force=1)
+	except Exception as exc:
+		PySide6.QtWidgets.QMessageBox.warning(
+			app, "Coordinate Error",
+			f"Failed to generate coordinates:\n{exc}"
+		)
+		return
+	# convert and add to scene
+	mol_model = bkchem_qt.bridge.oasa_bridge.oasa_mol_to_qt_mol(oasa_mol)
+	bkchem_qt.actions.file_actions._add_molecules_to_scene(app, [mol_model])
+	app.statusBar().showMessage(
+		f"Imported peptide sequence '{sequence}'", 3000
 	)
 
 

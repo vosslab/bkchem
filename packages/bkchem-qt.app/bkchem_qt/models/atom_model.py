@@ -128,6 +128,12 @@ class AtomModel(PySide6.QtCore.QObject):
 		"""Atomic number (read-only, set by symbol)."""
 		return self._chem_atom.symbol_number
 
+	#============================================
+	@property
+	def oxidation_number(self) -> int:
+		"""Oxidation number computed from electronegativity and bonds (read-only)."""
+		return self._chem_atom.oxidation_number
+
 	# ------------------------------------------------------------------
 	# Coordinate properties (display layer)
 	# ------------------------------------------------------------------
