@@ -9,9 +9,6 @@ Validates that every registered action key:
 # Standard Library
 import re
 
-# PIP3 modules
-import pytest
-
 # local repo modules
 import bkchem_qt.actions.action_registry
 

@@ -182,8 +182,9 @@ class VectorMode(bkchem_qt.modes.base_mode.BaseMode):
 
 
 #============================================
-def _make_rect(p1: PySide6.QtCore.QPointF,
-			   p2: PySide6.QtCore.QPointF) -> PySide6.QtCore.QRectF:
+def _make_rect(
+		p1: PySide6.QtCore.QPointF,
+		p2: PySide6.QtCore.QPointF) -> PySide6.QtCore.QRectF:
 	"""Build a QRectF from two corner points.
 
 	Args:

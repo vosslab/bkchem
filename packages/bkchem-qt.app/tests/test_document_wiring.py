@@ -20,10 +20,10 @@ def test_view_has_document_property(main_window):
 
 #============================================
 def test_draw_mode_finds_undo_stack(main_window):
-	"""Draw mode _find_undo_stack() returns valid QUndoStack."""
+	"""Draw mode resolves undo stack via ModeEnvironment."""
 	main_window._mode_manager.set_mode("draw")
 	draw_mode = main_window._mode_manager.current_mode
-	stack = draw_mode._find_undo_stack()
+	stack = draw_mode._env.undo_stack
 	assert stack is not None, "undo stack should not be None"
 	assert isinstance(stack, PySide6.QtGui.QUndoStack), "should be QUndoStack"
 

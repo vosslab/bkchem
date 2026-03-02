@@ -85,6 +85,8 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 
 		# active document reference (set by MainWindow via set_document)
 		self._document = None
+		# direct-set zoom anchor to avoid path-dependent drift in percent sweeps
+		self._direct_zoom_anchor_scene: PySide6.QtCore.QPointF | None = None
 
 		# rendering quality
 		self.setRenderHint(PySide6.QtGui.QPainter.RenderHint.Antialiasing, True)
@@ -159,6 +161,7 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 
 		self._zoom_percent *= factor
 		self.scale(factor, factor)
+		self._invalidate_direct_zoom_anchor()
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================
@@ -292,12 +295,62 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 		super().keyReleaseEvent(event)
 
 	#============================================
+	def _viewport_center_scene_precise(self) -> PySide6.QtCore.QPointF:
+		"""Return viewport center in scene coords using polygon mapping.
+
+		Using a mapped viewport rect avoids integer-center quantization drift
+		from repeated zoom operations (notably long direct-set sweeps).
+		"""
+		return self.mapToScene(self.viewport().rect()).boundingRect().center()
+
+	#============================================
+	def _invalidate_direct_zoom_anchor(self) -> None:
+		"""Clear direct-set zoom anchor so next direct set captures fresh center."""
+		self._direct_zoom_anchor_scene = None
+
+	#============================================
+	def _resolve_direct_zoom_anchor(self) -> PySide6.QtCore.QPointF:
+		"""Return stable anchor for direct percent zoom sequences.
+
+		Keeps a fixed scene-center target across consecutive
+		``set_zoom_percent(...)`` calls to prevent cumulative drift from
+		scrollbar quantization. Rebases if view center moved materially
+		(e.g. user pan or non-direct zoom operation).
+		"""
+		current = self._viewport_center_scene_precise()
+		if self._direct_zoom_anchor_scene is None:
+			self._direct_zoom_anchor_scene = PySide6.QtCore.QPointF(current)
+		else:
+			dx = current.x() - self._direct_zoom_anchor_scene.x()
+			dy = current.y() - self._direct_zoom_anchor_scene.y()
+			if abs(dx) > 1.0 or abs(dy) > 1.0:
+				self._direct_zoom_anchor_scene = PySide6.QtCore.QPointF(current)
+		return PySide6.QtCore.QPointF(self._direct_zoom_anchor_scene)
+
+	#============================================
+	def _recenter_with_correction(self, target_center: PySide6.QtCore.QPointF) -> None:
+		"""Center on ``target_center`` with one residual-correction pass."""
+		self.centerOn(target_center)
+		current_center = self._viewport_center_scene_precise()
+		dx = target_center.x() - current_center.x()
+		dy = target_center.y() - current_center.y()
+		if abs(dx) <= 1e-9 and abs(dy) <= 1e-9:
+			return
+		self.centerOn(
+			PySide6.QtCore.QPointF(
+				target_center.x() + dx,
+				target_center.y() + dy,
+			)
+		)
+
+	#============================================
 	def reset_zoom(self) -> None:
 		"""Reset the view transform to identity (100% zoom)."""
-		center_scene = self.mapToScene(self.viewport().rect().center())
+		center_scene = self._viewport_center_scene_precise()
 		self.resetTransform()
-		self.centerOn(center_scene)
+		self._recenter_with_correction(center_scene)
 		self._ensure_upright_transform()
+		self._invalidate_direct_zoom_anchor()
 		self._zoom_percent = 100.0
 		self.zoom_changed.emit(self._zoom_percent)
 
@@ -313,14 +366,14 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 		"""
 		if abs(factor - 1.0) < 1e-12:
 			return
-		center_scene = self.mapToScene(self.viewport().rect().center())
+		center_scene = self._viewport_center_scene_precise()
 		prev_anchor = self.transformationAnchor()
 		self.setTransformationAnchor(
-			PySide6.QtWidgets.QGraphicsView.ViewportAnchor.NoAnchor
+			PySide6.QtWidgets.QGraphicsView.ViewportAnchor.AnchorViewCenter
 		)
 		self.scale(factor, factor)
-		self.centerOn(center_scene)
 		self.setTransformationAnchor(prev_anchor)
+		self._recenter_with_correction(center_scene)
 		self._ensure_upright_transform()
 
 	#============================================
@@ -334,12 +387,12 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 		t = self.transform()
 		if t.m11() >= 0.0 and t.m22() >= 0.0 and t.determinant() >= 0.0:
 			return
-		center_scene = self.mapToScene(self.viewport().rect().center())
+		center_scene = self._viewport_center_scene_precise()
 		sx = abs(t.m11()) if abs(t.m11()) > 1e-12 else 1.0
 		sy = abs(t.m22()) if abs(t.m22()) > 1e-12 else 1.0
 		self.resetTransform()
 		self.scale(sx, sy)
-		self.centerOn(center_scene)
+		self._recenter_with_correction(center_scene)
 
 	#============================================
 	def _snap_zoom_down(self, percent: float) -> float:
@@ -398,6 +451,7 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 		factor = target / current
 		self._zoom_percent = target
 		self._scale_preserve_viewport_center(factor)
+		self._invalidate_direct_zoom_anchor()
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================
@@ -417,6 +471,7 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 		factor = target / current
 		self._zoom_percent = target
 		self._scale_preserve_viewport_center(factor)
+		self._invalidate_direct_zoom_anchor()
 		self.zoom_changed.emit(self._zoom_percent)
 
 	#============================================
@@ -427,11 +482,11 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 			percent: Target zoom percentage (e.g. 200 for 200%).
 		"""
 		percent = max(ZOOM_MIN_PERCENT, min(percent, ZOOM_MAX_PERCENT))
-		center_scene = self.mapToScene(self.viewport().rect().center())
+		center_scene = self._resolve_direct_zoom_anchor()
 		self.resetTransform()
 		scale_factor = percent / 100.0
 		self.scale(scale_factor, scale_factor)
-		self.centerOn(center_scene)
+		self._recenter_with_correction(center_scene)
 		self._ensure_upright_transform()
 		self._zoom_percent = percent
 		self.zoom_changed.emit(self._zoom_percent)
@@ -439,6 +494,7 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 	#============================================
 	def zoom_to_fit(self) -> None:
 		"""Zoom and pan to fit the paper rectangle in the viewport."""
+		self._invalidate_direct_zoom_anchor()
 		scene = self.scene()
 		if scene is None:
 			return
@@ -473,6 +529,7 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 		import bkchem_qt.canvas.items.text_item
 		import bkchem_qt.canvas.items.mark_item
 
+		self._invalidate_direct_zoom_anchor()
 		scene = self.scene()
 		if scene is None:
 			return

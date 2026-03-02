@@ -290,6 +290,19 @@
   [`test_zoom_controls.py`](packages/bkchem-qt.app/tests/test_zoom_controls.py):
   bidirectional direct-set diagnostics now also cover `10% -> 1000%` and
   `1000% -> 10%` with the same fixed-point inversion and symmetry checks.
+- Reduced Qt direct-set zoom drift in
+  [`canvas/view.py`](packages/bkchem-qt.app/bkchem_qt/canvas/view.py):
+  viewport-center preservation now uses precise mapped-rect center capture plus
+  a correction re-center pass, and `set_zoom_percent(...)` scales from current
+  transform scale instead of reset/rebuild each step.
+- Further reduced Qt Cocoa path hysteresis for direct-set zoom sweeps:
+  `set_zoom_percent(...)` now short-circuits same-value requests and uses
+  requested-zoom state as the authority (with a post-scale correction pass),
+  reducing cumulative drift from transform float readback.
+- Updated Qt direct-set zoom stabilization strategy:
+  `set_zoom_percent(...)` now uses a persistent direct-zoom anchor center
+  across consecutive direct-set calls (rebased only after material center
+  changes), while non-direct zoom operations invalidate that anchor.
 - Updated the first zoom-controls behavior test to import cholesterol and zoom
   to content before zooming, so visual `-s` runs start with actual molecule
   geometry instead of empty-canvas-only zoom changes.

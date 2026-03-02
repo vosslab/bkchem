@@ -16,6 +16,9 @@ import bkchem_qt.main_window
 
 # force offscreen rendering so tests run without a display server
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# suppress "This plugin does not support propagateSizeHints()" noise
+# from Qt's Cocoa platform plugin on macOS
+os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.*=false")
 
 
 #============================================
