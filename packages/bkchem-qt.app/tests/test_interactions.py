@@ -15,6 +15,7 @@ import bkchem_qt.models.bond_model
 import bkchem_qt.canvas.items.atom_item
 import bkchem_qt.canvas.items.bond_item
 import bkchem_qt.actions.context_menu
+import bkchem_qt.actions.repair_actions
 
 
 #============================================
@@ -156,6 +157,68 @@ def _count_bond_items(scene) -> int:
 
 
 #============================================
+class _FakeMouseEvent:
+	"""Minimal mouse-event stub for direct mode method calls in tests."""
+
+	#============================================
+	def __init__(self, modifiers=PySide6.QtCore.Qt.KeyboardModifier.NoModifier):
+		self._modifiers = modifiers
+
+	#============================================
+	def modifiers(self):
+		"""Return keyboard modifiers."""
+		return self._modifiers
+
+
+#============================================
+def test_scene_and_draw_share_canonical_spacing(main_window):
+	"""Draw mode must read bond length directly from scene spacing."""
+	main_window._mode_manager.set_mode("draw")
+	draw_mode = main_window._mode_manager.current_mode
+	main_window.scene.set_grid_spacing_pt(52.0)
+	assert abs(main_window.scene.grid_spacing_pt - 52.0) < 1e-6
+	assert abs(draw_mode._get_bond_length() - 52.0) < 1e-6
+
+
+#============================================
+def test_zoom_does_not_change_scene_spacing_value(main_window):
+	"""Zoom operations must not change the canonical scene spacing value."""
+	main_window._mode_manager.set_mode("draw")
+	draw_mode = main_window._mode_manager.current_mode
+	initial_spacing = main_window.scene.grid_spacing_pt
+	main_window.view.set_zoom_percent(220.0)
+	assert abs(main_window.scene.grid_spacing_pt - initial_spacing) < 1e-6
+	assert abs(draw_mode._get_bond_length() - initial_spacing) < 1e-6
+	main_window.view.reset_zoom()
+
+
+#============================================
+def test_element_change_routes_to_atom_mode_setter(main_window):
+	"""Element edits should route through AtomMode.set_element()."""
+	main_window._mode_manager.set_mode("atom")
+	atom_mode = main_window._mode_manager.current_mode
+	main_window._on_element_changed("O")
+	assert atom_mode.current_element == "O", (
+		"Atom mode should update current element via set_element()"
+	)
+
+
+#============================================
+def test_element_change_routes_to_draw_mode_property(main_window):
+	"""Element edits should route to DrawMode.current_element setter."""
+	main_window._mode_manager.set_mode("draw")
+	draw_mode = main_window._mode_manager.current_mode
+	main_window._on_element_changed("  N  ")
+	assert draw_mode.current_element == "N", (
+		"Draw mode should store stripped element text"
+	)
+	main_window._on_element_changed("   ")
+	assert draw_mode.current_element == "N", (
+		"Blank element edits should not clear draw mode element"
+	)
+
+
+#============================================
 def test_bond_click_creates_fixed_length_bond(main_window):
 	"""Click on an existing atom creates a new atom at grid_spacing distance."""
 	main_window._mode_manager.set_mode("draw")
@@ -259,13 +322,32 @@ def test_standalone_atom_snaps_to_grid(main_window):
 
 
 #============================================
+def test_standalone_atom_respects_grid_snap_toggle(main_window):
+	"""Draw mode should place on raw cursor when grid snap is disabled."""
+	main_window._mode_manager.set_mode("draw")
+	draw_mode = main_window._mode_manager.current_mode
+	scene = main_window.scene
+	scene.set_grid_snap_enabled(False)
+	pos = PySide6.QtCore.QPointF(103.7, 98.2)
+	draw_mode.mouse_press(pos, None)
+	mol = main_window.document.molecules[0]
+	first_atom = mol.atoms[0]
+	assert abs(first_atom.x - pos.x()) < 0.5, (
+		f"x={first_atom.x:.2f} should stay near click x={pos.x():.2f}"
+	)
+	assert abs(first_atom.y - pos.y()) < 0.5, (
+		f"y={first_atom.y:.2f} should stay near click y={pos.y():.2f}"
+	)
+
+
+#============================================
 def test_bond_drag_snaps_angle(main_window):
 	"""Drag from an atom snaps endpoint to 15-degree angle increments."""
 	draw_mode = bkchem_qt.modes.draw_mode.DrawMode
 	# unit test _point_on_circle directly
 	# direction at 47 degrees should snap to 45 degrees
 	cx, cy = 100.0, 100.0
-	radius = 26.5
+	radius = 40.0
 	dx = math.cos(math.radians(47)) * 50
 	dy = math.sin(math.radians(47)) * 50
 	snap_x, snap_y = draw_mode._point_on_circle(cx, cy, radius, dx, dy)
@@ -291,6 +373,45 @@ def test_bond_drag_snaps_angle(main_window):
 	)
 	assert abs(snap_y2 - expected_y2) < 0.1, (
 		f"snapped y={snap_y2:.2f} should be ~{expected_y2:.2f} (0 deg)"
+	)
+
+
+#============================================
+def test_edit_drag_snaps_anchor_to_grid(main_window):
+	"""Edit drag should snap selected atoms by anchor when enabled."""
+	main_window._mode_manager.set_mode("draw")
+	draw_mode = main_window._mode_manager.current_mode
+	scene = main_window.scene
+	scene.set_grid_snap_enabled(True)
+	a1 = draw_mode._create_atom_at(101.0, 99.0, "C")
+	a2 = draw_mode._create_atom_at(141.0, 99.0, "C")
+	draw_mode._create_bond_between(a1, a2)
+	initial_dx = a2.atom_model.x - a1.atom_model.x
+	initial_dy = a2.atom_model.y - a1.atom_model.y
+	a1.setSelected(True)
+	a2.setSelected(True)
+	main_window._mode_manager.set_mode("edit")
+	edit_mode = main_window._mode_manager.current_mode
+	event = _FakeMouseEvent()
+	start = PySide6.QtCore.QPointF(a1.atom_model.x, a1.atom_model.y)
+	target = PySide6.QtCore.QPointF(start.x() + 13.2, start.y() + 8.7)
+	edit_mode.mouse_press(start, event)
+	edit_mode.mouse_move(target, event)
+	edit_mode.mouse_release(target, event)
+	expected_x, expected_y = scene.snap_to_grid(target.x(), target.y())
+	assert abs(a1.atom_model.x - expected_x) < 0.5, (
+		f"anchor x={a1.atom_model.x:.2f} should snap to {expected_x:.2f}"
+	)
+	assert abs(a1.atom_model.y - expected_y) < 0.5, (
+		f"anchor y={a1.atom_model.y:.2f} should snap to {expected_y:.2f}"
+	)
+	final_dx = a2.atom_model.x - a1.atom_model.x
+	final_dy = a2.atom_model.y - a1.atom_model.y
+	assert abs(final_dx - initial_dx) < 0.1, (
+		f"pair dx should remain {initial_dx:.2f}, got {final_dx:.2f}"
+	)
+	assert abs(final_dy - initial_dy) < 0.1, (
+		f"pair dy should remain {initial_dy:.2f}, got {final_dy:.2f}"
 	)
 
 
@@ -351,4 +472,142 @@ def test_find_place_least_crowded(main_window):
 	assert not (angle < 0.1 or abs(angle - 1.5 * math.pi) < 0.1), (
 		f"new atom angle {math.degrees(angle):.1f} should not be at "
 		"a neighbor angle"
+	)
+
+
+# ------------------------------------------------------------------
+# Bond endpoint clipping and signal chain tests
+# ------------------------------------------------------------------
+
+#============================================
+def _make_bonded_items(qapp, symbol1="C", symbol2="N", x1=0.0, y1=0.0, x2=40.0, y2=0.0):
+	"""Create two AtomModels connected by a BondModel with BondItem.
+
+	Uses MoleculeModel to properly wire the OASA graph connectivity
+	so edge.vertices returns the correct atoms for bond rendering.
+	"""
+	import bkchem_qt.models.molecule_model
+	mol_model = bkchem_qt.models.molecule_model.MoleculeModel()
+	a1 = mol_model.create_atom(symbol=symbol1)
+	a2 = mol_model.create_atom(symbol=symbol2)
+	a1.set_xyz(x1, y1, 0.0)
+	a2.set_xyz(x2, y2, 0.0)
+	mol_model.add_atom(a1)
+	mol_model.add_atom(a2)
+	bond = mol_model.create_bond(order=1, bond_type="n")
+	mol_model.add_bond(a1, a2, bond)
+	bond_item = bkchem_qt.canvas.items.bond_item.BondItem(bond)
+	return a1, a2, bond, bond_item
+
+
+#============================================
+def test_bond_item_clips_at_labeled_atom(qapp):
+	"""Bond endpoint near a labeled heteroatom is shorter than center-to-center."""
+	a1, a2, bond, bond_item = _make_bonded_items(qapp, "C", "N", 0.0, 0.0, 40.0, 0.0)
+	# find the maximum x coordinate in bond ops line endpoints
+	import oasa.render_ops
+	line_ops = [op for op in bond_item._ops if isinstance(op, oasa.render_ops.LineOp)]
+	assert len(line_ops) > 0, "bond should have line ops"
+	# the bond line toward N (at x=40) should be clipped short of 40
+	max_x = max(op.p2[0] for op in line_ops)
+	assert max_x < 40.0, (
+		f"bond end x={max_x:.2f} should be clipped before atom center at 40.0"
+	)
+
+
+#============================================
+def test_bond_item_no_clip_for_hidden_carbon(qapp):
+	"""Bond between two hidden carbons has no clipping."""
+	a1, a2, bond, bond_item = _make_bonded_items(qapp, "C", "C", 0.0, 0.0, 40.0, 0.0)
+	import oasa.render_ops
+	line_ops = [op for op in bond_item._ops if isinstance(op, oasa.render_ops.LineOp)]
+	assert len(line_ops) > 0, "bond should have line ops"
+	# both endpoints should be at full center-to-center distance
+	min_x = min(op.p1[0] for op in line_ops)
+	max_x = max(op.p2[0] for op in line_ops)
+	assert min_x == 0.0 or abs(min_x) < 1.0, "start should be near 0"
+	assert max_x == 40.0 or abs(max_x - 40.0) < 1.0, "end should be near 40"
+
+
+#============================================
+def test_atom_symbol_change_triggers_bond_redraw(qapp):
+	"""Changing atom symbol triggers bond item update via signal chain."""
+	a1, a2, bond, bond_item = _make_bonded_items(qapp, "C", "C", 0.0, 0.0, 40.0, 0.0)
+	# change atom2 to nitrogen (should trigger bond update)
+	a2.symbol = "N"
+	# bond_item should have been updated (ops may differ now)
+	# the end should now be clipped because N is shown
+	import oasa.render_ops
+	line_ops = [op for op in bond_item._ops if isinstance(op, oasa.render_ops.LineOp)]
+	assert len(line_ops) > 0
+	max_x = max(op.p2[0] for op in line_ops)
+	assert max_x < 40.0, (
+		f"after symbol change to N, bond end x={max_x:.2f} should be clipped"
+	)
+
+
+#============================================
+def test_atom_charge_change_triggers_bond_redraw(qapp):
+	"""Changing atom charge triggers bond item update via signal chain."""
+	a1, a2, bond, bond_item = _make_bonded_items(qapp, "C", "N", 0.0, 0.0, 40.0, 0.0)
+	# get initial ops snapshot
+	ops_before = list(bond_item._ops)
+	# change charge on the nitrogen
+	a2.charge = 1
+	# ops should have been regenerated (clipping may change slightly)
+	ops_after = list(bond_item._ops)
+	# ops should be different because the label text changed (N -> N+)
+	assert ops_before != ops_after, "bond ops should change after charge update"
+
+
+#============================================
+def test_atom_position_change_triggers_bond_redraw(qapp):
+	"""Moving an atom triggers bond item update via signal chain."""
+	a1, a2, bond, bond_item = _make_bonded_items(qapp, "C", "N", 0.0, 0.0, 40.0, 0.0)
+	import oasa.render_ops
+	line_ops_before = [op for op in bond_item._ops if isinstance(op, oasa.render_ops.LineOp)]
+	max_x_before = max(op.p2[0] for op in line_ops_before)
+	# move atom2 further away
+	a2.x = 80.0
+	line_ops_after = [op for op in bond_item._ops if isinstance(op, oasa.render_ops.LineOp)]
+	max_x_after = max(op.p2[0] for op in line_ops_after)
+	# the bond should now extend further than before
+	assert max_x_after > max_x_before, (
+		f"after moving atom, bond end x should increase from {max_x_before:.2f}"
+	)
+
+
+#============================================
+def test_bond_render_context_has_real_targets(qapp):
+	"""BondItem build passes non-empty label_targets for heteroatom bonds."""
+	a1, a2, bond, bond_item = _make_bonded_items(qapp, "C", "O", 0.0, 0.0, 40.0, 0.0)
+	# force update and inspect the context by checking ops differ from empty
+	import oasa.render_ops
+	line_ops = [op for op in bond_item._ops if isinstance(op, oasa.render_ops.LineOp)]
+	assert len(line_ops) > 0
+	# the end near oxygen (at x=40) should be clipped, proving targets were used
+	max_x = max(op.p2[0] for op in line_ops)
+	assert max_x < 40.0, (
+		f"oxygen end x={max_x:.2f} should be clipped, proving real targets are used"
+	)
+
+
+#============================================
+def test_repair_normalize_uses_canonical_spacing(main_window):
+	"""Repair normalization target must come from scene spacing."""
+	main_window._mode_manager.set_mode("draw")
+	draw_mode = main_window._mode_manager.current_mode
+	main_window.scene.set_grid_spacing_pt(50.0)
+	a1 = draw_mode._create_atom_at(100.0, 200.0, "C")
+	a2 = draw_mode._create_atom_at(260.0, 200.0, "C")
+	draw_mode._create_bond_between(a1, a2)
+	bkchem_qt.actions.repair_actions._handle_normalize_bond_lengths(main_window)
+	mol = main_window.document.molecules[0]
+	bond = mol.bonds[0]
+	dx = bond.atom2.x - bond.atom1.x
+	dy = bond.atom2.y - bond.atom1.y
+	actual_dist = math.sqrt(dx * dx + dy * dy)
+	assert abs(actual_dist - main_window.scene.grid_spacing_pt) < 0.5, (
+		f"normalized bond length {actual_dist:.2f} should match scene spacing "
+		f"{main_window.scene.grid_spacing_pt:.2f}"
 	)

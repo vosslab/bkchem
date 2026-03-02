@@ -27,9 +27,12 @@ class Preferences:
 	KEY_WINDOW_STATE: str = "window/state"
 	KEY_THEME: str = "appearance/theme"
 	KEY_GRID_VISIBLE: str = "appearance/grid_visible"
+	KEY_GRID_SNAP_ENABLED: str = "appearance/grid_snap_enabled"
 	KEY_RECENT_FILES: str = "files/recent"
 	KEY_ZOOM_LEVEL: str = "view/zoom_level"
+	# legacy key retained only for hard-cut cleanup
 	KEY_BOND_LENGTH: str = "drawing/bond_length"
+	KEY_BOND_LENGTH_PT: str = "drawing/bond_length_pt"
 	KEY_LINE_WIDTH: str = "drawing/line_width"
 	KEY_FONT_SIZE: str = "drawing/font_size"
 	KEY_FONT_FAMILY: str = "drawing/font_family"
@@ -43,9 +46,10 @@ class Preferences:
 		KEY_WINDOW_STATE: None,
 		KEY_THEME: "dark",
 		KEY_GRID_VISIBLE: True,
+		KEY_GRID_SNAP_ENABLED: True,
 		KEY_RECENT_FILES: [],
 		KEY_ZOOM_LEVEL: 100.0,
-		KEY_BOND_LENGTH: 40.0,
+		KEY_BOND_LENGTH_PT: 40.0,
 		KEY_LINE_WIDTH: 2.0,
 		KEY_FONT_SIZE: 12,
 		KEY_FONT_FAMILY: "Helvetica",
@@ -107,4 +111,14 @@ class Preferences:
 			val: Value to persist.
 		"""
 		self._settings.setValue(key, val)
+		self._settings.sync()
+
+	#============================================
+	def remove_value(self, key: str) -> None:
+		"""Delete a preference key and sync the settings backend.
+
+		Args:
+			key: Settings key string to remove.
+		"""
+		self._settings.remove(key)
 		self._settings.sync()

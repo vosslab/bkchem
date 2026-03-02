@@ -123,6 +123,28 @@ def get_chemistry_colors(theme_name: str) -> dict:
 	colors = {
 		"default_line": chem.get("default_line", "#000000"),
 		"default_area": chem.get("default_area", "#ffffff"),
+		"charge_plus": chem.get("charge_plus", "#3366ff"),
+		"charge_minus": chem.get("charge_minus", "#ff3333"),
+	}
+	return colors
+
+
+#============================================
+def get_canvas_colors(theme_name: str) -> dict:
+	"""Return canvas interaction colors for the given theme.
+
+	Args:
+		theme_name: 'dark' or 'light'.
+
+	Returns:
+		Dict with keys 'selection', 'hover', 'preview'.
+	"""
+	data = _load_theme(theme_name)
+	canvas = data.get("canvas", {})
+	colors = {
+		"selection": canvas.get("selection", "#3399ff"),
+		"hover": canvas.get("hover", "#66bbff"),
+		"preview": canvas.get("preview", "#888888"),
 	}
 	return colors
 

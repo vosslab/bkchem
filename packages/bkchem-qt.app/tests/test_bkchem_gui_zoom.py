@@ -1,0 +1,183 @@
+"""BKChem-Qt GUI zoom behavior tests."""
+
+# Standard Library
+import io
+import math
+
+# PIP3 modules
+import PySide6.QtCore
+import PySide6.QtWidgets
+
+# local repo modules
+import bkchem_qt.actions.file_actions
+import bkchem_qt.bridge.oasa_bridge
+import bkchem_qt.canvas.items.atom_item
+import bkchem_qt.canvas.items.bond_item
+import bkchem_qt.canvas.view
+
+_CHOLESTEROL_SMILES = (
+	"CC(C)CCCC(C)C1CCC2C3CC=C4C[C@H](O)CC[C@]4(C)C3CC[C@]12C"
+)
+
+
+#============================================
+def _flush_events() -> None:
+	"""Process pending Qt events to stabilize GUI assertions."""
+	PySide6.QtWidgets.QApplication.processEvents()
+
+
+#============================================
+def _count_atoms(scene) -> int:
+	"""Return AtomItem count in the scene."""
+	return sum(
+		1 for item in scene.items()
+		if isinstance(item, bkchem_qt.canvas.items.atom_item.AtomItem)
+	)
+
+
+#============================================
+def _count_bonds(scene) -> int:
+	"""Return BondItem count in the scene."""
+	return sum(
+		1 for item in scene.items()
+		if isinstance(item, bkchem_qt.canvas.items.bond_item.BondItem)
+	)
+
+
+#============================================
+def _viewport_center_scene(view) -> PySide6.QtCore.QPointF:
+	"""Map the viewport center to scene coordinates."""
+	center_px = view.viewport().rect().center()
+	return view.mapToScene(center_px)
+
+
+#============================================
+def _assert_close(value: float, expected: float, tol: float, message: str) -> None:
+	"""Assert float closeness with an explicit tolerance."""
+	if abs(value - expected) > tol:
+		raise AssertionError(
+			f"{message}: expected {expected:.4f}, got {value:.4f} (tol={tol:.4f})"
+		)
+
+
+#============================================
+def _import_cholesterol_from_smiles(main_window):
+	"""Import cholesterol from SMILES and add it to scene+document."""
+	smiles_file = io.StringIO(_CHOLESTEROL_SMILES + "\n")
+	molecules = bkchem_qt.bridge.oasa_bridge.read_codec_file("smiles", smiles_file)
+	if not molecules:
+		raise AssertionError("Failed to parse cholesterol SMILES in Qt zoom test.")
+	bkchem_qt.actions.file_actions._add_molecules_to_scene(main_window, molecules)
+	return molecules
+
+
+#============================================
+def test_qt_gui_zoom_diagnostic(main_window):
+	"""Validate zoom sequence behavior around content and viewport symmetry."""
+	scene = main_window.scene
+	view = main_window.view
+
+	# import biomolecule template content so zoom_to_content has meaningful bounds
+	start_atoms = _count_atoms(scene)
+	start_bonds = _count_bonds(scene)
+	_import_cholesterol_from_smiles(main_window)
+	_flush_events()
+	assert _count_atoms(scene) >= start_atoms + 27, (
+		"cholesterol import should add at least 27 heavy atoms"
+	)
+	assert _count_bonds(scene) >= start_bonds + 28, (
+		"cholesterol import should add at least 28 bonds"
+	)
+
+	# initial scale
+	_assert_close(view.zoom_percent, 100.0, 0.01, "initial zoom should be 100%")
+
+	# zoom out three steps
+	for _i in range(3):
+		main_window.on_zoom_out()
+	_flush_events()
+	expected_out = 100.0 / (bkchem_qt.canvas.view.ZOOM_FACTOR_PER_NOTCH ** 3)
+	_assert_close(
+		view.zoom_percent, expected_out, 0.15,
+		"zoom_out x3 should match expected scale",
+	)
+
+	# reset to 100%
+	main_window.on_reset_zoom()
+	_flush_events()
+	_assert_close(view.zoom_percent, 100.0, 0.01, "zoom reset should return to 100%")
+
+	# zoom in three steps
+	for _i in range(3):
+		main_window.on_zoom_in()
+	_flush_events()
+	expected_in = 100.0 * (bkchem_qt.canvas.view.ZOOM_FACTOR_PER_NOTCH ** 3)
+	_assert_close(
+		view.zoom_percent, expected_in, 0.15,
+		"zoom_in x3 should match expected scale",
+	)
+
+	# content fit should stay within hard bounds
+	main_window.on_zoom_to_content()
+	_flush_events()
+	zoom_after_content = view.zoom_percent
+	assert math.isfinite(zoom_after_content)
+	assert zoom_after_content > 0.0
+	assert zoom_after_content <= bkchem_qt.canvas.view.ZOOM_MAX_PERCENT
+
+	# round-trip symmetry around current view: out x3 then in x3.
+	# If content-fit zoom is too close to/below clamp, use reset zoom so the
+	# round-trip sequence does not hit hard bounds.
+	min_roundtrip_zoom = (
+		bkchem_qt.canvas.view.ZOOM_MIN_PERCENT
+		* (bkchem_qt.canvas.view.ZOOM_FACTOR_PER_NOTCH ** 3)
+	)
+	if view.zoom_percent <= min_roundtrip_zoom:
+		main_window.on_reset_zoom()
+		_flush_events()
+
+	start_zoom = view.zoom_percent
+	start_center = _viewport_center_scene(view)
+	for _i in range(3):
+		main_window.on_zoom_out()
+	for _i in range(3):
+		main_window.on_zoom_in()
+	_flush_events()
+	end_zoom = view.zoom_percent
+	end_center = _viewport_center_scene(view)
+
+	_assert_close(end_zoom, start_zoom, 0.2, "zoom round-trip should preserve scale")
+	drift = math.hypot(end_center.x() - start_center.x(), end_center.y() - start_center.y())
+	assert drift <= 12.0, f"viewport center drift too high after round-trip: {drift:.2f}px"
+
+
+#============================================
+def test_qt_zoom_clamp_and_reset(main_window):
+	"""Verify zoom min/max clamps and reset behavior."""
+	view = main_window.view
+
+	# clamp toward minimum
+	for _i in range(250):
+		main_window.on_zoom_out()
+	_flush_events()
+	_assert_close(
+		view.zoom_percent,
+		bkchem_qt.canvas.view.ZOOM_MIN_PERCENT,
+		0.01,
+		"zoom_out should clamp at minimum",
+	)
+
+	# clamp toward maximum
+	for _i in range(500):
+		main_window.on_zoom_in()
+	_flush_events()
+	_assert_close(
+		view.zoom_percent,
+		bkchem_qt.canvas.view.ZOOM_MAX_PERCENT,
+		0.01,
+		"zoom_in should clamp at maximum",
+	)
+
+	main_window.on_reset_zoom()
+	_flush_events()
+	_assert_close(view.zoom_percent, 100.0, 0.01, "zoom reset should return to 100%")

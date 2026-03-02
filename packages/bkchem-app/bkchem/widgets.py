@@ -72,16 +72,18 @@ class ColorButton(tkinter.Button):
 		else:
 			self.color = None
 		if not self.color:
-			self.foreground_color = "#000"
+			self.foreground_color = bkchem_config.get_background_color()
 			return
 		elif not isinstance(color, tuple):
 			c = self.master.winfo_rgb( self.color)
 		else:
 			c = color
+		# pick high contrast foreground based on luminance
+		from bkchem import theme_manager
 		if (c[0] + c[1] + c[2] > 128*256):
-			self.foreground_color = "#000"
+			self.foreground_color = theme_manager.get_color('high_contrast_1')
 		else:
-			self.foreground_color = "#fff"
+			self.foreground_color = theme_manager.get_color('high_contrast_2')
 
 	def _select_color( self):
 		if self.color:
@@ -135,7 +137,12 @@ class ColorButtonWithTransparencyChecker(tkinter.Frame, object):
 
 class GraphicalAngleChooser(tkinter.Frame):
 
-	def __init__(self, parent, angle, line_color="#000", fill_color="#ffffff"):
+	def __init__(self, parent, angle, line_color=None, fill_color=None):
+		from bkchem import theme_manager
+		if line_color is None:
+			line_color = theme_manager.get_color('high_contrast_1')
+		if fill_color is None:
+			fill_color = theme_manager.get_color('high_contrast_2')
 		tkinter.Frame.__init__( self, parent)
 		self.canvas = tkinter.Canvas( self, width=60, height=60)
 		self.canvas.bind('<Button-1>', self._click)

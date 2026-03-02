@@ -21,6 +21,11 @@ from bkchem import theme_manager
 class BondRenderOpsMixin:
   """Shared OASA render-ops based drawing path for BKChem bonds."""
 
+  def _display_line_width(self):
+    """Return bond line width in current canvas display coordinates."""
+    base_line_width = float(self.line_width or 1.0)
+    return abs(float(self.paper.real_to_canvas(base_line_width)))
+
   def draw(self, automatic="none"):
     """Draw bond through shared render ops instead of per-type Tk geometry."""
     if self.item:
@@ -79,9 +84,10 @@ class BondRenderOpsMixin:
     wedge_width_value = self.wedge_width
     if wedge_width_value is None and self.paper and self.paper.standard:
       wedge_width_value = self.paper.standard.wedge_width
-    line_width = float(self.line_width or 1.0)
-    bond_width = abs(float(self.paper.real_to_canvas(bond_width_value or line_width)))
-    wedge_width = abs(float(self.paper.real_to_canvas(wedge_width_value or line_width)))
+    base_line_width = float(self.line_width or 1.0)
+    line_width = self._display_line_width()
+    bond_width = abs(float(self.paper.real_to_canvas(bond_width_value or base_line_width)))
+    wedge_width = abs(float(self.paper.real_to_canvas(wedge_width_value or base_line_width)))
     bold_multiplier = wedge_width / max(line_width, 1e-6)
     constraints = make_attach_constraints(line_width=line_width)
     context = BondRenderContext(
@@ -119,6 +125,7 @@ class BondRenderOpsMixin:
     # helper: map any color through the theme so default-colored bonds
     # (stored as #000) follow the active dark/light theme
     _map = theme_manager.map_chemistry_color
+    display_line_width = self._display_line_width()
     created = []
     for op in render_ops.sort_ops(ops):
       if isinstance(op, render_ops.LineOp):
@@ -190,7 +197,7 @@ class BondRenderOpsMixin:
             item = self._create_line_with_transform(
               tuple(coords),
               tags=("bond",),
-              width=op.stroke_width or self.line_width,
+              width=op.stroke_width or display_line_width,
               fill=_map(op.stroke),
               capstyle=op.cap or "round",
               joinstyle=op.join or "round",
@@ -201,7 +208,9 @@ class BondRenderOpsMixin:
 
   def _path_commands_to_polyline(self, commands):
     points = []
-    step_length = max(2.0, self.line_width)
+    # Keep tessellation density stable across zoom levels; tying this to
+    # display-space stroke width makes stereobond arcs visibly choppy at high zoom.
+    step_length = max(2.0, float(self.line_width or 1.0))
     for command, data in commands:
       if command in ("M", "L"):
         points.append((data[0], data[1]))
@@ -242,8 +251,8 @@ class BondRenderOpsMixin:
   # Compatibility helper retained for existing wedge regression tests.
   def _rounded_wedge_polygon(self, coords):
     x1, y1, x2, y2 = coords
-    wide_width = self.paper.real_to_canvas(self.wedge_width)
-    narrow_width = self.line_width
+    wide_width = abs(float(self.paper.real_to_canvas(self.wedge_width)))
+    narrow_width = self._display_line_width()
     if wide_width <= 0:
       return None
     try:
@@ -269,7 +278,8 @@ class BondRenderOpsMixin:
     if not coords:
       return None
     x1, y1, x2, y2 = coords
-    thickness = self.paper.real_to_canvas(self.wedge_width)
+    wedge_width = self.wedge_width if self.wedge_width is not None else (self.line_width or 1.0)
+    thickness = abs(float(self.paper.real_to_canvas(wedge_width)))
     geometry_info = haworth_front_edge_geometry((x1, y1), (x2, y2), thickness)
     if not geometry_info:
       return None

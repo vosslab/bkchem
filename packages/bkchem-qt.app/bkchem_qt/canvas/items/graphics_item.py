@@ -5,6 +5,9 @@ import PySide6.QtCore
 import PySide6.QtGui
 import PySide6.QtWidgets
 
+# local repo modules
+from bkchem_qt.canvas.items import render_ops_painter
+
 
 #============================================
 class RectItem(PySide6.QtWidgets.QGraphicsRectItem):
@@ -19,7 +22,7 @@ class RectItem(PySide6.QtWidgets.QGraphicsRectItem):
 
 	#============================================
 	def __init__(self, rect: PySide6.QtCore.QRectF,
-				 parent: PySide6.QtWidgets.QGraphicsItem = None):
+					parent: PySide6.QtWidgets.QGraphicsItem = None):
 		"""Initialize the rectangle item.
 
 		Args:
@@ -35,7 +38,7 @@ class RectItem(PySide6.QtWidgets.QGraphicsRectItem):
 		)
 		self.setAcceptHoverEvents(True)
 		# default appearance
-		self.setPen(PySide6.QtGui.QPen(PySide6.QtCore.Qt.GlobalColor.black, 1.0))
+		self.setPen(PySide6.QtGui.QPen(render_ops_painter._default_color, 1.0))
 		self.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
 
 
@@ -52,7 +55,7 @@ class OvalItem(PySide6.QtWidgets.QGraphicsEllipseItem):
 
 	#============================================
 	def __init__(self, rect: PySide6.QtCore.QRectF,
-				 parent: PySide6.QtWidgets.QGraphicsItem = None):
+					parent: PySide6.QtWidgets.QGraphicsItem = None):
 		"""Initialize the oval item.
 
 		Args:
@@ -68,7 +71,7 @@ class OvalItem(PySide6.QtWidgets.QGraphicsEllipseItem):
 		)
 		self.setAcceptHoverEvents(True)
 		# default appearance
-		self.setPen(PySide6.QtGui.QPen(PySide6.QtCore.Qt.GlobalColor.black, 1.0))
+		self.setPen(PySide6.QtGui.QPen(render_ops_painter._default_color, 1.0))
 		self.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
 
 
@@ -85,7 +88,7 @@ class PolygonItem(PySide6.QtWidgets.QGraphicsPolygonItem):
 
 	#============================================
 	def __init__(self, points: list,
-				 parent: PySide6.QtWidgets.QGraphicsItem = None):
+					parent: PySide6.QtWidgets.QGraphicsItem = None):
 		"""Initialize the polygon item from a list of points.
 
 		Args:
@@ -109,5 +112,5 @@ class PolygonItem(PySide6.QtWidgets.QGraphicsPolygonItem):
 		)
 		self.setAcceptHoverEvents(True)
 		# default appearance
-		self.setPen(PySide6.QtGui.QPen(PySide6.QtCore.Qt.GlobalColor.black, 1.0))
+		self.setPen(PySide6.QtGui.QPen(render_ops_painter._default_color, 1.0))
 		self.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)

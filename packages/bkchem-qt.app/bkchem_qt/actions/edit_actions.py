@@ -108,20 +108,26 @@ def register_edit_actions(registry, app) -> None:
 		return app.document.has_selection
 
 	# predicate: true when the undo stack can undo
+	# try/except guards against RuntimeError when the C++ QUndoStack
+	# object is deleted during teardown but the Python wrapper persists
 	def can_undo():
-		import shiboken6
 		stack = app.document.undo_stack
-		if not shiboken6.isValid(stack):
+		if stack is None:
 			return False
-		return stack.canUndo()
+		try:
+			return stack.canUndo()
+		except RuntimeError:
+			return False
 
 	# predicate: true when the undo stack can redo
 	def can_redo():
-		import shiboken6
 		stack = app.document.undo_stack
-		if not shiboken6.isValid(stack):
+		if stack is None:
 			return False
-		return stack.canRedo()
+		try:
+			return stack.canRedo()
+		except RuntimeError:
+			return False
 
 	# update undo/redo predicates
 	registry.get('edit.undo').enabled_when = can_undo

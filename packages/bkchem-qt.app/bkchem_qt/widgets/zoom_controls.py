@@ -5,8 +5,8 @@ import PySide6.QtCore
 import PySide6.QtWidgets
 
 # -- slider range constants --
-SLIDER_MIN = 25
-SLIDER_MAX = 400
+SLIDER_MIN = 10
+SLIDER_MAX = 1000
 SLIDER_STEP = 5
 SLIDER_DEFAULT = 100
 

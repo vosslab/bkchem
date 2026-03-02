@@ -1,3 +1,7 @@
+*Python_*.png
+oasa_capabilities_sheet.*
+__pycache__/
+other_qt_design_repos
 molecular_templates
 rdkit
 dist/

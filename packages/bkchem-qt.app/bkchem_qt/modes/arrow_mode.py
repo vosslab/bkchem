@@ -7,9 +7,7 @@ import PySide6.QtWidgets
 
 # local repo modules
 import bkchem_qt.modes.base_mode
-
-# visual constants for the preview arrow
-_PREVIEW_PEN_COLOR = "#888888"
+from bkchem_qt.canvas.items import render_ops_painter
 _PREVIEW_PEN_WIDTH = 1.5
 _PREVIEW_PEN_STYLE = PySide6.QtCore.Qt.PenStyle.DashLine
 
@@ -75,7 +73,7 @@ class ArrowMode(bkchem_qt.modes.base_mode.BaseMode):
 			scene.removeItem(self._preview_line)
 			self._preview_line = None
 		# create a new preview line
-		pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(_PREVIEW_PEN_COLOR))
+		pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("preview")))
 		pen.setWidthF(_PREVIEW_PEN_WIDTH)
 		pen.setStyle(_PREVIEW_PEN_STYLE)
 		self._preview_line = scene.addLine(
@@ -127,7 +125,7 @@ class ArrowMode(bkchem_qt.modes.base_mode.BaseMode):
 
 #============================================
 def _create_arrow_item(scene, start: PySide6.QtCore.QPointF,
-					   end: PySide6.QtCore.QPointF) -> None:
+						end: PySide6.QtCore.QPointF) -> None:
 	"""Add a line with an arrowhead to the scene.
 
 	Draws a solid line from start to end and adds a small triangular

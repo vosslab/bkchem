@@ -19,10 +19,6 @@ _BOUNDS_PADDING = 6.0
 _HIT_PATH_WIDTH = 10.0
 # pen width for selection highlight
 _SELECTION_PEN_WIDTH = 1.5
-# selection highlight color
-_SELECTION_COLOR = "#3399ff"
-# hover highlight color
-_HOVER_COLOR = "#66bbff"
 # hover pen width
 _HOVER_PEN_WIDTH = 1.0
 # z-value for bond items (below atoms)
@@ -46,6 +42,11 @@ class BondItem(PySide6.QtWidgets.QGraphicsItem):
 		parent: Optional parent QGraphicsItem.
 	"""
 
+	# atom property names that affect label geometry and bond clipping
+	_LABEL_AFFECTING_PROPS = frozenset({
+		"symbol", "charge", "font_size", "show", "show_hydrogens", "x", "y",
+	})
+
 	#============================================
 	def __init__(self, bond_model, parent: PySide6.QtWidgets.QGraphicsItem = None):
 		"""Initialize the bond item from a bond model.
@@ -67,6 +68,8 @@ class BondItem(PySide6.QtWidgets.QGraphicsItem):
 		self.setAcceptHoverEvents(True)
 		# z-value puts bonds below atoms
 		self.setZValue(BOND_Z_VALUE)
+		# connect endpoint atom signals so label changes trigger bond redraw
+		self._connect_endpoint_signals()
 		# build initial render ops
 		self.update_from_model()
 
@@ -100,9 +103,9 @@ class BondItem(PySide6.QtWidgets.QGraphicsItem):
 		# draw selection or hover highlight behind bond ops
 		if self.isSelected() or self._hovered:
 			if self.isSelected():
-				highlight_color = PySide6.QtGui.QColor(_SELECTION_COLOR)
+				highlight_color = PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("selection"))
 			else:
-				highlight_color = PySide6.QtGui.QColor(_HOVER_COLOR)
+				highlight_color = PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("hover"))
 			highlight_color.setAlpha(80)
 			pen = PySide6.QtGui.QPen(highlight_color)
 			pen.setWidthF(_HIT_PATH_WIDTH)
@@ -171,11 +174,25 @@ class BondItem(PySide6.QtWidgets.QGraphicsItem):
 
 		Reads atom endpoint positions from the bond model, builds render
 		ops via ``build_bond_ops()``, and recomputes the bounding rect.
+		Computes label attach targets for both endpoint atoms so bonds
+		clip at atom label boundaries instead of drawing through them.
 		"""
 		self.prepareGeometryChange()
 		start, end = self._endpoint_positions()
-		# build a minimal BondRenderContext for standalone bond rendering
 		chem_bond = self._bond_model._chem_bond
+		# compute label attach targets for endpoint atoms
+		a1_model = self._bond_model.atom1
+		a2_model = self._bond_model.atom2
+		endpoint_atoms = [a1_model._chem_atom, a2_model._chem_atom]
+		font_size = float(a1_model.font_size)
+		shown_vertices, label_targets, attach_targets = (
+			oasa.render_lib.molecule_ops.build_label_attach_targets(
+				vertices=endpoint_atoms,
+				show_hydrogens_on_hetero=bool(a1_model.show_hydrogens),
+				font_name="Arial",
+				font_size=font_size,
+			)
+		)
 		context = oasa.render_lib.data_types.BondRenderContext(
 			molecule=None,
 			line_width=2.0,
@@ -185,13 +202,15 @@ class BondItem(PySide6.QtWidgets.QGraphicsItem):
 			bond_second_line_shortening=0.0,
 			color_bonds=True,
 			atom_colors=None,
-			shown_vertices=set(),
+			shown_vertices=shown_vertices,
 			bond_coords={chem_bond: (start, end)},
 			bond_coords_provider={chem_bond: (start, end)}.get,
 			point_for_atom=None,
-			label_targets={},
-			attach_targets={},
-			attach_constraints=oasa.render_lib.data_types.make_attach_constraints(),
+			label_targets=label_targets,
+			attach_targets=attach_targets,
+			attach_constraints=oasa.render_lib.data_types.make_attach_constraints(
+				font_size=font_size,
+			),
 		)
 		self._ops = oasa.render_lib.bond_ops.build_bond_ops(
 			chem_bond, start, end, context,
@@ -199,6 +218,35 @@ class BondItem(PySide6.QtWidgets.QGraphicsItem):
 		# recompute bounding rect from ops
 		self._bounding_rect = _bounding_rect_from_ops(self._ops, start, end)
 		self.update()
+
+	#============================================
+	def _connect_endpoint_signals(self) -> None:
+		"""Connect property_changed signals from both endpoint AtomModels.
+
+		When an endpoint atom's label-affecting property changes (symbol,
+		charge, font_size, etc.), the bond needs to recompute its render
+		ops so bond endpoints clip correctly at label boundaries.
+		"""
+		a1_model = self._bond_model.atom1
+		a2_model = self._bond_model.atom2
+		if a1_model is not None:
+			a1_model.property_changed.connect(self._on_endpoint_property_changed)
+		if a2_model is not None:
+			a2_model.property_changed.connect(self._on_endpoint_property_changed)
+
+	#============================================
+	def _on_endpoint_property_changed(self, name: str, value: object) -> None:
+		"""Handle property changes on endpoint atoms.
+
+		Filters on label-affecting properties and triggers a full
+		update_from_model() to recompute bond clipping.
+
+		Args:
+			name: Name of the changed property.
+			value: New value of the property (unused).
+		"""
+		if name in self._LABEL_AFFECTING_PROPS:
+			self.update_from_model()
 
 	#============================================
 	def _endpoint_positions(self) -> tuple:

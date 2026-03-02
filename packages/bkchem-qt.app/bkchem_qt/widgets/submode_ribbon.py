@@ -23,6 +23,9 @@ _MODES_YAML_PATH = (
 	pathlib.Path(__file__).resolve().parent.parent.parent
 	/ "bkchem_data" / "modes.yaml"
 )
+_GRID_RESIZE_REBUILD_THRESHOLD = 24
+_GRID_FALLBACK_MIN_WIDTH = 120
+_GRID_BUTTON_PADDING = 26
 
 
 #============================================
@@ -50,7 +53,7 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 		super().__init__(parent)
 		self._layout = PySide6.QtWidgets.QHBoxLayout(self)
 		self._layout.setContentsMargins(4, 2, 4, 2)
-		self._layout.setSpacing(2)
+		self._layout.setSpacing(6)
 		# stretch at the end to push buttons left
 		self._layout.addStretch()
 		# track group widgets for refresh_group()
@@ -59,6 +62,9 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 		self._extra_widgets = []
 		# reference to current mode for refresh operations
 		self._current_mode = None
+		self._current_mode_name = ""
+		self._last_grid_reflow_width = -1
+		self._in_resize_reflow = False
 
 	#============================================
 	def rebuild(self, mode_name: str) -> None:
@@ -80,6 +86,7 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 		if mode is None:
 			return
 		self._current_mode = mode
+		self._current_mode_name = str(mode_name)
 		self._rebuild_from_mode(mode)
 
 	#============================================
@@ -95,6 +102,7 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 		# if the mode has no submodes, hide the ribbon
 		if not mode.submodes:
 			self.setVisible(False)
+			self._last_grid_reflow_width = self.width()
 			return
 		self.setVisible(True)
 
@@ -145,6 +153,7 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 				self._layout.count() - 1, group_widget
 			)
 			self._group_widgets.append(group_widget)
+		self._last_grid_reflow_width = self.width()
 
 	#============================================
 	def _build_row_group(self, mode, group_index: int) -> PySide6.QtWidgets.QWidget:
@@ -194,8 +203,6 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 
 			btn.setToolTip(tip_text)
 			btn.setMinimumHeight(24)
-			# flat style for compact appearance
-			btn.setFlat(True)
 
 			# click handler with closure capture
 			btn.clicked.connect(
@@ -229,8 +236,12 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 		Returns:
 			QWidget containing the button grid.
 		"""
-		# look up column count from YAML config
-		columns = self._get_grid_columns(mode, group_index)
+		keys = mode.submodes[group_index]
+		# look up base columns from YAML and adapt to current width
+		base_columns = self._get_grid_columns(mode, group_index)
+		columns = self._get_adaptive_grid_columns(
+			mode, group_index, keys, base_columns
+		)
 
 		container = PySide6.QtWidgets.QWidget()
 		grid_layout = PySide6.QtWidgets.QGridLayout(container)
@@ -238,8 +249,9 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 		grid_layout.setSpacing(1)
 		container._buttons = {}
 		container._selected_btn = None
+		container._effective_columns = columns
+		container._base_columns = base_columns
 
-		keys = mode.submodes[group_index]
 		names = mode.submodes_names[group_index]
 
 		for idx, key in enumerate(keys):
@@ -251,7 +263,6 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 			btn = PySide6.QtWidgets.QPushButton(display_name)
 			btn.setCheckable(True)
 			btn.setToolTip(tip_text)
-			btn.setFlat(True)
 			btn.setMinimumHeight(22)
 
 			btn.clicked.connect(
@@ -334,6 +345,7 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 		# insert at same position
 		self._layout.insertWidget(layout_idx, new_widget)
 		self._group_widgets[group_index] = new_widget
+		self._last_grid_reflow_width = self.width()
 
 	#============================================
 	def _clear_all(self) -> None:
@@ -361,19 +373,103 @@ class SubModeRibbon(PySide6.QtWidgets.QWidget):
 		columns = 4
 		if not _MODES_YAML_PATH.is_file():
 			return columns
-		# determine the YAML mode key from the mode name
-		# look up in the cached YAML config
 		with open(_MODES_YAML_PATH, "r") as fh:
 			modes_config = yaml.safe_load(fh) or {}
 		modes_defs = modes_config.get("modes", {})
-		# search for the mode entry matching this mode's name
-		for yaml_key, mode_def in modes_defs.items():
-			mode_name = mode_def.get("name", yaml_key)
-			if mode_name == mode.name or yaml_key == mode.name:
-				submode_groups = mode_def.get("submodes", [])
-				if group_index < len(submode_groups):
-					columns = submode_groups[group_index].get(
-						'columns', 4
-					)
-				break
+
+		candidate_keys = []
+		if self._current_mode_name:
+			candidate_keys.append(self._current_mode_name)
+		if mode.name:
+			candidate_keys.append(str(mode.name).lower())
+		if "align" in candidate_keys:
+			candidate_keys.append("bondalign")
+
+		for yaml_key in candidate_keys:
+			mode_def = modes_defs.get(yaml_key)
+			if not mode_def:
+				continue
+			submode_groups = mode_def.get("submodes", [])
+			if group_index < len(submode_groups):
+				columns = submode_groups[group_index].get("columns", 4)
+			return max(1, int(columns))
 		return columns
+
+	#============================================
+	def _get_adaptive_grid_columns(
+		self,
+		mode,
+		group_index: int,
+		keys: list,
+		base_columns: int,
+	) -> int:
+		"""Return a grid-column count adapted to current ribbon width."""
+		if not keys:
+			return 1
+		base = max(1, min(int(base_columns), len(keys)))
+		fit_columns = self._resolve_fit_columns(mode, group_index, keys)
+		return max(base, min(fit_columns, len(keys)))
+
+	#============================================
+	def _resolve_fit_columns(self, mode, group_index: int, keys: list) -> int:
+		"""Estimate the number of columns that fit in available width."""
+		button_width = self._estimate_grid_button_width(mode, group_index, keys)
+		if button_width <= 0:
+			return 1
+		available = self._resolve_grid_available_width(mode, group_index)
+		return max(1, int((available + 1) // (button_width + 1)))
+
+	#============================================
+	def _estimate_grid_button_width(self, mode, group_index: int, keys: list) -> int:
+		"""Estimate width of the widest button in the grid group."""
+		names = mode.submodes_names[group_index]
+		font_metrics = self.fontMetrics()
+		max_text_width = 0
+		for idx, key in enumerate(keys):
+			label = names[idx] if idx < len(names) else key
+			max_text_width = max(
+				max_text_width,
+				font_metrics.horizontalAdvance(str(label)),
+			)
+		return max(48, max_text_width + _GRID_BUTTON_PADDING)
+
+	#============================================
+	def _resolve_grid_available_width(self, mode, group_index: int) -> int:
+		"""Estimate width available to the target grid group."""
+		available = self.width() - 12
+		if available <= 0:
+			parent = self.parentWidget()
+			if parent is not None:
+				available = parent.width() - 12
+		if available <= 0:
+			available = self.window().width() - 40
+		if available <= _GRID_FALLBACK_MIN_WIDTH:
+			return _GRID_FALLBACK_MIN_WIDTH
+
+		for idx in range(len(mode.submodes)):
+			if idx == group_index:
+				continue
+			layout_type = 'row'
+			if idx < len(mode.group_layouts):
+				layout_type = mode.group_layouts[idx]
+			available -= 220 if layout_type == 'row' else 120
+		return max(_GRID_FALLBACK_MIN_WIDTH, available)
+
+	#============================================
+	def resizeEvent(self, event) -> None:
+		"""Rebuild grid groups when ribbon width changes significantly."""
+		super().resizeEvent(event)
+		if self._current_mode is None:
+			return
+		if self._in_resize_reflow:
+			return
+		if "grid" not in self._current_mode.group_layouts:
+			return
+		new_width = event.size().width()
+		if abs(new_width - self._last_grid_reflow_width) < _GRID_RESIZE_REBUILD_THRESHOLD:
+			return
+		self._in_resize_reflow = True
+		try:
+			self._rebuild_from_mode(self._current_mode)
+		finally:
+			self._in_resize_reflow = False

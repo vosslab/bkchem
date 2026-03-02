@@ -12,6 +12,9 @@ _BOND_TYPES = [
 	("Hatch", "h"),
 	("Bold", "b"),
 	("Wavy", "a"),
+	("Dotted", "d"),
+	("Dashed", "o"),
+	("Bold Wedge", "q"),
 ]
 
 

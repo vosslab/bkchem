@@ -10,13 +10,126 @@ import PySide6.QtGui
 # local repo modules
 import oasa.render_ops
 
-# -- default fallback color --
-_DEFAULT_COLOR = PySide6.QtGui.QColor(0, 0, 0)
+# -- default fallback color (updated at runtime by set_default_color) --
+_default_color = PySide6.QtGui.QColor(0, 0, 0)
+
+# -- default area/paper color for masking backgrounds behind atom labels --
+_default_area_color = PySide6.QtGui.QColor(255, 255, 255)
+
+# -- canvas interaction colors (selection, hover, preview) --
+_canvas_colors = {"selection": "#3399ff", "hover": "#66bbff", "preview": "#888888"}
+
+# -- charge mark colors --
+_charge_colors = {"plus": "#3366ff", "minus": "#ff3333"}
+
+# -- light theme default line color used as sentinel for theme remapping --
+_light_default_line = "#000000"
 
 # -- font scale and vertical offsets for sub/sup text --
 _SCRIPT_FONT_SCALE = oasa.render_ops.SCRIPT_FONT_SCALE
 _SUBSCRIPT_OFFSET_EM = oasa.render_ops.SUBSCRIPT_OFFSET_EM
 _SUPERSCRIPT_OFFSET_EM = oasa.render_ops.SUPERSCRIPT_OFFSET_EM
+
+
+#============================================
+def set_default_color(hex_color: str) -> None:
+	"""Update the module-level default color used when ops have no explicit color.
+
+	Called at startup and on theme change so bonds/atoms render in
+	the correct theme color instead of hardcoded black.
+
+	Args:
+		hex_color: CSS hex color string (e.g. '#e0e0e0').
+	"""
+	global _default_color
+	_default_color = PySide6.QtGui.QColor(hex_color)
+
+
+#============================================
+def set_default_area_color(hex_color: str) -> None:
+	"""Update the module-level default area (paper) color.
+
+	Used by AtomItem to paint a paper-colored background behind atom
+	labels so bonds are masked. Called at startup and on theme change.
+
+	Args:
+		hex_color: CSS hex color string (e.g. '#ffffff').
+	"""
+	global _default_area_color
+	_default_area_color = PySide6.QtGui.QColor(hex_color)
+
+
+#============================================
+def set_canvas_colors(colors: dict) -> None:
+	"""Update the module-level canvas interaction colors.
+
+	Called at startup and on theme change so selection/hover/preview
+	colors match the active theme.
+
+	Args:
+		colors: Dict with keys 'selection', 'hover', 'preview'.
+	"""
+	for key in ("selection", "hover", "preview"):
+		if key in colors:
+			_canvas_colors[key] = colors[key]
+
+
+#============================================
+def get_canvas_color(key: str) -> str:
+	"""Return a canvas interaction color by key.
+
+	Args:
+		key: One of 'selection', 'hover', 'preview'.
+
+	Returns:
+		Hex color string.
+	"""
+	return _canvas_colors.get(key, "#888888")
+
+
+#============================================
+def set_charge_colors(colors: dict) -> None:
+	"""Update the module-level charge mark colors.
+
+	Called at startup and on theme change so charge marks use
+	the theme-specified colors.
+
+	Args:
+		colors: Dict with keys 'plus' and 'minus'.
+	"""
+	for key in ("plus", "minus"):
+		if key in colors:
+			_charge_colors[key] = colors[key]
+
+
+#============================================
+def get_charge_color(key: str) -> str:
+	"""Return a charge mark color by key.
+
+	Args:
+		key: 'plus' or 'minus'.
+
+	Returns:
+		Hex color string.
+	"""
+	return _charge_colors.get(key, "#000000")
+
+
+#============================================
+def set_light_default_line(hex_color: str) -> None:
+	"""Set the light theme default line color used as sentinel.
+
+	The sentinel is compared against incoming colors in _color_to_qcolor
+	to remap the light theme's default line color to the active theme's
+	default color, enabling dark mode support.
+
+	Args:
+		hex_color: Hex color string from the light theme's chemistry.default_line.
+	"""
+	global _light_default_line
+	# normalize through color_to_hex so 3-char shorthand (#000) expands to
+	# 6-char (#000000), matching _color_to_qcolor's normalized comparison
+	_light_default_line = oasa.render_ops.color_to_hex(hex_color) or hex_color.lower()
 
 
 #============================================
@@ -53,6 +166,8 @@ def _paint_line(op: oasa.render_ops.LineOp, painter: PySide6.QtGui.QPainter) -> 
 		painter: Active QPainter.
 	"""
 	color = _color_to_qcolor(op.color)
+	if color is None:
+		color = _default_color
 	pen = PySide6.QtGui.QPen(color)
 	pen.setWidthF(op.width)
 	pen.setCapStyle(_cap_to_qt(op.cap))
@@ -178,6 +293,8 @@ def _paint_text(op: oasa.render_ops.TextOp, painter: PySide6.QtGui.QPainter) -> 
 		painter: Active QPainter.
 	"""
 	color = _color_to_qcolor(op.color)
+	if color is None:
+		color = _default_color
 	painter.setPen(PySide6.QtGui.QPen(color))
 	painter.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
 	# parse text into segments with baseline state tags
@@ -258,14 +375,21 @@ def _color_to_qcolor(color) -> PySide6.QtGui.QColor:
 		# normalize through OASA helper then build QColor
 		normalized = oasa.render_ops.color_to_hex(text)
 		if normalized is None:
-			return _DEFAULT_COLOR
+			return _default_color
+		# remap the light theme default line color to the active theme color
+		# so dark mode renders bonds/labels in light gray
+		if normalized == _light_default_line:
+			return _default_color
 		return PySide6.QtGui.QColor(normalized)
 	if isinstance(color, (tuple, list)):
 		hex_text = oasa.render_ops.color_to_hex(color)
 		if hex_text is None:
-			return _DEFAULT_COLOR
+			return _default_color
+		# remap the light theme default line color to active theme color
+		if hex_text == _light_default_line:
+			return _default_color
 		return PySide6.QtGui.QColor(hex_text)
-	return _DEFAULT_COLOR
+	return _default_color
 
 
 #============================================

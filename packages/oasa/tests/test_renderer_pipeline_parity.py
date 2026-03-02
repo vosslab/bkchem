@@ -281,7 +281,8 @@ def test_molecule_to_ops_includes_charge_and_stereo_geometry():
 	mol.add_vertex(a3)
 	mol.add_edge(a1, a2, _single_bond(a1, a2, bond_type="w"))
 	mol.add_edge(a1, a3, _single_bond(a1, a3, bond_type="h"))
-	ops = molecule_to_ops(mol, style={"show_carbon_symbol": True})
+	# background_color must be set to generate label mask PolygonOps
+	ops = molecule_to_ops(mol, style={"show_carbon_symbol": True, "background_color": "#fff"})
 	assert any(isinstance(op, render_ops.PolygonOp) for op in ops)
 	assert any(isinstance(op, render_ops.TextOp) and "+" in op.text for op in ops)
 

@@ -176,6 +176,18 @@ def build_qss(theme_name: str) -> str:
 	qss += "  padding: 2px;"
 	qss += "}"
 
+	# toolbar button checked state (active mode highlight)
+	qss += "QToolBar QToolButton:checked {"
+	qss += f"  background-color: {gui['active_mode']};"
+	qss += f"  color: {gui['active_mode_fg']};"
+	qss += f"  border: 2px solid {gui['active_mode_highlight']};"
+	qss += "  border-radius: 4px;"
+	qss += "}"
+	# toolbar button hover state
+	qss += "QToolBar QToolButton:hover {"
+	qss += f"  background-color: {gui['hover']};"
+	qss += "}"
+
 	# status bar
 	qss += "QStatusBar {"
 	qss += f"  background-color: {gui['toolbar']};"
@@ -221,6 +233,12 @@ def build_qss(theme_name: str) -> str:
 	# pressed push button
 	qss += "QPushButton:pressed {"
 	qss += f"  background-color: {gui['active_mode']};"
+	qss += "}"
+	# checked push button (submode buttons)
+	qss += "QPushButton:checked {"
+	qss += f"  background-color: {gui['grid_selected']};"
+	qss += f"  color: {gui['active_mode_fg']};"
+	qss += f"  border: 1px solid {gui['active_mode_highlight']};"
 	qss += "}"
 
 	# labels

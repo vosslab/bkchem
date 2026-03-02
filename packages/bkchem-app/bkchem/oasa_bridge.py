@@ -188,7 +188,7 @@ def _oasa_mol_to_cdml_element( mol, paper):
   cx = sum( xs) / len( xs)
   cy = sum( ys) / len( ys)
   # apply transform: center at origin, scale, move to (320, 240)
-  trans = transform3d.transform3d()
+  trans = transform3d.Transform3d()
   trans.set_move( -cx, -cy, 0)
   trans.set_scaling( scale)
   trans.set_move( 320, 240, 0)
@@ -304,7 +304,7 @@ def oasa_mol_to_bkchem_mol( mol, paper):
     scale = Screen.any_to_px( paper.standard.bond_length) / bl
     movex = (maxx+minx)/2
     movey = (maxy+miny)/2
-    trans = transform3d.transform3d()
+    trans = transform3d.Transform3d()
     trans.set_move( -movex, -movey, 0)
     trans.set_scaling( scale)
     trans.set_move( 320, 240, 0)

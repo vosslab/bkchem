@@ -32,9 +32,19 @@ gui:
   entry_disabled_fg: "#555555"
   entry_insert_bg: "#ffffff"
   canvas_surround: "grey"
+  high_contrast_1: "#000000"
+  high_contrast_2: "#ffffff"
+  tooltip_bg: "#ffffe0"
+  tooltip_fg: "#000000"
+canvas:
+  selection: "#3399ff"
+  hover: "#66bbff"
+  preview: "#888888"
 chemistry:
   default_line: "#000"
   default_area: "#ffffff"
+  charge_plus: "#3366ff"
+  charge_minus: "#ff3333"
 paper:
   fill: "white"
   outline: "black"

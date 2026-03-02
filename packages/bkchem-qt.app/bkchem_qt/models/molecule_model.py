@@ -145,8 +145,8 @@ class MoleculeModel(PySide6.QtCore.QObject):
 
 	#============================================
 	def add_bond(self, atom1_model: bkchem_qt.models.atom_model.AtomModel,
-				 atom2_model: bkchem_qt.models.atom_model.AtomModel,
-				 bond_model: bkchem_qt.models.bond_model.BondModel):
+					atom2_model: bkchem_qt.models.atom_model.AtomModel,
+					bond_model: bkchem_qt.models.bond_model.BondModel):
 		"""Add a bond between two atoms.
 
 		Registers the BondModel's underlying OASA bond as an edge in the

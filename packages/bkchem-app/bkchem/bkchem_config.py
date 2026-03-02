@@ -50,12 +50,6 @@ current_BKChem_version = _read_repo_version( "bkchem", "26.02a1")
 # border width for all components of interface
 border_width = 1
 
-# static fallbacks for early init / batch mode (before theme_manager loads)
-background_color = "#eaeaea"
-toolbar_color = "#e0e0e0"
-separator_color = "#c8c8c8"
-hover_color = "#d8d8d8"
-active_mode_color = "#cde4f7"
 
 
 #============================================

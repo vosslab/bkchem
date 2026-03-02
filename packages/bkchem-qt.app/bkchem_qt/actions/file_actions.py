@@ -12,6 +12,7 @@ import bkchem_qt.bridge.oasa_bridge
 import bkchem_qt.bridge.worker
 import bkchem_qt.canvas.items.atom_item
 import bkchem_qt.canvas.items.bond_item
+import bkchem_qt.config.geometry_units
 from bkchem_qt.actions.action_registry import MenuAction
 
 # file filter strings for QFileDialog
@@ -33,6 +34,15 @@ _EXTENSION_TO_CODEC = {
 	".cml": "cml",
 	".cdxml": "cdxml",
 }
+
+
+#============================================
+def _resolve_scene_bond_length_pt(main_window) -> float:
+	"""Resolve canonical bond length from the active scene."""
+	scene = getattr(main_window, "_scene", None)
+	if scene is not None and hasattr(scene, "grid_spacing_pt"):
+		return float(scene.grid_spacing_pt)
+	return bkchem_qt.config.geometry_units.DEFAULT_BOND_LENGTH_PT
 
 
 #============================================
@@ -71,25 +81,34 @@ def open_file_path(main_window, file_path: str) -> None:
 	"""
 	ext = os.path.splitext(file_path)[1].lower()
 	molecules = []
+	bond_length_pt = _resolve_scene_bond_length_pt(main_window)
 
 	if ext == ".cdml":
 		# CDML files are small; load synchronously
-		molecules = bkchem_qt.io.cdml_io.load_cdml_file(file_path)
+		molecules = bkchem_qt.io.cdml_io.load_cdml_file(
+			file_path, bond_length_pt=bond_length_pt,
+		)
 		if molecules:
 			_add_molecules_to_scene(main_window, molecules)
 	elif ext in _EXTENSION_TO_CODEC:
 		# use async worker for non-CDML formats (may be large)
 		codec_name = _EXTENSION_TO_CODEC[ext]
-		_load_with_worker(main_window, codec_name, file_path)
+		_load_with_worker(
+			main_window, codec_name, file_path, bond_length_pt=bond_length_pt,
+		)
 	else:
 		# try CDML as a fallback for unknown extensions
-		molecules = bkchem_qt.io.cdml_io.load_cdml_file(file_path)
+		molecules = bkchem_qt.io.cdml_io.load_cdml_file(
+			file_path, bond_length_pt=bond_length_pt,
+		)
 		if molecules:
 			_add_molecules_to_scene(main_window, molecules)
 
 
 #============================================
-def _load_with_worker(main_window, codec_name: str, file_path: str) -> None:
+def _load_with_worker(
+	main_window, codec_name: str, file_path: str, bond_length_pt: float,
+) -> None:
 	"""Load a non-CDML file asynchronously using FileReaderWorker.
 
 	Runs the OASA codec reader in a background thread so that large
@@ -117,7 +136,9 @@ def _load_with_worker(main_window, codec_name: str, file_path: str) -> None:
 			parts = [oasa_mol]
 		molecules = []
 		for part in parts:
-			mol_model = bkchem_qt.bridge.oasa_bridge.oasa_mol_to_qt_mol(part)
+			mol_model = bkchem_qt.bridge.oasa_bridge.oasa_mol_to_qt_mol(
+				part, bond_length_pt=bond_length_pt,
+			)
 			molecules.append(mol_model)
 		if molecules:
 			_add_molecules_to_scene(main_window, molecules)
@@ -214,8 +235,8 @@ def _load_same_tab(app) -> None:
 			app, "Unsaved Changes",
 			"Save changes before opening a new file?",
 			(PySide6.QtWidgets.QMessageBox.StandardButton.Save
-			 | PySide6.QtWidgets.QMessageBox.StandardButton.Discard
-			 | PySide6.QtWidgets.QMessageBox.StandardButton.Cancel),
+				| PySide6.QtWidgets.QMessageBox.StandardButton.Discard
+				| PySide6.QtWidgets.QMessageBox.StandardButton.Cancel),
 			PySide6.QtWidgets.QMessageBox.StandardButton.Save,
 		)
 		if reply == PySide6.QtWidgets.QMessageBox.StandardButton.Cancel:

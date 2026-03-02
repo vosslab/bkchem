@@ -119,6 +119,19 @@ def _event_key_combo(paper, specials, key):
 
 
 #============================================
+def _mode_shortcut_number(app, mode_name):
+	"""Return the 1-based Ctrl-number shortcut index for a mode name."""
+	if mode_name not in app.modes_sort:
+		raise AssertionError(f"Mode '{mode_name}' not found in toolbar order.")
+	index = app.modes_sort.index(mode_name) + 1
+	if index > 9:
+		raise AssertionError(
+			f"Mode '{mode_name}' is mapped to Ctrl-{index}, outside supported 1-9 range."
+		)
+	return index
+
+
+#============================================
 def _count_atoms(paper):
 	"""Return the number of atoms across all molecules."""
 	return sum(len(mol.atoms) for mol in paper.molecules)
@@ -188,11 +201,14 @@ def _run_gui_event_simulation():
 		if after_click_bonds < after_drag_bonds + 1:
 			raise AssertionError("Draw click did not add a bond.")
 
-		_event_key_combo(paper, ["Control_L"], "1")
+		edit_shortcut = _mode_shortcut_number(app, "edit")
+		_event_key_combo(paper, ["Control_L"], str(edit_shortcut))
 		_flush_events(app, delay=0.05)
 
 		if getattr(app.mode, "name", "") != "edit":
-			raise AssertionError("Ctrl-1 did not switch to edit mode.")
+			raise AssertionError(
+				f"Ctrl-{edit_shortcut} did not switch to edit mode."
+			)
 
 		target_atom = paper.molecules[0].atoms[0]
 		x, y = target_atom.get_xy_on_paper()
@@ -225,10 +241,13 @@ def _run_gui_event_simulation():
 		if after_redo_atoms != after_delete_atoms:
 			raise AssertionError("Ctrl-Shift-Z did not redo the deletion.")
 
-		_event_key_combo(paper, ["Control_L"], "2")
+		draw_shortcut = _mode_shortcut_number(app, "draw")
+		_event_key_combo(paper, ["Control_L"], str(draw_shortcut))
 		_flush_events(app, delay=0.05)
 		if getattr(app.mode, "name", "") != "draw":
-			raise AssertionError("Ctrl-2 did not switch back to draw mode.")
+			raise AssertionError(
+				f"Ctrl-{draw_shortcut} did not switch back to draw mode."
+			)
 	finally:
 		app.destroy()
 

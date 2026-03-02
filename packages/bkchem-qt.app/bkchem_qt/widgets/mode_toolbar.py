@@ -31,7 +31,7 @@ class ModeToolbar(PySide6.QtWidgets.QToolBar):
 		"""
 		super().__init__("Mode", parent)
 		self.setMovable(False)
-		self.setIconSize(PySide6.QtCore.QSize(24, 24))
+		self.setIconSize(PySide6.QtCore.QSize(32, 32))
 		# show icon with text below, matching old compound='top' layout
 		self.setToolButtonStyle(PySide6.QtCore.Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
 		# action group enforces mutual exclusion
@@ -63,15 +63,52 @@ class ModeToolbar(PySide6.QtWidgets.QToolBar):
 		# store the mode name on the action for lookup
 		action.setData(name)
 		# connect triggered signal
-		action.triggered.connect(lambda checked, n=name: self._on_action_triggered(n))
+		action.triggered.connect(
+			lambda checked, n=name: self._on_action_triggered(n, checked)
+		)
 		self._action_group.addAction(action)
 		self.addAction(action)
 		self._actions[name] = action
 
 	#============================================
+	def add_action_button(self, name: str, label: str, tooltip: str = "",
+			icon: PySide6.QtGui.QIcon = None,
+			callback=None) -> PySide6.QtGui.QAction:
+		"""Add a non-checkable action button to the toolbar.
+
+		Used for actions like Undo/Redo that are not mode toggles.
+		The button is not added to the exclusive action group.
+
+		Args:
+			name: Internal action name.
+			label: Display text on the button.
+			tooltip: Optional tooltip string.
+			icon: Optional QIcon to display.
+			callback: Optional callable to connect to triggered signal.
+
+		Returns:
+			The created QAction.
+		"""
+		action = PySide6.QtGui.QAction(label, self)
+		action.setCheckable(False)
+		if tooltip:
+			action.setToolTip(tooltip)
+		if icon is not None and not icon.isNull():
+			action.setIcon(icon)
+		if callback is not None:
+			action.triggered.connect(callback)
+		self.addAction(action)
+		self._actions[name] = action
+		return action
+
+	#============================================
 	def add_separator_marker(self) -> None:
-		"""Insert a visual separator between mode groups."""
+		"""Insert a visual separator with spacing between mode groups."""
 		self.addSeparator()
+		# add 8px spacer after separator for visual breathing room
+		spacer = PySide6.QtWidgets.QWidget()
+		spacer.setFixedWidth(8)
+		self.addWidget(spacer)
 
 	#============================================
 	def set_active_mode(self, name: str) -> None:
@@ -84,11 +121,10 @@ class ModeToolbar(PySide6.QtWidgets.QToolBar):
 			name: Internal mode name to activate.
 		"""
 		action = self._actions.get(name)
-		if action is not None:
-			# block signals to avoid re-triggering mode_selected
-			action.blockSignals(True)
-			action.setChecked(True)
-			action.blockSignals(False)
+		if action is None:
+			return
+		for mode_action in self._action_group.actions():
+			mode_action.setChecked(mode_action is action)
 
 	#============================================
 	def update_action_icon(self, name: str, icon: PySide6.QtGui.QIcon) -> None:
@@ -105,10 +141,12 @@ class ModeToolbar(PySide6.QtWidgets.QToolBar):
 			action.setIcon(icon)
 
 	#============================================
-	def _on_action_triggered(self, name: str) -> None:
+	def _on_action_triggered(self, name: str, checked: bool) -> None:
 		"""Handle an action click by emitting the mode name.
 
 		Args:
 			name: The mode name associated with the clicked action.
+			checked: Whether this mode action became checked.
 		"""
-		self.mode_selected.emit(name)
+		if checked:
+			self.mode_selected.emit(name)

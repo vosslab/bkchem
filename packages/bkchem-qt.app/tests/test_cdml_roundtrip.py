@@ -1,7 +1,7 @@
 """Tests for Patch 3: CDML save and load-save round-trip."""
 
-# Standard Library
-import xml.etree.ElementTree
+# PIP3 modules
+import defusedxml.ElementTree
 
 # local repo modules
 import bkchem_qt.io.cdml_io
@@ -20,7 +20,7 @@ def test_save_cdml_produces_valid_xml(main_window, tmp_path):
 	# save
 	bkchem_qt.io.cdml_io.save_cdml_file(tmp_file, main_window.document)
 	# verify XML is parseable
-	tree = xml.etree.ElementTree.parse(tmp_file)
+	tree = defusedxml.ElementTree.parse(tmp_file)
 	root = tree.getroot()
 	# strip namespace prefix for tag comparison
 	tag = root.tag.split("}", 1)[-1] if "}" in root.tag else root.tag
@@ -103,3 +103,30 @@ def test_coordinates_preserved_within_tolerance(main_window, tmp_path):
 	for a in loaded_atoms:
 		assert a.x is not None, "x should not be None"
 		assert a.y is not None, "y should not be None"
+
+
+#============================================
+def test_cdml_load_uses_canonical_target_spacing(main_window, tmp_path):
+	"""CDML load must rescale bond lengths to the requested target spacing."""
+	tmp_file = str(tmp_path / "test_load_target_spacing.cdml")
+	main_window._mode_manager.set_mode("draw")
+	draw_mode = main_window._mode_manager.current_mode
+	a1 = draw_mode._create_atom_at(100.0, 200.0, "C")
+	a2 = draw_mode._create_atom_at(320.0, 200.0, "O")
+	draw_mode._create_bond_between(a1, a2)
+	bkchem_qt.io.cdml_io.save_cdml_file(tmp_file, main_window.document)
+	target_spacing = 55.0
+	mols = bkchem_qt.io.cdml_io.load_cdml_file(
+		tmp_file, bond_length_pt=target_spacing,
+	)
+	assert len(mols) >= 1, "should load at least one molecule"
+	loaded_bonds = mols[0].bonds
+	assert len(loaded_bonds) >= 1, "loaded molecule should have at least one bond"
+	bond = loaded_bonds[0]
+	dx = bond.atom2.x - bond.atom1.x
+	dy = bond.atom2.y - bond.atom1.y
+	actual_dist = (dx * dx + dy * dy) ** 0.5
+	assert abs(actual_dist - target_spacing) < 0.5, (
+		f"loaded bond length {actual_dist:.2f} should match target "
+		f"{target_spacing:.2f}"
+	)

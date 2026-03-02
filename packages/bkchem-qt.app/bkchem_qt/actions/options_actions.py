@@ -8,6 +8,8 @@ import logging
 import PySide6.QtWidgets
 
 # local repo modules
+import bkchem_qt.config.geometry_units
+import bkchem_qt.config.preferences
 from bkchem_qt.actions.action_registry import MenuAction
 
 
@@ -35,7 +37,11 @@ def _show_standard_dialog(app) -> None:
 	bond_spin.setRange(10.0, 100.0)
 	bond_spin.setSingleStep(1.0)
 	bond_spin.setDecimals(1)
-	stored_bond = prefs.value("drawing/bond_length", 40.0)
+	bond_spin.setSuffix(" pt")
+	stored_bond = prefs.value(
+		bkchem_qt.config.preferences.Preferences.KEY_BOND_LENGTH_PT,
+		bkchem_qt.config.geometry_units.DEFAULT_BOND_LENGTH_PT,
+	)
 	bond_spin.setValue(float(stored_bond))
 	layout.addRow("Bond length:", bond_spin)
 
@@ -75,10 +81,15 @@ def _show_standard_dialog(app) -> None:
 	layout.addRow(buttons)
 
 	if dialog.exec() == PySide6.QtWidgets.QDialog.DialogCode.Accepted:
-		prefs.set_value("drawing/bond_length", bond_spin.value())
+		prefs.set_value(
+			bkchem_qt.config.preferences.Preferences.KEY_BOND_LENGTH_PT,
+			bond_spin.value(),
+		)
 		prefs.set_value("drawing/line_width", line_spin.value())
 		prefs.set_value("drawing/font_size", font_spin.value())
 		prefs.set_value("drawing/font_family", font_combo.currentText())
+		if hasattr(app, "_apply_geometry_preferences"):
+			app._apply_geometry_preferences()
 		app.statusBar().showMessage(
 			"Drawing style defaults saved", 3000
 		)

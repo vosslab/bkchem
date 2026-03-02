@@ -29,6 +29,7 @@ DEFAULT_KEYBINDINGS = {
 	"view.zoom_out": "Ctrl+-",
 	"view.reset_zoom": "Ctrl+0",
 	"view.toggle_grid": "Ctrl+G",
+	"view.toggle_grid_snap": "Ctrl+Shift+G",
 	"view.toggle_theme": "",
 	"mode.edit": "Ctrl+1",
 	"mode.draw": "Ctrl+2",

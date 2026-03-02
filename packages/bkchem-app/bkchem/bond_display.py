@@ -7,6 +7,14 @@ from oasa import geometry
 class BondDisplayMixin:
   """UI/display helpers extracted from bond.py."""
 
+  def _display_line_width_for_ui(self):
+    """Return a display-space stroke width for focus/unfocus/simple redraw."""
+    width_getter = getattr(self, "_display_line_width", None)
+    if callable(width_getter):
+      return width_getter()
+    base_line_width = float(self.line_width or 1.0)
+    return abs(float(self.paper.real_to_canvas(base_line_width)))
+
   def redraw(self, recalc_side=0):
     if not getattr(self, "_bond__dirty", 0):
       pass
@@ -44,7 +52,11 @@ class BondDisplayMixin:
       self.paper.coords(self.item, x1, y1, x2, y2)
     # use theme-mapped color for display while preserving stored color for CDML
     display_color = theme_manager.map_chemistry_color(self.line_color)
-    self.paper.itemconfig(self.item, width=self.line_width, fill=display_color)
+    self.paper.itemconfig(
+      self.item,
+      width=self._display_line_width_for_ui(),
+      fill=display_color,
+    )
 
   def visible_items(self):
     """Return a list of canvas items displayed by this bond."""
@@ -69,9 +81,10 @@ class BondDisplayMixin:
 
   def focus(self):
     items = self.visible_items()
+    display_line_width = self._display_line_width_for_ui()
 
     if self.type in "nahds":
-      [self.paper.itemconfig(item, fill=self.paper.highlight_color, width=self.line_width + 1) for item in items]
+      [self.paper.itemconfig(item, fill=self.paper.highlight_color, width=display_line_width + 1) for item in items]
     elif self.type == "o":
       [self.paper.itemconfig(item, fill=self.paper.highlight_color, outline=self.paper.highlight_color) for item in items]
     elif self.type in "wb":
@@ -81,9 +94,10 @@ class BondDisplayMixin:
     items = self.visible_items()
     # use theme-mapped color when restoring from highlight
     display_color = theme_manager.map_chemistry_color(self.line_color)
+    display_line_width = self._display_line_width_for_ui()
 
     if self.type in "nahds":
-      [self.paper.itemconfig(item, fill=display_color, width=self.line_width) for item in items]
+      [self.paper.itemconfig(item, fill=display_color, width=display_line_width) for item in items]
     elif self.type == "o":
       [self.paper.itemconfig(item, fill=display_color, outline=display_color) for item in items]
     elif self.type in "wb":

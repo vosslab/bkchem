@@ -109,7 +109,8 @@ def _transform_target(target, transform_xy):
 
 #============================================
 def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
-		color_atoms=True, atom_colors=None, font_name="Arial", font_size=16):
+		color_atoms=True, atom_colors=None, font_name="Arial", font_size=16,
+		background_color=None, draw_label_mask=True):
 	layout = _resolved_vertex_label_layout(
 		vertex,
 		show_hydrogens_on_hetero=show_hydrogens_on_hetero,
@@ -132,12 +133,13 @@ def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
 	center_x = (x1 + x2) / 2.0
 
 	if vertex.multiplicity in (2, 3):
+		# multiplicity dot uses default text color (None) so it follows the theme
 		center = transform_point(center_x, y - 17)
 		ops.append(render_ops.CircleOp(
 			center=center,
 			radius=3,
-			fill="#000",
-			stroke="#fff",
+			fill=None,
+			stroke=background_color,
 			stroke_width=1.0,
 		))
 		if vertex.multiplicity == 3:
@@ -145,23 +147,25 @@ def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
 			ops.append(render_ops.CircleOp(
 				center=center,
 				radius=3,
-				fill="#000",
-				stroke="#fff",
+				fill=None,
+				stroke=background_color,
 				stroke_width=1.0,
 			))
 
-	points = (
-		transform_point(x1, y1),
-		transform_point(x2, y1),
-		transform_point(x2, y2),
-		transform_point(x1, y2),
-	)
-	ops.append(render_ops.PolygonOp(
-		points=points,
-		fill="#fff",
-		stroke="#fff",
-		stroke_width=1.0,
-	))
+	# optional background rectangle to mask bonds behind the atom label
+	if draw_label_mask and background_color is not None:
+		points = (
+			transform_point(x1, y1),
+			transform_point(x2, y1),
+			transform_point(x2, y2),
+			transform_point(x1, y2),
+		)
+		ops.append(render_ops.PolygonOp(
+			points=points,
+			fill=background_color,
+			stroke=background_color,
+			stroke_width=1.0,
+		))
 
 	if color_atoms and atom_colors:
 		color = render_ops.color_to_hex(atom_colors.get(vertex.symbol, (0, 0, 0))) or "#000"
@@ -219,6 +223,84 @@ def build_vertex_ops(vertex, transform_xy=None, show_hydrogens_on_hetero=False,
 	return ops
 
 
+#============================================
+def build_label_attach_targets(vertices, show_hydrogens_on_hetero=False,
+		font_name="Arial", font_size=16.0, transform_xy=None,
+		show_carbon_symbol=False):
+	"""Compute shown vertices, label targets, and attach targets for bond clipping.
+
+	Iterates over the given vertices, determines which ones are visible
+	(non-carbon heteroatoms, charged atoms, or atoms with explicit labels),
+	and computes label bounding boxes and attach-site targets for each.
+	These targets are used by ``build_bond_ops()`` to clip bond endpoints
+	at atom label boundaries instead of drawing through them.
+
+	Args:
+		vertices: Iterable of OASA vertex/atom objects with x, y, symbol,
+			charge, multiplicity, and properties_ attributes.
+		show_hydrogens_on_hetero: Whether to include hydrogen labels on
+			heteroatoms when computing label text and bounding boxes.
+		font_name: Font family name for label geometry calculations.
+		font_size: Font size for label geometry calculations.
+		transform_xy: Optional callable (x, y) -> (tx, ty) for coordinate
+			transformation. None means no transformation.
+		show_carbon_symbol: Whether to treat carbon atoms as shown vertices
+			for label target computation.
+
+	Returns:
+		Tuple of (shown_vertices, label_targets, attach_targets) where:
+		- shown_vertices: set of vertices that have visible labels
+		- label_targets: dict mapping vertex -> AttachTarget (full label box)
+		- attach_targets: dict mapping vertex -> AttachTarget (token-level box)
+	"""
+	shown_vertices = set()
+	for vertex in vertices:
+		if show_carbon_symbol and vertex.symbol == "C":
+			shown_vertices.add(vertex)
+		elif vertex_is_shown(vertex):
+			shown_vertices.add(vertex)
+	label_targets = {}
+	attach_targets = {}
+	for vertex in shown_vertices:
+		layout = _resolved_vertex_label_layout(
+			vertex,
+			show_hydrogens_on_hetero=bool(show_hydrogens_on_hetero),
+			font_size=float(font_size),
+			font_name=str(font_name),
+		)
+		if layout is None:
+			continue
+		label_target_obj = label_target(
+			vertex.x,
+			vertex.y,
+			layout["text"],
+			layout["anchor"],
+			float(font_size),
+			font_name=str(font_name),
+		)
+		label_target_obj = _transform_target(label_target_obj, transform_xy)
+		label_targets[vertex] = label_target_obj
+		if len(_tokenized_atom_spans(layout["text"])) <= 1:
+			continue
+		attach_mode = vertex.properties_.get("attach_atom", "first")
+		attach_element = vertex.properties_.get("attach_element")
+		attach_site = vertex.properties_.get("attach_site")
+		attach_target_obj = label_attach_target(
+			vertex.x,
+			vertex.y,
+			layout["text"],
+			layout["anchor"],
+			float(font_size),
+			attach_atom=attach_mode,
+			attach_element=attach_element,
+			attach_site=attach_site,
+			font_name=str(font_name),
+		)
+		attach_target_obj = _transform_target(attach_target_obj, transform_xy)
+		attach_targets[vertex] = attach_target_obj
+	return (shown_vertices, label_targets, attach_targets)
+
+
 _DEFAULT_STYLE = {
 	"line_width": 2.0,
 	"bond_width": 6.0,
@@ -231,6 +313,7 @@ _DEFAULT_STYLE = {
 	"show_hydrogens_on_hetero": False,
 	"font_name": "Arial",
 	"font_size": 16.0,
+	"background_color": None,
 	"show_carbon_symbol": False,
 	"attach_gap_target": ATTACH_GAP_TARGET,
 	"attach_perp_tolerance": ATTACH_PERP_TOLERANCE,
@@ -305,52 +388,16 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 	if mol is None:
 		return []
 	used_style = _resolve_style(style)
-	shown_vertices = set()
-	for vertex in mol.vertices:
-		if used_style["show_carbon_symbol"] and vertex.symbol == "C":
-			shown_vertices.add(vertex)
-		elif vertex_is_shown(vertex):
-			shown_vertices.add(vertex)
 	bond_coords = _edge_points(mol, transform_xy=transform_xy)
-	label_targets = {}
-	attach_targets = {}
-	for vertex in shown_vertices:
-		layout = _resolved_vertex_label_layout(
-			vertex,
-			show_hydrogens_on_hetero=bool(used_style["show_hydrogens_on_hetero"]),
-			font_size=float(used_style["font_size"]),
-			font_name=str(used_style["font_name"]),
-		)
-		if layout is None:
-			continue
-		label_target_obj = label_target(
-			vertex.x,
-			vertex.y,
-			layout["text"],
-			layout["anchor"],
-			float(used_style["font_size"]),
-			font_name=str(used_style["font_name"]),
-		)
-		label_target_obj = _transform_target(label_target_obj, transform_xy)
-		label_targets[vertex] = label_target_obj
-		if len(_tokenized_atom_spans(layout["text"])) <= 1:
-			continue
-		attach_mode = vertex.properties_.get("attach_atom", "first")
-		attach_element = vertex.properties_.get("attach_element")
-		attach_site = vertex.properties_.get("attach_site")
-		attach_target_obj = label_attach_target(
-			vertex.x,
-			vertex.y,
-			layout["text"],
-			layout["anchor"],
-			float(used_style["font_size"]),
-			attach_atom=attach_mode,
-			attach_element=attach_element,
-			attach_site=attach_site,
-			font_name=str(used_style["font_name"]),
-		)
-		attach_target_obj = _transform_target(attach_target_obj, transform_xy)
-		attach_targets[vertex] = attach_target_obj
+	# compute shown vertices, label targets, and attach targets via helper
+	shown_vertices, label_targets, attach_targets = build_label_attach_targets(
+		vertices=mol.vertices,
+		show_hydrogens_on_hetero=bool(used_style["show_hydrogens_on_hetero"]),
+		font_name=str(used_style["font_name"]),
+		font_size=float(used_style["font_size"]),
+		transform_xy=transform_xy,
+		show_carbon_symbol=bool(used_style["show_carbon_symbol"]),
+	)
 	attach_constraints = make_attach_constraints(
 		target_gap=float(used_style["attach_gap_target"]),
 		alignment_tolerance=float(used_style["attach_perp_tolerance"]),
@@ -386,6 +433,7 @@ def molecule_to_ops(mol, style=None, transform_xy=None):
 			atom_colors=used_style["atom_colors"],
 			font_name=str(used_style["font_name"]),
 			font_size=float(used_style["font_size"]),
+			background_color=used_style["background_color"],
 		)
 		ops.extend(vertex_ops)
 	return ops

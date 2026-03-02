@@ -325,13 +325,43 @@ class ChemView(PySide6.QtWidgets.QGraphicsView):
 
 	#============================================
 	def zoom_to_content(self) -> None:
-		"""Zoom and pan to fit all scene content with a small margin."""
+		"""Zoom and pan to fit chemistry content (not paper/grid) with a margin.
+
+		Filters scene items to only include chemistry types (atoms, bonds,
+		arrows, text, marks). Falls back to zoom_to_fit if no chemistry
+		items are found.
+		"""
+		import bkchem_qt.canvas.items.atom_item
+		import bkchem_qt.canvas.items.bond_item
+		import bkchem_qt.canvas.items.arrow_item
+		import bkchem_qt.canvas.items.text_item
+		import bkchem_qt.canvas.items.mark_item
+
 		scene = self.scene()
 		if scene is None:
 			return
-		content_rect = scene.itemsBoundingRect()
+
+		# chemistry item types to include in content rect
+		chem_types = (
+			bkchem_qt.canvas.items.atom_item.AtomItem,
+			bkchem_qt.canvas.items.bond_item.BondItem,
+			bkchem_qt.canvas.items.arrow_item.ArrowItem,
+			bkchem_qt.canvas.items.text_item.TextItem,
+			bkchem_qt.canvas.items.mark_item.MarkItem,
+		)
+
+		# accumulate bounding rect of chemistry items only
+		content_rect = PySide6.QtCore.QRectF()
+		for item in scene.items():
+			if isinstance(item, chem_types):
+				item_rect = item.mapToScene(item.boundingRect()).boundingRect()
+				content_rect = content_rect.united(item_rect)
+
+		# fall back to paper zoom if no chemistry items found
 		if content_rect.isEmpty():
+			self.zoom_to_fit()
 			return
+
 		# add a 10% margin around content
 		margin = max(content_rect.width(), content_rect.height()) * 0.1
 		content_rect.adjust(-margin, -margin, margin, margin)

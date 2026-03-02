@@ -7,11 +7,18 @@ import math
 from oasa import coords_generator
 import bkchem_qt.canvas.items.atom_item
 import bkchem_qt.bridge.oasa_bridge
+import bkchem_qt.config.geometry_units
 import bkchem_qt.undo.commands
 from bkchem_qt.actions.action_registry import MenuAction
 
-# target bond length in scene pixels for normalization
-TARGET_BOND_LENGTH_PX = bkchem_qt.bridge.oasa_bridge.DEFAULT_BOND_LENGTH_PX
+
+#============================================
+def _resolve_target_bond_length_pt(app) -> float:
+	"""Resolve canonical target bond length in scene-space points."""
+	scene = getattr(app, "_scene", None)
+	if scene is not None and hasattr(scene, "grid_spacing_pt"):
+		return float(scene.grid_spacing_pt)
+	return bkchem_qt.config.geometry_units.DEFAULT_BOND_LENGTH_PT
 
 
 #============================================
@@ -113,6 +120,7 @@ def _handle_clean_geometry(app) -> None:
 		app.statusBar().showMessage("No molecules to clean", 3000)
 		return
 	all_offsets = []
+	target_bond_length_pt = _resolve_target_bond_length_pt(app)
 	for mol_model, mol_items in targets:
 		if not mol_model.atoms:
 			continue
@@ -132,7 +140,7 @@ def _handle_clean_geometry(app) -> None:
 			return
 		# convert back to get fresh coordinates with proper scaling
 		temp_model = bkchem_qt.bridge.oasa_bridge.oasa_mol_to_qt_mol(
-			oasa_mol, bond_length_px=TARGET_BOND_LENGTH_PX
+			oasa_mol, bond_length_pt=target_bond_length_pt,
 		)
 		# map fresh coords back by atom index (vertex order preserved)
 		orig_atoms = mol_model.atoms
@@ -177,6 +185,7 @@ def _handle_normalize_bond_lengths(app) -> None:
 		app.statusBar().showMessage("No molecules to normalize", 3000)
 		return
 	all_offsets = []
+	target_bond_length_pt = _resolve_target_bond_length_pt(app)
 	for mol_model, mol_items in targets:
 		bonds = mol_model.bonds
 		atoms = mol_model.atoms
@@ -199,7 +208,7 @@ def _handle_normalize_bond_lengths(app) -> None:
 		# skip if already close to target
 		if avg_length < 1e-6:
 			continue
-		scale = TARGET_BOND_LENGTH_PX / avg_length
+		scale = target_bond_length_pt / avg_length
 		# skip if scale is trivially close to 1.0
 		if abs(scale - 1.0) < 0.001:
 			continue

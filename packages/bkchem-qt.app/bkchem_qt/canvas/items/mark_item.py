@@ -15,11 +15,9 @@ MARK_RADICAL = "radical"
 MARK_ELECTRON_PAIR = "electron_pair"
 MARK_LONE_PAIR = "lone_pair"
 
-# colors for charge marks
-_PLUS_COLOR = PySide6.QtGui.QColor("#0000cc")
-_MINUS_COLOR = PySide6.QtGui.QColor("#cc0000")
-_RADICAL_COLOR = PySide6.QtGui.QColor("#000000")
-_PAIR_COLOR = PySide6.QtGui.QColor("#000000")
+# local repo modules
+from bkchem_qt.canvas.items import render_ops_painter
+
 
 
 #============================================
@@ -105,8 +103,8 @@ class MarkItem(PySide6.QtWidgets.QGraphicsItem):
 
 	#============================================
 	def paint(self, painter: PySide6.QtGui.QPainter,
-			  option: PySide6.QtWidgets.QStyleOptionGraphicsItem,
-			  widget: PySide6.QtWidgets.QWidget = None) -> None:
+				option: PySide6.QtWidgets.QStyleOptionGraphicsItem,
+				widget: PySide6.QtWidgets.QWidget = None) -> None:
 		"""Paint the mark by dispatching to the appropriate draw method.
 
 		Args:
@@ -132,7 +130,8 @@ class MarkItem(PySide6.QtWidgets.QGraphicsItem):
 		"""
 		r = self._radius
 		# draw circle outline
-		pen = PySide6.QtGui.QPen(_PLUS_COLOR)
+		color = PySide6.QtGui.QColor(render_ops_painter.get_charge_color("plus"))
+		pen = PySide6.QtGui.QPen(color)
 		pen.setWidthF(1.0)
 		painter.setPen(pen)
 		painter.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
@@ -157,7 +156,8 @@ class MarkItem(PySide6.QtWidgets.QGraphicsItem):
 		"""
 		r = self._radius
 		# draw circle outline
-		pen = PySide6.QtGui.QPen(_MINUS_COLOR)
+		color = PySide6.QtGui.QColor(render_ops_painter.get_charge_color("minus"))
+		pen = PySide6.QtGui.QPen(color)
 		pen.setWidthF(1.0)
 		painter.setPen(pen)
 		painter.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
@@ -178,7 +178,7 @@ class MarkItem(PySide6.QtWidgets.QGraphicsItem):
 		"""
 		dot_radius = 2.5
 		painter.setPen(PySide6.QtCore.Qt.PenStyle.NoPen)
-		painter.setBrush(PySide6.QtGui.QBrush(_RADICAL_COLOR))
+		painter.setBrush(PySide6.QtGui.QBrush(render_ops_painter._default_color))
 		painter.drawEllipse(PySide6.QtCore.QPointF(0, 0), dot_radius, dot_radius)
 
 	#============================================
@@ -192,7 +192,7 @@ class MarkItem(PySide6.QtWidgets.QGraphicsItem):
 		# spacing between the two dots
 		spacing = 3.0
 		painter.setPen(PySide6.QtCore.Qt.PenStyle.NoPen)
-		painter.setBrush(PySide6.QtGui.QBrush(_PAIR_COLOR))
+		painter.setBrush(PySide6.QtGui.QBrush(render_ops_painter._default_color))
 		# draw two dots side by side perpendicular to the radial direction
 		angle_rad = math.radians(self._angle)
 		# perpendicular direction

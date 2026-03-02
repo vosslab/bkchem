@@ -6,6 +6,7 @@ import PySide6.QtGui
 import PySide6.QtWidgets
 
 # local repo modules
+import bkchem_qt.config.geometry_units
 import bkchem_qt.config.preferences
 
 
@@ -83,6 +84,9 @@ class PreferencesDialog(PySide6.QtWidgets.QDialog):
 		# grid visible checkbox
 		self._grid_check = PySide6.QtWidgets.QCheckBox()
 		form.addRow(self.tr("Show grid:"), self._grid_check)
+		# snap-to-grid checkbox
+		self._grid_snap_check = PySide6.QtWidgets.QCheckBox()
+		form.addRow(self.tr("Snap to grid:"), self._grid_snap_check)
 
 		# spacer to push controls to the top
 		form.addItem(PySide6.QtWidgets.QSpacerItem(
@@ -113,8 +117,10 @@ class PreferencesDialog(PySide6.QtWidgets.QDialog):
 		# default bond length
 		self._bond_length_spin = PySide6.QtWidgets.QDoubleSpinBox()
 		self._bond_length_spin.setRange(10.0, 200.0)
-		self._bond_length_spin.setValue(40.0)
-		self._bond_length_spin.setSuffix(" px")
+		self._bond_length_spin.setValue(
+			bkchem_qt.config.geometry_units.DEFAULT_BOND_LENGTH_PT
+		)
+		self._bond_length_spin.setSuffix(" pt")
 		form.addRow(self.tr("Bond length:"), self._bond_length_spin)
 
 		# default font size
@@ -213,11 +219,18 @@ class PreferencesDialog(PySide6.QtWidgets.QDialog):
 			bkchem_qt.config.preferences.Preferences.KEY_GRID_VISIBLE
 		)
 		self._grid_check.setChecked(bool(grid_vis))
+		grid_snap = self._prefs.value(
+			bkchem_qt.config.preferences.Preferences.KEY_GRID_SNAP_ENABLED
+		)
+		self._grid_snap_check.setChecked(bool(grid_snap))
 
 		# drawing defaults
 		element = self._prefs.value("drawing/default_element", "C")
 		self._element_edit.setText(str(element))
-		bond_len = self._prefs.value("drawing/bond_length", 40.0)
+		bond_len = self._prefs.value(
+			bkchem_qt.config.preferences.Preferences.KEY_BOND_LENGTH_PT,
+			bkchem_qt.config.geometry_units.DEFAULT_BOND_LENGTH_PT,
+		)
 		self._bond_length_spin.setValue(float(bond_len))
 		font_sz = self._prefs.value("drawing/font_size", 12)
 		self._font_size_spin.setValue(int(font_sz))
@@ -286,13 +299,17 @@ class PreferencesDialog(PySide6.QtWidgets.QDialog):
 			bkchem_qt.config.preferences.Preferences.KEY_GRID_VISIBLE,
 			self._grid_check.isChecked(),
 		)
+		self._prefs.set_value(
+			bkchem_qt.config.preferences.Preferences.KEY_GRID_SNAP_ENABLED,
+			self._grid_snap_check.isChecked(),
+		)
 		# drawing
 		self._prefs.set_value(
 			"drawing/default_element",
 			self._element_edit.text().strip() or "C",
 		)
 		self._prefs.set_value(
-			"drawing/bond_length",
+			bkchem_qt.config.preferences.Preferences.KEY_BOND_LENGTH_PT,
 			self._bond_length_spin.value(),
 		)
 		self._prefs.set_value(
@@ -317,6 +334,11 @@ class PreferencesDialog(PySide6.QtWidgets.QDialog):
 				action_name = name_item.text()
 				key_seq = seq_item.text()
 				self._prefs.set_value("keybindings/" + action_name, key_seq)
+		parent = self.parent()
+		if parent is not None and hasattr(parent, "_apply_geometry_preferences"):
+			parent._apply_geometry_preferences()
+		if parent is not None and hasattr(parent, "_apply_view_preferences"):
+			parent._apply_view_preferences()
 
 	#============================================
 	def _accept_and_apply(self) -> None:

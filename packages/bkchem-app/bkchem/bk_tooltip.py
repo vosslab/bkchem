@@ -3,6 +3,9 @@
 # Standard Library
 import tkinter
 
+# local repo modules
+from bkchem import theme_manager
+
 #============================================
 class BkBalloon:
 	"""Lightweight tooltip manager that replaces Pmw.Balloon.
@@ -107,14 +110,16 @@ class BkBalloon:
 		tip = tkinter.Toplevel(self._parent)
 		tip.wm_overrideredirect(True)
 		tip.wm_geometry(f"+{x}+{y}")
-		# configure the tooltip appearance
-		tip.configure(background="#ffffe0", borderwidth=1, relief="solid")
+		# configure the tooltip appearance with theme colors
+		tooltip_bg = theme_manager.get_color('tooltip_bg')
+		tooltip_fg = theme_manager.get_color('tooltip_fg')
+		tip.configure(background=tooltip_bg, borderwidth=1, relief="solid")
 		# add the text label
 		label = tkinter.Label(
 			tip,
 			text=text,
-			background="#ffffe0",
-			foreground="#000000",
+			background=tooltip_bg,
+			foreground=tooltip_fg,
 			font=("sans-serif", 9),
 			justify="left",
 			padx=4,

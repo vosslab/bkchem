@@ -8,6 +8,9 @@ import PySide6.QtCore
 import PySide6.QtGui
 import PySide6.QtWidgets
 
+# local repo modules
+from bkchem_qt.canvas.items import render_ops_painter
+
 # -- visual constants --
 # arrowhead triangle size relative to line width
 _ARROWHEAD_LENGTH = 14.0
@@ -16,10 +19,6 @@ _ARROWHEAD_HALF_WIDTH = 5.0
 _BOUNDS_PADDING = 10.0
 # width of the expanded shape path for easier click targeting
 _HIT_PATH_WIDTH = 12.0
-# selection highlight color
-_SELECTION_COLOR = "#3399ff"
-# hover highlight color
-_HOVER_COLOR = "#66bbff"
 # highlight pen width
 _HIGHLIGHT_PEN_WIDTH = 2.0
 
@@ -52,7 +51,7 @@ class ArrowItem(PySide6.QtWidgets.QGraphicsItem):
 		self._start_head = False
 		self._end_head = True
 		self._line_width = 2.0
-		self._color = "#000000"
+		self._color = None
 		self._spline = False
 		self._control_points = []
 		self._hovered = False
@@ -105,9 +104,9 @@ class ArrowItem(PySide6.QtWidgets.QGraphicsItem):
 		# draw selection or hover highlight
 		if self.isSelected() or self._hovered:
 			if self.isSelected():
-				highlight_color = PySide6.QtGui.QColor(_SELECTION_COLOR)
+				highlight_color = PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("selection"))
 			else:
-				highlight_color = PySide6.QtGui.QColor(_HOVER_COLOR)
+				highlight_color = PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("hover"))
 			highlight_color.setAlpha(80)
 			highlight_pen = PySide6.QtGui.QPen(highlight_color)
 			highlight_pen.setWidthF(_HIT_PATH_WIDTH)
@@ -116,8 +115,9 @@ class ArrowItem(PySide6.QtWidgets.QGraphicsItem):
 			painter.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
 			painter.drawLine(self._start, self._end)
 
-		# set up main pen
-		pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(self._color))
+		# set up main pen - resolve color at paint time for theme support
+		resolved_color = render_ops_painter._default_color if self._color is None else PySide6.QtGui.QColor(self._color)
+		pen = PySide6.QtGui.QPen(resolved_color)
 		pen.setWidthF(self._line_width)
 		pen.setCapStyle(PySide6.QtCore.Qt.PenCapStyle.RoundCap)
 		pen.setJoinStyle(PySide6.QtCore.Qt.PenJoinStyle.RoundJoin)
@@ -213,7 +213,9 @@ class ArrowItem(PySide6.QtWidgets.QGraphicsItem):
 			PySide6.QtCore.QPointF(left_x, left_y),
 			PySide6.QtCore.QPointF(right_x, right_y),
 		])
-		painter.setBrush(PySide6.QtGui.QColor(self._color))
+		# resolve color at paint time for theme support
+		fill_color = render_ops_painter._default_color if self._color is None else PySide6.QtGui.QColor(self._color)
+		painter.setBrush(fill_color)
 		painter.setPen(PySide6.QtCore.Qt.PenStyle.NoPen)
 		painter.drawPolygon(triangle)
 

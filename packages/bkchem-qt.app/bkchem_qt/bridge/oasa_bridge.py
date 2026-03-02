@@ -19,25 +19,28 @@ import bkchem_qt.models.molecule_model
 # default canvas center and bond length for initial display
 DEFAULT_CENTER_X = 2000.0
 DEFAULT_CENTER_Y = 1500.0
-DEFAULT_BOND_LENGTH_PX = 40.0
+DEFAULT_BOND_LENGTH_PT = 40.0
 
 
 #============================================
-def oasa_mol_to_qt_mol(mol, bond_length_px=DEFAULT_BOND_LENGTH_PX):
+def oasa_mol_to_qt_mol(mol, bond_length_pt=DEFAULT_BOND_LENGTH_PT):
 	"""Convert an OASA molecule to a Qt MoleculeModel.
 
 	Creates AtomModel and BondModel wrappers for every vertex and edge in
 	the OASA molecule. When the atoms already carry coordinates, the
 	molecule is rescaled so that the average bond length matches
-	``bond_length_px`` and centered at (DEFAULT_CENTER_X, DEFAULT_CENTER_Y).
+	``bond_length_pt`` and centered at (DEFAULT_CENTER_X, DEFAULT_CENTER_Y).
 
 	Args:
 		mol: OASA molecule object.
-		bond_length_px: Target average bond length in scene pixels.
+		bond_length_pt: Target average bond length in scene-space points.
 
 	Returns:
 		MoleculeModel wrapping the converted atoms and bonds.
 	"""
+	if bond_length_pt is None:
+		bond_length_pt = DEFAULT_BOND_LENGTH_PT
+
 	mol_model = bkchem_qt.models.molecule_model.MoleculeModel(
 		oasa_mol=oasa.molecule_lib.Molecule()
 	)
@@ -66,22 +69,22 @@ def oasa_mol_to_qt_mol(mol, bond_length_px=DEFAULT_BOND_LENGTH_PX):
 
 	# rescale and center if coordinates are present
 	if has_coords and mol_model.atoms:
-		_rescale_and_center(mol_model, bond_length_px)
+		_rescale_and_center(mol_model, bond_length_pt)
 
 	return mol_model
 
 
 #============================================
-def _rescale_and_center(mol_model, bond_length_px):
+def _rescale_and_center(mol_model, bond_length_pt):
 	"""Rescale atom positions so avg bond length matches target, then center.
 
 	Computes the average bond length from current positions, builds a
-	Transform3d that scales to match ``bond_length_px``, and translates
+	Transform3d that scales to match ``bond_length_pt``, and translates
 	the centroid to (DEFAULT_CENTER_X, DEFAULT_CENTER_Y).
 
 	Args:
 		mol_model: MoleculeModel with positioned atoms.
-		bond_length_px: Target average bond length in scene pixels.
+		bond_length_pt: Target average bond length in scene-space points.
 	"""
 	atoms = mol_model.atoms
 	bonds = mol_model.bonds
@@ -101,7 +104,7 @@ def _rescale_and_center(mol_model, bond_length_px):
 	# avoid division by zero for single-atom molecules
 	if avg_bl < 1e-6:
 		avg_bl = 1.0
-	scale = bond_length_px / avg_bl
+	scale = bond_length_pt / avg_bl
 
 	# compute centroid of current positions
 	xs = [am.x for am in atoms]

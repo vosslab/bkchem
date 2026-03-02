@@ -72,3 +72,57 @@ def test_biotemplate_mode_has_categories(main_window):
 	assert "Category" in mode.group_labels, (
 		f"group_labels should contain 'Category', got {mode.group_labels}"
 	)
+
+
+#============================================
+def test_mode_toolbar_single_checked_action(main_window):
+	"""Mode toolbar should keep exactly one checkable mode active."""
+	mode_manager = main_window._mode_manager
+	mode_sequence = ["edit", "draw", "template", "atom", "mark"]
+	for mode_name in mode_sequence:
+		mode_manager.set_mode(mode_name)
+		checked = [
+			name for name, action in main_window._mode_toolbar._actions.items()
+			if action.isCheckable() and action.isChecked()
+		]
+		assert checked == [mode_name], (
+			f"expected only '{mode_name}' checked, got {checked}"
+		)
+
+
+#============================================
+def test_template_grid_adapts_columns_with_window_width(main_window, qapp):
+	"""Template grid should use more columns when the window is widened."""
+	main_window.show()
+	main_window.resize(640, 800)
+	qapp.processEvents()
+
+	mode_manager = main_window._mode_manager
+	mode_manager.set_mode("template")
+	qapp.processEvents()
+
+	mode = mode_manager.current_mode
+	keys = mode.submodes[0] if mode.submodes else []
+	if not keys:
+		return
+
+	grid_widget = main_window._submode_ribbon._group_widgets[0]
+	narrow_columns = getattr(grid_widget, "_effective_columns", 0)
+	base_columns = getattr(grid_widget, "_base_columns", 0)
+	assert narrow_columns >= 1, "narrow grid should have at least one column"
+	assert base_columns >= 1, "base grid columns should be tracked"
+
+	main_window.resize(1800, 800)
+	qapp.processEvents()
+
+	wide_grid_widget = main_window._submode_ribbon._group_widgets[0]
+	wide_columns = getattr(wide_grid_widget, "_effective_columns", 0)
+	assert wide_columns >= narrow_columns, (
+		f"wider window should not reduce columns: {wide_columns} < "
+		f"{narrow_columns}"
+	)
+	if len(keys) > base_columns:
+		assert wide_columns > base_columns, (
+			f"wide layout should exceed base columns {base_columns}, got "
+			f"{wide_columns}"
+		)

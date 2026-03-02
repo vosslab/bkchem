@@ -5,6 +5,9 @@ import PySide6.QtCore
 import PySide6.QtGui
 import PySide6.QtWidgets
 
+# local repo modules
+import oasa.periodic_table
+
 # Element data: (symbol, name, row, col)
 # Covers common elements for organic and general chemistry
 ELEMENTS = [
@@ -52,43 +55,8 @@ ELEMENTS = [
 	("Pb", "Lead", 5, 13),
 ]
 
-# color coding by element category
-_NONMETAL_COLOR = "#a0ffa0"
-_METAL_COLOR = "#ffa0a0"
-_METALLOID_COLOR = "#ffffa0"
-_NOBLE_GAS_COLOR = "#a0e0ff"
-_HALOGEN_COLOR = "#ffff80"
-
-# sets for classification
-_NONMETALS = {"H", "C", "N", "O", "P", "S", "Se"}
-_HALOGENS = {"F", "Cl", "Br", "I"}
-_NOBLE_GASES = {"He", "Ne", "Ar", "Kr", "Xe"}
-_METALLOIDS = {"B", "Si", "Ge", "As"}
-
 # button size in pixels
 _BTN_SIZE = 36
-
-
-#============================================
-def _element_color(symbol: str) -> str:
-	"""Return background color hex string for an element category.
-
-	Args:
-		symbol: Chemical element symbol.
-
-	Returns:
-		Hex color string for the element's category.
-	"""
-	if symbol in _NONMETALS:
-		return _NONMETAL_COLOR
-	if symbol in _HALOGENS:
-		return _HALOGEN_COLOR
-	if symbol in _NOBLE_GASES:
-		return _NOBLE_GAS_COLOR
-	if symbol in _METALLOIDS:
-		return _METALLOID_COLOR
-	# default: metals
-	return _METAL_COLOR
 
 
 #============================================
@@ -128,7 +96,7 @@ class PeriodicTablePopup(PySide6.QtWidgets.QDialog):
 			btn.setFixedSize(_BTN_SIZE, _BTN_SIZE)
 			btn.setToolTip(name)
 			# color-code by element type
-			bg_color = _element_color(symbol)
+			bg_color = oasa.periodic_table.get_element_category_color(symbol)
 			btn.setStyleSheet(
 				f"background-color: {bg_color}; "
 				"font-weight: bold; "

@@ -18,6 +18,8 @@ import PySide6.QtWidgets
 import bkchem_qt.modes.base_mode
 import bkchem_qt.canvas.items.atom_item
 import bkchem_qt.canvas.items.bond_item
+import bkchem_qt.config.geometry_units
+from bkchem_qt.canvas.items import render_ops_painter
 import bkchem_qt.undo.commands
 
 # snap radius: if release is within this distance of an atom, snap to it
@@ -127,15 +129,21 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 	def _get_bond_length(self) -> float:
 		"""Return the bond length from the scene grid spacing.
 
-		Falls back to 26.5 if the scene is not available.
-
 		Returns:
 			Bond length in scene units.
 		"""
 		scene = self._view.scene()
-		if scene is not None and hasattr(scene, "_grid_spacing"):
-			return scene._grid_spacing
-		return 26.5
+		if scene is not None and hasattr(scene, "grid_spacing_pt"):
+			return scene.grid_spacing_pt
+		return bkchem_qt.config.geometry_units.DEFAULT_BOND_LENGTH_PT
+
+	#============================================
+	@staticmethod
+	def _grid_snap_enabled(scene) -> bool:
+		"""Return whether scene-level grid snapping is enabled."""
+		if scene is None or not hasattr(scene, "grid_snap_enabled"):
+			return True
+		return bool(scene.grid_snap_enabled)
 
 	# ------------------------------------------------------------------
 	# Geometry helpers (ported from Tk molecule_lib)
@@ -271,7 +279,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		"""
 		# cross product of (b-a) x (p-a)
 		cross = ((b_model.x - a_model.x) * (py - a_model.y)
-				 - (b_model.y - a_model.y) * (px - a_model.x))
+					- (b_model.y - a_model.y) * (px - a_model.x))
 		if abs(cross) < 1e-6:
 			return 0
 		return 1 if cross > 0 else -1
@@ -279,7 +287,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 	#============================================
 	@staticmethod
 	def _find_least_crowded_place(atom_model, mol_model,
-								  distance: float) -> tuple:
+									distance: float) -> tuple:
 		"""Find the least crowded direction around an atom.
 
 		Collects angles to all neighbors, finds the largest angular gap,
@@ -335,8 +343,8 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 	#============================================
 	@staticmethod
 	def _point_on_circle(cx: float, cy: float, radius: float,
-						  dx: float, dy: float,
-						  resolution: int = _ANGLE_RESOLUTION) -> tuple:
+							dx: float, dy: float,
+							resolution: int = _ANGLE_RESOLUTION) -> tuple:
 		"""Compute a point on a circle in a direction, snapped to resolution.
 
 		Port of oasa.geometry.point_on_circle(). The direction vector
@@ -419,7 +427,11 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 			self._start_atom = None
 			scene = self._view.scene()
 			sx, sy = scene_pos.x(), scene_pos.y()
-			if scene is not None and hasattr(scene, "snap_to_grid"):
+			if (
+				scene is not None
+				and hasattr(scene, "snap_to_grid")
+				and self._grid_snap_enabled(scene)
+			):
 				sx, sy = scene.snap_to_grid(sx, sy)
 			# create the first standalone atom
 			first_atom = self._create_atom_at(sx, sy)
@@ -469,12 +481,15 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 		snap_x, snap_y = self._point_on_circle(
 			start_x, start_y, bond_length, dir_dx, dir_dy,
 		)
-		# draw or update the preview line
 		scene = self._view.scene()
+		if scene is not None and self._grid_snap_enabled(scene):
+			snap_x, snap_y = scene.snap_to_grid(snap_x, snap_y)
+		# draw or update the preview line
 		if scene is None:
 			return
 		if self._preview_line is None:
-			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor("#888888"))
+			preview_color = render_ops_painter.get_canvas_color("preview")
+			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(preview_color))
 			pen.setWidthF(1.5)
 			pen.setStyle(PySide6.QtCore.Qt.PenStyle.DashLine)
 			self._preview_line = scene.addLine(
@@ -517,6 +532,7 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 				self._create_bond_between(self._start_atom, end_atom)
 			else:
 				# compute snapped position and create atom there
+				scene = self._view.scene()
 				bond_length = self._get_bond_length()
 				dir_dx = scene_pos.x() - start_model.x
 				dir_dy = scene_pos.y() - start_model.y
@@ -524,6 +540,8 @@ class DrawMode(bkchem_qt.modes.base_mode.BaseMode):
 					start_model.x, start_model.y, bond_length,
 					dir_dx, dir_dy,
 				)
+				if scene is not None and self._grid_snap_enabled(scene):
+					snap_x, snap_y = scene.snap_to_grid(snap_x, snap_y)
 				new_atom_item = self._create_atom_at(snap_x, snap_y)
 				if new_atom_item is not None:
 					self._create_bond_between(

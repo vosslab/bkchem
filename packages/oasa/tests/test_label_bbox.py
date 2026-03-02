@@ -147,7 +147,8 @@ def test_label_bbox_visible_length_strips_tags():
 #============================================
 def test_label_bbox_matches_vertex_ops_mask():
 	vertex = _make_vertex(symbol="C", label="OH", anchor="start", x=12.0, y=15.0)
-	ops = build_vertex_ops(vertex, font_size=16.0)
+	# background_color must be set to generate the mask PolygonOp
+	ops = build_vertex_ops(vertex, font_size=16.0, background_color="#fff")
 	polygon = _first_polygon_op(ops)
 	assert polygon is not None
 	bbox = label_target(12.0, 15.0, "OH", "start", 16.0).box

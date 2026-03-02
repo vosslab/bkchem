@@ -1,8 +1,328 @@
 # Changelog
 
+## 2026-03-02
+
+### Behavior or Interface Changes
+
+- Qt geometry authority now uses a hard-cut canonical setting key
+  `drawing/bond_length_pt` (scene-space points). Legacy
+  `drawing/bond_length` is no longer read for runtime geometry and is removed
+  during startup/settings apply.
+- Qt scene grid spacing, draw-mode bond length, import/CDML-load scaling, and
+  repair normalization now all use the same canonical scene-space bond length
+  source.
+- Qt bridge naming updated from pixel-oriented naming to scene-space naming:
+  `DEFAULT_BOND_LENGTH_PT` and `bond_length_pt`.
+- Qt app/window identity now uses Qt's standard file icon
+  (`QStyle.SP_FileIcon`) for both `QApplication` and `MainWindow`, with no
+  chemistry pixmap fallback for app identity.
+- Qt mode toolbar now enforces exactly one checked mode action at a time during
+  mode changes.
+- Qt submode template grids now adapt column count to available ribbon width
+  instead of staying fixed at the base YAML column count.
+- Qt main window default first-run size is now `1280x800`.
+
+### Fixes and Maintenance
+
+- Added `bkchem_qt/config/geometry_units.py` with shared conversion helpers
+  (`cm_to_pt`, `pt_to_cm`) and canonical `resolve_bond_length_pt(...)`.
+- Added `ChemScene.grid_spacing_pt` and
+  `ChemScene.set_grid_spacing_pt(...)` to centralize grid spacing updates.
+- Updated options/preferences dialogs to read/write the canonical
+  `drawing/bond_length_pt` key and apply geometry changes immediately.
+- Added Qt snap-to-grid parity controls with Tk:
+  - new persistent preference key `appearance/grid_snap_enabled`
+  - new View menu toggle `Snap To Grid` (`Shift+Ctrl+G`) independent of
+    `Toggle Grid` visibility
+  - draw mode now respects snap enabled/disabled for standalone placement and
+    drag endpoint placement
+  - edit mode drag now uses Tk-style anchor snapping to the hex grid when snap
+    is enabled, while preserving whole-selection relative geometry
+- Added lean Qt regression tests for geometry authority parity, zoom invariance,
+  CDML load target spacing, repair normalization target consistency, and new
+  snap-toggle/drag-snap behavior.
+- Fixed Qt element editing crash in Atom mode:
+  `MainWindow._on_element_changed()` now routes to `set_element()` when
+  available (Atom mode), falls back to writable `current_element` (Draw mode),
+  and ignores blank input.
+- Added focused Qt regression test for mode toolbar single-selection
+  enforcement.
+- Added focused Qt regression test for Draw/Atom element-routing behavior.
+- Added focused Qt regression test for adaptive template grid column growth on
+  wider windows.
+- Added focused Qt regression test for standard file icon parity for
+  app/window icon.
+- Added focused Qt regression test for default main window width `1280`.
+- Confirmed existing Qt snap-to-grid toggle behavior remains unchanged (View
+  menu action, shortcut, preference, and scene flag).
+- Fixed Bandit XML parser warning in methanol SVG smoke test by switching from
+  `xml.dom.minidom` to `defusedxml.minidom` in
+  [test_methanol_ab_compare.py](packages/oasa/tests/test_methanol_ab_compare.py).
+- Fixed mixed indentation style in
+  [periodic_table.py](packages/oasa/oasa/periodic_table.py) by converting new
+  element-category helper block indentation to spaces.
+- Fixed pyflakes lint in
+  [test_interactions.py](packages/bkchem-qt.app/tests/test_interactions.py) by
+  removing an unused local variable.
+- Fixed Tk SMILES import compatibility in
+  [oasa_bridge.py](packages/bkchem-app/bkchem/oasa_bridge.py) by replacing
+  legacy `transform3d.transform3d()` constructor calls with
+  `transform3d.Transform3d()`, matching current OASA API and unblocking
+  cholesterol-based zoom subprocess tests.
+- Fixed Tk zoom anchoring drift and bond stroke scaling inconsistencies:
+  - [paper_properties.py](packages/bkchem-app/bkchem/paper_lib/paper_properties.py)
+    now uses viewport-aware adaptive scrollregion padding (instead of fixed
+    `±100`) to prevent xview/yview clamping during zoom round-trips.
+  - [bond_render_ops.py](packages/bkchem-app/bkchem/bond_render_ops.py) now
+    builds `BondRenderContext.line_width` in zoomed display space, matching
+    bond and wedge width units and keeping render-op stroke fallbacks in the
+    same unit system.
+  - [bond_display.py](packages/bkchem-app/bkchem/bond_display.py) now uses
+    display-space stroke width for simple redraw and focus/unfocus so selection
+    highlighting no longer reverts to unscaled widths.
+  - [test_bkchem_gui_zoom.py](packages/bkchem-app/tests/test_bkchem_gui_zoom.py)
+    now asserts bond-line width scales down on zoom-out, up on zoom-in, and
+    approximately round-trips with the scale round-trip.
+- Refined Tk stereobond rendering smoothness after the zoom-width fix:
+  [`bond_render_ops.py`](packages/bkchem-app/bkchem/bond_render_ops.py)
+  now keeps path tessellation step length in model-space width units instead of
+  zoomed display-width units, preventing coarse/choppy rounded wedge geometry
+  at higher zoom levels (notably on stereochem-rich molecules like cholesterol).
+- Reduced visible Tk zoom "bounce" on large molecules during interactive zoom:
+  [`paper_zoom.py`](packages/bkchem-app/bkchem/paper_lib/paper_zoom.py) now
+  pre-centers the viewport before the forced idletasks/scrollregion recompute
+  and re-centers again after recompute, so the user does not see a large
+  intermediate jump while heavy redraws are in progress.
+
 ## 2026-03-01
 
 ### Additions and New Features
+
+- Consolidated ~35 hardcoded hex color values across ~17 source files into
+  YAML-driven theme system and OASA chemistry backend:
+  - Added `canvas:` section to
+    [light.yaml](packages/bkchem-app/bkchem_data/themes/light.yaml) /
+    [dark.yaml](packages/bkchem-app/bkchem_data/themes/dark.yaml) with
+    `selection`, `hover`, `preview` colors.
+  - Added `high_contrast_1`, `high_contrast_2`, `tooltip_bg`, `tooltip_fg`
+    keys to theme `gui:` section.
+  - Added `charge_plus`, `charge_minus` keys to theme `chemistry:` section.
+  - Added `get_canvas_colors()` to
+    [theme_loader.py](packages/bkchem-qt.app/bkchem_qt/themes/theme_loader.py);
+    extended `get_chemistry_colors()` with charge keys.
+  - Added `set_canvas_colors()`, `get_canvas_color()`, `set_charge_colors()`,
+    `get_charge_color()`, `set_light_default_line()` to
+    [render_ops_painter.py](packages/bkchem-qt.app/bkchem_qt/canvas/items/render_ops_painter.py).
+  - Wired canvas, charge, and sentinel colors from
+    [main_window.py](packages/bkchem-qt.app/bkchem_qt/main_window.py) at
+    startup and on theme change.
+- Added element category classification to OASA
+  [periodic_table.py](packages/oasa/oasa/periodic_table.py): `"cat"` key on
+  every element, `ELEMENT_CATEGORY_COLORS` dict, `get_element_category()` and
+  `get_element_category_color()` accessors.
+- Added `charge_mark_colors` dict to
+  [atom_colors.py](packages/oasa/oasa/atom_colors.py) for chemistry-backend
+  charge color convention data.
+- Added
+  [test_element_categories.py](packages/oasa/tests/test_element_categories.py)
+  with 7 tests covering category data, accessors, and fallbacks.
+- Extended
+  [test_qt_theme_yaml_mapping.py](packages/bkchem-qt.app/tests/test_qt_theme_yaml_mapping.py)
+  with 6 new tests for canvas, charge, tooltip, and high-contrast YAML keys.
+
+### Behavior or Interface Changes
+
+- Qt canvas item selection/hover/preview colors now follow the active theme
+  instead of using hardcoded hex values.  Affected files:
+  [atom_item.py](packages/bkchem-qt.app/bkchem_qt/canvas/items/atom_item.py),
+  [bond_item.py](packages/bkchem-qt.app/bkchem_qt/canvas/items/bond_item.py),
+  [arrow_item.py](packages/bkchem-qt.app/bkchem_qt/canvas/items/arrow_item.py),
+  [text_item.py](packages/bkchem-qt.app/bkchem_qt/canvas/items/text_item.py).
+- Qt mode preview colors now follow theme: rubber band selection in
+  [edit_mode.py](packages/bkchem-qt.app/bkchem_qt/modes/edit_mode.py),
+  bond preview in
+  [draw_mode.py](packages/bkchem-qt.app/bkchem_qt/modes/draw_mode.py),
+  arrow preview in
+  [arrow_mode.py](packages/bkchem-qt.app/bkchem_qt/modes/arrow_mode.py).
+- Qt charge marks in
+  [mark_item.py](packages/bkchem-qt.app/bkchem_qt/canvas/items/mark_item.py)
+  now read colors from `render_ops_painter.get_charge_color()` instead of
+  hardcoded constants.
+- Qt
+  [periodic_table.py](packages/bkchem-qt.app/bkchem_qt/widgets/periodic_table.py)
+  widget now uses `oasa.periodic_table.get_element_category_color()` instead of
+  local hardcoded color constants and classification sets.
+- Qt
+  [color_picker.py](packages/bkchem-qt.app/bkchem_qt/widgets/color_picker.py)
+  border color now reads from `render_ops_painter.get_canvas_color("preview")`.
+- Tk
+  [bk_tooltip.py](packages/bkchem-app/bkchem/bk_tooltip.py) tooltip colors now
+  read from theme `gui.tooltip_bg` / `gui.tooltip_fg` instead of hardcoded
+  `#ffffe0` / `#000000`.
+- Tk
+  [widgets.py](packages/bkchem-app/bkchem/widgets.py) `ColorButton` foreground
+  and `GraphicalAngleChooser` line/fill colors now read from theme
+  `high_contrast_1` / `high_contrast_2`.
+- render_ops_painter `_color_to_qcolor()` sentinel comparison now uses
+  configurable `_light_default_line` instead of hardcoded `"#000000"`.
+
+### Removals and Deprecations
+
+- Deleted static color fallback variables (`background_color`, `toolbar_color`,
+  `separator_color`, `hover_color`, `active_mode_color`) from
+  [bkchem_config.py](packages/bkchem-app/bkchem/bkchem_config.py); all callers
+  use `get_*_color()` functions which delegate to `theme_manager`.
+- Deleted `_SELECTION_COLOR` / `_HOVER_COLOR` constants from `atom_item.py`,
+  `bond_item.py`, `arrow_item.py`, `text_item.py`.
+- Deleted `_PREVIEW_PEN_COLOR` constant from `arrow_mode.py`.
+- Deleted `_PLUS_COLOR_HEX` / `_MINUS_COLOR_HEX` constants from `mark_item.py`.
+- Deleted `_NONMETAL_COLOR`, `_METAL_COLOR`, `_METALLOID_COLOR`,
+  `_NOBLE_GAS_COLOR`, `_HALOGEN_COLOR` constants and `_NONMETALS`, `_HALOGENS`,
+  `_NOBLE_GASES`, `_METALLOIDS` classification sets and `_element_color()`
+  function from Qt `periodic_table.py` widget.
+
+### Fixes and Maintenance
+
+- Fixed Qt dark mode bonds and atom text rendering as black (unreadable on dark
+  background). Root cause: `set_light_default_line()` in
+  [render_ops_painter.py](packages/bkchem-qt.app/bkchem_qt/canvas/items/render_ops_painter.py)
+  stored the 3-char hex sentinel `"#000"` from YAML without normalizing, but
+  `_color_to_qcolor()` expanded incoming colors to 6-char `"#000000"` via
+  `color_to_hex()`. The mismatch `"#000000" == "#000"` was always False, so the
+  light-to-dark color remapping never fired. Fix: normalize sentinel through
+  `oasa.render_ops.color_to_hex()`.
+- Fixed Qt dark mode grid colors: hex lines were plain grey (`#3a3a3a`) instead
+  of teal, and dots were nearly invisible (`#2a4a3a` on `#2b2b2b` paper). Updated
+  [dark.yaml](packages/bkchem-app/bkchem_data/themes/dark.yaml) grid colors to
+  teal tones (`line: #2a4a3a`, `dot_fill: #3a6a5a`, `dot_outline: #3a6a5a`)
+  matching the Tk dark theme appearance.
+- Extracted `build_label_attach_targets()` public helper from
+  [`molecule_ops.py`](packages/oasa/oasa/render_lib/molecule_ops.py) to compute
+  shown vertices, label targets, and attach targets for bond endpoint clipping.
+  GUI-agnostic: usable by Qt, Tk, SVG, and Cairo frontends.
+- Wired Qt `BondItem.update_from_model()` in
+  [`bond_item.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/bond_item.py)
+  to call the OASA helper and populate `BondRenderContext` with real label
+  targets, replacing the previous empty-targets stub. Bond endpoints now clip
+  at atom label boundaries for heteroatoms (N, O, etc.).
+- Added reactive signal chain: endpoint `AtomModel.property_changed` signals
+  now trigger `BondItem.update_from_model()` for label-affecting properties
+  (symbol, charge, font_size, show, show_hydrogens, x, y). Atom edits
+  immediately recompute bond clipping.
+- Added `draw_label_mask` parameter to `build_vertex_ops()` in
+  [`molecule_ops.py`](packages/oasa/oasa/render_lib/molecule_ops.py). When
+  `False`, background mask rectangles are suppressed even if `background_color`
+  is set. Default `True` preserves backward compatibility.
+- Restored paper-colored `drawRect()` mask in Qt `AtomItem.paint()` in
+  [`atom_item.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/atom_item.py)
+  as phase-1 safety net. Bond endpoint clipping is active underneath but the
+  mask stays until OASA analytic label geometry is validated against Qt font
+  metrics. Premature mask removal caused a visual regression where font-metric
+  differences made bonds appear to penetrate glyphs.
+- Fixed `_bounding_rect_from_ops()` in
+  [`atom_item.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/atom_item.py)
+  to use Qt `QFontMetricsF` for accurate text width/height measurement instead
+  of rough character-count estimates. Also fixed text anchor alignment: "middle"
+  and "end" anchors now correctly offset the bounding rectangle so the
+  paper-colored mask covers the actual rendered text area. Added
+  `_measure_text_op_width()` helper that mirrors the segment model used by
+  `render_ops_painter._paint_text()` for sub/sup tag handling.
+- Fixed `test_label_bbox_matches_vertex_ops_mask` and
+  `test_molecule_to_ops_includes_charge_and_stereo_geometry` to pass
+  `background_color="#fff"` since `build_vertex_ops()` now requires it to
+  generate the mask PolygonOp.
+- Fixed 8 failing Qt tests by adding autouse fixture in
+  [`conftest.py`](packages/bkchem-qt.app/tests/conftest.py) that resets
+  document, scene items, and zoom between tests for isolation. The
+  module-scoped `main_window` fixture stays for efficiency, but each test
+  now starts with a clean state.
+- Fixed dark mode: bonds and carbon atom labels now use theme default color
+  instead of hardcoded black. The `_color_to_qcolor()` function in
+  [`render_ops_painter.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/render_ops_painter.py)
+  remaps `#000000` to `_default_color` so dark mode renders in light gray
+  while heteroatom colors (N=blue, O=red) pass through unchanged.
+- Fixed dark mode: text annotations
+  ([`text_item.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/text_item.py)),
+  arrows
+  ([`arrow_item.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/arrow_item.py)),
+  radical/electron pair marks
+  ([`mark_item.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/mark_item.py)),
+  and vector shapes
+  ([`graphics_item.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/graphics_item.py))
+  now use theme default colors instead of hardcoded black.
+- Made OASA `build_vertex_ops()` background PolygonOp optional via new
+  `background_color=None` parameter in
+  [`molecule_ops.py`](packages/oasa/oasa/render_lib/molecule_ops.py). When
+  `None`, no background is generated. The Qt `AtomItem` paints a
+  paper-colored masking background instead via `_default_area_color` in
+  [`render_ops_painter.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/render_ops_painter.py).
+- Brightened charge mark colors from `#0000cc`/`#cc0000` to
+  `#3366ff`/`#ff3333` in
+  [`mark_item.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/mark_item.py)
+  for better visibility on both light and dark backgrounds.
+- Qt test suite speed optimization: reduced from 248s to ~6s (40x speedup).
+  - Converted all 21 subprocess tests across 5 files to standard pytest
+    functions using shared fixtures from `conftest.py`. Each subprocess spawn
+    added 10-15s of Python startup overhead.
+    Files: [`test_qt_theme_yaml_mapping.py`](packages/bkchem-qt.app/tests/test_qt_theme_yaml_mapping.py),
+    [`test_qt_theme_toggle_runtime.py`](packages/bkchem-qt.app/tests/test_qt_theme_toggle_runtime.py),
+    [`test_qt_menu_build.py`](packages/bkchem-qt.app/tests/test_qt_menu_build.py),
+    [`test_qt_menu_cascades.py`](packages/bkchem-qt.app/tests/test_qt_menu_cascades.py),
+    [`test_qt_gui_smoke.py`](packages/bkchem-qt.app/tests/test_qt_gui_smoke.py).
+  - Fixed grid theme-switch hang: replaced `destroyItemGroup()` on ~10,400
+    items with in-place recoloring via new `_recolor_grid()` method in
+    [`scene.py`](packages/bkchem-qt.app/bkchem_qt/canvas/scene.py).
+  - Added try/except RuntimeError guards for C++ object lifetime issues
+    during teardown in
+    [`edit_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py)
+    (can_undo/can_redo) and
+    [`platform_menu.py`](packages/bkchem-qt.app/bkchem_qt/actions/platform_menu.py)
+    (set_item_state).
+  - Changed `main_window` fixture to module scope in
+    [`conftest.py`](packages/bkchem-qt.app/tests/conftest.py) to reduce
+    MainWindow creation count from 45+ to ~8.
+
+### Additions and New Features
+
+- Qt UX/UI Phase 1-3 fixes for dark-theme visual parity with Tk:
+  - Bond/atom default color now uses YAML `chemistry.default_line` instead of
+    hardcoded black. Added `set_default_color()` in
+    [`render_ops_painter.py`](packages/bkchem-qt.app/bkchem_qt/canvas/items/render_ops_painter.py).
+    Wired from
+    [`main_window.py`](packages/bkchem-qt.app/bkchem_qt/main_window.py) at
+    startup and on theme change.
+  - Paper outline now uses YAML `paper.outline` color via `get_paper_outline()`
+    in [`scene.py`](packages/bkchem-qt.app/bkchem_qt/canvas/scene.py) instead
+    of `NoPen`. Outline updates on theme change.
+  - `zoom_to_content` in
+    [`view.py`](packages/bkchem-qt.app/bkchem_qt/canvas/view.py) now filters
+    chemistry items only (AtomItem, BondItem, ArrowItem, TextItem, MarkItem),
+    ignoring paper and grid. Falls back to `zoom_to_fit` when empty.
+  - Added `QToolButton:checked` and `QToolButton:hover` QSS rules in
+    [`palettes.py`](packages/bkchem-qt.app/bkchem_qt/themes/palettes.py) for
+    active mode highlight. Added `QPushButton:checked` for submode buttons.
+  - Toolbar icon size increased from 24x24 to 32x32 in
+    [`mode_toolbar.py`](packages/bkchem-qt.app/bkchem_qt/widgets/mode_toolbar.py).
+  - Added `add_action_button()` to ModeToolbar for non-checkable actions
+    (Undo/Redo). Added 8px spacer after separator markers.
+  - Undo/Redo buttons added to mode toolbar in main_window, wired to
+    `canUndoChanged`/`canRedoChanged` for enabled state tracking.
+  - Removed `setFlat(True)` from submode ribbon buttons for better visibility.
+    Increased group spacing to 6px in
+    [`submode_ribbon.py`](packages/bkchem-qt.app/bkchem_qt/widgets/submode_ribbon.py).
+  - Submode toolbar stays visible at fixed minimum height to prevent layout
+    jumps when switching modes.
+  - Status bar: removed redundant zoom label (zoom shown in zoom controls
+    widget), added stretch message label on left in
+    [`status_bar.py`](packages/bkchem-qt.app/bkchem_qt/widgets/status_bar.py).
+  - Added missing bond types (Dotted, Dashed, Bold Wedge) in
+    [`edit_ribbon.py`](packages/bkchem-qt.app/bkchem_qt/widgets/edit_ribbon.py).
+  - Extended zoom slider range from 25-400% to 10-1000% in
+    [`zoom_controls.py`](packages/bkchem-qt.app/bkchem_qt/widgets/zoom_controls.py).
+  - Added `signal.SIGINT` handler in
+    [`app.py`](packages/bkchem-qt.app/bkchem_qt/app.py) so Ctrl+C in terminal
+    kills the Qt app immediately.
+
 
 - Completed full-app stub elimination: all 48 stub action handlers across 8
   action files replaced with working implementations. Anti-stub gate test
@@ -184,13 +504,77 @@
 
 ### Fixes and Maintenance
 
+- Fixed `test_bkchem_gui_events` mode-switch shortcut assumptions in
+  [`packages/bkchem-app/tests/test_bkchem_gui_events.py`](packages/bkchem-app/tests/test_bkchem_gui_events.py):
+  replaced hardcoded `Ctrl-1`/`Ctrl-2` expectations with dynamic shortcut
+  lookup from `app.modes_sort`, so the test stays valid when toolbar order
+  changes (for example with `file_actions` at index 1).
+
+- Removed temporary `shiboken6` lifetime guards from Qt menu predicate wiring:
+  deleted `import shiboken6` and `isValid(...)` checks in
+  [`packages/bkchem-qt.app/bkchem_qt/main_window.py`](packages/bkchem-qt.app/bkchem_qt/main_window.py)
+  and
+  [`packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py).
+
 - Fixed pyflakes lint: removed unused `import io` from
   [`packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py`](packages/bkchem-qt.app/bkchem_qt/actions/edit_actions.py)
   and unused `from oasa import dom_extensions as dom_ext` from
   [`packages/bkchem-qt.app/bkchem_qt/main_window.py`](packages/bkchem-qt.app/bkchem_qt/main_window.py).
   All 92 bkchem_qt pyflakes tests now pass.
+- Reworked methanol A/B smoke ownership in
+  [`packages/oasa/tests/test_methanol_ab_compare.py`](packages/oasa/tests/test_methanol_ab_compare.py):
+  pytest now writes deterministic repo-level artifacts
+  `output_smoke/methanol_A_mask.svg` and `output_smoke/methanol_B_clip.svg`
+  and enforces SVG DOM gates for non-degenerate bond lines, `OH` label
+  presence, A/B file difference, and mask polygon presence only in variant A.
+- Adjusted methanol A/B fixture coordinates from origin-based placement to
+  positive-space placement (`C=(20,20)`, `O=(60,20)`) so generated smoke SVGs
+  render cleanly in browsers without edge clipping at `(0,0)`.
+- Converted
+  [`tools/compare_bond_mask_vs_clip.py`](tools/compare_bond_mask_vs_clip.py)
+  into a thin wrapper that runs the authoritative pytest target instead of
+  maintaining a separate direct-rendering code path.
 
 ### Developer Tests and Notes
+
+- Added 7 OASA tests for `build_label_attach_targets()` in
+  [`test_render_geometry.py`](packages/oasa/tests/test_render_geometry.py):
+  heteroatom shown, carbon hidden, carbon with show_carbon_symbol, charged
+  carbon, mixed atoms, coordinate transforms, and bond clipping with vs without
+  targets.
+- Added 7 methanol A/B comparison tests in
+  [`test_methanol_ab_compare.py`](packages/oasa/tests/test_methanol_ab_compare.py):
+  GUI-agnostic OASA-level test building methanol (C-O) and rendering two
+  variants -- (A) full-length bond + label mask polygon, (B) clipped bond +
+  no mask -- with assertions on endpoint shortening, non-degenerate bond line
+  length, mask presence/absence, endpoint outside label target, text op
+  consistency, carbon hidden, shown vertex identification, and deterministic
+  SVG output to `output_smoke/methanol_A_mask.svg` and
+  `output_smoke/methanol_B_clip.svg`.
+- Added 6 Qt tests for bond endpoint clipping and signal chain in
+  [`test_interactions.py`](packages/bkchem-qt.app/tests/test_interactions.py):
+  clips at labeled atom, no clip for hidden carbon, symbol/charge/position
+  change triggers bond redraw, real targets in BondRenderContext.
+- Added Qt parity GUI-event flow test
+  [`packages/bkchem-qt.app/tests/test_bkchem_gui_events.py`](packages/bkchem-qt.app/tests/test_bkchem_gui_events.py)
+  covering draw-mode atom/bond creation, draw->edit mode switching, delete via
+  key event dispatch, undo via MainWindow handler, and edit->draw switch
+  verification.
+
+- Added Qt GUI zoom diagnostic test
+  [`packages/bkchem-qt.app/tests/test_bkchem_gui_zoom.py`](packages/bkchem-qt.app/tests/test_bkchem_gui_zoom.py)
+  covering zoom in/out/reset sequence checks, zoom_to_content bounds, round-trip
+  viewport drift tolerance, and min/max zoom clamp behavior.
+
+- Updated both GUI zoom test suites to use cholesterol SMILES import (biomolecule
+  template content) instead of benzene construction:
+  [`packages/bkchem-app/tests/test_bkchem_gui_zoom.py`](packages/bkchem-app/tests/test_bkchem_gui_zoom.py)
+  and
+  [`packages/bkchem-qt.app/tests/test_bkchem_gui_zoom.py`](packages/bkchem-qt.app/tests/test_bkchem_gui_zoom.py).
+  Follow-up fixes corrected Tk test indentation in all cholesterol import blocks
+  and relaxed Qt zoom assertions for cholesterol-scale content: accept valid
+  sub-minimum `zoom_to_content` percentages, guard round-trip setup away from
+  clamp edges, and use a wider viewport drift tolerance.
 
 - Added anti-stub gate test
   [`packages/bkchem-qt.app/tests/test_no_stubs.py`](packages/bkchem-qt.app/tests/test_no_stubs.py)

@@ -8,6 +8,7 @@ import PySide6.QtWidgets
 # local repo modules
 from bkchem_qt.canvas.items import render_ops_painter
 from bkchem_qt.models.atom_model import AtomModel
+import oasa.render_ops
 import oasa.render_lib.molecule_ops
 
 # -- visual constants --
@@ -15,10 +16,6 @@ import oasa.render_lib.molecule_ops
 _BOUNDS_PADDING = 4.0
 # pen width for selection highlight rectangle
 _SELECTION_PEN_WIDTH = 1.5
-# selection highlight color (semi-transparent blue)
-_SELECTION_COLOR = "#3399ff"
-# hover highlight color (semi-transparent light blue)
-_HOVER_COLOR = "#66bbff"
 # hover highlight pen width
 _HOVER_PEN_WIDTH = 1.0
 # z-value for atom items (above bonds)
@@ -94,9 +91,16 @@ class AtomItem(PySide6.QtWidgets.QGraphicsItem):
 			option: Style options (unused beyond selection state).
 			widget: Target widget (unused).
 		"""
+		# paint paper-colored mask behind the label to hide any bond lines
+		# that extend under the glyph; kept as phase-1 safety net while bond
+		# endpoint clipping is validated against Qt font metrics
+		if self._ops:
+			painter.setPen(PySide6.QtCore.Qt.PenStyle.NoPen)
+			painter.setBrush(render_ops_painter._default_area_color)
+			painter.drawRect(self._bounding_rect)
 		# draw selection highlight behind atom ops
 		if self.isSelected():
-			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(_SELECTION_COLOR))
+			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("selection")))
 			pen.setWidthF(_SELECTION_PEN_WIDTH)
 			pen.setStyle(PySide6.QtCore.Qt.PenStyle.DashLine)
 			painter.setPen(pen)
@@ -104,7 +108,7 @@ class AtomItem(PySide6.QtWidgets.QGraphicsItem):
 			painter.drawRect(self._bounding_rect)
 		# draw hover highlight behind atom ops
 		elif self._hovered:
-			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(_HOVER_COLOR))
+			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("hover")))
 			pen.setWidthF(_HOVER_PEN_WIDTH)
 			painter.setPen(pen)
 			painter.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
@@ -221,7 +225,9 @@ def _bounding_rect_from_ops(ops: list) -> PySide6.QtCore.QRectF:
 	"""Compute a bounding rectangle that encloses all render ops.
 
 	Examines line endpoints, polygon points, circle extents, path
-	command coordinates, and text origins to find the enclosing rect.
+	command coordinates, and text dimensions to find the enclosing rect.
+	Text bounds use Qt font metrics and account for anchor alignment
+	so the mask rect covers the actual rendered text area.
 
 	Args:
 		ops: List of OASA render op dataclass instances.
@@ -233,7 +239,6 @@ def _bounding_rect_from_ops(ops: list) -> PySide6.QtCore.QRectF:
 	if not ops:
 		# default small rect so the item is still clickable
 		return PySide6.QtCore.QRectF(-8, -8, 16, 16)
-	import oasa.render_ops
 	xs = []
 	ys = []
 	for op in ops:
@@ -260,13 +265,22 @@ def _bounding_rect_from_ops(ops: list) -> PySide6.QtCore.QRectF:
 					xs.extend([cx - r, cx + r])
 					ys.extend([cy - r, cy + r])
 		elif isinstance(op, oasa.render_ops.TextOp):
-			# rough estimate: text occupies font_size height and some width
-			xs.append(op.x)
-			ys.append(op.y - op.font_size)
-			ys.append(op.y + op.font_size * 0.3)
-			# estimate width from character count
-			estimated_width = len(op.text) * op.font_size * 0.6
-			xs.append(op.x + estimated_width)
+			# measure actual text width using Qt font metrics with segment model
+			text_width = _measure_text_op_width(op)
+			# compute text start x accounting for anchor alignment
+			text_x = op.x
+			if op.anchor == "middle":
+				text_x -= text_width / 2.0
+			elif op.anchor == "end":
+				text_x -= text_width
+			xs.append(text_x)
+			xs.append(text_x + text_width)
+			# vertical bounds from Qt font metrics
+			font = PySide6.QtGui.QFont(op.font_name)
+			font.setPixelSize(max(1, int(round(op.font_size))))
+			metrics = PySide6.QtGui.QFontMetricsF(font)
+			ys.append(op.y - metrics.ascent())
+			ys.append(op.y + metrics.descent())
 	if not xs or not ys:
 		return PySide6.QtCore.QRectF(-8, -8, 16, 16)
 	x_min = min(xs) - _BOUNDS_PADDING
@@ -275,3 +289,30 @@ def _bounding_rect_from_ops(ops: list) -> PySide6.QtCore.QRectF:
 	y_max = max(ys) + _BOUNDS_PADDING
 	rect = PySide6.QtCore.QRectF(x_min, y_min, x_max - x_min, y_max - y_min)
 	return rect
+
+
+#============================================
+def _measure_text_op_width(op) -> float:
+	"""Measure the total horizontal advance of a TextOp using Qt font metrics.
+
+	Parses sub/sup tags the same way render_ops_painter._paint_text does,
+	measuring each segment with the correct font size.
+
+	Args:
+		op: OASA TextOp instance.
+
+	Returns:
+		Total width in pixels.
+	"""
+	segments = oasa.render_ops._text_segments(op.text)
+	qt_weight = PySide6.QtGui.QFont.Weight.Bold if op.weight == "bold" else PySide6.QtGui.QFont.Weight.Normal
+	total = 0.0
+	for chunk, tags in segments:
+		baseline_state = oasa.render_ops._segment_baseline_state(tags)
+		seg_font_size = oasa.render_ops._segment_font_size(op.font_size, baseline_state)
+		font = PySide6.QtGui.QFont(op.font_name)
+		font.setPixelSize(max(1, int(round(seg_font_size))))
+		font.setWeight(qt_weight)
+		metrics = PySide6.QtGui.QFontMetricsF(font)
+		total += metrics.horizontalAdvance(chunk)
+	return total

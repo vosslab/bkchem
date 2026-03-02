@@ -9,6 +9,7 @@ import PySide6.QtWidgets
 import bkchem_qt.modes.base_mode
 import bkchem_qt.canvas.items.atom_item
 import bkchem_qt.canvas.items.bond_item
+from bkchem_qt.canvas.items import render_ops_painter
 import bkchem_qt.undo.commands
 import bkchem_qt.dialogs.atom_dialog
 import bkchem_qt.dialogs.bond_dialog
@@ -48,6 +49,9 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		self._dragging = False
 		self._drag_start = None
 		self._drag_last = None
+		self._drag_anchor_item = None
+		self._drag_anchor_start = None
+		self._drag_atom_start_positions = {}
 		# rubber band selection rectangle
 		self._rubber_band = None
 		self._rubber_band_origin = None
@@ -65,6 +69,9 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		self._dragging = False
 		self._drag_start = None
 		self._drag_last = None
+		self._drag_anchor_item = None
+		self._drag_anchor_start = None
+		self._drag_atom_start_positions = {}
 		self._moved_items = []
 		super().deactivate()
 
@@ -113,6 +120,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 				self._drag_start = scene_pos
 				self._drag_last = scene_pos
 				self._moved_items = scene.selectedItems()
+				self._capture_drag_start_state(clicked_item=item)
 			elif shift_held:
 				# toggle selection on shift-click
 				item.setSelected(not item.isSelected())
@@ -125,6 +133,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 				self._drag_start = scene_pos
 				self._drag_last = scene_pos
 				self._moved_items = [item]
+				self._capture_drag_start_state(clicked_item=item)
 		else:
 			# click on empty space: clear selection and start rubber band
 			if not shift_held:
@@ -144,6 +153,9 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			event: The mouse event.
 		"""
 		if self._dragging and self._drag_last is not None:
+			scene = self._view.scene()
+			if scene is None:
+				return
 			# compute delta from last tracked position
 			dx = scene_pos.x() - self._drag_last.x()
 			dy = scene_pos.y() - self._drag_last.y()
@@ -154,18 +166,39 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 			if modifiers & PySide6.QtCore.Qt.KeyboardModifier.ShiftModifier:
 				dy = 0
 			# only start moving after exceeding threshold
+			total_dx = dx
+			total_dy = dy
 			if self._drag_start is not None:
 				total_dx = scene_pos.x() - self._drag_start.x()
 				total_dy = scene_pos.y() - self._drag_start.y()
+				if modifiers & PySide6.QtCore.Qt.KeyboardModifier.ControlModifier:
+					total_dx = 0
+				if modifiers & PySide6.QtCore.Qt.KeyboardModifier.ShiftModifier:
+					total_dy = 0
 				distance = (total_dx ** 2 + total_dy ** 2) ** 0.5
 				if distance < _DRAG_THRESHOLD:
 					return
+			# Tk parity: move by snapped anchor delta when grid snap is enabled.
+			move_dx = dx
+			move_dy = dy
+			if (
+				getattr(scene, "grid_snap_enabled", True)
+				and self._drag_anchor_item is not None
+				and self._drag_anchor_start is not None
+				and hasattr(scene, "snap_to_grid")
+			):
+				target_x = self._drag_anchor_start[0] + total_dx
+				target_y = self._drag_anchor_start[1] + total_dy
+				snap_x, snap_y = scene.snap_to_grid(target_x, target_y)
+				anchor_model = self._drag_anchor_item.atom_model
+				move_dx = snap_x - anchor_model.x
+				move_dy = snap_y - anchor_model.y
 			# move each selected item
 			for item in self._moved_items:
 				if isinstance(item, bkchem_qt.canvas.items.atom_item.AtomItem):
 					model = item.atom_model
-					model.x = model.x + dx
-					model.y = model.y + dy
+					model.x = model.x + move_dx
+					model.y = model.y + move_dy
 			self._drag_last = scene_pos
 		elif self._rubber_band_origin is not None:
 			# update or create the rubber band rectangle
@@ -184,25 +217,29 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		"""
 		scene = self._view.scene()
 		if self._dragging and self._drag_start is not None and scene is not None:
-			# compute total offset for undo command
-			total_dx = scene_pos.x() - self._drag_start.x()
-			total_dy = scene_pos.y() - self._drag_start.y()
-			distance = (total_dx ** 2 + total_dy ** 2) ** 0.5
-			if distance >= _DRAG_THRESHOLD:
-				# build items_and_offsets list for the undo command
-				items_and_offsets = []
-				for item in self._moved_items:
-					if isinstance(item, bkchem_qt.canvas.items.atom_item.AtomItem):
-						items_and_offsets.append((item, total_dx, total_dy))
-				if items_and_offsets:
-					# find the document undo stack
-					undo_stack = self._find_undo_stack()
-					if undo_stack is not None:
-						cmd = bkchem_qt.undo.commands.MoveAtomsCommand(
-							items_and_offsets,
-						)
-						# push without redo since items are already moved
-						undo_stack.push(cmd)
+			# build items_and_offsets list from actual moved distances
+			# (important when drag movement is snapped to grid).
+			items_and_offsets = []
+			for item in self._moved_items:
+				if not isinstance(item, bkchem_qt.canvas.items.atom_item.AtomItem):
+					continue
+				start_pos = self._drag_atom_start_positions.get(id(item))
+				if start_pos is None:
+					continue
+				model = item.atom_model
+				dx = model.x - start_pos[0]
+				dy = model.y - start_pos[1]
+				if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+					continue
+				items_and_offsets.append((item, dx, dy))
+			if items_and_offsets:
+				undo_stack = self._find_undo_stack()
+				if undo_stack is not None:
+					cmd = bkchem_qt.undo.commands.MoveAtomsCommand(
+						items_and_offsets,
+					)
+					# push without redo since items are already moved
+					undo_stack.push(cmd)
 		elif self._rubber_band_origin is not None and scene is not None:
 			# select items within the rubber band rectangle
 			self._finalize_rubber_band(scene_pos)
@@ -210,6 +247,9 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		self._dragging = False
 		self._drag_start = None
 		self._drag_last = None
+		self._drag_anchor_item = None
+		self._drag_anchor_start = None
+		self._drag_atom_start_positions = {}
 		self._moved_items = []
 		self._rubber_band_origin = None
 		self._cancel_rubber_band()
@@ -282,6 +322,32 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 	# ------------------------------------------------------------------
 	# Action helpers
 	# ------------------------------------------------------------------
+
+	#============================================
+	def _capture_drag_start_state(self, clicked_item=None) -> None:
+		"""Capture atom start positions and choose a snap anchor.
+
+		Args:
+			clicked_item: Item under the cursor when drag starts.
+		"""
+		self._drag_atom_start_positions = {}
+		self._drag_anchor_item = None
+		self._drag_anchor_start = None
+		for item in self._moved_items:
+			if not isinstance(item, bkchem_qt.canvas.items.atom_item.AtomItem):
+				continue
+			model = item.atom_model
+			self._drag_atom_start_positions[id(item)] = (model.x, model.y)
+			if self._drag_anchor_item is None:
+				self._drag_anchor_item = item
+		if (
+			isinstance(clicked_item, bkchem_qt.canvas.items.atom_item.AtomItem)
+			and clicked_item in self._moved_items
+		):
+			self._drag_anchor_item = clicked_item
+		if self._drag_anchor_item is not None:
+			anchor_model = self._drag_anchor_item.atom_model
+			self._drag_anchor_start = (anchor_model.x, anchor_model.y)
 
 	#============================================
 	def _delete_selected(self) -> None:
@@ -358,7 +424,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 
 	#============================================
 	def _find_orphan_atoms_after_bond_delete(self, deleted_bond_items,
-											  selected_atom_ids: set) -> list:
+												selected_atom_ids: set) -> list:
 		"""Find atoms that became orphans after bond deletion.
 
 		An orphan is an atom that: (1) was an endpoint of a deleted bond,
@@ -551,7 +617,7 @@ class EditMode(bkchem_qt.modes.base_mode.BaseMode):
 		rect = PySide6.QtCore.QRectF(self._rubber_band_origin, scene_pos).normalized()
 		if self._rubber_band is None:
 			# create a semi-transparent rubber band rectangle
-			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor("#3399ff"))
+			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("selection")))
 			pen.setStyle(PySide6.QtCore.Qt.PenStyle.DashLine)
 			brush = PySide6.QtGui.QBrush(PySide6.QtGui.QColor(51, 153, 255, 40))
 			self._rubber_band = scene.addRect(rect, pen, brush)

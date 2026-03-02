@@ -237,7 +237,11 @@ class PlatformMenuAdapter:
 		"""
 		action = self._actions.get((menu_name, label))
 		if action is not None:
-			action.setEnabled(enabled)
+			try:
+				action.setEnabled(enabled)
+			except RuntimeError:
+				# C++ QAction already deleted during teardown
+				pass
 
 	#============================================
 	def component(self, name: str):

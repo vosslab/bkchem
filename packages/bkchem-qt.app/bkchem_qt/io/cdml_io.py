@@ -11,7 +11,7 @@ import bkchem_qt.models.molecule_model
 
 
 #============================================
-def load_cdml_file(file_path: str) -> list:
+def load_cdml_file(file_path: str, bond_length_pt: float = None) -> list:
 	"""Load a CDML file and return a list of MoleculeModel objects.
 
 	Parses the CDML XML document, extracts each ``<molecule>`` element,
@@ -21,21 +21,22 @@ def load_cdml_file(file_path: str) -> list:
 
 	CDML coordinates are stored in cm with a ``cm`` suffix. The OASA
 	reader converts these to points (72 dpi) internally. The bridge
-	then rescales to scene pixels.
+	then rescales to scene-space points.
 
 	Args:
 		file_path: Path to the CDML file on disk.
+		bond_length_pt: Target bond length in scene-space points.
 
 	Returns:
 		List of MoleculeModel instances parsed from the file.
 	"""
 	with open(file_path, "r") as f:
 		text = f.read()
-	return load_cdml_string(text)
+	return load_cdml_string(text, bond_length_pt=bond_length_pt)
 
 
 #============================================
-def load_cdml_string(cdml_text: str) -> list:
+def load_cdml_string(cdml_text: str, bond_length_pt: float = None) -> list:
 	"""Load CDML from a string and return a list of MoleculeModel objects.
 
 	Useful for clipboard paste and unit testing. Delegates parsing to
@@ -43,6 +44,7 @@ def load_cdml_string(cdml_text: str) -> list:
 
 	Args:
 		cdml_text: CDML XML text.
+		bond_length_pt: Target bond length in scene-space points.
 
 	Returns:
 		List of MoleculeModel instances parsed from the text.
@@ -61,7 +63,9 @@ def load_cdml_string(cdml_text: str) -> list:
 		else:
 			parts = oasa_mol.get_disconnected_subgraphs()
 		for part in parts:
-			mol_model = bkchem_qt.bridge.oasa_bridge.oasa_mol_to_qt_mol(part)
+			mol_model = bkchem_qt.bridge.oasa_bridge.oasa_mol_to_qt_mol(
+				part, bond_length_pt=bond_length_pt,
+			)
 			results.append(mol_model)
 	return results
 
@@ -72,7 +76,7 @@ def save_cdml_file(file_path: str, document) -> None:
 
 	Converts each MoleculeModel to an OASA molecule, serializes to a
 	CDML XML document, and writes to disk. Coordinates are converted
-	from scene pixels to cm using ``_px_to_cm_text()``.
+	from scene-space points to cm using ``_px_to_cm_text()``.
 
 	Args:
 		file_path: Destination file path.
@@ -111,7 +115,7 @@ def _px_to_cm_text(value: float) -> str:
 	"""Convert a pixel coordinate to a CDML-style cm string.
 
 	Args:
-		value: Coordinate value in scene pixels.
+		value: Coordinate value in scene-space points.
 
 	Returns:
 		String like '3.500cm'.

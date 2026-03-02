@@ -5,11 +5,10 @@ import PySide6.QtCore
 import PySide6.QtGui
 import PySide6.QtWidgets
 
+# local repo modules
+from bkchem_qt.canvas.items import render_ops_painter
+
 # -- visual constants --
-# selection highlight color
-_SELECTION_COLOR = "#3399ff"
-# hover highlight color
-_HOVER_COLOR = "#66bbff"
 # default font family
 _DEFAULT_FONT_FAMILY = "Arial"
 # default font size
@@ -41,8 +40,8 @@ class TextItem(PySide6.QtWidgets.QGraphicsTextItem):
 		# set default font
 		font = PySide6.QtGui.QFont(_DEFAULT_FONT_FAMILY, _DEFAULT_FONT_SIZE)
 		self.setFont(font)
-		# default color
-		self.setDefaultTextColor(PySide6.QtGui.QColor("#000000"))
+		# default color from theme
+		self.setDefaultTextColor(render_ops_painter._default_color)
 		# configure item flags
 		self.setFlag(
 			PySide6.QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable,
@@ -124,14 +123,14 @@ class TextItem(PySide6.QtWidgets.QGraphicsTextItem):
 		"""
 		# draw highlight rectangle behind the text
 		if self.isSelected():
-			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(_SELECTION_COLOR))
+			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("selection")))
 			pen.setWidthF(1.5)
 			pen.setStyle(PySide6.QtCore.Qt.PenStyle.DashLine)
 			painter.setPen(pen)
 			painter.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
 			painter.drawRect(self.boundingRect())
 		elif self._hovered:
-			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(_HOVER_COLOR))
+			pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("hover")))
 			pen.setWidthF(1.0)
 			painter.setPen(pen)
 			painter.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)

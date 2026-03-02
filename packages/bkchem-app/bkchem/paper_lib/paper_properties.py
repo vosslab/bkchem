@@ -169,8 +169,18 @@ class PaperPropertiesMixin:
 
 
 	def update_scrollregion( self):
-		x1,y1,x2,y2 = self.bbox(ALL)
-		self.config( scrollregion=(x1-100,y1-100,x2+100,y2+100))
+		bbox = self.bbox(ALL)
+		if not bbox:
+			return
+		x1, y1, x2, y2 = bbox
+		# Keep enough margin for viewport-centered zoom anchoring so xview/yview
+		# does not clamp when content is smaller than the visible canvas.
+		padding = max(
+			100.0,
+			(self.winfo_width() / 2.0) + 50.0,
+			(self.winfo_height() / 2.0) + 50.0,
+		)
+		self.config(scrollregion=(x1 - padding, y1 - padding, x2 + padding, y2 + padding))
 
 
 	def get_paper_property( self, name):

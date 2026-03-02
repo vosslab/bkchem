@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Grid visual parity tests for BKChem-Qt.
 
 Verifies that the ChemScene grid overlay behaves correctly: visible by

@@ -729,3 +729,190 @@ def test_build_bond_ops_triple_clips_offsets():
 	for op in line_ops[1:]:
 		x2 = op.p2[0]
 		assert x2 < 20.0, f"offset line end {x2} not clipped by label target"
+
+
+#============================================
+# build_label_attach_targets() tests
+#============================================
+
+import oasa.atom_lib
+from oasa.render_lib.molecule_ops import build_label_attach_targets
+
+
+def _make_atom(symbol="O", x=0.0, y=0.0, charge=0, label=None, anchor=None):
+	"""Create an OASA atom for testing."""
+	atom = oasa.atom_lib.Atom(symbol=symbol)
+	atom.x = float(x)
+	atom.y = float(y)
+	atom.charge = charge
+	if label is not None:
+		atom.properties_["label"] = label
+	if anchor is not None:
+		atom.properties_["label_anchor"] = anchor
+	return atom
+
+
+#============================================
+def test_build_label_attach_targets_heteroatom_shown():
+	"""Shown heteroatom (N) produces non-empty targets."""
+	nitrogen = _make_atom(symbol="N", x=10.0, y=20.0)
+	shown, labels, attaches = build_label_attach_targets(
+		vertices=[nitrogen],
+		font_size=12.0,
+	)
+	assert nitrogen in shown, "nitrogen should be in shown_vertices"
+	assert nitrogen in labels, "nitrogen should have a label target"
+	# label target should have a valid bounding box
+	box = labels[nitrogen].box
+	assert box is not None
+	assert box[2] > box[0], "label box should have positive width"
+	assert box[3] > box[1], "label box should have positive height"
+
+
+#============================================
+def test_build_label_attach_targets_carbon_hidden():
+	"""Hidden carbon (uncharged, no label) returns empty targets."""
+	carbon = _make_atom(symbol="C", x=10.0, y=20.0)
+	shown, labels, attaches = build_label_attach_targets(
+		vertices=[carbon],
+		font_size=12.0,
+	)
+	assert carbon not in shown, "plain carbon should not be shown"
+	assert len(labels) == 0
+	assert len(attaches) == 0
+
+
+#============================================
+def test_build_label_attach_targets_carbon_with_show_carbon():
+	"""Carbon added to shown_vertices when show_carbon_symbol=True.
+
+	Note: plain uncharged carbons are added to shown_vertices but do not
+	get label targets because _resolved_vertex_label_layout() returns None
+	for them. This matches the original molecule_to_ops() behavior.
+	"""
+	carbon = _make_atom(symbol="C", x=10.0, y=20.0)
+	shown, labels, attaches = build_label_attach_targets(
+		vertices=[carbon],
+		font_size=12.0,
+		show_carbon_symbol=True,
+	)
+	assert carbon in shown, "carbon should be in shown_vertices with show_carbon_symbol"
+	# plain carbon gets no label target since vertex_is_shown() returns False
+	assert carbon not in labels, "plain carbon has no label target"
+
+
+#============================================
+def test_build_label_attach_targets_charged_carbon_shown():
+	"""Charged carbon is shown even without show_carbon_symbol."""
+	carbon = _make_atom(symbol="C", x=0.0, y=0.0, charge=1)
+	shown, labels, attaches = build_label_attach_targets(
+		vertices=[carbon],
+		font_size=12.0,
+	)
+	assert carbon in shown, "charged carbon should be shown"
+	assert carbon in labels
+
+
+#============================================
+def test_build_label_attach_targets_mixed_atoms():
+	"""Mixed atom list: only heteroatoms and special carbons get targets."""
+	c1 = _make_atom(symbol="C", x=0.0, y=0.0)
+	n1 = _make_atom(symbol="N", x=30.0, y=0.0)
+	o1 = _make_atom(symbol="O", x=60.0, y=0.0)
+	c2 = _make_atom(symbol="C", x=90.0, y=0.0, charge=-1)
+	shown, labels, attaches = build_label_attach_targets(
+		vertices=[c1, n1, o1, c2],
+		font_size=12.0,
+	)
+	assert c1 not in shown, "plain carbon not shown"
+	assert n1 in shown, "nitrogen shown"
+	assert o1 in shown, "oxygen shown"
+	assert c2 in shown, "charged carbon shown"
+	assert len(labels) == 3
+
+
+#============================================
+def test_build_label_attach_targets_with_transform():
+	"""Transform function shifts target coordinates."""
+	nitrogen = _make_atom(symbol="N", x=10.0, y=20.0)
+	# identity: no transform
+	_, labels_no_xform, _ = build_label_attach_targets(
+		vertices=[nitrogen],
+		font_size=12.0,
+	)
+	# shift transform
+	def shift(x, y):
+		return (x + 100.0, y + 200.0)
+	_, labels_shifted, _ = build_label_attach_targets(
+		vertices=[nitrogen],
+		font_size=12.0,
+		transform_xy=shift,
+	)
+	box_orig = labels_no_xform[nitrogen].box
+	box_shift = labels_shifted[nitrogen].box
+	# shifted box should be offset by (100, 200) from original
+	assert box_shift[0] == pytest.approx(box_orig[0] + 100.0, abs=0.5)
+	assert box_shift[1] == pytest.approx(box_orig[1] + 200.0, abs=0.5)
+
+
+#============================================
+def test_bond_clipping_with_vs_without_targets():
+	"""Bond ops differ when label targets are present vs empty."""
+	nitrogen = _make_atom(symbol="N", x=40.0, y=0.0)
+	shown, labels, attaches = build_label_attach_targets(
+		vertices=[nitrogen],
+		font_size=16.0,
+	)
+	# build bond ops with empty targets (no clipping)
+	class FakeEdgeLocal:
+		order = 1
+		type = "n"
+		aromatic = 0
+		properties_ = {}
+		vertices = [_make_atom("C", 0.0, 0.0), nitrogen]
+		line_color = None
+	edge = FakeEdgeLocal()
+	start = (0.0, 0.0)
+	end = (40.0, 0.0)
+	# without targets
+	ctx_empty = BondRenderContext(
+		molecule=None,
+		line_width=2.0,
+		bond_width=6.0,
+		wedge_width=6.0,
+		bold_line_width_multiplier=1.2,
+		shown_vertices=set(),
+		bond_coords={edge: (start, end)},
+		bond_coords_provider={edge: (start, end)}.get,
+		label_targets={},
+		attach_targets={},
+		attach_constraints=make_attach_constraints(),
+	)
+	ops_empty = build_bond_ops(edge, start, end, ctx_empty)
+	# with targets
+	ctx_real = BondRenderContext(
+		molecule=None,
+		line_width=2.0,
+		bond_width=6.0,
+		wedge_width=6.0,
+		bold_line_width_multiplier=1.2,
+		shown_vertices=shown,
+		bond_coords={edge: (start, end)},
+		bond_coords_provider={edge: (start, end)}.get,
+		label_targets=labels,
+		attach_targets=attaches,
+		attach_constraints=make_attach_constraints(font_size=16.0),
+	)
+	ops_real = build_bond_ops(edge, start, end, ctx_real)
+	# with real targets, the bond end should be clipped (shorter x)
+	from oasa import render_ops as rops
+	lines_empty = [op for op in ops_empty if isinstance(op, rops.LineOp)]
+	lines_real = [op for op in ops_real if isinstance(op, rops.LineOp)]
+	assert len(lines_empty) > 0
+	assert len(lines_real) > 0
+	# the end x of the clipped bond should be less than the unclipped one
+	end_x_empty = max(op.p2[0] for op in lines_empty)
+	end_x_real = max(op.p2[0] for op in lines_real)
+	assert end_x_real < end_x_empty, (
+		f"clipped end ({end_x_real}) should be shorter than unclipped ({end_x_empty})"
+	)

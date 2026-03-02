@@ -1,6 +1,7 @@
 """Application bootstrap for BKChem-Qt."""
 
 # Standard Library
+import signal
 import sys
 
 # PIP3 modules
@@ -28,11 +29,20 @@ def main(files: list = None) -> int:
 		Application exit code from the Qt event loop.
 	"""
 	app = PySide6.QtWidgets.QApplication(sys.argv)
+	style = app.style()
+	app_icon = style.standardIcon(
+		PySide6.QtWidgets.QStyle.StandardPixmap.SP_FileIcon
+	)
+
+	# allow Ctrl+C in terminal to kill the Qt app
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 	# set application metadata
 	app.setApplicationName(APP_NAME)
 	app.setOrganizationName(APP_ORG)
 	app.setApplicationVersion(APP_VERSION)
+	if not app_icon.isNull():
+		app.setWindowIcon(app_icon)
 
 	# set up Qt built-in string translations
 	translator = PySide6.QtCore.QTranslator(app)
@@ -50,6 +60,8 @@ def main(files: list = None) -> int:
 
 	# create the main window
 	window = bkchem_qt.main_window.MainWindow(theme_mgr)
+	if not app_icon.isNull():
+		window.setWindowIcon(app_icon)
 	window.show()
 
 	# restore saved geometry

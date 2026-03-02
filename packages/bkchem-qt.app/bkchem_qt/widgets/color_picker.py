@@ -5,6 +5,9 @@ import PySide6.QtCore
 import PySide6.QtGui
 import PySide6.QtWidgets
 
+# local repo modules
+from bkchem_qt.canvas.items import render_ops_painter
+
 
 #============================================
 class ColorPickerButton(PySide6.QtWidgets.QPushButton):
@@ -69,8 +72,9 @@ class ColorPickerButton(PySide6.QtWidgets.QPushButton):
 	#============================================
 	def _update_style(self) -> None:
 		"""Update the button stylesheet to show the current color swatch."""
+		border_color = render_ops_painter.get_canvas_color("preview")
 		self.setStyleSheet(
-			f"background-color: {self._color}; border: 1px solid #888;"
+			f"background-color: {self._color}; border: 1px solid {border_color};"
 		)
 
 	#============================================
@@ -95,7 +99,7 @@ class ColorPickerButton(PySide6.QtWidgets.QPushButton):
 		painter.setBrush(PySide6.QtGui.QColor(self._color))
 		painter.drawRect(rect)
 		# thin border around the swatch
-		painter.setPen(PySide6.QtGui.QPen(PySide6.QtGui.QColor("#888888"), 1))
+		painter.setPen(PySide6.QtGui.QPen(PySide6.QtGui.QColor(render_ops_painter.get_canvas_color("preview")), 1))
 		painter.setBrush(PySide6.QtCore.Qt.BrushStyle.NoBrush)
 		painter.drawRect(rect)
 		painter.end()

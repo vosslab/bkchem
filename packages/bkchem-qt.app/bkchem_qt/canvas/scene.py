@@ -7,6 +7,7 @@ import PySide6.QtWidgets
 
 # local repo modules
 import oasa.hex_grid
+import bkchem_qt.config.geometry_units
 import bkchem_qt.themes.theme_loader
 
 # -- default scene dimensions in pixels --
@@ -18,9 +19,8 @@ PAPER_WIDTH = 2000
 PAPER_HEIGHT = 1500
 PAPER_Z_VALUE = -200
 
-# -- grid defaults --
-# hex grid spacing matches the Tk version default bond length
-DEFAULT_GRID_SPACING = 26.5
+# -- grid defaults (scene-space points) --
+DEFAULT_GRID_SPACING_PT = bkchem_qt.config.geometry_units.DEFAULT_BOND_LENGTH_PT
 GRID_Z_VALUE = -100
 
 
@@ -40,12 +40,15 @@ class ChemScene(PySide6.QtWidgets.QGraphicsScene):
 
 	#============================================
 	def __init__(self, parent: PySide6.QtCore.QObject = None,
-			theme_name: str = "dark"):
+			theme_name: str = "dark", grid_spacing_pt: float = DEFAULT_GRID_SPACING_PT,
+			grid_snap_enabled: bool = True):
 		"""Initialize the scene with default rect, paper, and grid.
 
 		Args:
 			parent: Optional parent QObject.
 			theme_name: Theme name for initial colors.
+			grid_spacing_pt: Hex-grid spacing in scene-space points.
+			grid_snap_enabled: Whether point snapping is enabled.
 		"""
 		super().__init__(parent)
 		self._theme_name = theme_name
@@ -57,8 +60,9 @@ class ChemScene(PySide6.QtWidgets.QGraphicsScene):
 		self._paper_item: PySide6.QtWidgets.QGraphicsRectItem = None
 
 		# grid state
-		self._grid_spacing: int = DEFAULT_GRID_SPACING
+		self._grid_spacing_pt: float = float(grid_spacing_pt)
 		self._grid_visible: bool = True
+		self._grid_snap_enabled: bool = bool(grid_snap_enabled)
 		self._grid_group: PySide6.QtWidgets.QGraphicsItemGroup = None
 
 		# build the paper rectangle centered in the scene
@@ -79,12 +83,17 @@ class ChemScene(PySide6.QtWidgets.QGraphicsScene):
 		paper_x = (scene_rect.width() - PAPER_WIDTH) / 2.0
 		paper_y = (scene_rect.height() - PAPER_HEIGHT) / 2.0
 
-		# get paper color from YAML theme
+		# get paper color and outline from YAML theme
 		paper_color = bkchem_qt.themes.theme_loader.get_paper_color(self._theme_name)
+		outline_color = bkchem_qt.themes.theme_loader.get_paper_outline(self._theme_name)
+
+		# outline pen from YAML theme (visible paper border)
+		paper_pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(outline_color))
+		paper_pen.setWidthF(1.5)
 
 		self._paper_item = self.addRect(
 			paper_x, paper_y, PAPER_WIDTH, PAPER_HEIGHT,
-			PySide6.QtGui.QPen(PySide6.QtCore.Qt.PenStyle.NoPen),
+			paper_pen,
 			PySide6.QtGui.QBrush(PySide6.QtGui.QColor(paper_color)),
 		)
 		self._paper_item.setZValue(PAPER_Z_VALUE)
@@ -119,7 +128,7 @@ class ChemScene(PySide6.QtWidgets.QGraphicsScene):
 		line_pen.setWidthF(0.375)
 
 		edges = oasa.hex_grid.generate_hex_honeycomb_edges(
-			left, top, right, bottom, self._grid_spacing,
+			left, top, right, bottom, self._grid_spacing_pt,
 		)
 		if edges is not None:
 			for (x1, y1), (x2, y2) in edges:
@@ -137,7 +146,7 @@ class ChemScene(PySide6.QtWidgets.QGraphicsScene):
 		dot_radius = 1.0
 
 		points = oasa.hex_grid.generate_hex_grid_points(
-			left, top, right, bottom, self._grid_spacing,
+			left, top, right, bottom, self._grid_spacing_pt,
 		)
 		if points is not None:
 			for px, py in points:
@@ -152,22 +161,59 @@ class ChemScene(PySide6.QtWidgets.QGraphicsScene):
 	def apply_theme(self, theme_name: str) -> None:
 		"""Update paper and grid colors from the named YAML theme.
 
-		Rebuilds the grid with new colors and updates the paper fill.
+		Recolors existing grid items in place instead of destroying
+		and rebuilding ~10,400 items, which avoids multi-second hangs.
 
 		Args:
 			theme_name: 'dark' or 'light'.
 		"""
 		self._theme_name = theme_name
-		# update paper color
+		# update paper color and outline
 		paper_color = bkchem_qt.themes.theme_loader.get_paper_color(theme_name)
+		outline_color = bkchem_qt.themes.theme_loader.get_paper_outline(theme_name)
 		self._paper_item.setBrush(
 			PySide6.QtGui.QBrush(PySide6.QtGui.QColor(paper_color))
 		)
-		# rebuild grid with new theme colors
-		if self._grid_group is not None:
-			self.destroyItemGroup(self._grid_group)
-			self._grid_group = None
-		self._build_grid()
+		paper_pen = PySide6.QtGui.QPen(PySide6.QtGui.QColor(outline_color))
+		paper_pen.setWidthF(1.5)
+		self._paper_item.setPen(paper_pen)
+		# recolor grid items in place (no destroy+rebuild)
+		self._recolor_grid(theme_name)
+
+	#============================================
+	def _recolor_grid(self, theme_name: str) -> None:
+		"""Recolor existing grid items to match the named theme.
+
+		Updates pen and brush on existing grid line and dot items
+		instead of destroying and rebuilding ~10,400 items.
+
+		Args:
+			theme_name: 'dark' or 'light'.
+		"""
+		if self._grid_group is None:
+			return
+		grid_colors = bkchem_qt.themes.theme_loader.get_grid_colors(theme_name)
+		# build new pens and brushes once
+		line_pen = PySide6.QtGui.QPen(
+			PySide6.QtGui.QColor(grid_colors["line"])
+		)
+		line_pen.setWidthF(0.375)
+		dot_pen = PySide6.QtGui.QPen(
+			PySide6.QtGui.QColor(grid_colors["dot_outline"])
+		)
+		dot_pen.setWidthF(0.375)
+		dot_brush = PySide6.QtGui.QBrush(
+			PySide6.QtGui.QColor(grid_colors["dot_fill"])
+		)
+		# update each child item
+		for child in self._grid_group.childItems():
+			if hasattr(child, "line"):
+				# QGraphicsLineItem
+				child.setPen(line_pen)
+			else:
+				# QGraphicsEllipseItem (dot)
+				child.setPen(dot_pen)
+				child.setBrush(dot_brush)
 
 	#============================================
 	@property
@@ -208,6 +254,54 @@ class ChemScene(PySide6.QtWidgets.QGraphicsScene):
 			self._grid_group.setVisible(visible)
 
 	#============================================
+	@property
+	def grid_snap_enabled(self) -> bool:
+		"""Whether snapping to the hex grid is currently enabled."""
+		return self._grid_snap_enabled
+
+	#============================================
+	def set_grid_snap_enabled(self, enabled: bool) -> None:
+		"""Enable or disable snapping to the hex grid."""
+		self._grid_snap_enabled = bool(enabled)
+
+	#============================================
+	@property
+	def grid_spacing_pt(self) -> float:
+		"""Current hex-grid spacing in scene-space points."""
+		return self._grid_spacing_pt
+
+	#============================================
+	def set_grid_spacing_pt(self, value: float) -> None:
+		"""Set grid spacing and rebuild the grid overlay.
+
+		Args:
+			value: New spacing in scene-space points.
+		"""
+		new_spacing = float(value)
+		if new_spacing <= 0.0:
+			return
+		if abs(new_spacing - self._grid_spacing_pt) < 1e-6:
+			return
+		self._grid_spacing_pt = new_spacing
+		# spacing changes are infrequent; rebuild ensures geometry correctness.
+		if self._grid_group is not None:
+			try:
+				children = list(self._grid_group.childItems())
+			except RuntimeError:
+				# group may already be deleted when scene was cleared.
+				self._grid_group = None
+			else:
+				for child in children:
+					self.removeItem(child)
+				try:
+					self.removeItem(self._grid_group)
+				except RuntimeError:
+					# object lifetime already ended on C++ side.
+					pass
+				self._grid_group = None
+		self._build_grid()
+
+	#============================================
 	def snap_to_grid(self, x: float, y: float) -> tuple:
 		"""Snap coordinates to the nearest hex grid point.
 
@@ -219,6 +313,6 @@ class ChemScene(PySide6.QtWidgets.QGraphicsScene):
 			Tuple of (snapped_x, snapped_y) on the hex grid.
 		"""
 		snapped = oasa.hex_grid.snap_to_hex_grid(
-			x, y, self._grid_spacing,
+			x, y, self._grid_spacing_pt,
 		)
 		return snapped

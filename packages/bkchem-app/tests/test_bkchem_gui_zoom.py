@@ -11,6 +11,10 @@ import time
 # Third Party
 import pytest
 
+_CHOLESTEROL_SMILES = (
+	"CC(C)CCCC(C)C1CCC2C3CC=C4C[C@H](O)CC[C@]4(C)C3CC[C@]12C"
+)
+
 
 
 #============================================
@@ -62,37 +66,14 @@ def _flush_events(app, delay=0.05):
 
 
 #============================================
-def _hex_points(cx, cy, radius):
-	"""Return 6 points for a regular hexagon."""
-	points = []
-	for i in range(6):
-		angle = math.radians(-90 + (60 * i))
-		x = cx + radius * math.cos(angle)
-		y = cy + radius * math.sin(angle)
-		points.append((x, y))
-	return points
-
-
-#============================================
-def _build_benzene(app, cx=320, cy=240):
-	"""Create a benzene ring from 6 atoms with alternating double bonds."""
-	from bkchem.bond_lib import BkBond
-	from bkchem.singleton_store import Screen
-
-	paper = app.paper
-	mol = paper.new_molecule()
-	bond_length = Screen.any_to_px(paper.standard.bond_length)
-	points = _hex_points(cx, cy, bond_length)
-	atoms = [mol.create_new_atom(x, y) for x, y in points]
-	for index, atom in enumerate(atoms):
-		other = atoms[(index + 1) % len(atoms)]
-		order = 2 if index % 2 == 0 else 1
-		b = BkBond(standard=paper.standard, order=order, type="n")
-		mol.add_edge(atom, other, e=b)
-		b.molecule = mol
-		b.draw()
-	paper.add_bindings()
-	return mol
+def _import_cholesterol_from_smiles(app):
+	"""Import cholesterol from SMILES and return the first imported molecule."""
+	imported = app.read_smiles(_CHOLESTEROL_SMILES)
+	if not imported:
+		raise AssertionError("Failed to import cholesterol from SMILES.")
+	if isinstance(imported, list):
+		return imported[0]
+	return imported
 
 
 #============================================
@@ -117,6 +98,36 @@ def _snapshot_state(paper, label):
 		"vp_cy": vp_cy,
 		"n_items": n_items,
 	}
+
+
+#============================================
+def _representative_bond_line_width(paper):
+	"""Return one rendered bond line width from the canvas, or None."""
+	for obj in paper.stack:
+		if getattr(obj, "object_type", None) != "molecule":
+			continue
+		for bond in getattr(obj, "bonds", ()):
+			if getattr(bond, "_render_item_ids", None):
+				item_ids = list(bond._render_item_ids)
+			else:
+				item_ids = [
+					item for item in (
+						[bond.item]
+						+ list(getattr(bond, "second", ()))
+						+ list(getattr(bond, "third", ()))
+						+ list(getattr(bond, "items", ()))
+					) if item
+				]
+			for item_id in item_ids:
+				if paper.type(item_id) != "line":
+					continue
+				try:
+					width = float(paper.itemcget(item_id, "width"))
+				except (TypeError, ValueError):
+					continue
+				if width > 0.0:
+					return width
+	return None
 
 
 #============================================
@@ -166,8 +177,8 @@ def _run_zoom_diagnostic():
 		paper = app.paper
 		_flush_events(app, delay=0.05)
 
-		# Draw benzene so there is content to zoom around
-		_build_benzene(app)
+		# Import cholesterol from SMILES so there is content to zoom around
+		_import_cholesterol_from_smiles(app)
 		_flush_events(app, delay=0.05)
 
 		snapshots = []
@@ -180,7 +191,9 @@ def _run_zoom_diagnostic():
 				"Step 0: initial scale should be 1.0, got %.4f" % snap0["scale"]
 			)
 		if snap0["bbox_cx"] is None:
-			raise AssertionError("Step 0: content bbox should exist after drawing benzene.")
+			raise AssertionError(
+				"Step 0: content bbox should exist after importing cholesterol."
+			)
 
 		# -- Step 1: zoom_out x3 --
 		for i in range(3):
@@ -243,21 +256,54 @@ def _run_zoom_diagnostic():
 			)
 		if snap5["bbox_cx"] is None:
 			raise AssertionError("Step 5: content bbox should exist after zoom_to_content.")
+		width5 = _representative_bond_line_width(paper)
+		if width5 is None:
+			raise AssertionError("Step 5: expected at least one rendered bond line width.")
 
 		# -- Step 6: zoom_out x3 + zoom_in x3 round-trip --
 		for i in range(3):
 			paper.zoom_out()
 			_flush_events(app, delay=0.02)
 			snapshots.append(_snapshot_state(paper, "6a.%d: zoom_out" % (i+1)))
+		snap6_out = snapshots[-1]
+		width6_out = _representative_bond_line_width(paper)
+		if width6_out is None:
+			raise AssertionError("Step 6a: expected rendered bond line width after zoom_out.")
 		for i in range(3):
 			paper.zoom_in()
 			_flush_events(app, delay=0.02)
 			snapshots.append(_snapshot_state(paper, "6b.%d: zoom_in" % (i+1)))
 		snap6 = snapshots[-1]
+		width6 = _representative_bond_line_width(paper)
+		if width6 is None:
+			raise AssertionError("Step 6b: expected rendered bond line width after zoom_in.")
 		if abs(snap6["scale"] - content_scale) > 0.001:
 			raise AssertionError(
 				"Step 6: round-trip scale should be %.4f, got %.4f"
 				% (content_scale, snap6["scale"])
+			)
+		if width6_out >= width5:
+			raise AssertionError(
+				"Step 6a: bond line width should decrease on zoom_out; "
+				"step5=%.3f step6_out=%.3f" % (width5, width6_out)
+			)
+		if width6 <= width6_out:
+			raise AssertionError(
+				"Step 6b: bond line width should increase on zoom_in; "
+				"step6_out=%.3f step6=%.3f" % (width6_out, width6)
+			)
+		expected_width6_out = width5 * (snap6_out["scale"] / max(content_scale, 1e-6))
+		out_tolerance = max(0.6, expected_width6_out * 0.35)
+		if abs(width6_out - expected_width6_out) > out_tolerance:
+			raise AssertionError(
+				"Step 6a: bond width %.3f inconsistent with scale ratio "
+				"(expected %.3f +/- %.3f)." % (width6_out, expected_width6_out, out_tolerance)
+			)
+		roundtrip_tolerance = max(0.6, width5 * 0.35)
+		if abs(width6 - width5) > roundtrip_tolerance:
+			raise AssertionError(
+				"Step 6b: bond width failed to round-trip; step5=%.3f "
+				"step6=%.3f tolerance=%.3f." % (width5, width6, roundtrip_tolerance)
 			)
 
 		# -- Step 7: zoom_to_content again (idempotent check) --
@@ -343,6 +389,12 @@ def _run_zoom_diagnostic():
 					"BBox center drift of %.1f px after zoom_out x3 + zoom_in x3 "
 					"round-trip exceeds 50 px tolerance." % bbox_drift_total
 				)
+
+		print("BOND LINE WIDTH ANALYSIS (step 5 vs step 6)")
+		print("-" * 50)
+		print("  Width step 5: %.3f" % width5)
+		print("  Width step 6a: %.3f" % width6_out)
+		print("  Width step 6b: %.3f" % width6)
 		print()
 
 	finally:
@@ -369,15 +421,11 @@ def _run_zoom_model_coords_stable():
 		paper = app.paper
 		_flush_events(app, delay=0.05)
 
-		# Place benzene at the pixel center of the paper so viewport
-		# centering during zoom never hits the scroll-region clamp.
-		bg = paper.coords(paper.background)
-		pcx = (bg[0] + bg[2]) / 2
-		pcy = (bg[1] + bg[3]) / 2
-		mol = _build_benzene(app, cx=pcx, cy=pcy)
+		# Import cholesterol SMILES so zoom applies to biomolecule content.
+		mol = _import_cholesterol_from_smiles(app)
 		_flush_events(app, delay=0.05)
 
-		# zoom_to_content so the benzene is visible on screen
+		# zoom_to_content so the cholesterol structure is visible on screen
 		paper.zoom_to_content()
 		_flush_events(app, delay=0.05)
 
@@ -457,15 +505,11 @@ def _run_zoom_roundtrip_symmetry():
 		paper = app.paper
 		_flush_events(app, delay=0.05)
 
-		# Place benzene at the pixel center of the paper so the
-		# viewport center stays away from scroll-region edges.
-		bg = paper.coords(paper.background)
-		pcx = (bg[0] + bg[2]) / 2
-		pcy = (bg[1] + bg[3]) / 2
-		_build_benzene(app, cx=pcx, cy=pcy)
+		# Import cholesterol SMILES so zoom applies to biomolecule content.
+		_import_cholesterol_from_smiles(app)
 		_flush_events(app, delay=0.05)
 
-		# zoom_to_content so the benzene is visible on screen
+		# zoom_to_content so the cholesterol structure is visible on screen
 		paper.zoom_to_content()
 		_flush_events(app, delay=0.05)
 

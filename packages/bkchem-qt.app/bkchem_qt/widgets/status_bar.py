@@ -1,12 +1,12 @@
 """Application status bar with coordinate, mode, and zoom indicators."""
 
 # PIP3 modules
+import PySide6.QtCore
 import PySide6.QtWidgets
 
 # -- minimum label widths in pixels --
 MIN_COORDS_WIDTH = 180
 MIN_MODE_WIDTH = 140
-MIN_ZOOM_WIDTH = 120
 
 
 #============================================
@@ -14,7 +14,7 @@ class StatusBar(PySide6.QtWidgets.QStatusBar):
 	"""Status bar showing cursor coordinates, active mode, and zoom level.
 
 	Three permanent labels are always visible on the right side of the bar.
-	Update them with ``update_coords``, ``update_mode``, and ``update_zoom``.
+	Update them with ``update_coords`` and ``update_mode``.
 
 	Args:
 		parent: Optional parent widget.
@@ -22,8 +22,12 @@ class StatusBar(PySide6.QtWidgets.QStatusBar):
 
 	#============================================
 	def __init__(self, parent: PySide6.QtWidgets.QWidget = None):
-		"""Create the status bar and its three permanent labels."""
+		"""Create the status bar with message area and permanent labels."""
 		super().__init__(parent)
+
+		# stretch message label on the left for status messages
+		self._message_label = PySide6.QtWidgets.QLabel("")
+		self.addWidget(self._message_label, 1)
 
 		# coordinate display label
 		self._coords_label = PySide6.QtWidgets.QLabel(self.tr("X: 0.0  Y: 0.0"))
@@ -33,14 +37,9 @@ class StatusBar(PySide6.QtWidgets.QStatusBar):
 		self._mode_label = PySide6.QtWidgets.QLabel(self.tr("Mode: Select"))
 		self._mode_label.setMinimumWidth(MIN_MODE_WIDTH)
 
-		# zoom level label
-		self._zoom_label = PySide6.QtWidgets.QLabel(self.tr("Zoom: 100%"))
-		self._zoom_label.setMinimumWidth(MIN_ZOOM_WIDTH)
-
 		# add as permanent widgets so they stay visible at all times
 		self.addPermanentWidget(self._coords_label)
 		self.addPermanentWidget(self._mode_label)
-		self.addPermanentWidget(self._zoom_label)
 
 	#============================================
 	def update_coords(self, x: float, y: float) -> None:
@@ -54,14 +53,18 @@ class StatusBar(PySide6.QtWidgets.QStatusBar):
 		self._coords_label.setText(text)
 
 	#============================================
-	def update_zoom(self, percent: float) -> None:
-		"""Update the zoom level display.
+	def show_message(self, text: str, timeout: int = 3000) -> None:
+		"""Show a temporary message in the left message area.
 
 		Args:
-			percent: Current zoom as a percentage (e.g. 150 for 150%).
+			text: Message text to display.
+			timeout: Milliseconds before clearing (0 for persistent).
 		"""
-		text = f"Zoom: {percent:.0f}%"
-		self._zoom_label.setText(text)
+		self._message_label.setText(text)
+		if timeout > 0:
+			PySide6.QtCore.QTimer.singleShot(
+				timeout, lambda: self._message_label.setText("")
+			)
 
 	#============================================
 	def update_mode(self, name: str) -> None:

@@ -12,6 +12,7 @@ import PySide6.QtWidgets
 # local repo modules
 import bkchem_qt.canvas.scene
 import bkchem_qt.canvas.view
+import bkchem_qt.config.geometry_units
 import bkchem_qt.config.preferences
 import bkchem_qt.widgets.status_bar
 import bkchem_qt.widgets.mode_toolbar
@@ -46,6 +47,7 @@ import bkchem_qt.models.document
 import bkchem_qt.io.export
 import bkchem_qt.themes.palettes
 import bkchem_qt.themes.theme_loader
+import bkchem_qt.canvas.items.render_ops_painter
 
 # path to modes.yaml in the shared bkchem_data directory
 _MODES_YAML_PATH = (
@@ -76,7 +78,16 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self._document = bkchem_qt.models.document.Document(self)
 
 		self.setWindowTitle(self.tr("BKChem-Qt"))
-		self.resize(1200, 800)
+		style = PySide6.QtWidgets.QApplication.style()
+		window_icon = style.standardIcon(
+			PySide6.QtWidgets.QStyle.StandardPixmap.SP_FileIcon
+		)
+		if not window_icon.isNull():
+			app = PySide6.QtWidgets.QApplication.instance()
+			if app is not None:
+				app.setWindowIcon(window_icon)
+			self.setWindowIcon(window_icon)
+		self.resize(1280, 800)
 
 		# build the UI components
 		self._setup_canvas()
@@ -85,6 +96,8 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self._setup_toolbars()
 		self._setup_status_bar()
 		self._connect_signals()
+		self._apply_geometry_preferences()
+		self._apply_view_preferences()
 
 	#============================================
 	@property
@@ -108,8 +121,18 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 	def _setup_canvas(self) -> None:
 		"""Create the scene, view, and tab widget for the central area."""
 		theme = self._theme_manager.current_theme
+		bond_length_pt = bkchem_qt.config.geometry_units.resolve_bond_length_pt(
+			self._prefs
+		)
+		grid_snap_enabled = bool(self._prefs.value(
+			bkchem_qt.config.preferences.Preferences.KEY_GRID_SNAP_ENABLED,
+			True,
+		))
 		self._scene = bkchem_qt.canvas.scene.ChemScene(
-			parent=self, theme_name=theme,
+			parent=self,
+			theme_name=theme,
+			grid_spacing_pt=bond_length_pt,
+			grid_snap_enabled=grid_snap_enabled,
 		)
 		self._view = bkchem_qt.canvas.view.ChemView(self._scene, parent=self)
 		# wire the document so modes can access undo stack and molecules
@@ -120,6 +143,29 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		# set initial viewport background from YAML theme
 		surround = bkchem_qt.themes.theme_loader.get_canvas_surround(theme)
 		self._view.set_background_color(surround)
+
+		# set default chemistry line color from YAML theme
+		chem_colors = bkchem_qt.themes.theme_loader.get_chemistry_colors(theme)
+		bkchem_qt.canvas.items.render_ops_painter.set_default_color(
+			chem_colors["default_line"]
+		)
+		# set default area color for atom label background masking
+		bkchem_qt.canvas.items.render_ops_painter.set_default_area_color(
+			chem_colors["default_area"]
+		)
+		# set canvas interaction colors from YAML theme
+		canvas_colors = bkchem_qt.themes.theme_loader.get_canvas_colors(theme)
+		bkchem_qt.canvas.items.render_ops_painter.set_canvas_colors(canvas_colors)
+		# set charge mark colors from YAML theme
+		bkchem_qt.canvas.items.render_ops_painter.set_charge_colors({
+			"plus": chem_colors["charge_plus"],
+			"minus": chem_colors["charge_minus"],
+		})
+		# set the light theme sentinel for dark mode color remapping
+		light_chem = bkchem_qt.themes.theme_loader.get_chemistry_colors("light")
+		bkchem_qt.canvas.items.render_ops_painter.set_light_default_line(
+			light_chem["default_line"]
+		)
 
 		# wrap the view in a tab widget for multi-document support
 		self._tab_widget = PySide6.QtWidgets.QTabWidget(self)
@@ -233,8 +279,8 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 			# parse submode groups from YAML
 			parsed = bkchem_qt.modes.config.load_submodes_from_yaml(cfg)
 			(submodes, submodes_names, submode_defaults,
-			 icon_map, group_labels, group_layouts,
-			 tooltip_map, size_map) = parsed
+				icon_map, group_labels, group_layouts,
+				tooltip_map, size_map) = parsed
 
 			mode.submodes = submodes
 			mode.submodes_names = submodes_names
@@ -303,6 +349,19 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 			self._action_toggle_grid.setCheckable(True)
 			self._action_toggle_grid.setChecked(self._scene.grid_visible)
 			self._action_toggle_grid.triggered.connect(self._on_toggle_grid)
+			self._action_toggle_grid_snap = view_menu.addAction(
+				self.tr("Snap To &Grid")
+			)
+			self._action_toggle_grid_snap.setCheckable(True)
+			self._action_toggle_grid_snap.setChecked(
+				self._scene.grid_snap_enabled
+			)
+			self._action_toggle_grid_snap.setShortcut(
+				PySide6.QtGui.QKeySequence(self.tr("Shift+Ctrl+G"))
+			)
+			self._action_toggle_grid_snap.triggered.connect(
+				self._on_toggle_grid_snap
+			)
 
 	#============================================
 	def _setup_menus_legacy(self) -> None:
@@ -367,6 +426,19 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self._action_toggle_grid.setCheckable(True)
 		self._action_toggle_grid.setChecked(self._scene.grid_visible)
 		self._action_toggle_grid.triggered.connect(self._on_toggle_grid)
+		self._action_toggle_grid_snap = view_menu.addAction(
+			self.tr("Snap To &Grid")
+		)
+		self._action_toggle_grid_snap.setCheckable(True)
+		self._action_toggle_grid_snap.setChecked(
+			self._scene.grid_snap_enabled
+		)
+		self._action_toggle_grid_snap.setShortcut(
+			PySide6.QtGui.QKeySequence(self.tr("Shift+Ctrl+G"))
+		)
+		self._action_toggle_grid_snap.triggered.connect(
+			self._on_toggle_grid_snap
+		)
 
 		# theme toggle with text reflecting current state
 		if self._theme_manager.current_theme == "dark":
@@ -454,6 +526,20 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 				self._mode_toolbar.add_mode("align", label, tooltip=tooltip, icon=icon)
 
 		self._mode_toolbar.set_active_mode("edit")
+
+		# add separator then Undo/Redo action buttons
+		self._mode_toolbar.add_separator_marker()
+		self._undo_action = self._mode_toolbar.add_action_button(
+			"undo", "Undo", tooltip="Undo last action",
+			callback=self._document.undo_stack.undo,
+		)
+		self._undo_action.setEnabled(self._document.undo_stack.canUndo())
+		self._redo_action = self._mode_toolbar.add_action_button(
+			"redo", "Redo", tooltip="Redo last undone action",
+			callback=self._document.undo_stack.redo,
+		)
+		self._redo_action.setEnabled(self._document.undo_stack.canRedo())
+
 		# mode toolbar is the topmost toolbar row
 		self.addToolBar(self._mode_toolbar)
 
@@ -491,7 +577,6 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		"""Wire all signals between components."""
 		# view signals -> status bar
 		self._view.mouse_moved.connect(self._status_bar.update_coords)
-		self._view.zoom_changed.connect(self._status_bar.update_zoom)
 
 		# mode toolbar -> mode manager
 		self._mode_toolbar.mode_selected.connect(self._mode_manager.set_mode)
@@ -536,6 +621,13 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		)
 		self._document.undo_stack.canRedoChanged.connect(
 			lambda _: self._update_menu_predicates()
+		)
+		# undo/redo toolbar button enabled states
+		self._document.undo_stack.canUndoChanged.connect(
+			self._undo_action.setEnabled
+		)
+		self._document.undo_stack.canRedoChanged.connect(
+			self._redo_action.setEnabled
 		)
 
 		# trigger initial mode visibility (submode ribbon + edit ribbon)
@@ -761,6 +853,15 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		# keep the menu action checkmark in sync
 		self._action_toggle_grid.setChecked(not current)
 
+	#============================================
+	def on_toggle_grid_snap(self) -> None:
+		"""Toggle snap-to-grid from toolbar or command."""
+		current = self._scene.grid_snap_enabled
+		self._on_toggle_grid_snap(not current)
+		# keep the menu action checkmark in sync
+		if hasattr(self, "_action_toggle_grid_snap"):
+			self._action_toggle_grid_snap.setChecked(not current)
+
 	# ------------------------------------------------------------------
 	# Mode and submode switching
 	# ------------------------------------------------------------------
@@ -771,11 +872,7 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 
 		Called when selection changes, undo/redo state changes, or
 		tab switches to keep menu items in sync with document state.
-		Guards against calls during shutdown when C++ objects are deleted.
 		"""
-		import shiboken6
-		if not shiboken6.isValid(self):
-			return
 		if hasattr(self, '_menu_builder') and self._menu_builder is not None:
 			self._menu_builder.update_menu_states(self)
 
@@ -795,9 +892,10 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 			return
 		# rebuild the submode ribbon for the new mode
 		self._submode_ribbon.rebuild(mode_name)
-		# show/hide the submode toolbar based on whether mode has submodes
-		has_submodes = bool(mode.submodes)
-		self._submode_toolbar.setVisible(has_submodes)
+		# keep submode toolbar always visible at a fixed minimum height
+		# to prevent layout jumps when switching between modes
+		self._submode_toolbar.setVisible(True)
+		self._submode_toolbar.setMinimumHeight(32)
 		# show/hide the edit ribbon based on mode's show_edit_pool flag
 		show_edit = getattr(mode, 'show_edit_pool', False)
 		self._edit_ribbon_toolbar.setVisible(show_edit)
@@ -827,8 +925,8 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 				self.tr("Unsaved Changes"),
 				self.tr("Save changes before creating a new document?"),
 				(PySide6.QtWidgets.QMessageBox.StandardButton.Save
-				 | PySide6.QtWidgets.QMessageBox.StandardButton.Discard
-				 | PySide6.QtWidgets.QMessageBox.StandardButton.Cancel),
+					| PySide6.QtWidgets.QMessageBox.StandardButton.Discard
+					| PySide6.QtWidgets.QMessageBox.StandardButton.Cancel),
 				PySide6.QtWidgets.QMessageBox.StandardButton.Save,
 			)
 			if reply == PySide6.QtWidgets.QMessageBox.StandardButton.Cancel:
@@ -941,6 +1039,23 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		)
 
 	#============================================
+	def _on_toggle_grid_snap(self, checked: bool) -> None:
+		"""Toggle snap-to-grid behavior on the scene.
+
+		Args:
+			checked: Whether the snap action is checked.
+		"""
+		self._scene.set_grid_snap_enabled(checked)
+		self._prefs.set_value(
+			bkchem_qt.config.preferences.Preferences.KEY_GRID_SNAP_ENABLED,
+			checked,
+		)
+		if checked:
+			self.statusBar().showMessage(self.tr("Snap to grid enabled"), 2000)
+		else:
+			self.statusBar().showMessage(self.tr("Snap to grid disabled"), 2000)
+
+	#============================================
 	def _on_toggle_theme(self) -> None:
 		"""Toggle between dark and light themes."""
 		self._theme_manager.toggle_theme()
@@ -985,6 +1100,23 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 		self._view.set_background_color(surround)
 		self._scene.apply_theme(theme_name)
 
+		# update default chemistry line and area colors for new theme
+		chem_colors = bkchem_qt.themes.theme_loader.get_chemistry_colors(theme_name)
+		bkchem_qt.canvas.items.render_ops_painter.set_default_color(
+			chem_colors["default_line"]
+		)
+		bkchem_qt.canvas.items.render_ops_painter.set_default_area_color(
+			chem_colors["default_area"]
+		)
+		# update canvas interaction colors for new theme
+		canvas_colors = bkchem_qt.themes.theme_loader.get_canvas_colors(theme_name)
+		bkchem_qt.canvas.items.render_ops_painter.set_canvas_colors(canvas_colors)
+		# update charge mark colors for new theme
+		bkchem_qt.canvas.items.render_ops_painter.set_charge_colors({
+			"plus": chem_colors["charge_plus"],
+			"minus": chem_colors["charge_minus"],
+		})
+
 		# refresh submode ribbon icons for new theme
 		mode = self._mode_manager.current_mode
 		if mode is not None:
@@ -997,9 +1129,42 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 			self._submode_ribbon.rebuild(mode_name)
 
 	#============================================
+	def _apply_geometry_preferences(self) -> None:
+		"""Apply canonical geometry settings and remove legacy keys."""
+		bond_length_pt = bkchem_qt.config.geometry_units.resolve_bond_length_pt(
+			self._prefs
+		)
+		self._scene.set_grid_spacing_pt(bond_length_pt)
+		self._prefs.remove_value(
+			bkchem_qt.config.preferences.Preferences.KEY_BOND_LENGTH
+		)
+
+	#============================================
+	def _apply_view_preferences(self) -> None:
+		"""Apply persisted view toggles (grid visibility and snapping)."""
+		grid_visible = bool(self._prefs.value(
+			bkchem_qt.config.preferences.Preferences.KEY_GRID_VISIBLE,
+			True,
+		))
+		grid_snap_enabled = bool(self._prefs.value(
+			bkchem_qt.config.preferences.Preferences.KEY_GRID_SNAP_ENABLED,
+			True,
+		))
+		self._scene.set_grid_visible(grid_visible)
+		self._scene.set_grid_snap_enabled(grid_snap_enabled)
+		if hasattr(self, "_action_toggle_grid"):
+			self._action_toggle_grid.setChecked(grid_visible)
+		if hasattr(self, "_action_toggle_grid_snap"):
+			self._action_toggle_grid_snap.setChecked(grid_snap_enabled)
+
+	#============================================
 	def _on_preferences(self) -> None:
 		"""Show the preferences dialog."""
-		bkchem_qt.dialogs.preferences_dialog.PreferencesDialog.show_preferences(self)
+		accepted = bkchem_qt.dialogs.preferences_dialog.PreferencesDialog \
+			.show_preferences(self)
+		if accepted:
+			self._apply_geometry_preferences()
+			self._apply_view_preferences()
 
 	#============================================
 	def _on_about(self) -> None:
@@ -1008,14 +1173,24 @@ class MainWindow(PySide6.QtWidgets.QMainWindow):
 
 	#============================================
 	def _on_element_changed(self, symbol: str) -> None:
-		"""Forward element change from ribbon to draw mode.
+		"""Forward element change from ribbon to active Draw/Atom mode.
 
 		Args:
 			symbol: New element symbol.
 		"""
+		symbol = str(symbol).strip()
+		if not symbol:
+			return
 		mode = self._mode_manager.current_mode
+		set_element = getattr(mode, "set_element", None)
+		if callable(set_element):
+			set_element(symbol)
+			return
 		if hasattr(mode, 'current_element'):
-			mode.current_element = symbol
+			try:
+				mode.current_element = symbol
+			except AttributeError:
+				pass
 
 	#============================================
 	def _on_bond_order_changed(self, order: int) -> None:

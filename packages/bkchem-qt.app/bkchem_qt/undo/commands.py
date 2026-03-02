@@ -68,7 +68,7 @@ class RemoveAtomCommand(PySide6.QtGui.QUndoCommand):
 
 	#============================================
 	def __init__(self, scene, molecule_model, atom_model, atom_item,
-				 connected_bonds, text="Remove Atom"):
+					connected_bonds, text="Remove Atom"):
 		"""Initialize the remove atom command.
 
 		Args:
@@ -332,7 +332,7 @@ class ChangePropertyCommand(PySide6.QtGui.QUndoCommand):
 
 	#============================================
 	def __init__(self, model, property_name: str, old_value, new_value,
-				 text: str = "Change Property"):
+					text: str = "Change Property"):
 		"""Initialize the change property command.
 
 		Args:

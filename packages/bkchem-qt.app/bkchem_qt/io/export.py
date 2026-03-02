@@ -69,7 +69,7 @@ def export_svg(scene, file_path: str, margin: int = _DEFAULT_MARGIN) -> None:
 
 #============================================
 def export_png(scene, file_path: str, margin: int = _DEFAULT_MARGIN,
-			   scale: float = _DEFAULT_PNG_SCALE) -> None:
+				scale: float = _DEFAULT_PNG_SCALE) -> None:
 	"""Export scene to PNG file using QImage and QPainter.
 
 	Creates a transparent QImage at the requested scale factor and

@@ -92,6 +92,8 @@ class PaperZoomMixin:
 			oy = self.canvasy(self.winfo_height() / 2)
 			mx = ox / self._scale
 			my = oy / self._scale
+			target_cx = mx * new_scale
+			target_cy = my * new_scale
 		self._scale = new_scale
 		# Redraw all content from model coordinates at the new scale.
 		self.redraw_all()
@@ -101,6 +103,10 @@ class PaperZoomMixin:
 		if self._scale != 1.0:
 			self.scale(self.background, 0, 0, self._scale, self._scale)
 		self.lower(self.background)
+		# Pre-center before forced idletasks flush to avoid visible jump
+		# on complex molecules while scrollregion is being recomputed.
+		if center_on_viewport:
+			self._center_viewport_on_canvas(target_cx, target_cy)
 		# Clear hex grid before scroll region calc so dots do not
 		# inflate bbox(ALL); redraw after scrollregion is set.
 		if self._hex_grid_overlay and self._hex_grid_overlay.visible:
@@ -119,7 +125,7 @@ class PaperZoomMixin:
 				self._hex_grid_overlay._clear_dots()
 		# Re-center viewport so the same model point stays at viewport center
 		if center_on_viewport:
-			self._center_viewport_on_canvas(mx * self._scale, my * self._scale)
+			self._center_viewport_on_canvas(target_cx, target_cy)
 		self.event_generate('<<zoom-changed>>')
 
 	def zoom_in(self):

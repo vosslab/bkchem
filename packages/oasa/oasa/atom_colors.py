@@ -72,3 +72,9 @@ atom_colors_full = {
 	"Hs": (0.90,0.00,0.18), "Mt": (0.91,0.00,0.15), "Ds": (0.92,0.00,0.14),
 	"Rg": (0.93,0.00,0.13),
 }
+
+# charge mark convention colors (plus=blue, minus=red)
+charge_mark_colors = {
+	"plus": "#3366ff",
+	"minus": "#ff3333",
+}
