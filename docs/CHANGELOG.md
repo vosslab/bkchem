@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-03-26
+
+### Additions and New Features
+
+- Added `tools/haworth_interview.py`, an interactive interview-style CLI for
+  instructors to generate Haworth projection images. Walks the user through
+  selecting carbon count, sugar type (aldose/ketose/3-ketose), D/L
+  configuration, specific sugar name, ring form (furanose/pyranose), and
+  anomeric configuration (alpha/beta). Filters choices at each step based on
+  what is chemically valid. Renders output as SVG and PNG (if pycairo is
+  installed) to `output/`. Default is `show_hydrogens=False`. Uses
+  `oasa.haworth.renderer.render_from_code()` and sugar data from
+  `oasa_data/sugar_codes.yaml`.
+
+### Fixes and Maintenance
+
+- Fixed bounding box computation in `tools/haworth_interview.py` that caused
+  labels ("OH", "CH2OH", "HO") to be clipped in SVG and PNG output. The
+  previous `_compute_svg_viewbox()` used wrong attribute names for `LineOp`
+  (`x1`/`x2` instead of `p1`/`p2`) and `CircleOp` (`cx`/`r` instead of
+  `center`/`radius`), skipped `PathOp` entirely, and recorded only the anchor
+  point for `TextOp` without estimating text extent. Renamed to
+  `_compute_ops_bbox()` and now handles all five render op types correctly,
+  including text width estimation based on character count, font size, and
+  anchor alignment.
+- Added `_trim_whitespace()` to `tools/haworth_interview.py` PNG output.
+  Uses PIL to detect the background color from corner pixels and crops to
+  the content bounding box plus a small padding. Eliminates the need to run
+  `mogrify -trim` as a post-processing step.
+
 ## 2026-03-02
 
 ### Additions and New Features
