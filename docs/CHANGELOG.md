@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-03-27
+
+### Additions and New Features
+
+- Added `tools/haworth_bulk_svg.py`, a non-interactive bulk SVG generator for
+  Haworth projections. Accepts filters for carbon count (`-c`), sugar type
+  (`-t`), D/L configuration (`-g`), ring form (`-r`, required), and anomeric
+  configuration (`-a`, default: both). Generates one SVG per sugar/anomer
+  combination. Example: `-c 6 -t ALDO -g D -r pyranose` produces 16 SVGs
+  (8 D-aldohexoses x 2 anomers).
+
 ## 2026-03-26
 
 ### Additions and New Features
